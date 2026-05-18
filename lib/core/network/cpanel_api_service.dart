@@ -1,0 +1,695 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+
+import '../utils/app_log.dart';
+import '../config/app_config.dart';
+
+class CpanelApiService {
+  CpanelApiService._();
+  static final CpanelApiService instance = CpanelApiService._();
+
+  static String get baseUrl => AppConfig.cpanelBaseUrl;
+  static String get baseAssetUrl => AppConfig.cpanelAssetBaseUrl;
+  static const String _keyPortalUsername = 'cpanel_username';
+  static const String _keyPortalUserId = 'cpanel_user_id';
+
+  Map<String, dynamic>? currentSite;
+
+  String? _portalUsername;
+  int? _portalUserId;
+  // In-memory only (cleared on logout/app restart). Used to avoid re-prompting
+  // the admin for routine actions within the same session.
+  String? _portalPasswordInMemory;
+  // API auth token (short-lived for normal sessions; long-lived when remember_me=true).
+  // Stored in-memory only; persistence is handled by RememberMeStore.
+  String? _portalAuthToken;
+
+  Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _portalUsername = prefs.getString(_keyPortalUsername);
+    _portalUserId = prefs.getInt(_keyPortalUserId);
+  }
+
+  Future<void> _persistPortalSession({
+    required String username,
+    required int? userId,
+  }) async {
+    _portalUsername = username;
+    _portalUserId = userId;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPortalUsername, username);
+
+    if (userId != null) {
+      await prefs.setInt(_keyPortalUserId, userId);
+    } else {
+      await prefs.remove(_keyPortalUserId);
+    }
+  }
+
+  Future<void> clearSession() async {
+    _portalUsername = null;
+    _portalUserId = null;
+    _portalPasswordInMemory = null;
+    _portalAuthToken = null;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyPortalUsername);
+    await prefs.remove(_keyPortalUserId);
+  }
+
+  String? getPortalPasswordInMemory() => _portalPasswordInMemory;
+  String? getAuthTokenInMemory() => _portalAuthToken;
+
+  void setAuthTokenInMemory(String? token) {
+    _portalAuthToken = token;
+  }
+
+  Map<String, String> _authHeaders({Map<String, String>? extra}) {
+    final h = <String, String>{};
+    if (_portalAuthToken != null && _portalAuthToken!.isNotEmpty) {
+      // Primary: standard Bearer auth.
+      h['Authorization'] = 'Bearer $_portalAuthToken';
+      // Fallback: some shared-hosting Apache/PHP configs strip Authorization.
+      // Backend accepts these as a backup path.
+      h['X-Auth-Token'] = _portalAuthToken!;
+    }
+    if (extra != null) h.addAll(extra);
+    return h;
+  }
+
+  Future<String?> getUsername() async {
+    if (_portalUsername != null && _portalUsername!.isNotEmpty) {
+      return _portalUsername;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    _portalUsername = prefs.getString(_keyPortalUsername);
+    return _portalUsername;
+  }
+
+  Future<int?> getUserId() async {
+    if (_portalUserId != null) {
+      return _portalUserId;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    _portalUserId = prefs.getInt(_keyPortalUserId);
+    return _portalUserId;
+  }
+
+  Future<Map<String, dynamic>?> login(
+    String username,
+    String password, {
+    bool rememberMe = false,
+  }) async {
+    // Production auth path only.
+    // ──────────────────────────────────────────────────────────────────
+
+    try {
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Attempting login for: $username');
+      }
+      // ... existing code ...
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=login"),
+            // Use form-encoded body for maximum compatibility with PHP/cPanel
+            // backends (which often read `$_POST` rather than JSON input).
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: <String, String>{
+              "action": "login",
+              "username": username,
+              "password": password,
+              // Many PHP backends treat this as a truthy "1"/"0" string.
+              "remember_me": rememberMe ? "1" : "0",
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['status'] == 'success') {
+          _portalPasswordInMemory = password;
+          final token = data['auth_token']?.toString().trim();
+          if (token != null && token.isNotEmpty) {
+            _portalAuthToken = token;
+          }
+          final user = data['user'];
+          final portalUsername = (user is Map<String, dynamic>)
+              ? (user['username']?.toString() ?? username)
+              : username;
+          final portalUserId = (user is Map<String, dynamic>)
+              ? int.tryParse(user['id']?.toString() ?? '')
+              : null;
+          await _persistPortalSession(
+            username: portalUsername,
+            userId: portalUserId,
+          );
+        }
+        return data;
+      } else {
+        // If not 200, try to parse the body anyway to get the error message.
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          return data;
+        } catch (_) {
+          return {
+            "status": "error",
+            "message": "Server returned status ${response.statusCode}"
+          };
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Login exception: $e');
+      }
+      return {
+        "status": "error",
+        "message": _friendlyConnectionError(e, url: "$baseUrl?action=login"),
+      };
+    }
+  }
+
+  String _friendlyConnectionError(Object error, {required String url}) {
+    final msg = error.toString();
+    if (msg.contains('Failed host lookup')) {
+      return 'Connection error: Failed to resolve server host. '
+          'Check DNS/VPN/Internet, or update CPANEL_BASE_URL. '
+          '(Request: $url)';
+    }
+    if (error is SocketException) {
+      return 'Connection error: Network socket error. Check Internet/VPN/DNS. '
+          '(Request: $url)';
+    }
+    if (msg.contains('timed out') || msg.contains('TimeoutException')) {
+      return 'Connection error: Request timed out. Check Internet/server. '
+          '(Request: $url)';
+    }
+    return 'Connection error: $error';
+  }
+
+  Future<List<dynamic>> fetchUserSites() async {
+    // Production site lookup only.
+    // DERIVED IDENTITY: The backend now enforces Bearer token auth.
+    // We no longer send user_id in the query string to prevent identity spoofing.
+    // ──────────────────────────────────────────────────────────────────
+
+    try {
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Fetching sites via token identity');
+      }
+
+      // If this is null/empty, the backend will return 401 and the UI used to
+      // incorrectly show "No Racks found". Make it explicit.
+      if (_portalAuthToken == null || _portalAuthToken!.isEmpty) {
+        throw 'Portal session token is missing. Please sign in again.';
+      }
+
+      final url = Uri.parse("$baseUrl?action=get_sites");
+      final response = await http
+          .get(
+            url,
+            headers: _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] GET sites status: ${response.statusCode}');
+      }
+
+      if (response.statusCode == 200) {
+        if (kDebugMode) {
+          AppLog.d('[CpanelApi] get_sites RAW: ${response.body}');
+        }
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          final status = decoded['status']?.toString();
+          if (status != 'success') {
+            final msg =
+                decoded['message']?.toString() ?? 'Failed to fetch sites.';
+            throw msg;
+          }
+          final sites = decoded['sites'];
+          if (kDebugMode) {
+            AppLog.d(
+                '[CpanelApi] Sites Count: ${sites is List ? sites.length : 0}');
+          }
+          return sites is List ? sites : <dynamic>[];
+        }
+        throw 'Invalid response from server.';
+      }
+
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Non-200 Response: ${response.body}');
+      }
+      throw 'Failed to fetch sites (HTTP ${response.statusCode}).';
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Fetch sites error: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<bool> changePassword({
+    required String username,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Changing password for: $username');
+      }
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=change_password"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "change_password",
+              "username": username,
+              "current_password": currentPassword,
+              "new_password": newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final ok = data is Map<String, dynamic> && data['status'] == 'success';
+        if (ok) {
+          // Keep in-memory password in sync for the current session.
+          _portalPasswordInMemory = newPassword;
+        }
+        return ok;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.d('[CpanelApi] Change password error: $e');
+      }
+    }
+    return false;
+  }
+
+  Future<void> logout() async {
+    try {
+      if (_portalAuthToken != null && _portalAuthToken!.isNotEmpty) {
+        await http
+            .post(
+              Uri.parse("$baseUrl?action=logout"),
+              headers:
+                  _authHeaders(extra: {"Content-Type": "application/json"}),
+              body: jsonEncode({"action": "logout"}),
+            )
+            .timeout(const Duration(seconds: 10));
+      }
+    } catch (_) {
+      // Ignore logout network errors; local session will still be cleared.
+    } finally {
+      await clearSession();
+    }
+  }
+
+  Future<Map<String, dynamic>?> authMe({required String token}) async {
+    try {
+      // Only persist the token in memory after the backend accepts it.
+      final response = await http.get(
+        Uri.parse("$baseUrl?action=auth_me"),
+        headers: <String, String>{'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 10));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['status'] == 'success') {
+        _portalAuthToken = token.trim();
+        final user = decoded['user'];
+        final portalUsername = (user is Map<String, dynamic>)
+            ? (user['username']?.toString())
+            : null;
+        final portalUserId = (user is Map<String, dynamic>)
+            ? int.tryParse(user['id']?.toString() ?? '')
+            : null;
+        if (portalUsername != null) {
+          await _persistPortalSession(
+              username: portalUsername, userId: portalUserId);
+        }
+        return decoded;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] auth_me Error: $e');
+      }
+    }
+
+    // Ensure we don't keep a bad/expired token in memory after failure.
+    if (_portalAuthToken == token) {
+      _portalAuthToken = null;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> mergeCurrentMemberPermissions(
+    Map<String, dynamic> site,
+  ) async {
+    final siteId = int.tryParse(site['site_id']?.toString() ?? '');
+    if (siteId == null) return Map<String, dynamic>.from(site);
+
+    try {
+      final membersRes = await fetchSiteMembers(siteId: siteId);
+      final members =
+          (membersRes?['members'] is List) ? (membersRes!['members'] as List) : null;
+      if (members == null || members.isEmpty) {
+        return Map<String, dynamic>.from(site);
+      }
+
+      final portalUserId = await getUserId();
+      final portalUsername = (await getUsername())?.trim().toLowerCase();
+
+      Map<String, dynamic>? matched;
+      for (final raw in members) {
+        if (raw is! Map) continue;
+        final member = Map<String, dynamic>.from(raw);
+        final memberUserId = int.tryParse(member['user_id']?.toString() ?? '');
+        final memberUsername = (member['username'] ??
+                member['member_username'] ??
+                member['member_user'] ??
+                '')
+            .toString()
+            .trim()
+            .toLowerCase();
+
+        if (portalUserId != null &&
+            memberUserId != null &&
+            portalUserId == memberUserId) {
+          matched = member;
+          break;
+        }
+        if (portalUsername != null &&
+            portalUsername.isNotEmpty &&
+            memberUsername == portalUsername) {
+          matched = member;
+          break;
+        }
+      }
+
+      if (matched == null) return Map<String, dynamic>.from(site);
+
+      final merged = Map<String, dynamic>.from(site);
+      for (final entry in matched.entries) {
+        if (entry.key == 'role' || entry.key.startsWith('can_')) {
+          merged[entry.key] = entry.value;
+        }
+      }
+      return merged;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Merge Member Permissions Error: $e');
+      }
+      return Map<String, dynamic>.from(site);
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchSiteMembers({
+    required int siteId,
+    String? adminUsername,
+    String? adminPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=list_site_members"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "list_site_members",
+              "site_id": siteId,
+              if (adminUsername != null) "admin_username": adminUsername,
+              if (adminPassword != null) "admin_password": adminPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) return data;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Fetch Members Error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> registerPushToken({
+    required int siteId,
+    required String deviceToken,
+    String platform = 'android',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=register_push_token"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "register_push_token",
+              "site_id": siteId,
+              "device_token": deviceToken,
+              "platform": platform,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Register Push Token Error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> removePushToken({
+    required int siteId,
+    required String deviceToken,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=remove_push_token"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "remove_push_token",
+              "site_id": siteId,
+              "device_token": deviceToken,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Remove Push Token Error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> createSiteUser({
+    required int siteId,
+    required String adminUsername,
+    required String adminPassword,
+    required String newUsername,
+    required String newPassword,
+    required String role,
+    required Map<String, dynamic> permissions,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=create_site_user"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "create_site_user",
+              "site_id": siteId,
+              "admin_username": adminUsername,
+              "admin_password": adminPassword,
+              "new_username": newUsername,
+              "new_password": newPassword,
+              "role": role,
+              "permissions": permissions,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Create Site User Error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> updateSiteMember({
+    required int siteId,
+    String? adminUsername,
+    String? adminPassword,
+    required int memberUserId,
+    required String role,
+    required Map<String, dynamic> permissions,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=update_site_member"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "update_site_member",
+              "site_id": siteId,
+              if (adminUsername != null) "admin_username": adminUsername,
+              if (adminPassword != null) "admin_password": adminPassword,
+              "member_user_id": memberUserId,
+              "role": role,
+              "permissions": permissions,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Update Member Error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> removeSiteMember({
+    required int siteId,
+    required String adminUsername,
+    required String adminPassword,
+    required int memberUserId,
+  }) async {
+    try {
+      Future<Map<String, dynamic>?> call(String action) async {
+        final response = await http
+            .post(
+              Uri.parse("$baseUrl?action=$action"),
+              headers:
+                  _authHeaders(extra: {"Content-Type": "application/json"}),
+              body: jsonEncode({
+                "action": action,
+                "site_id": siteId,
+                "admin_username": adminUsername,
+                "admin_password": adminPassword,
+                "member_user_id": memberUserId,
+              }),
+            )
+            .timeout(const Duration(seconds: 12));
+
+        final decoded = jsonDecode(response.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      // Primary (documented) endpoint
+      final res1 = await call('remove_site_member');
+      final msg1 = res1?['message']?.toString() ?? '';
+      if (res1 != null &&
+          !(msg1.contains("Invalid Action") ||
+              msg1.contains("Invalid action"))) {
+        return res1;
+      }
+
+      // Backward/typo compatibility: some servers mistakenly used plural action.
+      final res2 = await call('remove_site_members');
+      if (res2 != null) return res2;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Remove Member Error: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<bool> updateMaintenanceDate(int siteId, String date) async {
+    try {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Updating maintenance for site $siteId: $date');
+      }
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=update_maintenance"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "site_id": siteId,
+              "maintenance_date": date,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] == 'success';
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Update Maintenance Error: $e');
+      }
+    }
+    return false;
+  }
+
+  Future<Map<String, dynamic>?> uploadLogo({
+    required int siteId,
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Uploading logo for site $siteId: $filePath');
+      }
+
+      final uri = Uri.parse("$baseUrl?action=upload_logo");
+      final request = http.MultipartRequest('POST', uri);
+
+      // Add auth headers
+      request.headers.addAll(_authHeaders());
+      
+      // Add fields
+      request.fields['action'] = 'upload_logo';
+      request.fields['site_id'] = siteId.toString();
+
+      // Add file
+      final file = await http.MultipartFile.fromPath(
+        'logo',
+        filePath,
+        filename: fileName,
+      );
+      request.files.add(file);
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (kDebugMode) {
+          debugPrint('[CpanelApi] Upload Result: $data');
+        }
+        return data;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CpanelApi] Upload Logo Error: $e');
+      }
+    }
+    return null;
+  }
+}

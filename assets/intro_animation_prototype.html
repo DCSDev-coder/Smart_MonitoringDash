@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Rack Intro - Digital Aesthetic</title>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0F1C2E; 
+            --accent-green: #00BD10; 
+            --text-primary: #FFFFFF;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --grid-color: rgba(0, 189, 16, 0.2);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+        }
+
+        /* Digital Grid Animation */
+        .grid-bg {
+            position: absolute;
+            inset: -500px;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 60px 60px;
+            transform: perspective(1000px) rotateX(60deg);
+            animation: gridMove 15s linear infinite;
+            z-index: 0;
+            /* Fade out at the top */
+            -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+            mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+        }
+
+        @keyframes gridMove {
+            from { background-position: 0 0; }
+            to { background-position: 0 600px; }
+        }
+
+        /* Subtle Glow */
+        .glow {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 189, 16, 0.15) 0%, transparent 70%);
+            filter: blur(60px);
+            z-index: 1;
+        }
+
+        .content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+            padding: 60px 30px;
+            box-sizing: border-box;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        .logo-container {
+            position: relative;
+            width: 220px;
+            height: 110px;
+            animation: fadeIn 1.2s ease-out;
+        }
+
+        .logo-layer {
+            position: absolute;
+            top: 120%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .logo-c-group {
+            position: absolute;
+            top: 220%;
+            left: 50%;
+            /* Offset(12, -8) from center */
+            transform: translate(calc(-50% + 12px), calc(-50% - 8px)) rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .main-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .digital-title {
+            font-family: 'DotGothic16', sans-serif;
+            font-size: clamp(28px, 8vw, 42px);
+            letter-spacing: 4px;
+            margin: 0;
+            color: white;
+            text-shadow: 0 0 20px rgba(0, 189, 16, 0.5);
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 3px solid var(--accent-green);
+            display: inline-block;
+            width: 0;
+        }
+
+        .title-line-1 {
+            animation: 
+                typing-1 0.8s steps(10, end) 0.3s forwards,
+                blink-caret 0.75s step-end infinite;
+        }
+
+        .title-line-2 {
+            animation: 
+                typing-2 0.8s steps(7, end) 1s forwards,
+                blink-caret 0.75s step-end infinite;
+        }
+
+        @keyframes typing-1 {
+            from { width: 0 }
+            to { width: 320px; }
+        }
+
+        @keyframes typing-2 {
+            from { width: 0 }
+            to { width: 220px; }
+        }
+
+        .subtitle-container {
+            margin-top: 35px;
+            max-width: 95%;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-family: 'DotGothic16', sans-serif;
+            font-size: clamp(12px, 4vw, 15px);
+            color: var(--text-secondary);
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 2px solid var(--accent-green);
+            display: inline-block;
+            width: 0;
+            margin: 0; /* Remove default margins */
+        }
+
+        .sub-line-1 {
+            animation: 
+                typing-sub-1 1.5s steps(40, end) 1.8s forwards,
+                blink-caret 0.75s step-end infinite;
+        }
+
+        .sub-line-2 {
+            animation: 
+                typing-sub-2 1.2s steps(30, end) 3.3s forwards,
+                blink-caret 0.75s step-end infinite;
+        }
+
+        @keyframes typing-sub-1 {
+            from { width: 0 }
+            to { width: 350px; }
+        }
+
+        @keyframes typing-sub-2 {
+            from { width: 0 }
+            to { width: 300px; }
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: var(--accent-green); }
+        }
+
+        /* Responsive Buttons */
+        .buttons {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 10px;
+            max-width: 600px;
+        }
+
+        @media (min-width: 768px) {
+            .buttons {
+                flex-direction: row;
+                justify-content: center;
+            }
+            .btn {
+                flex: 1;
+            }
+        }
+
+        .btn {
+            font-family: 'DotGothic16', sans-serif;
+            padding: 18px;
+            border-radius: 12px;
+            font-size: 16px;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            opacity: 0;
+            animation: slideUpFade 0.8s ease-out 4.8s forwards;
+        }
+
+        .btn-primary {
+            background-color: #5588AA; 
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-secondary {
+            background-color: #00BD10; 
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 189, 16, 0.3);
+            animation-delay: 5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="glow"></div>
+
+    <div class="content">
+        <!-- Logo Section -->
+        <div class="logo-container">
+            <img src="DCS_Logo/D.png" class="logo-layer">
+            <img src="DCS_Logo/S.png" class="logo-layer">
+            <div class="logo-c-group">
+                <img src="DCS_Logo/C.png" style="position:absolute; width:100%; height:100%; object-fit:contain;">
+                <img src="DCS_Logo/GREEN_LINE.png" style="position:absolute; width:100%; height:100%; object-fit:contain;">
+            </div>
+        </div>
+        
+        <!-- Text Section -->
+        <div class="main-text">
+            <div>
+                <h1 class="digital-title title-line-1">SMART RACK</h1>
+            </div>
+            <div>
+                <h1 class="digital-title title-line-2">CONTROL</h1>
+            </div>
+            <div class="subtitle-container">
+                <p class="subtitle sub-line-1">Intelligent infrastructure monitoring</p>
+                <p class="subtitle sub-line-2">for the modern data center.</p>
+            </div>
+        </div>
+
+        <!-- Buttons Section -->
+        <div class="buttons">
+            <div class="btn btn-primary">GET STARTED</div>
+            <div class="btn btn-secondary">REQUEST ACCESS</div>
+        </div>
+    </div>
+
+    <script>
+        // Remove typing cursors for title lines after animation
+        setTimeout(() => {
+            document.querySelector('.title-line-1').style.borderRight = 'none';
+        }, 1200);
+        
+        setTimeout(() => {
+            document.querySelector('.title-line-2').style.borderRight = 'none';
+        }, 2200);
+
+        // Remove cursor for first sub-line after animation
+        setTimeout(() => {
+            document.querySelector('.sub-line-1').style.borderRight = 'none';
+        }, 3600);
+
+        // Sub-line 2 cursor remains as per blink-caret infinite
+    </script>
+</body>
+</html>

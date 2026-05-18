@@ -1,0 +1,55 @@
+# Flutter/Dart build artifacts
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# Project-specific large files
+*.har
+*.pdf
+
+# Logs and temp files
+*.log
+migrate_working_dir/
+.metadata
+
+# Android Signing
+/android/key.properties
+/android/app/*.jks
+/android/app/dcs_smartrack.jks
+/android/app/google-services.json
+
+# iOS Firebase
+/ios/Runner/GoogleService-Info.plist
+
+# Local Environment / Sensitive
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local mock/dev bypass config
+/mock/
+
+# Local helper tools (not shipped)
+/tools/storage_collector/
+**/__pycache__/
+*.pyc
+
+# Local scratch files (never commit)
+/tmp_spawn_test.dart
+/tmp_*.dart
+
+# Private setup notes (keep off git)
+/docs/SETUP_PRIVATE.md

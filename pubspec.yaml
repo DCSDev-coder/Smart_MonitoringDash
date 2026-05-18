@@ -1,0 +1,87 @@
+name: smart_rack_dashboard
+description: Custom Infrastructure Gateway for the Dahua eCTRL-IS Smart Rack Dashboard.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP client for eCTRL-IS API calls
+  http: ^1.2.1
+  web: ^1.0.0
+
+  # Embedded WebView (Hybrid Reflection model)
+  webview_flutter: ^4.7.0
+
+  # Charting library for PUE / temperature trend graphs
+  fl_chart: ^0.68.0
+
+  # SVG rendering for rack icons
+  flutter_svg: ^2.0.10+1
+  syncfusion_flutter_gauges: ^32.2.8
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.1
+  flutter_local_notifications: ^19.4.0
+
+  # Native Video Player (Android/iOS)
+  media_kit: ^1.1.10
+  media_kit_video: ^1.2.4
+  media_kit_libs_video: ^1.0.4
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.5.5
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  path_provider: ^2.1.5
+  intl: ^0.20.2
+  google_fonts: ^8.0.2
+  local_auth: ^2.2.0
+  image_picker: ^1.1.2
+
+dependency_overrides:
+  # Workaround for AGP 8.x JNI merge failures on Windows release builds:
+  # repack upstream MPV JARs to `jni/<abi>/...` in a local fork.
+  media_kit_libs_android_video:
+    path: third_party/media_kit_libs_android_video
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+
+  # ─── Assets ──────────────────────────────────────────────────────────────────
+  assets:
+    - assets/images/   # Logos, banners, background images
+    - assets/icons/    # Custom rack / sensor SVG icons
+    - assets/DCS_Logo/ # DCS Logo
+    - assets/background/ # Background video
+
+  # ─── Fonts ───────────────────────────────────────────────────────────────────
+  # Uncomment and populate once font files are placed in assets/fonts/
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700
+
+# ─── Launcher Icons ────────────────────────────────────────────────────────────
+# Standardizing on Adaptive Icons with a dark theme background (#060B11).
+# This provides the best visual experience on Android 8+ by supporting 
+# various mask shapes (circles, squares) while keeping branding centered.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/DCS_Logo/Logo_Icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#060B11"
+  adaptive_icon_foreground: "assets/DCS_Logo/Logo_Icon.png"
+  remove_alpha_ios: true

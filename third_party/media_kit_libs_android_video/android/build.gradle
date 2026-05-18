@@ -1,0 +1,156 @@
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.Files
+import java.security.MessageDigest
+
+group 'com.alexmercerind.media_kit_libs_android_video'
+version '1.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    // Conditional for compatibility with AGP <4.2.
+    if (project.android.hasProperty("namespace")) {
+        namespace 'com.alexmercerind.media_kit_libs_android_video'
+    }
+
+    compileSdkVersion 36
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        minSdkVersion 16
+    }
+
+    // Native libs are extracted into `android/src/main/jniLibs` at build time.
+}
+
+dependencies {
+    // Intentionally empty: we extract .so files into jniLibs instead of relying
+    // on AGP to merge JNI libs from dependency JARs (which is not reliable).
+}
+
+task downloadDependencies {
+    doLast {
+        // Extract into the real module source tree so AGP packages it into the AAR.
+        def jniLibsDir = file("$projectDir/src/main/jniLibs")
+        if (jniLibsDir.exists()) {
+            jniLibsDir.deleteDir()
+        }
+        jniLibsDir.mkdirs()
+
+        // Delete previously created /output subdirectory.
+        def outputDir = file("$buildDir/output")
+        if (outputDir.exists()) {
+            outputDir.deleteDir()
+        }
+        outputDir.mkdirs()
+
+        def extractLibs = { File srcJar, String abi ->
+            def zf = new java.util.zip.ZipFile(srcJar)
+            try {
+                def libPrefix = "lib/${abi}/"
+                def jniPrefix = "jni/${abi}/"
+                zf.entries().each { e ->
+                    if (e.isDirectory()) return
+                    def name = e.name
+                    def rel = null
+                    if (name.startsWith(jniPrefix)) rel = name.substring(jniPrefix.length())
+                    else if (name.startsWith(libPrefix)) rel = name.substring(libPrefix.length())
+                    if (rel == null) return
+                    def outFile = file("$jniLibsDir/${abi}/${rel}")
+                    outFile.parentFile.mkdirs()
+                    outFile.withOutputStream { os ->
+                        os << zf.getInputStream(e)
+                    }
+                }
+            } finally {
+                try { zf.close() } catch (ignored) {}
+            }
+        }
+
+        // Download all *.jar dependencies & verify their MD5 checksums.
+        def filesToDownload = [
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.7/default-arm64-v8a.jar", "md5": "83df25b61193af8fa815e373143ac9af", "destination": file("$buildDir/v1.1.7/default-arm64-v8a.jar")],
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.7/default-armeabi-v7a.jar", "md5": "22e21526fefc0a2b8f17adbec9f57590", "destination": file("$buildDir/v1.1.7/default-armeabi-v7a.jar")],
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.7/default-x86_64.jar", "md5": "6fa26bf0459b11f1c0b0dbc29e5b940d", "destination": file("$buildDir/v1.1.7/default-x86_64.jar")],
+            ["url": "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.7/default-x86.jar", "md5": "0d742b756dc9d1fcd84ea271d8b68f32", "destination": file("$buildDir/v1.1.7/default-x86.jar")]
+        ]
+
+        filesToDownload.each { fileInfo ->
+            def destFile = fileInfo.destination
+            if (destFile.exists()) {
+                def calculatedMD5 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destFile.toPath())).encodeHex().toString()
+
+                if (calculatedMD5 != fileInfo.md5) {
+                    destFile.delete()
+                    println "MD5 mismatch. File deleted: ${destFile}"
+                }
+
+            }
+
+            if (!destFile.exists()) {
+                destFile.parentFile.mkdirs()
+                println "Downloading file from: ${fileInfo.url}"
+                destFile.withOutputStream { os ->
+                    os << new URL(fileInfo.url).openStream()
+                }
+
+                def calculatedMD5 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destFile.toPath())).encodeHex().toString()
+                if (calculatedMD5 != fileInfo.md5) {
+                    // Use RuntimeException so this script doesn't depend on Gradle API classes during static analysis.
+                    throw new RuntimeException("MD5 verification failed for ${destFile}")
+                }
+            }
+
+            // Repack `lib/<abi>/...` -> `jni/<abi>/...` so AGP can extract/merge reliably.
+            def name = destFile.name
+            def abi =
+                name.contains("arm64-v8a") ? "arm64-v8a" :
+                name.contains("armeabi-v7a") ? "armeabi-v7a" :
+                name.contains("x86_64") ? "x86_64" :
+                name.contains("x86") ? "x86" : null
+
+            if (abi == null) {
+                copy { from destFile; into outputDir }
+            } else {
+                // Extract native libs into jniLibs so they are packaged into the AAR/APK.
+                extractLibs(destFile, abi)
+            }
+        }
+    }
+}
+
+// When this project is consumed as a Gradle dependency (Flutter plugin),
+// variant tasks like `assembleRelease` may run without invoking the plain
+// `assemble` lifecycle task. Ensure our download/repack runs for all variants.
+afterEvaluate {
+    // Ensure native libs are present *before* variant build graph runs (merge/package tasks).
+    tasks.matching { it.name.startsWith('pre') && it.name.endsWith('Build') }.configureEach {
+        dependsOn(downloadDependencies)
+    }
+    tasks.matching { it.name.startsWith('assemble') }.configureEach {
+        dependsOn(downloadDependencies)
+    }
+}
