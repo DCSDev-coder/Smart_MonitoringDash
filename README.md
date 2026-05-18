@@ -1,6 +1,6 @@
 # Smart Rack Dashboard
 
-Flutter dashboard app for monitoring and managing the Dahua eCTRL-IS Smart Rack (PUE/temperature trends, device health, and CCTV).
+Flutter dashboard app for monitoring and managing the Dahua eCTRL-IS Smart Rack (PUE/temperature trends, device health).
 
 ## Quick Start
 
