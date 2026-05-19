@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/controllers/smart_polling_settings.dart';
 import '../../core/network/api_service.dart';
+import '../../core/network/adapter_api_service.dart';
+import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
 
 class RackViewScreen extends StatefulWidget {
@@ -1040,15 +1043,37 @@ class _RackViewScreenState extends State<RackViewScreen>
 
     if (ok != true) return;
 
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Confirm to change outlet state',
+      ttl: const Duration(seconds: 30),
+    );
+    if (!authorized) return;
+
     setState(() => _writing = true);
     try {
-      final res = await ApiService.instance.writeNodeMetric(
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.writeNodeMetric(
+          siteId: siteId,
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: value,
+        );
+      }
+      res ??= await ApiService.instance.writeNodeMetric(
           nodeId: nodeId, metricTypeLibCode: metricCode, value: value);
       final okSuccess =
           (res?['success'] == true) || (res?['code']?.toString() == '20000');
       if (!okSuccess) {
         final msg =
-            res?['message']?.toString() ?? 'Control failed (no response).';
+          res?['message']?.toString() ?? 'Control failed (no response).';
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

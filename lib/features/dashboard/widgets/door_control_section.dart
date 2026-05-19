@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:local_auth/local_auth.dart';
 import '../../../shared/widgets/dashboard_glass.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/network/adapter_api_service.dart';
+import '../../../core/network/cpanel_api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/animated_gradient_fill.dart';
 
@@ -509,7 +511,22 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         return;
       }
 
-      final res = await ApiService.instance.openCloseDoor(widget.doorId, 1);
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.openCloseDoor(
+          siteId: siteId,
+          accessId: widget.doorId,
+          status: 1,
+          accessType: '1',
+        );
+      }
+      res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
@@ -555,7 +572,22 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         return;
       }
 
-      final res = await ApiService.instance.openCloseDoor(widget.doorId, 1);
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.openCloseDoor(
+          siteId: siteId,
+          accessId: widget.doorId,
+          status: 1,
+          accessType: '1',
+        );
+      }
+      res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {

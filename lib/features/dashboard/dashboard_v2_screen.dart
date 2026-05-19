@@ -9,6 +9,7 @@ import '../../core/network/adapter_api_service.dart';
 import '../report/report_screen.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/controllers/smart_polling_settings.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 
 // New Modular Widgets
 import 'widgets/pue_hero_card.dart';
@@ -126,6 +127,21 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       _smokeStatus = _poller.smokeStatus;
       _floodStatus = _poller.floodStatus;
       _devices = _poller.devices;
+
+      // When the adapter dashboard bundle is active, the global poller carries
+      // PUE/power/doors too. This avoids extra per-screen API chatter.
+      if (_poller.powerMonth != null) {
+        _powerMonth = _poller.powerMonth!;
+      }
+      if (_poller.pue != null) {
+        _pue = _poller.pue!;
+      }
+      if (_poller.pueStatus != null) {
+        _pueStatus = _poller.pueStatus!;
+      }
+      if (_poller.doors != null) {
+        _doors = _poller.doors;
+      }
     });
     _restartTimerIfNeeded();
   }
@@ -195,6 +211,42 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     _startTimer();
   }
 
+  Future<Map<String, dynamic>?> _fetchPowerMonthWithFallback({
+    required int? siteId,
+    required String? cabinetId,
+  }) async {
+    if (AdapterApiService.instance.isConfigured && siteId != null) {
+      final viaAdapter =
+          await AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
+      if (viaAdapter != null) return viaAdapter;
+    }
+    return ApiService.instance.fetchPowerMonth(id: cabinetId);
+  }
+
+  Future<Map<String, dynamic>?> _fetchPueWithFallback({
+    required int? siteId,
+    required String? cabinetId,
+  }) async {
+    if (AdapterApiService.instance.isConfigured && siteId != null) {
+      final viaAdapter = await AdapterApiService.instance.fetchPue(siteId: siteId);
+      if (viaAdapter != null) return viaAdapter;
+    }
+    return ApiService.instance.fetchPue(id: cabinetId);
+  }
+
+  Future<Map<String, dynamic>?> _fetchDoorsWithFallback({
+    required int? siteId,
+    required String? cabinetId,
+  }) async {
+    if (AdapterApiService.instance.isConfigured && siteId != null) {
+      final viaAdapter =
+          await AdapterApiService.instance.fetchDoors(siteId: siteId);
+      if (viaAdapter != null) return viaAdapter;
+    }
+    final parsed = int.tryParse(cabinetId ?? '');
+    return ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
+  }
+
   Future<void> _fetchAll({bool isInitial = false}) async {
     final now = DateTime.now();
 
@@ -208,24 +260,31 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     final fetchTempHum = isInitial ||
         _lastTempHumFetch == null ||
         now.difference(_lastTempHumFetch!) >= mediumInterval;
-    final fetchDoors = isInitial ||
-        _lastDoorsFetch == null ||
-        now.difference(_lastDoorsFetch!) >= mediumInterval;
-    final fetchPowerMonth = isInitial ||
-        _lastPowerMonthFetch == null ||
-        now.difference(_lastPowerMonthFetch!) >= lowInterval;
-    final fetchPue = isInitial ||
-        _lastPueFetch == null ||
-        now.difference(_lastPueFetch!) >= lowInterval;
-
-    if (!fetchTempHum && !fetchDoors && !fetchPowerMonth && !fetchPue) return;
-
     final site = CpanelApiService.instance.currentSite;
-
     final siteId = site == null
         ? null
         : (int.tryParse(site['site_id']?.toString() ?? '') ??
             int.tryParse(site['id']?.toString() ?? ''));
+    final bool adapterBundleActive =
+        AdapterApiService.instance.isConfigured && siteId != null;
+
+    // If the adapter bundle is active, PUE/power/doors are pulled by the global
+    // poller (`/v1/sites/:id/dashboard`). DashboardV2 only needs the Temp/Hum
+    // TopN list (not included in the bundle yet).
+    final fetchDoors = !adapterBundleActive &&
+        (isInitial ||
+            _lastDoorsFetch == null ||
+            now.difference(_lastDoorsFetch!) >= mediumInterval);
+    final fetchPowerMonth = !adapterBundleActive &&
+        (isInitial ||
+            _lastPowerMonthFetch == null ||
+            now.difference(_lastPowerMonthFetch!) >= lowInterval);
+    final fetchPue = !adapterBundleActive &&
+        (isInitial ||
+            _lastPueFetch == null ||
+            now.difference(_lastPueFetch!) >= lowInterval);
+
+    if (!fetchTempHum && !fetchDoors && !fetchPowerMonth && !fetchPue) return;
 
     // Power Month still talks to Dahua directly for now. We'll move it behind the
     // adapter once the contract is stable.
@@ -244,14 +303,14 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           ? ApiService.instance.fetchTempHumTopN()
           : Future.value(null),
       fetchPowerMonth
-          ? ApiService.instance.fetchPowerMonth(id: cabinetId)
+          ? _fetchPowerMonthWithFallback(siteId: siteId, cabinetId: cabinetId)
           : Future.value(null),
       fetchPue
-          ? (AdapterApiService.instance.isConfigured && siteId != null
-              ? AdapterApiService.instance.fetchPue(siteId: siteId)
-              : ApiService.instance.fetchPue(id: cabinetId))
+          ? _fetchPueWithFallback(siteId: siteId, cabinetId: cabinetId)
           : Future.value(null),
-      fetchDoors ? ApiService.instance.fetchCabinetDoors() : Future.value(null),
+      fetchDoors
+          ? _fetchDoorsWithFallback(siteId: siteId, cabinetId: cabinetId)
+          : Future.value(null),
     ]);
 
     if (!mounted) return;
@@ -672,7 +731,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     );
   }
 
-  void _handleDoorUnlock(int id, String name) {
+  void _handleDoorUnlock(int id, String name) async {
     if (!_canControlDoors) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -682,12 +741,47 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       return;
     }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.65),
-      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Confirm to unlock $name',
+      ttl: const Duration(seconds: 30),
     );
+    if (!authorized) return;
+
+    try {
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.openCloseDoor(
+          siteId: siteId,
+          accessId: id,
+          status: 1,
+          accessType: '1',
+        );
+      }
+      res ??= await ApiService.instance.openCloseDoor(id, 1);
+
+      if (!mounted) return;
+      final okSuccess = res != null && res['success'] == true;
+      if (okSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$name unlocked!')),
+        );
+      } else {
+        final msg = res?['message']?.toString() ??
+            'Unlock failed. If your session expired, please login again.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unlock failed. Try again.')),
+      );
+    }
   }
 }

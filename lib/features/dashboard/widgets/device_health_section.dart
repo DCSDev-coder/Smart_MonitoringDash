@@ -162,18 +162,69 @@ class DeviceHealthSection extends StatelessWidget {
       return 0;
     }
 
+    String normalizeType(String raw) {
+      final up = raw.trim().toUpperCase();
+      final compact = up.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+      if (up.isEmpty) return up;
+
+      // Temp/Humidity variants
+      if (up == 'T&H' ||
+          up == 'TH' ||
+          up == 'TEMP' ||
+          up == 'HUM' ||
+          compact == 'TH' ||
+          compact == 'TEMPHUM' ||
+          compact == 'TEMPHUMID') return 'T&H';
+
+      // Leak / water leak detector variants
+      if (up == 'WLD' ||
+          up == 'LEAK' ||
+          up == 'LEAKDETECTOR' ||
+          compact == 'WLD' ||
+          compact == 'LEAK' ||
+          compact == 'WATERLEAK' ||
+          compact == 'WATERLEAKDETECTOR') return 'WLD';
+
+      // Smoke / fire detector variants
+      if (up == 'SMOKE' ||
+          up == 'FIRE' ||
+          up == 'SMOKEDETECTOR' ||
+          compact == 'SMOKE' ||
+          compact == 'FIRE' ||
+          compact == 'SMOKEDETECTOR') return 'SMOKE';
+
+      // UPS variants
+      if (up == 'UPS' || compact == 'UPS') return 'UPS';
+
+      // PDU variants
+      if (up == 'PDU' || compact == 'PDU') return 'PDU';
+
+      // Power variants: POWER ENV / POWERENV / POWER
+      if (up == 'POWER' ||
+          compact == 'POWER' ||
+          compact == 'POWERENV' ||
+          up.contains('POWER')) return 'POWER';
+
+      // Aircon variants
+      if (up == 'AC' ||
+          compact == 'AC' ||
+          up.contains('AIR') ||
+          up.contains('AIRCON') ||
+          up.contains('AIR CON') ||
+          up.contains('COOL')) return 'AC';
+
+      return up;
+    }
+
     // Group devices by a normalized type name
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final d in devices) {
       if (d is! Map<String, dynamic>) continue;
-      final raw = (d['nodeTypeName'] ?? '').toString().trim().toUpperCase();
-      final compact = raw.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-      
-      String type = raw;
-      if (raw == 'T&H' || raw == 'TH' || raw == 'TEMP' || raw == 'HUM' || compact == 'TH') type = 'T&H';
-      if (raw == 'WLD' || raw == 'LEAK') type = 'WLD';
-      if (raw == 'SMOKE' || raw == 'FIRE') type = 'SMOKE';
-      
+      final raw = (d['nodeTypeName'] ?? d['type'] ?? d['nodeType'] ?? '')
+          .toString()
+          .trim();
+      if (raw.isEmpty) continue;
+      final type = normalizeType(raw);
       grouped.putIfAbsent(type, () => <Map<String, dynamic>>[]).add(d);
     }
 
@@ -454,33 +505,64 @@ class DeviceHealthSection extends StatelessWidget {
       );
     }
 
-    final items = <_DeviceHealthItem?>[
-      // 1. AC (Using thermometer icon for now to represent cooling)
-      mapItem('AC', label: 'AC', iconAsset: 'assets/icons/thermometer.svg'),
+    const preferredOrder = <String>[
+      'AC',
+      'T&H',
+      'POWER',
+      'UPS',
+      'SMOKE',
+      'WLD',
+      'PDU',
+    ];
 
-      // 2. Temp / Humd
-      mapItem('T&H',
-          label: 'Temp / Humd', iconAsset: 'assets/icons/thermometer.svg'),
+    const meta = <String, Map<String, String>>{
+      'AC': {'label': 'AC', 'icon': 'assets/icons/thermometer.svg'},
+      'T&H': {'label': 'Temp / Humd', 'icon': 'assets/icons/thermometer.svg'},
+      'POWER': {'label': 'Power', 'icon': 'assets/icons/plug.svg'},
+      'UPS': {'label': 'UPS', 'icon': 'assets/icons/ups.svg'},
+      'SMOKE': {
+        'label': 'Smoke Detector',
+        'icon': 'assets/icons/fire-extinguisher.svg'
+      },
+      'WLD': {'label': 'Leak Detector', 'icon': 'assets/icons/droplet.svg'},
+      'PDU': {'label': 'PDU', 'icon': 'assets/icons/pdu.svg'},
+    };
 
-      // 3. Power
-      mapItem('POWER', label: 'Power', iconAsset: 'assets/icons/plug.svg'),
+    final items = <_DeviceHealthItem>[];
 
-      // 4. UPS
-      mapItem('UPS', label: 'UPS', iconAsset: 'assets/icons/ups.svg'),
+    // First: fixed 7 cards in preferred order.
+    for (final type in preferredOrder) {
+      final m = meta[type]!;
+      final it = mapItem(
+        type,
+        label: m['label']!,
+        iconAsset: m['icon']!,
+        // Site-level sensors: treat smokeStatus/floodStatus as an extra sensor
+        // in their respective cards.
+        siteStatus: type == 'SMOKE'
+            ? smokeStatus
+            : (type == 'WLD' ? floodStatus : null),
+        siteLabel: type == 'SMOKE'
+            ? 'Smoke Sensor'
+            : (type == 'WLD' ? 'Leak Sensor' : null),
+      );
+      if (it != null) items.add(it);
+    }
 
-      // 5. Smoke Detector
-      mapItem('SMOKE',
-          label: 'Smoke Detector',
-          iconAsset: 'assets/icons/fire-extinguisher.svg'),
-
-      // 6. Leak Detector (WLD)
-      mapItem('WLD',
-          label: 'Leak Detector', 
-          iconAsset: 'assets/icons/droplet.svg'),
-      
-      // 7. PDU
-      mapItem('PDU', label: 'PDU', iconAsset: 'assets/icons/pdu.svg'),
-    ].whereType<_DeviceHealthItem>().toList();
+    // Then: any unknown categories returned by the backend (keep them visible,
+    // but push them to the end so the dashboard is stable).
+    final extras = grouped.keys
+        .where((t) => !preferredOrder.contains(t))
+        .toList()
+      ..sort();
+    for (final type in extras) {
+      final it = mapItem(
+        type,
+        label: type,
+        iconAsset: 'assets/icons/plug.svg',
+      );
+      if (it != null) items.add(it);
+    }
 
     if (items.isEmpty) return const SizedBox.shrink();
 

@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/network/api_service.dart';
+import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
@@ -205,7 +206,76 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   Future<void> _refreshEventData() {
-    return Future.wait([
+    // Prefer a single report bundle call when adapter is configured.
+    return _fetchReportBundleOrFallback();
+  }
+
+  Future<void> _fetchReportBundleOrFallback() async {
+    final now = DateTime.now();
+    final int startTime = _eventRangeStartFor(now);
+    final int endTime = now.millisecondsSinceEpoch;
+
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = site == null
+        ? null
+        : (int.tryParse(site['site_id']?.toString() ?? '') ??
+            int.tryParse(site['id']?.toString() ?? ''));
+
+    if (AdapterApiService.instance.isConfigured && siteId != null) {
+      setState(() {
+        _fetchingHistoricalEvents = true;
+        _fetchingDoorLogs = true;
+      });
+      try {
+        final bundle = await AdapterApiService.instance.fetchReportBundle(
+          siteId: siteId,
+          startTime: startTime,
+          endTime: endTime,
+          page: 1,
+          pageSize: 20,
+        );
+
+        if (bundle != null && mounted) {
+          setState(() {
+            final ra = bundle['reportAlarms'];
+            final al = bundle['accessLogs'];
+            _reportAlarms = (ra is Map ? ra['result']?['records'] : null) as List? ??
+                const [];
+
+            final dynamic logsResult = (al is Map ? al['result'] : null);
+            if (logsResult is List) {
+              _doorLogs = logsResult;
+            } else if (logsResult is Map && logsResult['records'] is List) {
+              _doorLogs = logsResult['records'];
+            } else {
+              _doorLogs = [];
+            }
+
+            _fetchingHistoricalEvents = false;
+            _fetchingDoorLogs = false;
+          });
+        } else {
+          if (mounted) {
+            setState(() {
+              _fetchingHistoricalEvents = false;
+              _fetchingDoorLogs = false;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('[ReportScreen] Report bundle fetch error: $e');
+        if (mounted) {
+          setState(() {
+            _fetchingHistoricalEvents = false;
+            _fetchingDoorLogs = false;
+          });
+        }
+      }
+      return;
+    }
+
+    // Fallback: legacy 2 calls.
+    await Future.wait([
       _fetchHistoricalEvents(),
       _fetchDoorLogs(),
     ]);
@@ -248,7 +318,25 @@ class _ReportScreenState extends State<ReportScreen>
       final int startTime = _eventRangeStartFor(now);
       final int endTime = now.millisecondsSinceEpoch;
 
-      final res = await ApiService.instance
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.fetchReportAlarms(
+          siteId: siteId,
+          startTime: startTime,
+          endTime: endTime,
+          page: 1,
+          pageSize: 20,
+        );
+      }
+
+      // Fallback to direct Dahua call if adapter is not available.
+      res ??= await ApiService.instance
           .fetchReportAlarms(startTime: startTime, endTime: endTime);
 
       if (mounted) {
@@ -271,8 +359,24 @@ class _ReportScreenState extends State<ReportScreen>
       final int startTime = _eventRangeStartFor(now);
       final int endTime = now.millisecondsSinceEpoch;
 
-      // We default to Cabinet logs for this screen
-      final res = await ApiService.instance.fetchDoorAccessLogs(
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.fetchAccessLogs(
+          siteId: siteId,
+          startTime: startTime,
+          endTime: endTime,
+          accessType: '1',
+        );
+      }
+
+      // Fallback to direct Dahua call if adapter is not available.
+      res ??= await ApiService.instance.fetchDoorAccessLogs(
         startTime: startTime,
         endTime: endTime,
         accessType: '1',
@@ -309,21 +413,64 @@ class _ReportScreenState extends State<ReportScreen>
           now.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
 
       // 1. Fetch Production Energy Trends & PUE
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Future<Map<String, dynamic>?> _fetchPueWithFallback({required int? siteId}) async {
+        final rawCabinetId = site != null
+            ? (site['dahua_cabinet_id'] ??
+                    site['cabinet_id'] ??
+                    site['cabinetId'] ??
+                    site['rack_cabinet_id'])
+                ?.toString()
+            : null;
+        final cabinetId =
+            rawCabinetId == null ? null : int.tryParse(rawCabinetId)?.toString();
+
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter = await AdapterApiService.instance.fetchPue(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        // Legacy fallback expects a cabinet id (string), default to 1.
+        return ApiService.instance.fetchPue(id: cabinetId ?? '1');
+      }
+
+      Future<Map<String, dynamic>?> _fetchRangeWithFallback({
+        required int nodeId,
+        required String metricCode,
+      }) async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter = await AdapterApiService.instance.fetchRange(
+            siteId: siteId,
+            nodeId: nodeId,
+            metricCode: metricCode,
+            startTime: startTime,
+            endTime: endTime,
+          );
+          if (viaAdapter != null) return viaAdapter;
+        }
+        return ApiService.instance.fetchHistoricalData(
+          nodeId: nodeId,
+          metricCode: metricCode,
+          startTime: startTime,
+          endTime: endTime,
+        );
+      }
+
       final results = await Future.wait([
-        ApiService.instance.fetchPue(id: '1'),
+        _fetchPueWithFallback(siteId: siteId),
         // PDU 1 active power history (hashed metric code)
-        ApiService.instance.fetchHistoricalData(
+        _fetchRangeWithFallback(
           nodeId: 6,
           metricCode: 'pdu_active_power_single_phase',
-          startTime: startTime,
-          endTime: endTime,
         ),
         // PDU 2 active power history (non-hashed metric code)
-        ApiService.instance.fetchHistoricalData(
+        _fetchRangeWithFallback(
           nodeId: 7,
           metricCode: 'active_power_single_phase',
-          startTime: startTime,
-          endTime: endTime,
         ),
       ]);
 

@@ -3,8 +3,11 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_service.dart';
+import '../../core/network/adapter_api_service.dart';
+import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../../shared/widgets/dashboard_glass.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -905,9 +908,31 @@ class _ControlScreenState extends State<ControlScreen>
 
     if (ok != true) return;
 
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Confirm to apply control setting',
+      ttl: const Duration(seconds: 30),
+    );
+    if (!authorized) return;
+
     setState(() => _writing = true);
     try {
-      final res = await ApiService.instance.writeNodeMetric(
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      Map<String, dynamic>? res;
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.writeNodeMetric(
+          siteId: siteId,
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: value,
+        );
+      }
+      res ??= await ApiService.instance.writeNodeMetric(
           nodeId: nodeId, metricTypeLibCode: metricCode, value: value);
 
       // Helpful diagnostics: vendor sometimes returns HTTP 200 with success=false
