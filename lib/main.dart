@@ -34,6 +34,7 @@ import 'shared/widgets/notifications_overlay.dart';
 import 'shared/widgets/sticky_header_bar.dart';
 import 'shared/widgets/dashboard_header.dart';
 import 'shared/widgets/settings_overlay.dart';
+import 'shared/widgets/safe_network_image.dart';
 import 'features/dashboard/widgets/critical_alert_banner.dart';
 import 'features/rack_view/rack_view_screen.dart';
 
@@ -947,7 +948,7 @@ class _MainSidebar extends StatelessWidget {
               expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
             if (logoUrl != null)
-              Image.network(logoUrl!, width: 32, height: 32)
+              SafeNetworkImage(logoUrl!, width: 32, height: 32)
             else
               const Icon(Icons.blur_on_rounded,
                   color: AppTheme.accentGreen, size: 32),
@@ -1031,7 +1032,7 @@ class _SidebarItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 0),
         decoration: BoxDecoration(
           color: active
               ? (isLight
@@ -1045,48 +1046,80 @@ class _SidebarItem extends StatelessWidget {
                 )
               : null,
         ),
-        child: Row(
-          mainAxisAlignment:
-              expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
-          children: [
-            Stack(
-              children: [
-                Icon(icon, color: c, size: 24),
-                if (hasDot)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: critical
-                            ? AppTheme.statusError
-                            : AppTheme.accentGreen,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: isLight
-                                ? const Color(0xFFF7FBFF)
-                                : const Color(0xFF0E141B),
-                            width: 1.5),
+        child: expanded
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      Icon(icon, color: c, size: 24),
+                      if (hasDot)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: critical
+                                  ? AppTheme.statusError
+                                  : AppTheme.accentGreen,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isLight
+                                    ? const Color(0xFFF7FBFF)
+                                    : const Color(0xFF0E141B),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c,
+                        fontWeight:
+                            active ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 14,
                       ),
                     ),
                   ),
-              ],
-            ),
-            if (expanded) ...[
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: c,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 14,
+                ],
+              )
+            : Center(
+                child: Stack(
+                  children: [
+                    Icon(icon, color: c, size: 24),
+                    if (hasDot)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: critical
+                                ? AppTheme.statusError
+                                : AppTheme.accentGreen,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isLight
+                                  ? const Color(0xFFF7FBFF)
+                                  : const Color(0xFF0E141B),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ],
-          ],
-        ),
       ),
     );
   }

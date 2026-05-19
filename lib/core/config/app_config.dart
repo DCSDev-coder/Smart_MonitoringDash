@@ -19,5 +19,17 @@ class AppConfig {
     if (v.isEmpty) return 'https://dcstack.my/';
     return v.endsWith('/') ? v : '$v/';
   }
-}
 
+  // Adapter backend (proxy + normalizer)
+  // flutter run --dart-define=ADAPTER_BASE_URL="https://api.example.com"
+  static const String _adapterBaseUrlRaw = String.fromEnvironment(
+    'ADAPTER_BASE_URL',
+    defaultValue: '',
+  );
+
+  static String get adapterBaseUrl {
+    final v = _adapterBaseUrlRaw.trim();
+    if (v.isEmpty) return '';
+    return v.endsWith('/') ? v.substring(0, v.length - 1) : v;
+  }
+}

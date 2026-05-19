@@ -40,6 +40,14 @@ class PushNotificationService {
 
     debugPrint('[Push] Init start');
 
+    // Web push requires extra setup (service worker, VAPID key, permissions).
+    // Until configured, skip to avoid noisy runtime exceptions on Flutter Web.
+    if (kIsWeb) {
+      debugPrint('[Push] Web: push init skipped');
+      _initialized = true;
+      return;
+    }
+
     await Firebase.initializeApp();
     debugPrint('[Push] Firebase initialized');
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -125,6 +133,7 @@ class PushNotificationService {
   }
 
   Future<void> syncTokenWithBackendIfPossible({String? token}) async {
+    if (kIsWeb) return;
     try {
       final site = CpanelApiService.instance.currentSite;
       final authToken = CpanelApiService.instance.getAuthTokenInMemory();
@@ -173,6 +182,7 @@ class PushNotificationService {
   }
 
   Future<void> deactivateCurrentTokenIfPossible() async {
+    if (kIsWeb) return;
     try {
       final site = CpanelApiService.instance.currentSite;
       final authToken = CpanelApiService.instance.getAuthTokenInMemory();

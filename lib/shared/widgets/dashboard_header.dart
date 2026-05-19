@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dashboard_glass.dart';
+import 'safe_network_image.dart';
 
 class DashboardHeader extends StatelessWidget {
   final String? logoUrl;
@@ -31,33 +32,45 @@ class DashboardHeader extends StatelessWidget {
     const activeColor = Color(0xFF00A3FF); // Vibrant Cyan Blue
     final hasNotifications = notificationCount > 0;
 
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: onLogoTap,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (logoUrl != null)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 200),
-                    child: Image.network(
-                      logoUrl!,
-                      height: 54,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Icon(Icons.business_rounded, 
-                               color: isLight ? Colors.black26 : Colors.white24, 
-                               size: 36),
-                    ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Keep enough room for the right-side buttons on narrow screens.
+        // Prevents RenderFlex overflow in web layouts.
+        final reservedRight = 48.0 + 12.0 + 48.0 + 12.0 + (trailing != null ? 60.0 : 0.0);
+        final maxLogo = (c.maxWidth - reservedRight).clamp(96.0, 220.0);
+
+        return Row(
+          children: [
+            Flexible(
+              fit: FlexFit.loose,
+              child: GestureDetector(
+                onTap: onLogoTap,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (logoUrl != null)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maxLogo),
+                          child: SafeNetworkImage(
+                            logoUrl!,
+                            height: 54,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_) => Icon(
+                              Icons.business_rounded,
+                              color:
+                                  isLight ? Colors.black26 : Colors.white24,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
-          ),
-        ),
-        const Spacer(),
+            const Spacer(),
         
         // Notification Button (no count badge; bell itself reflects alert state)
         _HeaderIconButton(
@@ -83,7 +96,9 @@ class DashboardHeader extends StatelessWidget {
           activeColor: activeColor,
           isAlert: false,
         ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
 import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
+import 'safe_network_image.dart';
 
 class SettingsOverlay {
   static Rect? rectFromKey(GlobalKey key) {
@@ -525,8 +526,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                           child: ClipRRect(
                                             borderRadius:
                                                 BorderRadius.circular(23),
-                                            child: Image.network(_logoUrl!,
-                                                fit: BoxFit.contain),
+                                            child: SafeNetworkImage(
+                                              _logoUrl!,
+                                              fit: BoxFit.contain,
+                                            ),
                                           ),
                                         )
                                       else

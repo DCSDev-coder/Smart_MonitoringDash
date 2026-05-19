@@ -7,12 +7,14 @@ import 'dashboard_typography.dart';
 
 class PueHeroCard extends StatelessWidget {
   final double pue;
+  final String? pueStatus; // ok | unavailable | error | down
   final double? monthlyEnergyKwh;
   final bool loading;
 
   const PueHeroCard({
     super.key,
     required this.pue,
+    this.pueStatus,
     required this.monthlyEnergyKwh,
     required this.loading,
   });
@@ -26,6 +28,10 @@ class PueHeroCard extends StatelessWidget {
   }
 
   ({String label, Color color}) _pueStatus(double pue) {
+    final status = (pueStatus ?? '').trim().toLowerCase();
+    if (status == 'unavailable' || status == 'down') {
+      return (label: 'DOWN', color: const Color(0xFF8A94A6));
+    }
     // Heuristic buckets aligned with the copy in the info dialog:
     // IDEAL ~ near 1.0, AVERAGE ~ around 1.5, POOR ~ 2.0+.
     if (pue <= 0) {
