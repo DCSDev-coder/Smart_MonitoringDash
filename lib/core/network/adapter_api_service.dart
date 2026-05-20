@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import './cpanel_api_service.dart';
+import '../utils/app_log.dart';
 
 class AdapterApiService {
   AdapterApiService._();
@@ -19,38 +19,40 @@ class AdapterApiService {
     return token;
   }
 
+  Map<String, String> _headers(String token) => {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      };
+
+  Map<String, dynamic>? _decodeMap(http.Response res) {
+    final decoded = jsonDecode(res.body);
+    return decoded is Map<String, dynamic> ? decoded : null;
+  }
+
   Future<Map<String, dynamic>?> fetchPue({required int siteId}) async {
     if (!isConfigured) return null;
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
     final url = Uri.parse('$_base/v1/sites/$siteId/pue');
     try {
-      final res = await http.get(url, headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      }).timeout(const Duration(seconds: 10));
+      final res =
+          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchPue non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchPue non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchPue error: $e');
-      }
+      AppLog.w('fetchPue error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -60,33 +62,25 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
     final url = Uri.parse('$_base/v1/sites/$siteId/power-month');
     try {
-      final res = await http.get(url, headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      }).timeout(const Duration(seconds: 10));
+      final res =
+          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchPowerMonth non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchPowerMonth non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchPowerMonth error: $e');
-      }
+      AppLog.w('fetchPowerMonth error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -96,33 +90,25 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
     final url = Uri.parse('$_base/v1/sites/$siteId/doors');
     try {
-      final res = await http.get(url, headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      }).timeout(const Duration(seconds: 10));
+      final res =
+          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchDoors non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchDoors non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchDoors error: $e');
-      }
+      AppLog.w('fetchDoors error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -132,9 +118,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -146,19 +130,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchRecentAlarms non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchRecentAlarms non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchRecentAlarms error: $e');
-      }
+      AppLog.w('fetchRecentAlarms error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -168,9 +148,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -182,19 +160,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 12));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchDashboardBundle non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchDashboardBundle non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchDashboardBundle error: $e');
-      }
+      AppLog.w('fetchDashboardBundle error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -204,9 +178,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -218,19 +190,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchEnvironment non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchEnvironment non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchEnvironment error: $e');
-      }
+      AppLog.w('fetchEnvironment error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -240,9 +208,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -254,19 +220,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchDeviceStatus non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchDeviceStatus non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchDeviceStatus error: $e');
-      }
+      AppLog.w('fetchDeviceStatus error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -276,9 +238,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -290,19 +250,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchSysInfo non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchSysInfo non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchSysInfo error: $e');
-      }
+      AppLog.w('fetchSysInfo error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -320,9 +276,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -344,19 +298,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchAccessLogs non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchAccessLogs non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchAccessLogs error: $e');
-      }
+      AppLog.w('fetchAccessLogs error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -372,9 +322,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -394,19 +342,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchReportAlarms non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchReportAlarms non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchReportAlarms error: $e');
-      }
+      AppLog.w('fetchReportAlarms error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -422,9 +366,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -444,19 +386,15 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 15));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchReportBundle non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchReportBundle non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchReportBundle error: $e');
-      }
+      AppLog.w('fetchReportBundle error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -472,9 +410,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -494,19 +430,82 @@ class AdapterApiService {
       }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] fetchRange non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('fetchRange non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] fetchRange error: $e');
+      AppLog.w('fetchRange error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchRackTelemetry({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/rack-telemetry');
+    try {
+      final res = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchRackTelemetry non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
       }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchRackTelemetry error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchNodeWithMetric({
+    required int siteId,
+    required int nodeId,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/node-with-metric').replace(
+      queryParameters: <String, String>{
+        'nodeId': nodeId.toString(),
+      },
+    );
+    try {
+      final res = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchNodeWithMetric non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchNodeWithMetric error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -521,9 +520,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -546,19 +543,15 @@ class AdapterApiService {
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] openCloseDoor non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('openCloseDoor non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] openCloseDoor error: $e');
-      }
+      AppLog.w('openCloseDoor error', tag: 'AdapterApi', error: e);
       return null;
     }
   }
@@ -573,9 +566,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] Missing portal auth token in memory.');
-      }
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
       return null;
     }
 
@@ -598,19 +589,15 @@ class AdapterApiService {
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
-        if (kDebugMode) {
-          debugPrint(
-              '[AdapterApi] writeNodeMetric non-200 (${res.statusCode}): ${res.body}');
-        }
+        AppLog.w('writeNodeMetric non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
         return null;
       }
 
-      final decoded = jsonDecode(res.body);
-      return decoded is Map<String, dynamic> ? decoded : null;
+      return _decodeMap(res);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[AdapterApi] writeNodeMetric error: $e');
-      }
+      AppLog.w('writeNodeMetric error', tag: 'AdapterApi', error: e);
       return null;
     }
   }

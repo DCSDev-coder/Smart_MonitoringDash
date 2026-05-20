@@ -1,11 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../network/cpanel_api_service.dart';
 import '../navigation/app_navigator.dart';
+import '../utils/app_log.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -14,7 +14,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } catch (_) {
     // Firebase may already be initialized.
   }
-  debugPrint('[Push] Background message: ${message.messageId}');
+  AppLog.d('Background message received', tag: 'Push', fields: {
+    'messageId': message.messageId,
+  });
 }
 
 class PushNotificationService {
@@ -38,28 +40,28 @@ class PushNotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    debugPrint('[Push] Init start');
+    AppLog.d('Init start', tag: 'Push');
 
     // Web push requires extra setup (service worker, VAPID key, permissions).
     // Until configured, skip to avoid noisy runtime exceptions on Flutter Web.
     if (kIsWeb) {
-      debugPrint('[Push] Web: push init skipped');
+      AppLog.d('Web: push init skipped', tag: 'Push');
       _initialized = true;
       return;
     }
 
     await Firebase.initializeApp();
-    debugPrint('[Push] Firebase initialized');
+    AppLog.d('Firebase initialized', tag: 'Push');
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     await _initLocalNotifications();
-    debugPrint('[Push] Local notifications initialized');
+    AppLog.d('Local notifications initialized', tag: 'Push');
     await _requestPermission();
     await _configureHandlers();
     await _logCurrentToken();
 
     _initialized = true;
-    debugPrint('[Push] Init complete');
+    AppLog.d('Init complete', tag: 'Push');
   }
 
   Future<void> _initLocalNotifications() async {
@@ -87,8 +89,10 @@ class PushNotificationService {
       badge: true,
       sound: true,
     );
-    debugPrint(
-      '[Push] Permission status: ${settings.authorizationStatus.name}',
+    AppLog.d(
+      'Permission status',
+      tag: 'Push',
+      fields: {'status': settings.authorizationStatus.name},
     );
   }
 
@@ -101,32 +105,38 @@ class PushNotificationService {
     );
 
     FirebaseMessaging.onMessage.listen((message) async {
-      debugPrint('[Push] Foreground message: ${message.data}');
+      AppLog.d('Foreground message', tag: 'Push', fields: {
+        'keys': message.data.keys.toList(),
+      });
       await _showForegroundNotification(message);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint('[Push] Opened from background push: ${message.data}');
+      AppLog.d('Opened from background push', tag: 'Push', fields: {
+        'keys': message.data.keys.toList(),
+      });
       _handleRemoteMessage(message);
     });
 
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
-      debugPrint('[Push] Opened from terminated push: ${initialMessage.data}');
+      AppLog.d('Opened from terminated push', tag: 'Push', fields: {
+        'keys': initialMessage.data.keys.toList(),
+      });
       _handleRemoteMessage(initialMessage);
     }
 
     FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-      debugPrint('[Push] Token refreshed: $token');
+      AppLog.d('Token refreshed', tag: 'Push');
       syncTokenWithBackendIfPossible(token: token);
     });
   }
 
   Future<void> _logCurrentToken() async {
     final token = await FirebaseMessaging.instance.getToken();
-    debugPrint('[Push] FCM token: $token');
+    AppLog.d('FCM token resolved', tag: 'Push');
     if (token == null || token.isEmpty) {
-      debugPrint('[Push] FCM token is empty or null');
+      AppLog.w('FCM token is empty', tag: 'Push');
       return;
     }
     await syncTokenWithBackendIfPossible(token: token);
@@ -142,25 +152,27 @@ class PushNotificationService {
       );
 
       if (siteId == null || siteId <= 0) {
-        debugPrint('[Push] Token sync skipped: current site is not ready yet');
+        AppLog.d('Token sync skipped: site not ready', tag: 'Push');
         return;
       }
       if (authToken == null || authToken.isEmpty) {
-        debugPrint('[Push] Token sync skipped: portal auth token missing');
+        AppLog.d('Token sync skipped: portal auth token missing', tag: 'Push');
         return;
       }
 
       final resolvedToken = token ?? await FirebaseMessaging.instance.getToken();
       if (resolvedToken == null || resolvedToken.isEmpty) {
-        debugPrint('[Push] Token sync skipped: device token missing');
+        AppLog.d('Token sync skipped: device token missing', tag: 'Push');
         return;
       }
 
-      debugPrint('[Push] Attempting to sync token for site $siteId with backend...');
-      debugPrint('[Push] Token: ${resolvedToken.substring(0, 10)}...');
+      AppLog.d('Attempting to sync token', tag: 'Push', fields: {
+        'siteId': siteId,
+        'tokenPrefix': resolvedToken.substring(0, 10),
+      });
 
       if (_lastSyncedToken == resolvedToken && _lastSyncedSiteId == siteId) {
-        debugPrint('[Push] Token sync skipped: already registered');
+        AppLog.d('Token sync skipped: already registered', tag: 'Push');
         return;
       }
 
@@ -171,13 +183,15 @@ class PushNotificationService {
       if (res?['status'] == 'success') {
         _lastSyncedToken = resolvedToken;
         _lastSyncedSiteId = siteId;
-        debugPrint('[Push] SUCCESS: Token registered to backend for site $siteId');
+        AppLog.i('Token registered', tag: 'Push', fields: {'siteId': siteId});
       } else {
-        debugPrint('[Push] ERROR: Token register failed: ${res?['message']}');
-        debugPrint('[Push] Response payload: $res');
+        AppLog.w('Token register failed', tag: 'Push', fields: {
+          'siteId': siteId,
+          'message': (res?['message'] ?? '').toString(),
+        });
       }
     } catch (e) {
-      debugPrint('[Push] Token sync error: $e');
+      AppLog.w('Token sync error', tag: 'Push', error: e);
     }
   }
 
@@ -191,17 +205,17 @@ class PushNotificationService {
       );
 
       if (siteId == null || siteId <= 0) {
-        debugPrint('[Push] Token removal skipped: current site is not ready');
+        AppLog.d('Token removal skipped: site not ready', tag: 'Push');
         return;
       }
       if (authToken == null || authToken.isEmpty) {
-        debugPrint('[Push] Token removal skipped: portal auth token missing');
+        AppLog.d('Token removal skipped: portal auth token missing', tag: 'Push');
         return;
       }
 
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) {
-        debugPrint('[Push] Token removal skipped: device token missing');
+        AppLog.d('Token removal skipped: device token missing', tag: 'Push');
         return;
       }
 
@@ -210,16 +224,19 @@ class PushNotificationService {
         deviceToken: token,
       );
       if (res?['status'] == 'success') {
-        debugPrint('[Push] Token deactivated on backend for site $siteId');
+        AppLog.i('Token deactivated', tag: 'Push', fields: {'siteId': siteId});
         if (_lastSyncedToken == token && _lastSyncedSiteId == siteId) {
           _lastSyncedToken = null;
           _lastSyncedSiteId = null;
         }
       } else {
-        debugPrint('[Push] Token removal failed: ${res?['message']}');
+        AppLog.w('Token removal failed', tag: 'Push', fields: {
+          'siteId': siteId,
+          'message': (res?['message'] ?? '').toString(),
+        });
       }
     } catch (e) {
-      debugPrint('[Push] Token removal error: $e');
+      AppLog.w('Token removal error', tag: 'Push', error: e);
     }
   }
 

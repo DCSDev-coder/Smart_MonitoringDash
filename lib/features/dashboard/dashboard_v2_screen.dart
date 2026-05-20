@@ -79,7 +79,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   DateTime? _lastPueFetch;
 
   Duration _tickInterval = const Duration(seconds: 10);
-  bool _loggedPueUnavailable = false;
   bool _loggedPuePayload = false;
 
   bool get _canControlDoors {
@@ -127,21 +126,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       _smokeStatus = _poller.smokeStatus;
       _floodStatus = _poller.floodStatus;
       _devices = _poller.devices;
-
-      // When the adapter dashboard bundle is active, the global poller carries
-      // PUE/power/doors too. This avoids extra per-screen API chatter.
-      if (_poller.powerMonth != null) {
-        _powerMonth = _poller.powerMonth!;
-      }
-      if (_poller.pue != null) {
-        _pue = _poller.pue!;
-      }
-      if (_poller.pueStatus != null) {
-        _pueStatus = _poller.pueStatus!;
-      }
-      if (_poller.doors != null) {
-        _doors = _poller.doors;
-      }
     });
     _restartTimerIfNeeded();
   }
@@ -260,31 +244,24 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     final fetchTempHum = isInitial ||
         _lastTempHumFetch == null ||
         now.difference(_lastTempHumFetch!) >= mediumInterval;
+    final fetchDoors = isInitial ||
+        _lastDoorsFetch == null ||
+        now.difference(_lastDoorsFetch!) >= mediumInterval;
+    final fetchPowerMonth = isInitial ||
+        _lastPowerMonthFetch == null ||
+        now.difference(_lastPowerMonthFetch!) >= lowInterval;
+    final fetchPue = isInitial ||
+        _lastPueFetch == null ||
+        now.difference(_lastPueFetch!) >= lowInterval;
+
+    if (!fetchTempHum && !fetchDoors && !fetchPowerMonth && !fetchPue) return;
+
     final site = CpanelApiService.instance.currentSite;
+
     final siteId = site == null
         ? null
         : (int.tryParse(site['site_id']?.toString() ?? '') ??
             int.tryParse(site['id']?.toString() ?? ''));
-    final bool adapterBundleActive =
-        AdapterApiService.instance.isConfigured && siteId != null;
-
-    // If the adapter bundle is active, PUE/power/doors are pulled by the global
-    // poller (`/v1/sites/:id/dashboard`). DashboardV2 only needs the Temp/Hum
-    // TopN list (not included in the bundle yet).
-    final fetchDoors = !adapterBundleActive &&
-        (isInitial ||
-            _lastDoorsFetch == null ||
-            now.difference(_lastDoorsFetch!) >= mediumInterval);
-    final fetchPowerMonth = !adapterBundleActive &&
-        (isInitial ||
-            _lastPowerMonthFetch == null ||
-            now.difference(_lastPowerMonthFetch!) >= lowInterval);
-    final fetchPue = !adapterBundleActive &&
-        (isInitial ||
-            _lastPueFetch == null ||
-            now.difference(_lastPueFetch!) >= lowInterval);
-
-    if (!fetchTempHum && !fetchDoors && !fetchPowerMonth && !fetchPue) return;
 
     // Power Month still talks to Dahua directly for now. We'll move it behind the
     // adapter once the contract is stable.
@@ -381,7 +358,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       // 3. PUE Processing
       // Prefer adapter-normalized shape when available; otherwise fall back to
       // the legacy Dahua-direct response format.
-      if (pueRes != null && pueRes is Map && pueRes.containsKey('pueStatus')) {
+      if (pueRes != null && pueRes.containsKey('pueStatus')) {
         _lastPueFetch = now;
         final status = pueRes['pueStatus']?.toString() ?? 'error';
         _pueStatus = status;
@@ -406,7 +383,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           _pue = 0.0;
         }
       } else if (pueRes != null &&
-          pueRes is Map &&
           pueRes['result'] != null &&
           pueRes['result'] != false) {
         _lastPueFetch = now;

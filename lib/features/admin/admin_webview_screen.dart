@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../core/network/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_log.dart';
 
 class AdminWebviewScreen extends StatefulWidget {
   const AdminWebviewScreen({super.key});
@@ -28,7 +29,11 @@ class _AdminWebviewScreenState extends State<AdminWebviewScreen> {
           onPageStarted: (_) => setState(() => _loading = true),
           onPageFinished: (_) => setState(() => _loading = false),
           onWebResourceError: (error) {
-             debugPrint('WebView error: ${error.description}');
+            AppLog.w(
+              'WebView error',
+              tag: 'AdminWebView',
+              fields: {'description': error.description},
+            );
           },
         ),
       )

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -7,6 +9,7 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/auth/remember_me_store.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_log.dart';
 
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/fade_in_slide.dart';
@@ -117,7 +120,7 @@ class _AuthScreenState extends State<AuthScreen> {
             throw 'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.';
           }
         } catch (e) {
-          debugPrint('[Auth] Expiry Parse Error: $e');
+        AppLog.w('Expiry parse error', tag: 'Auth', error: e);
         }
       }
 
@@ -236,7 +239,7 @@ class _AuthScreenState extends State<AuthScreen> {
             throw 'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.';
           }
         } catch (e) {
-          debugPrint('[Auth] Expiry Parse Error: $e');
+        AppLog.w('Expiry parse error', tag: 'Auth', error: e);
         }
       }
 
@@ -527,6 +530,63 @@ class _AuthScreenState extends State<AuthScreen> {
                                                 () => _rememberMe = val == true),
                                           ),
                                         ),
+
+                                        if (kDebugMode)
+                                          Builder(
+                                            builder: (context) {
+                                              final token = CpanelApiService
+                                                  .instance
+                                                  .getAuthTokenInMemory();
+                                              if (token == null ||
+                                                  token.isEmpty) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              final prefix =
+                                                  token.length <= 16
+                                                      ? token
+                                                      : token.substring(0, 16);
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.only(top: 8),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        'Portal token: $prefix… (${token.length})',
+                                                        style: GoogleFonts.manrope(
+                                                          color: Colors.white54,
+                                                          fontSize: 12,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow:
+                                                            TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () async {
+                                                        await Clipboard.setData(
+                                                          ClipboardData(
+                                                              text: token),
+                                                        );
+                                                        if (!context.mounted) {
+                                                          return;
+                                                        }
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                                'Portal token copied to clipboard.'),
+                                                          ),
+                                                        );
+                                                      },
+                                                      child: const Text('Copy'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
                                       ],
                                     ),
                                   ),

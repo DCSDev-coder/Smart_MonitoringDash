@@ -69,10 +69,8 @@ class _ControlScreenState extends State<ControlScreen>
 
   Future<void> _fetchAll() async {
     try {
-      final pdu1Res =
-          await ApiService.instance.fetchNodeWithMetric(_pdu1NodeId);
-      final pdu2Res =
-          await ApiService.instance.fetchNodeWithMetric(_pdu2NodeId);
+      final pdu1Res = await _fetchNodeWithMetricPreferAdapter(_pdu1NodeId);
+      final pdu2Res = await _fetchNodeWithMetricPreferAdapter(_pdu2NodeId);
       final acRes = await _discoverAndFetchAc();
 
       // Diagnostics: AC values sometimes live in unexpected fields on some vendor builds.
@@ -110,6 +108,21 @@ class _ControlScreenState extends State<ControlScreen>
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  Future<Map<String, dynamic>?> _fetchNodeWithMetricPreferAdapter(int nodeId) async {
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = site == null
+        ? null
+        : (int.tryParse(site['site_id']?.toString() ?? '') ??
+            int.tryParse(site['id']?.toString() ?? ''));
+
+    if (AdapterApiService.instance.isConfigured && siteId != null) {
+      final res = await AdapterApiService.instance
+          .fetchNodeWithMetric(siteId: siteId, nodeId: nodeId);
+      if (res != null) return res;
+    }
+    return ApiService.instance.fetchNodeWithMetric(nodeId);
   }
 
   Future<_NodeMetrics?> _discoverAndFetchAc() async {
@@ -970,7 +983,7 @@ class _ControlScreenState extends State<ControlScreen>
     required Object desired,
   }) async {
     // Capture current snapshot
-    final before = await ApiService.instance.fetchNodeWithMetric(nodeId);
+    final before = await _fetchNodeWithMetricPreferAdapter(nodeId);
     final beforeNode = _NodeMetrics.fromApi(before);
     final beforeRow = beforeNode?.rows
         .where((r) => r.metricCode == metricCode)
@@ -981,7 +994,7 @@ class _ControlScreenState extends State<ControlScreen>
 
     for (var i = 0; i < 6; i++) {
       await Future.delayed(const Duration(milliseconds: 650));
-      final res = await ApiService.instance.fetchNodeWithMetric(nodeId);
+      final res = await _fetchNodeWithMetricPreferAdapter(nodeId);
       final node = _NodeMetrics.fromApi(res);
       if (node == null) continue;
 

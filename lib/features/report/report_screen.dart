@@ -183,7 +183,7 @@ class _ReportScreenState extends State<ReportScreen>
       }
       if (showSkeleton && mounted) setState(() => _loading = false);
     } catch (e) {
-      debugPrint('[ReportScreen] Fetch Error: $e');
+      AppLog.w('Fetch error', tag: 'ReportScreen', error: e);
       if (showSkeleton && mounted) setState(() => _loading = false);
     }
     // 8. Health/Historical should show something immediately; default is "Today".
@@ -239,8 +239,10 @@ class _ReportScreenState extends State<ReportScreen>
           setState(() {
             final ra = bundle['reportAlarms'];
             final al = bundle['accessLogs'];
-            _reportAlarms = (ra is Map ? ra['result']?['records'] : null) as List? ??
-                const [];
+            final dynamic raResult = (ra is Map) ? ra['result'] : null;
+            final dynamic raRecords =
+                (raResult is Map) ? raResult['records'] : null;
+            _reportAlarms = (raRecords is List) ? raRecords : const [];
 
             final dynamic logsResult = (al is Map ? al['result'] : null);
             if (logsResult is List) {
@@ -263,7 +265,7 @@ class _ReportScreenState extends State<ReportScreen>
           }
         }
       } catch (e) {
-        debugPrint('[ReportScreen] Report bundle fetch error: $e');
+        AppLog.w('Report bundle fetch error', tag: 'ReportScreen', error: e);
         if (mounted) {
           setState(() {
             _fetchingHistoricalEvents = false;
@@ -346,7 +348,7 @@ class _ReportScreenState extends State<ReportScreen>
         });
       }
     } catch (e) {
-      debugPrint('[ReportScreen] Event Fetch Error: $e');
+      AppLog.w('Event fetch error', tag: 'ReportScreen', error: e);
       if (mounted) setState(() => _fetchingHistoricalEvents = false);
     }
   }
@@ -396,7 +398,7 @@ class _ReportScreenState extends State<ReportScreen>
         });
       }
     } catch (e) {
-      debugPrint('[ReportScreen] Door Fetch Error: $e');
+      AppLog.w('Door fetch error', tag: 'ReportScreen', error: e);
       if (mounted) setState(() => _fetchingDoorLogs = false);
     }
   }
@@ -419,7 +421,8 @@ class _ReportScreenState extends State<ReportScreen>
           : (int.tryParse(site['site_id']?.toString() ?? '') ??
               int.tryParse(site['id']?.toString() ?? ''));
 
-      Future<Map<String, dynamic>?> _fetchPueWithFallback({required int? siteId}) async {
+      Future<Map<String, dynamic>?> fetchPueWithFallback(
+          {required int? siteId}) async {
         final rawCabinetId = site != null
             ? (site['dahua_cabinet_id'] ??
                     site['cabinet_id'] ??
@@ -431,14 +434,15 @@ class _ReportScreenState extends State<ReportScreen>
             rawCabinetId == null ? null : int.tryParse(rawCabinetId)?.toString();
 
         if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter = await AdapterApiService.instance.fetchPue(siteId: siteId);
+          final viaAdapter =
+              await AdapterApiService.instance.fetchPue(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
         }
         // Legacy fallback expects a cabinet id (string), default to 1.
         return ApiService.instance.fetchPue(id: cabinetId ?? '1');
       }
 
-      Future<Map<String, dynamic>?> _fetchRangeWithFallback({
+      Future<Map<String, dynamic>?> fetchRangeWithFallback({
         required int nodeId,
         required String metricCode,
       }) async {
@@ -461,14 +465,14 @@ class _ReportScreenState extends State<ReportScreen>
       }
 
       final results = await Future.wait([
-        _fetchPueWithFallback(siteId: siteId),
+        fetchPueWithFallback(siteId: siteId),
         // PDU 1 active power history (hashed metric code)
-        _fetchRangeWithFallback(
+        fetchRangeWithFallback(
           nodeId: 6,
           metricCode: 'pdu_active_power_single_phase',
         ),
         // PDU 2 active power history (non-hashed metric code)
-        _fetchRangeWithFallback(
+        fetchRangeWithFallback(
           nodeId: 7,
           metricCode: 'active_power_single_phase',
         ),
@@ -486,8 +490,8 @@ class _ReportScreenState extends State<ReportScreen>
 
           bool hasRealHistory = false;
 
-          List<Map<String, Object?>> _parseRange(Map<String, dynamic>? res) {
-            final raw = res?['result'];
+          List<Map<String, Object?>> parseRange(dynamic res) {
+            final raw = (res is Map<String, dynamic>) ? res['result'] : null;
             if (raw is! List) return const [];
             final out = <Map<String, Object?>>[];
             for (final it in raw) {
@@ -504,8 +508,8 @@ class _ReportScreenState extends State<ReportScreen>
             return out;
           }
 
-          final pdu1Series = _parseRange(results[1] as Map<String, dynamic>?);
-          final pdu2Series = _parseRange(results[2] as Map<String, dynamic>?);
+          final pdu1Series = parseRange(results[1]);
+          final pdu2Series = parseRange(results[2]);
 
           if (pdu1Series.isNotEmpty || pdu2Series.isNotEmpty) {
             // Merge by time string (vendor uses "YYYY-MM-DD HH:mm:ss" granularity).
@@ -537,7 +541,9 @@ class _ReportScreenState extends State<ReportScreen>
           }
 
           // B. PUE stability: use current PUE value as a flat line over the selected range.
-          final pueRes = results[0] as Map<String, dynamic>?;
+          final pueRes = (results[0] is Map<String, dynamic>)
+              ? results[0] as Map<String, dynamic>
+              : null;
           if (pueRes != null && pueRes['result'] != null) {
             final r = pueRes['result'];
 
@@ -572,7 +578,7 @@ class _ReportScreenState extends State<ReportScreen>
         });
       }
     } catch (e) {
-      debugPrint('[EnergyHistory] Production Fetch Error: $e');
+      AppLog.w('Production fetch error', tag: 'EnergyHistory', error: e);
       if (mounted) setState(() => _fetchingEnergy = false);
     }
   }
@@ -611,7 +617,7 @@ class _ReportScreenState extends State<ReportScreen>
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData!.buffer.asUint8List();
     } catch (e) {
-      debugPrint('[ReportScreen] Capture Error: $e');
+      AppLog.w('Capture error', tag: 'ReportScreen', error: e);
       return Uint8List(0);
     }
   }
@@ -789,7 +795,7 @@ class _ReportScreenState extends State<ReportScreen>
         );
       }
     } catch (e) {
-      debugPrint('[ReportScreen] PDF Error: $e');
+      AppLog.w('PDF error', tag: 'ReportScreen', error: e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

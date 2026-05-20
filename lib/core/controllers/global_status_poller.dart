@@ -36,10 +36,6 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> devices = const [];
   List<dynamic> recentAlarms = const [];
   Map<String, dynamic>? sysInfo;
-  Map<String, double>? powerMonth; // adapter-normalized shape when available
-  double? pue;
-  String? pueStatus; // ok | unavailable | error | down
-  List<Map<String, dynamic>>? doors; // adapter-normalized list when available
 
   DateTime? lastUpdatedUtc;
 
@@ -182,86 +178,6 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           ? null
           : (int.tryParse(site['site_id']?.toString() ?? '') ??
               int.tryParse(site['id']?.toString() ?? ''));
-
-      // Preferred: fetch a single dashboard bundle via adapter for less chatter.
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
-        final bundle =
-            await AdapterApiService.instance.fetchDashboardBundle(siteId: siteId);
-        if (bundle != null) {
-          final env = bundle['environment'] as Map?;
-          final ds = bundle['deviceStatus'] as Map?;
-          final si = bundle['sysInfo'] as Map?;
-          final ra = bundle['alarmsLast5'] as Map?;
-          final pm = bundle['powerMonth'] as Map?;
-          final pueObj = bundle['pue'] as Map?;
-          final doorsObj = bundle['doors'] as Map?;
-
-          // Update cached values (best-effort; keep last good values on nulls).
-          final envRes = env?['result'];
-          if (envRes is List && envRes.isNotEmpty) {
-            final e = envRes[0];
-            if (e is Map) {
-              smokeStatus = (e['smokeStatus'] as int?) ?? smokeStatus;
-              floodStatus = (e['floodStatus'] as int?) ?? floodStatus;
-            }
-          }
-
-          final dsRes = ds?['result'];
-          if (dsRes is List) {
-            devices = dsRes
-                    .map((e) => (e as Map).cast<String, dynamic>())
-                    .toList() ??
-                devices;
-          }
-
-          final sysRes = si?['result'];
-          if (sysRes is Map) {
-            sysInfo = sysRes.cast<String, dynamic>();
-          }
-
-          final raRes = ra?['result'];
-          if (raRes is List) {
-            recentAlarms = raRes.toList();
-          }
-
-          // Power month (adapter returns { result: {...} } under powerMonth)
-          final pmRes = pm?['result'];
-          if (pmRes is Map) {
-            powerMonth = pmRes.map(
-              (k, v) => MapEntry(k.toString(), (v as num?)?.toDouble() ?? 0.0),
-            ).cast<String, double>();
-          }
-
-          // PUE (adapter returns { pueStatus, pue, ... } under pue)
-          if (pueObj != null) {
-            final status = pueObj['pueStatus']?.toString();
-            if (status != null && status.isNotEmpty) {
-              pueStatus = status;
-            }
-            final v = pueObj['pue'];
-            if (v is num) {
-              pue = v.toDouble();
-            } else if (v != null) {
-              pue = double.tryParse(v.toString());
-            }
-          }
-
-          // Doors (adapter returns { result: [...] } under doors)
-          final doorsRes = doorsObj?['result'];
-          if (doorsRes is List) {
-            doors = doorsRes
-                .whereType<Map>()
-                .map((e) => e.cast<String, dynamic>())
-                .toList();
-          }
-
-          lastUpdatedUtc = DateTime.now().toUtc();
-          AppConstants.hasCriticalBanner = hasCriticalBanner;
-          _applyEmergencyMode(_computeEmergencyMode());
-          notifyListeners();
-          return;
-        }
-      }
 
       Future<Map<String, dynamic>?> environmentWithFallback() async {
         if (AdapterApiService.instance.isConfigured && siteId != null) {

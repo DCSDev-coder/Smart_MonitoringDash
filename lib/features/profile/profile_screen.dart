@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
@@ -111,6 +113,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Account Section
               _sectionLabel('ACCOUNT'),
               const SizedBox(height: 12),
+              if (kDebugMode) ...[
+                Builder(builder: (context) {
+                  final token =
+                      CpanelApiService.instance.getAuthTokenInMemory() ?? '';
+                  if (token.isEmpty) {
+                    return _buildProfileTile(
+                      icon: Icons.vpn_key_rounded,
+                      title: 'Portal Token (Debug)',
+                      subtitle: 'Sign in first to enable copying',
+                      trailing: const Icon(Icons.info_outline_rounded,
+                          color: AppTheme.textSecondary),
+                    );
+                  }
+                  final prefix =
+                      token.length <= 16 ? token : token.substring(0, 16);
+                  return _buildProfileTile(
+                    icon: Icons.vpn_key_rounded,
+                    title: 'Portal Token (Debug)',
+                    subtitle: '$prefix… (${token.length})',
+                    trailing: TextButton(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: token));
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Portal token copied to clipboard.'),
+                          ),
+                        );
+                      },
+                      child: const Text('Copy'),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 12),
+              ],
               if (_canManageUsers) ...[
                 _buildProfileTile(
                   icon: Icons.group_add_outlined,

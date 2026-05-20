@@ -15,6 +15,7 @@ import 'core/controllers/global_status_poller.dart';
 import 'core/controllers/smart_polling_settings.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/notifications/push_notification_service.dart';
+import 'core/utils/app_log.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/dashboard/dashboard_v2_screen.dart';
 import 'features/admin/admin_webview_screen.dart';
@@ -158,7 +159,7 @@ Future<void> main() async {
     try {
       await fn().timeout(const Duration(seconds: 3));
     } catch (e) {
-      debugPrint('[Boot] Safe init skipped due to: $e');
+      AppLog.d('Safe init skipped', tag: 'Boot', fields: {'error': '$e'});
       // Continue boot even if prefs are unavailable for some reason.
     }
   }
@@ -179,7 +180,7 @@ Future<void> main() async {
   await safeInit(AppThemeController.instance.init);
   // Android-first Firebase push setup (best-effort; no boot blocking).
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    debugPrint('[Boot] Starting Android push init...');
+    AppLog.d('Starting Android push init', tag: 'Boot');
     await safeInit(PushNotificationService.instance.init);
   }
 
@@ -667,7 +668,7 @@ class _MainShellState extends State<MainShell>
   }
 
   Future<void> _handleLogoUpload() async {
-    debugPrint('[LogoUpload] Tap received — starting logo upload flow');
+    AppLog.d('Tap received - starting logo upload flow', tag: 'LogoUpload');
     final site = CpanelApiService.instance.currentSite;
     if (site == null) {
       showDialog(
@@ -689,13 +690,12 @@ class _MainShellState extends State<MainShell>
     final siteIdStr = site['site_id']?.toString() ?? '';
     final siteId = int.tryParse(siteIdStr);
     if (siteId == null) {
-      debugPrint(
-          '[LogoUpload] ERROR: siteId is null — site id string: $siteIdStr');
+      AppLog.w('siteId is null', tag: 'LogoUpload', fields: {'siteIdStr': siteIdStr});
       return;
     }
 
     try {
-      debugPrint('[LogoUpload] Opening gallery picker...');
+      AppLog.d('Opening gallery picker', tag: 'LogoUpload');
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,

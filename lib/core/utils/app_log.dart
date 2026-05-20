@@ -14,12 +14,46 @@ import 'dart:convert';
 class AppLog {
   AppLog._();
 
+  static const String _configuredMinLevel =
+      String.fromEnvironment('APP_LOG_LEVEL', defaultValue: '');
+
+  static String get _minLevel {
+    if (_configuredMinLevel.trim().isNotEmpty) return _configuredMinLevel.trim();
+    if (kDebugMode) return 'debug';
+    if (kProfileMode) return 'info';
+    return 'warn'; // release default: keep logs quiet
+  }
+
+  static int _levelValue(String level) {
+    switch (level.toLowerCase()) {
+      case 'debug':
+      case 'd':
+        return 10;
+      case 'info':
+      case 'i':
+        return 20;
+      case 'warn':
+      case 'warning':
+      case 'w':
+        return 30;
+      case 'error':
+      case 'e':
+        return 40;
+      default:
+        return 30;
+    }
+  }
+
+  static bool _shouldLog(String level) {
+    return _levelValue(level) >= _levelValue(_minLevel);
+  }
+
   static void d(
     String message, {
     String tag = 'APP',
     Map<String, Object?>? fields,
   }) {
-    if (!kDebugMode) return;
+    if (!_shouldLog('debug')) return;
     _emit('D', tag, message, fields: fields);
   }
 
@@ -28,6 +62,7 @@ class AppLog {
     String tag = 'APP',
     Map<String, Object?>? fields,
   }) {
+    if (!_shouldLog('info')) return;
     _emit('I', tag, message, fields: fields);
   }
 
@@ -37,6 +72,7 @@ class AppLog {
     Map<String, Object?>? fields,
     Object? error,
   }) {
+    if (!_shouldLog('warn')) return;
     _emit('W', tag, message, fields: fields, error: error);
   }
 
@@ -47,6 +83,7 @@ class AppLog {
     Object? error,
     StackTrace? stackTrace,
   }) {
+    if (!_shouldLog('error')) return;
     _emit('E', tag, message, fields: fields, error: error, stackTrace: stackTrace);
   }
 

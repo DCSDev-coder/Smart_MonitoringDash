@@ -139,6 +139,13 @@ class CpanelApiService {
           final token = data['auth_token']?.toString().trim();
           if (token != null && token.isNotEmpty) {
             _portalAuthToken = token;
+            if (kDebugMode) {
+              final prefix = token.length <= 16 ? token : token.substring(0, 16);
+              AppLog.d(
+                '[CpanelApi] Portal token set (masked)',
+                fields: {'prefix': prefix, 'length': token.length},
+              );
+            }
           }
           final user = data['user'];
           final portalUsername = (user is Map<String, dynamic>)
@@ -341,7 +348,7 @@ class CpanelApiService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] auth_me Error: $e');
+        AppLog.w('auth_me error', tag: 'CpanelApi', error: e);
       }
     }
 
@@ -407,7 +414,7 @@ class CpanelApiService {
       return merged;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Merge Member Permissions Error: $e');
+        AppLog.w('Merge member permissions error', tag: 'CpanelApi', error: e);
       }
       return Map<String, dynamic>.from(site);
     }
@@ -438,7 +445,7 @@ class CpanelApiService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Fetch Members Error: $e');
+        AppLog.w('Fetch members error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -467,7 +474,7 @@ class CpanelApiService {
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Register Push Token Error: $e');
+        AppLog.w('Register push token error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -494,7 +501,7 @@ class CpanelApiService {
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Remove Push Token Error: $e');
+        AppLog.w('Remove push token error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -531,7 +538,7 @@ class CpanelApiService {
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Create Site User Error: $e');
+        AppLog.w('Create site user error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -566,7 +573,7 @@ class CpanelApiService {
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Update Member Error: $e');
+        AppLog.w('Update member error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -613,7 +620,7 @@ class CpanelApiService {
       if (res2 != null) return res2;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Remove Member Error: $e');
+        AppLog.w('Remove member error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -622,7 +629,11 @@ class CpanelApiService {
   Future<bool> updateMaintenanceDate(int siteId, String date) async {
     try {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Updating maintenance for site $siteId: $date');
+        AppLog.d(
+          'Updating maintenance',
+          tag: 'CpanelApi',
+          fields: {'siteId': siteId, 'date': date},
+        );
       }
       final response = await http
           .post(
@@ -641,7 +652,7 @@ class CpanelApiService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Update Maintenance Error: $e');
+        AppLog.w('Update maintenance error', tag: 'CpanelApi', error: e);
       }
     }
     return false;
@@ -654,7 +665,11 @@ class CpanelApiService {
   }) async {
     try {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Uploading logo for site $siteId: $filePath');
+        AppLog.d(
+          'Uploading logo',
+          tag: 'CpanelApi',
+          fields: {'siteId': siteId, 'filePath': filePath},
+        );
       }
 
       final uri = Uri.parse("$baseUrl?action=upload_logo");
@@ -681,13 +696,13 @@ class CpanelApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (kDebugMode) {
-          debugPrint('[CpanelApi] Upload Result: $data');
+          AppLog.d('Upload result', tag: 'CpanelApi', fields: {'status': '$data'});
         }
         return data;
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[CpanelApi] Upload Logo Error: $e');
+        AppLog.w('Upload logo error', tag: 'CpanelApi', error: e);
       }
     }
     return null;

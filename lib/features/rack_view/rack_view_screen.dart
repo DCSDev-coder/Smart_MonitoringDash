@@ -6,11 +6,11 @@ import '../../core/constants/app_constants.dart';
 import '../../core/controllers/smart_polling_settings.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/adapter_api_service.dart';
+import '../../core/utils/app_log.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
-import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
 
 class RackViewScreen extends StatefulWidget {
@@ -31,7 +31,6 @@ class _RackViewScreenState extends State<RackViewScreen>
     with TickerProviderStateMixin {
   bool _loading = true;
   bool _refreshing = false;
-  bool _writing = false;
   Timer? _refreshTimer;
   Duration _interval = SmartPollingSettings.instance.normalInterval();
 
@@ -49,12 +48,16 @@ class _RackViewScreenState extends State<RackViewScreen>
   double _pdu1P = 0.0;
   double _pdu1A = 0.0;
   final Map<int, double> _pdu1Outlets = {};
+  final Map<int, String?> _pdu1OutletControlCodes = {};
+  final Map<int, int?> _pdu1OutletControlValues = {};
   List<dynamic> _pdu1Records = [];
 
   // PDU 2 (Node 7)
   double _pdu2P = 0.0;
   double _pdu2A = 0.0;
   final Map<int, double> _pdu2Outlets = {};
+  final Map<int, String?> _pdu2OutletControlCodes = {};
+  final Map<int, int?> _pdu2OutletControlValues = {};
   List<dynamic> _pdu2Records = [];
 
   bool _pdu1Expanded = false;
@@ -113,6 +116,113 @@ class _RackViewScreenState extends State<RackViewScreen>
 
   Future<void> _fetchRackData() async {
     try {
+      // Prefer adapter-normalized rack telemetry when configured.
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+
+      if (AdapterApiService.instance.isConfigured && siteId != null) {
+        final telem = await AdapterApiService.instance
+            .fetchRackTelemetry(siteId: siteId);
+
+        if (!mounted) return;
+        if (telem != null) {
+          setState(() {
+            final inlet = telem['inlet'];
+            final pdu1 = telem['pdu1'];
+            final pdu2 = telem['pdu2'];
+
+            // Keep raw records for outlet control lookup (metricCode discovery),
+            // but prefer adapter-normalized numeric values for display.
+            final inletRecords =
+                (inlet is Map) ? (inlet['records'] as List?) : null;
+            final pdu1Records =
+                (pdu1 is Map) ? (pdu1['records'] as List?) : null;
+            final pdu2Records =
+                (pdu2 is Map) ? (pdu2['records'] as List?) : null;
+            _pdu1Records = pdu1Records ?? const [];
+            _pdu2Records = pdu2Records ?? const [];
+
+            double readNum(dynamic v) {
+              if (v is num) return v.toDouble();
+              return double.tryParse(v?.toString() ?? '') ?? 0.0;
+            }
+
+            // Inlet
+            final inletKw = (inlet is Map) ? readNum(inlet['kw']) : 0.0;
+            final inletOnline = (inlet is Map) ? (inlet['online'] == true) : false;
+            _inletP = inletKw;
+            _inletOnline = inletOnline || (inletRecords?.isNotEmpty == true);
+            // We intentionally do not depend on VOLTS/AMPS (omitted in UI).
+            _inletV = 0.0;
+            _inletA = 0.0;
+
+            // PDU summaries
+            _pdu1P = (pdu1 is Map) ? readNum(pdu1['kw']) : 0.0;
+            _pdu1A = (pdu1 is Map) ? readNum(pdu1['amps']) : 0.0;
+            _pdu2P = (pdu2 is Map) ? readNum(pdu2['kw']) : 0.0;
+            _pdu2A = (pdu2 is Map) ? readNum(pdu2['amps']) : 0.0;
+
+            // Per-outlet watts (prefer adapter-normalized list)
+            void fillOutlets(
+              dynamic pduObj,
+              Map<int, double> wattsTarget,
+              Map<int, String?> controlCodeTarget,
+              Map<int, int?> controlValueTarget,
+            ) {
+              for (int i = 1; i <= 16; i++) {
+                wattsTarget[i] = 0.0;
+                controlCodeTarget[i] = null;
+                controlValueTarget[i] = null;
+              }
+              if (pduObj is! Map) return;
+              final outs = pduObj['outlets'];
+              if (outs is! List) return;
+              for (final o in outs) {
+                if (o is! Map) continue;
+                final idxRaw = o['index'];
+                final idx = (idxRaw is num)
+                    ? idxRaw.toInt()
+                    : int.tryParse(idxRaw?.toString() ?? '');
+                if (idx == null) continue;
+                wattsTarget[idx] = readNum(o['watts']);
+
+                final c = o['control'];
+                if (c is Map) {
+                  controlCodeTarget[idx] = c['metricCode']?.toString();
+                  final v = c['value'];
+                  if (v is num) {
+                    controlValueTarget[idx] = v.toInt();
+                  } else if (v is String) {
+                    controlValueTarget[idx] = int.tryParse(v);
+                  }
+                }
+              }
+            }
+
+            fillOutlets(pdu1, _pdu1Outlets, _pdu1OutletControlCodes,
+                _pdu1OutletControlValues);
+            fillOutlets(pdu2, _pdu2Outlets, _pdu2OutletControlCodes,
+                _pdu2OutletControlValues);
+
+            _loading = false;
+          });
+
+          AppLog.d(
+            'rack-telemetry kw sample',
+            tag: 'RackView',
+            fields: {
+              'inletKw': (telem['inlet'] as Map?)?['kw'],
+              'pdu1Kw': (telem['pdu1'] as Map?)?['kw'],
+              'pdu2Kw': (telem['pdu2'] as Map?)?['kw'],
+            },
+          );
+          return;
+        }
+      }
+
       final results = await Future.wait([
         ApiService.instance.fetchNodeMetrics(6), // PDU 1
         ApiService.instance.fetchNodeMetrics(7), // PDU 2
@@ -456,28 +566,8 @@ class _RackViewScreenState extends State<RackViewScreen>
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              _metricBlock(
-                icon: Icons.bolt_rounded,
-                // Light mode needs a deeper gold to read on white.
-                iconColor:
-                    isLight ? const Color(0xFFFFA000) : Colors.yellowAccent,
-                label: 'VOLTS',
-                value: _inletV > 0 ? '${_inletV.toStringAsFixed(0)}V' : '--',
-                uiScale: uiScale,
-              ),
-              const SizedBox(width: 18),
-              _metricBlock(
-                icon: Icons.speed_rounded,
-                iconColor: Colors.lightBlueAccent,
-                label: 'AMPS',
-                value: _inletA == 0 ? '--' : _inletA.toStringAsFixed(1),
-                uiScale: uiScale,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
+          // VOLTS/AMPS are omitted because many vendor builds report them as null/0.
+          const SizedBox(height: 4),
           Row(
             children: [
               Text('RACK LOAD',
@@ -510,63 +600,6 @@ class _RackViewScreenState extends State<RackViewScreen>
                   : Colors.white.withValues(alpha: 0.12),
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppTheme.accentGreen),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metricBlock(
-      {required IconData icon,
-      required Color iconColor,
-      required String label,
-      required String value,
-      required double uiScale}) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final labelColor = isLight
-        ? AppTheme.lightTextSecondary.withValues(alpha: 0.95)
-        : Colors.white.withValues(alpha: 0.80);
-    final valueFg = isLight ? AppTheme.lightTextPrimary : Colors.white;
-    final valueBg = isLight
-        ? const Color(0xFFE6E6E6)
-        : Colors.white.withValues(alpha: 0.14);
-
-    return Expanded(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: iconColor, size: 16 * uiScale),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: labelColor,
-              fontSize: 12 * uiScale,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: valueBg,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isLight
-                    ? Colors.black.withValues(alpha: 0.06)
-                    : Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-            child: Text(
-              value,
-              style: TextStyle(
-                color: valueFg,
-                fontSize: 13.5 * uiScale,
-                fontWeight: FontWeight.w900,
-                height: 1.0,
-              ),
             ),
           ),
         ],
@@ -686,6 +719,8 @@ class _RackViewScreenState extends State<RackViewScreen>
       required double pA,
       required List<dynamic> records,
       required Map<int, double> outlets,
+      Map<int, String?>? outletControlCodes,
+      Map<int, int?>? outletControlValues,
       required bool expanded,
       required int columns,
       required double uiScale,
@@ -806,6 +841,8 @@ class _RackViewScreenState extends State<RackViewScreen>
                     watts: w,
                     isOn: _outletIsOn(records: records, watts: w, index: n),
                     records: records,
+                    controlMetricCode: outletControlCodes?[n],
+                    controlCurrentValue: outletControlValues?[n],
                     uiScale: uiScale,
                   );
                 },
@@ -831,266 +868,169 @@ class _RackViewScreenState extends State<RackViewScreen>
     );
   }
 
-  Map<String, dynamic>? _findOutletControlMetric(
-      List<dynamic> records, int outletNum) {
-    final prefix = 'outlet${outletNum}onoffcontrol_';
-    for (final r in records) {
-      final code =
-          (r['code'] ?? r['metricTypeLibCode'] ?? r['name'])?.toString() ?? '';
-      if (code.startsWith(prefix)) return (r as Map).cast<String, dynamic>();
-    }
-    return null;
-  }
-
-  int? _readNumericValue(Map<String, dynamic> metric) {
-    final v = metric['value'] ?? metric['val'];
-    if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v);
-    return null;
-  }
-
-  Future<void> _showOutletControlSheet({
+  Future<void> _showOutletDetailsSheet({
     required int nodeId,
     required int outletNum,
-    required String metricCode,
-    required int? currentValue,
+    required double watts,
+    required bool isOn,
+    required List<dynamic> records,
     required double uiScale,
   }) async {
-    if (_writing) return;
+    double amps = _getMetric(records, 'outlet${outletNum}current_');
+    if (amps == 0) amps = _getMetric(records, 'outlet_${outletNum}_current');
 
-    String labelFor(int v) => switch (v) {
-          0 => 'Uncontrollable',
-          1 => 'On',
-          2 => 'Off',
-          _ => 'Unknown'
-        };
-    final currentLabel =
-        currentValue == null ? 'Unknown' : labelFor(currentValue);
+    final kwh = _getMetric(records, 'outlet_${outletNum}_electrical_energy');
+    final pf = _getMetric(records, 'outlet_${outletNum}_power_factor');
+    final hasEnergy = kwh > 0;
+    final hasPf = pf > 0;
 
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final isLight = Theme.of(context).brightness == Brightness.light;
+        final sheetTint = isLight ? Colors.white : const Color(0xFF0E141B);
+        final sheetBorder =
+            isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
+        final labelColor =
+            isLight ? AppTheme.lightTextSecondary : Colors.white70;
+        final valueColor =
+            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final iconColor = isLight
+            ? AppTheme.lightTextSecondary.withValues(alpha: 0.80)
+            : Colors.white.withValues(alpha: 0.75);
+
+        Widget row({
+          required String label,
+          required String value,
+          IconData? icon,
+        }) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: iconColor),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: labelColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5 * uiScale,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: valueColor,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13 * uiScale,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         return DashboardGlass(
           radius: 22,
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          tint: const Color(0xFF0E141B).withValues(alpha: 0.96),
-          borderColor: const Color(0x22FFFFFF),
+          tint: sheetTint.withValues(alpha: isLight ? 0.98 : 0.96),
+          borderColor: sheetBorder,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Text('PDU $nodeId  Outlet $outletNum',
-                      style: TextStyle(
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                          fontWeight: FontWeight.w900)),
+                  Text(
+                    'PDU $nodeId  Outlet $outletNum',
+                    style: TextStyle(
+                        color: valueColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14 * uiScale),
+                  ),
                   const Spacer(),
                   IconButton(
                     icon:
-                        const Icon(Icons.close_rounded, color: Colors.white70),
+                        Icon(Icons.close_rounded,
+                            color: isLight
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white70),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              Text('Current: $currentLabel',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _controlChip(
-                    label: 'Uncontrollable',
-                    isActive: currentValue == 0,
-                    onTap: () => _confirmAndWriteOutlet(
-                        nodeId: nodeId, metricCode: metricCode, value: 0),
-                  ),
-                  _controlChip(
-                    label: 'On',
-                    isActive: currentValue == 1,
-                    onTap: () => _confirmAndWriteOutlet(
-                        nodeId: nodeId, metricCode: metricCode, value: 1),
-                  ),
-                  _controlChip(
-                    label: 'Off',
-                    isActive: currentValue == 2,
-                    onTap: () => _confirmAndWriteOutlet(
-                        nodeId: nodeId, metricCode: metricCode, value: 2),
-                  ),
-                ],
-              ),
               const SizedBox(height: 6),
-              Text(
-                'Tip: if you turn an outlet Off, it may cut power to connected devices (e.g. AC/PDU load).',
-                style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextSecondary
-                        : Colors.white.withValues(alpha: 0.55),
-                    fontSize: 12,
-                    height: 1.2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isOn
+                      ? AppTheme.accentGreen.withValues(alpha: 0.18)
+                      : (isLight
+                          ? const Color(0xFFE5E7EB)
+                          : Colors.white.withValues(alpha: 0.10)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: isLight
+                          ? Colors.black.withValues(alpha: 0.08)
+                          : Colors.white.withValues(alpha: 0.10)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isOn ? Icons.power_rounded : Icons.power_off_rounded,
+                      size: 18,
+                      color: isOn
+                          ? AppTheme.accentGreen
+                          : (isLight
+                              ? AppTheme.lightTextSecondary
+                              : Colors.white.withValues(alpha: 0.75)),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      isOn ? 'Status: On' : 'Status: Off',
+                      style: TextStyle(
+                        color: valueColor,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 10),
+              row(
+                label: 'Power (Watts)',
+                value: '${watts.round()} W',
+                icon: Icons.bolt_rounded,
+              ),
+              row(
+                label: 'Current (Amps)',
+                value: '${amps.toStringAsFixed(2)} A',
+                icon: Icons.speed_rounded,
+              ),
+              if (hasEnergy)
+                row(
+                  label: 'Energy (kWh)',
+                  value: kwh.toStringAsFixed(2),
+                  icon: Icons.stacked_line_chart_rounded,
+                ),
+              if (hasPf)
+                row(
+                  label: 'Power factor',
+                  value: pf.toStringAsFixed(2),
+                  icon: Icons.tune_rounded,
+                ),
             ],
           ),
         );
       },
     );
-  }
-
-  Widget _controlChip({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    final c =
-        isActive ? Colors.orangeAccent : Colors.white.withValues(alpha: 0.18);
-    return InkWell(
-      onTap: _writing ? null : onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: c.withValues(alpha: isActive ? 0.18 : 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: c.withValues(alpha: 0.35)),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.92),
-                fontWeight: FontWeight.w900)),
-      ),
-    );
-  }
-
-  Future<void> _confirmAndWriteOutlet({
-    required int nodeId,
-    required String metricCode,
-    required int value,
-  }) async {
-    if (_writing) return;
-
-    String labelFor(int v) => switch (v) {
-          0 => 'Uncontrollable',
-          1 => 'On',
-          2 => 'Off',
-          _ => 'Unknown'
-        };
-    final label = labelFor(value);
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: DashboardGlass(
-          radius: 18,
-          padding: const EdgeInsets.all(16),
-          tint: const Color(0xFF0E141B).withValues(alpha: 0.96),
-          borderColor: const Color(0x22FFFFFF),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Confirm Action',
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? AppTheme.lightTextPrimary
-                          : Colors.white,
-                      fontWeight: FontWeight.w900)),
-              const SizedBox(height: 10),
-              Text('Set outlet state to: $label',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.25)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor:
-                            Colors.orangeAccent.withValues(alpha: 0.85),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Apply'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (ok != true) return;
-
-    final authorized = await SecureActionGuard.ensureAuthorized(
-      context,
-      reason: 'Confirm to change outlet state',
-      ttl: const Duration(seconds: 30),
-    );
-    if (!authorized) return;
-
-    setState(() => _writing = true);
-    try {
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
-
-      Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
-        res = await AdapterApiService.instance.writeNodeMetric(
-          siteId: siteId,
-          nodeId: nodeId,
-          metricTypeLibCode: metricCode,
-          value: value,
-        );
-      }
-      res ??= await ApiService.instance.writeNodeMetric(
-          nodeId: nodeId, metricTypeLibCode: metricCode, value: value);
-      final okSuccess =
-          (res?['success'] == true) || (res?['code']?.toString() == '20000');
-      if (!okSuccess) {
-        final msg =
-          res?['message']?.toString() ?? 'Control failed (no response).';
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF0E141B),
-            ),
-          );
-        }
-        return;
-      }
-      // Refresh immediately so UI reflects the new state.
-      await _fetchRackData();
-      if (mounted) Navigator.pop(context); // close bottom sheet
-    } finally {
-      if (mounted) setState(() => _writing = false);
-    }
   }
 
   Widget _outletTile(
@@ -1099,6 +1039,8 @@ class _RackViewScreenState extends State<RackViewScreen>
       required double watts,
       required bool isOn,
       required List<dynamic> records,
+      String? controlMetricCode,
+      int? controlCurrentValue,
       required double uiScale}) {
     final pct = (watts / _outletMaxWatts).clamp(0.0, 1.0);
     final isLight = Theme.of(context).brightness == Brightness.light;
@@ -1121,23 +1063,15 @@ class _RackViewScreenState extends State<RackViewScreen>
     final border = isLight
         ? Colors.black.withValues(alpha: 0.10)
         : Colors.white.withValues(alpha: 0.12);
-    final controlMetric = _findOutletControlMetric(records, outletNum);
-    final metricCode = controlMetric?['code']?.toString() ??
-        controlMetric?['metricTypeLibCode']?.toString();
-    final currentValue =
-        controlMetric == null ? null : _readNumericValue(controlMetric);
-    final bool canControl = metricCode != null && metricCode.isNotEmpty;
-
     return InkWell(
-      onTap: canControl
-          ? () => _showOutletControlSheet(
-                nodeId: nodeId,
-                outletNum: outletNum,
-                metricCode: metricCode,
-                currentValue: currentValue,
-                uiScale: uiScale,
-              )
-          : null,
+      onTap: () => _showOutletDetailsSheet(
+        nodeId: nodeId,
+        outletNum: outletNum,
+        watts: watts,
+        isOn: isOn,
+        records: records,
+        uiScale: uiScale,
+      ),
       borderRadius: BorderRadius.circular(14 * uiScale),
       child: Container(
         padding: const EdgeInsets.all(6),
@@ -1176,20 +1110,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                       color: text,
                       fontSize: 11 * uiScale,
                       fontWeight: FontWeight.w900)),
-            if (canControl) ...[
-              const SizedBox(height: 4),
-              Text(
-                'CONTROL',
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.55),
-                  fontSize: 9 * uiScale,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ],
+            // Tap opens a read-only details sheet (switching is in Control Panel).
           ],
         ),
       ),
