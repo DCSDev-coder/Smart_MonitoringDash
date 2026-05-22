@@ -10,6 +10,7 @@ import '../../core/network/api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/utils/app_log.dart';
@@ -844,7 +845,7 @@ class _ReportScreenState extends State<ReportScreen>
         ? 100
         : (onlinePhysicalDevices / totalPhysicalDevices * 100).toInt();
 
-    final hPadding = screenWidth * 0.06;
+    final hPadding = AppSpacing.pageHorizontal(context);
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -906,7 +907,7 @@ class _ReportScreenState extends State<ReportScreen>
                     if (!_loading)
                       Column(
                         children: [
-                          const SizedBox(height: 12),
+                          const SizedBox(height: AppSpacing.sectionGapSm),
                           Visibility(
                             visible: _selectedTabIndex == 0,
                             maintainState: true,
@@ -942,11 +943,11 @@ class _ReportScreenState extends State<ReportScreen>
                                   EdgeInsets.symmetric(horizontal: hPadding),
                               child: const Column(
                                 children: [
-                                  SizedBox(height: 12),
+                                  SizedBox(height: AppSpacing.sectionGapSm),
                                   _ReportSkeletonCard(),
-                                  SizedBox(height: 14),
+                                  SizedBox(height: AppSpacing.cardGap),
                                   _ReportSkeletonCard(),
-                                  SizedBox(height: 14),
+                                  SizedBox(height: AppSpacing.cardGap),
                                   _ReportSkeletonCard(),
                                 ],
                               ),
@@ -964,9 +965,7 @@ class _ReportScreenState extends State<ReportScreen>
                   // Keep the last card (PUE Stability) as the natural end of the
                   // scroll, while still leaving enough room for the floating
                   // bottom nav on phones.
-                  height: MediaQuery.of(context).size.width >= 600
-                      ? 24
-                      : (MediaQuery.of(context).padding.bottom + 95),
+                  height: AppSpacing.pageBottom(context),
                 ),
               ),
             ],
@@ -1026,10 +1025,10 @@ class _ReportScreenState extends State<ReportScreen>
             ),
           ] else ...[
             _buildSummaryCard(healthScore),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.cardGap),
             _buildTrendAnalysisGrid(),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.sectionGapMd),
           _buildEnergySection(totalPower),
         ],
       ),

@@ -18,6 +18,7 @@ import 'widgets/service_notice_card.dart';
 import 'widgets/door_control_section.dart';
 import 'widgets/device_health_section.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_spacing.dart';
 
 /// Dashboard V2 (dark-only) matching `DashboardV2_Page.png`.
 ///
@@ -616,10 +617,10 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                       parent: ClampingScrollPhysics(),
                     ),
                     padding: EdgeInsets.fromLTRB(
-                      14,
+                      AppSpacing.pageHorizontal(context),
                       AppConstants.headerClearance(context),
-                      16,
-                      24 + 110,
+                      AppSpacing.pageHorizontal(context),
+                      AppSpacing.pageBottom(context),
                     ),
                     children: [
                       Align(

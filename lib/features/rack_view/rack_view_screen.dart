@@ -9,6 +9,7 @@ import '../../core/network/adapter_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_spacing.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
@@ -535,7 +536,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics()),
             padding: EdgeInsets.fromLTRB(
-                hPadding, AppConstants.headerClearance(context), hPadding, 92),
+                hPadding, AppConstants.headerClearance(context), hPadding, AppSpacing.pageBottom(context)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

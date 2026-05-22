@@ -35,7 +35,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
             _buildEventFilterRow(),
           ],
         ),
-        const SizedBox(height: 0),
+        const SizedBox(height: AppSpacing.sectionGapSm),
         if (_fetchingHistoricalEvents)
           const SizedBox(
             height: 100,
@@ -50,21 +50,10 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
         else if (_reportAlarms.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.black.withValues(alpha: 0.05)
-                  : const Color(0xFF3B3F44),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightStroke
-                    : const Color(0x22FFFFFF),
-              ),
-            ),
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: const Text(
               'No events found for this period.',
-              style: TextStyle(color: Color.fromARGB(179, 82, 82, 82)),
+              style: TextStyle(color: Colors.white, fontSize: 13),
               textAlign: TextAlign.center,
             ),
           )
@@ -582,7 +571,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               _buildEventFilterRow(),
             ],
           ),
-          const SizedBox(height: 0),
+          const SizedBox(height: AppSpacing.sectionGapSm),
           if (_fetchingDoorLogs)
             const SizedBox(
               height: 100,
@@ -595,31 +584,13 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               ),
             )
           else if (_doorLogs.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? Colors.black.withValues(alpha: 0.05)
-                      : const Color(0xFF3B3F44),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightStroke
-                        : const Color(0x22FFFFFF),
-                  ),
-                ),
-                child: Text(
-                  'No security events found.',
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextPrimary
-                        : AppTheme.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: const Text(
+                'No security events found.',
+                style: TextStyle(color: Colors.white, fontSize: 13),
+                textAlign: TextAlign.center,
               ),
             )
           else

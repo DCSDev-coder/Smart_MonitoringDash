@@ -10,6 +10,7 @@ import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_spacing.dart';
 
 class ControlScreen extends StatefulWidget {
   const ControlScreen({super.key});
@@ -215,8 +216,7 @@ class _ControlScreenState extends State<ControlScreen>
     final hint = _section == _ControlSection.ac ? _acHint : null;
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final hPadding = screenWidth * 0.06;
+    final hPadding = AppSpacing.pageHorizontal(context);
     final subTextColor = isLight
         ? AppTheme.lightTextSecondary
         : Colors.white.withValues(alpha: 0.65);
@@ -273,7 +273,7 @@ class _ControlScreenState extends State<ControlScreen>
                       _loading
                           ? _tableSkeleton()
                           : _nodeTable(node, hint: hint),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.sectionGapMd),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Text(
@@ -288,7 +288,7 @@ class _ControlScreenState extends State<ControlScreen>
                               height: 1.4),
                         ),
                       ),
-                      const SizedBox(height: 92), // Bottom padding
+                      SizedBox(height: AppSpacing.pageBottom(context)), // Bottom padding
                     ],
                   ),
                 ),
