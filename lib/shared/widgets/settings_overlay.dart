@@ -244,7 +244,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
               isLight ? Colors.white : const Color(0xFF0B0F14),
           surfaceTintColor: Colors.transparent,
           title: Text(
-            'Smart Performance',
+            'Performance',
             style: bitcount(
               context,
               fontSize: 16,
@@ -592,7 +592,6 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               icon: Icons.manage_accounts_outlined,
                               onTap: widget.onManageUsers,
                             ),
-                            const SizedBox(height: 16),
                           ],
                           _SettingsTile(
                             title: 'Reset Password',
@@ -600,7 +599,6 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                             onTap: _handleChangePassword,
                           ),
                           // CCTV Configuration Hidden as requested
-                          const SizedBox(height: 16),
                           _SettingsTile(
                             title: 'Appearance',
                             icon: Icons.palette_outlined,
@@ -616,9 +614,8 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                             ),
                             onTap: _showThemeDialog,
                           ),
-                          const SizedBox(height: 16),
                           _SettingsTile(
-                            title: 'Smart Performance',
+                            title: 'Performance',
                             icon: Icons.speed_rounded,
                             trailing: Text(
                               _pollingModeLabel(_pollingMode),
@@ -686,70 +683,44 @@ class _SettingsTile extends StatelessWidget {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
 
-    final tileBg = isLight
-        ? theme.colorScheme.surface
-        : Colors.white.withValues(alpha: 0.05);
-    final tileBorder =
-        isLight ? AppTheme.lightStroke : Colors.white.withValues(alpha: 0.08);
-    final iconBg = isLight
-        ? const Color(0xFFEAF2FF)
-        : Colors.white.withValues(alpha: 0.10);
-    final iconColor = isLight
-        ? AppTheme.lightTextPrimary
-        : Colors.white.withValues(alpha: 0.88);
     final textColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
+    final iconColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
     final chevronColor = isLight
         ? Colors.black.withValues(alpha: 0.55)
         : Colors.white.withValues(alpha: 0.75);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: tileBg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: tileBorder),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: iconColor,
-                    size: 22,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: iconColor,
+                size: 28,
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Text(
+                  title,
+                  style: bitcount(
+                    context,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: bitcount(
-                      context,
-                      fontSize: 14,
-                      color: textColor,
-                      letterSpacing: 1.0,
-                    ),
+              ),
+              const SizedBox(width: 12),
+              trailing ??
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: chevronColor,
                   ),
-                ),
-                const SizedBox(width: 12),
-                trailing ??
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: chevronColor,
-                    ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

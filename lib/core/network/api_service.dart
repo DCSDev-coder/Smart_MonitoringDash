@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:collection';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:crypto/crypto.dart' as crypto;
 
 import '../../core/constants/app_constants.dart';
 import '../utils/app_log.dart';
@@ -11,6 +13,11 @@ import '../utils/app_log.dart';
 class ApiService {
   ApiService._();
   static final ApiService instance = ApiService._();
+
+  // Signature salt extracted from the vendor web UI bundle captured in our HAR.
+  // The rack expects: MD5(JSON.stringify(sortedParams) + salt).toUpperCase()
+  // where booleans are encoded as JSON booleans (true/false), not strings.
+  static const String _xSignSalt = 'dd05f1c54d63749eda95f9fa6d49v442a';
 
   final _storage = <String, String>{};
   final _client = http.Client();
@@ -105,78 +112,27 @@ class ApiService {
     await prefs.setString(_keyBaseUrl, ip);
   }
 
+  static Object _coerceXSignValue(String value) {
+    final v = value.trim().toLowerCase();
+    if (v == 'true') return true;
+    if (v == 'false') return false;
+    return value;
+  }
+
   static String _xSign(String path, Map<String, String>? query) {
-    final q = query ?? {};
-    if (path.contains('getPower')) {
-      return q['powerType'] == '1'
-          ? AppConstants.xSignGetPowerMonth
-          : AppConstants.xSignGetPowerToday;
-    }
-    if (path.contains('byTypeForStatus') && q['rangeType'] == '1') {
-      return 'B586C31039FA8A0754B01646A7BBD8E5';
-    }
-    if (path.contains('forAlarmByRange')) {
-      return 'D296867CEFAC1B142215D23D3B27548B';
-    }
-    if (path.contains('last5WithCabinet')) {
-      return '701B6581FCDC535F9B0EE55A4A5F73EA';
-    }
-    if (path.contains('checkPue')) {
-      return 'ABBA792021B709D79854FA9503D1FF30';
-    }
-    if (path.contains('getCurrentPue')) {
-      return 'BDEE34CCCAD55816BDE344758457B5C1';
-    }
-    if (path.contains('pueRegion/getAll')) {
-      return '9C85FCC34A7ACF3B7D909D1EB45E3507';
-    }
-    if (path.contains('cabinet/tree')) {
-      return '461CBDA413089067DADD90FF81C5693E';
-    }
-    if (path.contains('cabinetEnv')) {
-      return 'E0D73B3F9CED2EEBC298A9D267FE987E';
-    }
-    if (path.contains('dataTest/range')) {
-      return '2947F38FA23FF1AFDE874541533E092C';
-    }
-    if (q.containsKey('powerEnv')) {
-      return '2947F38FA23FF1AFDE874541533E092C';
+    // Vendor web UI algorithm (confirmed in HAR): sign depends on params (NOT _t),
+    // and JSON encodes booleans as real booleans.
+    final src = query ?? const <String, String>{};
+    final keys = src.keys.toList()..sort();
+
+    final sorted = LinkedHashMap<String, Object>();
+    for (final k in keys) {
+      sorted[k] = _coerceXSignValue(src[k] ?? '');
     }
 
-    if (path.contains('sysInfo')) {
-      return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    }
-    if (path.contains('actuator/redis/info')) {
-      return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    }
-    if (path.contains('actuator/redis/memoryInfo')) {
-      return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    }
-    if (path.contains('gate/listByLocationId')) {
-      return '31DAD80CDF8CE1A1A6E172DB9A43C0A3';
-    }
-    if (path.contains('cabinet/mangeListByLocationId')) {
-      return 'C515065BEAC6599D80BF3BF1246B3330';
-    }
-    if (path.contains('log/openClose') ||
-        path.contains('log/query') ||
-        path.contains('log/list') ||
-        path.contains('log/page')) {
-      return '1480D6E26ECFAF81F66498F8152EFB38';
-    }
-    if (path.contains('camera/forCabinet')) {
-      return '31DAD80CDF8CE1A1A6E172DB9A43C0A3';
-    }
-    if (path.contains('cameraGroup/list')) {
-      return '31DAD80CDF8CE1A1A6E172DB9A43C0A3';
-    }
-
-    // Fallback for PUE/Power if specific ones above didn't match or failed
-    if (path.contains('pueRegion') || path.contains('getPower')) {
-      return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    }
-
-    return 'E19D6243CB1945AB4F7202A1B00F77D5';
+    final payload = jsonEncode(sorted);
+    final digest = crypto.md5.convert(utf8.encode('$payload$_xSignSalt'));
+    return digest.toString().toUpperCase();
   }
 
   Future<void> logout() async => _storage.clear();
@@ -558,8 +514,6 @@ class ApiService {
       });
 
   Future<Map<String, dynamic>?> fetchDoorAccessLogs({
-    required int startTime,
-    required int endTime,
     int page = 1,
     int pageSize = 20,
     int? accessId,
@@ -567,19 +521,13 @@ class ApiService {
     int cabinetId = 1,
     int locationId = 1,
   }) {
-    final startDt = DateTime.fromMillisecondsSinceEpoch(startTime);
-    final endDt = DateTime.fromMillisecondsSinceEpoch(endTime);
-
-    String ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
-        '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}';
-
+    // Note: The web UI request shape in our HAR does not include any opTime_* range
+    // filters. Passing unknown filter keys can yield empty results on some deployments.
+    // The UI performs period filtering client-side if needed.
     final query = <String, String>{
       'pageNo': page.toString(),
       'pageSize': pageSize.toString(),
       'accessType': accessType,
-      'opTime_begin': ymd(startDt),
-      'opTime_end': ymd(endDt),
       'column': 'opTime',
       'order': 'desc',
       if (accessType == '1') 'cabinetId': cabinetId.toString(),

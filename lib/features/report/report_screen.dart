@@ -380,8 +380,6 @@ class _ReportScreenState extends State<ReportScreen>
 
       // Fallback to direct Dahua call if adapter is not available.
       res ??= await ApiService.instance.fetchDoorAccessLogs(
-        startTime: startTime,
-        endTime: endTime,
         accessType: '1',
       );
 
@@ -431,8 +429,9 @@ class _ReportScreenState extends State<ReportScreen>
                     site['rack_cabinet_id'])
                 ?.toString()
             : null;
-        final cabinetId =
-            rawCabinetId == null ? null : int.tryParse(rawCabinetId)?.toString();
+        final cabinetId = rawCabinetId == null
+            ? null
+            : int.tryParse(rawCabinetId)?.toString();
 
         if (AdapterApiService.instance.isConfigured && siteId != null) {
           final viaAdapter =

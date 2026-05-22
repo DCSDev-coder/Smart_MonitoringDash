@@ -21,6 +21,9 @@ dependencies:
   # Charting library for PUE / temperature trend graphs
   fl_chart: ^0.68.0
 
+  # Dahua request signature (X-Sign) hashing
+  crypto: ^3.0.3
+
   # SVG rendering for rack icons
   flutter_svg: ^2.0.10+1
   syncfusion_flutter_gauges: ^32.2.8
