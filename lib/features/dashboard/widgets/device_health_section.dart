@@ -580,29 +580,56 @@ class DeviceHealthSection extends StatelessWidget {
 
     if (items.isEmpty) return const SizedBox.shrink();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        // Desktop/tablet layout: 3-column grid for easier scanning.
-        final crossAxisCount = w >= 980 ? 3 : 1;
-        final childAspectRatio = crossAxisCount == 3 ? 3.8 : 4.2;
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: childAspectRatio,
-          ),
-          itemBuilder: (context, i) => _DeviceHealthRow(
-            item: items[i],
-            alarms: alarms,
-          ),
-        );
-      },
+    Widget buildGroup(List<_DeviceHealthItem> groupItems) {
+      if (groupItems.isEmpty) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: isLight
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: groupItems.asMap().entries.map((entry) {
+            final i = entry.key;
+            final item = entry.value;
+            final isLast = i == groupItems.length - 1;
+            return Column(
+              children: [
+                _DeviceHealthRow(item: item, alarms: alarms),
+                if (!isLast)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 72, right: 16),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: isLight
+                          ? Colors.black.withValues(alpha: 0.05)
+                          : Colors.white.withValues(alpha: 0.05),
+                    ),
+                  ),
+              ],
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        buildGroup(items),
+      ],
     );
   }
 }
@@ -829,6 +856,20 @@ class _DeviceHealthRow extends StatelessWidget {
         : (isLight
             ? const Color(0xFFFF3B30).withValues(alpha: 0.10)
             : const Color(0xFFFF3B30).withValues(alpha: 0.08));
+
+    Color getIconColor(String type) {
+      switch (type) {
+        case 'AC': return const Color(0xFF5AC8FA); // Light blue
+        case 'T&H': return const Color(0xFFFF9500); // Orange
+        case 'POWER': return const Color(0xFF5856D6); // Purple
+        case 'UPS': return const Color(0xFF4CD964); // Green
+        case 'SMOKE': return const Color(0xFFFF3B30); // Red
+        case 'WLD': return const Color(0xFF34A853); // Teal
+        case 'PDU': return const Color(0xFF007AFF); // Blue
+        default: return const Color(0xFF8E8E93); // Grey
+      }
+    }
+    final iconBgColor = getIconColor(item.type);
       
     return Material(
       color: Colors.transparent,
@@ -838,43 +879,34 @@ class _DeviceHealthRow extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            DashboardGlass(
-              radius: 18,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              tint: alertTint,
-              borderColor: isLight ? AppTheme.lightStroke : null,
+            Container(
+              decoration: BoxDecoration(
+                color: alertTint ?? Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: Row(
                 children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: isLight
-                        ? Colors.black.withValues(alpha: 0.06)
-                        : Colors.white.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(23),
-                    border: Border.all(
-                      color: isLight
-                          ? Colors.black.withValues(alpha: 0.10)
-                          : Colors.white.withValues(alpha: 0.12),
-                      width: 1,
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: iconBgColor,
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      item.iconAsset,
-                      width: 26,
-                      height: 26,
-                      colorFilter: ColorFilter.mode(
-                        isLight
-                            ? AppTheme.lightTextPrimary.withValues(alpha: 0.85)
-                            : Colors.white.withValues(alpha: 0.90),
-                        BlendMode.srcIn,
+                    child: Center(
+                      child: SvgPicture.asset(
+                        item.iconAsset,
+                        width: 18,
+                        height: 18,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,26 +914,24 @@ class _DeviceHealthRow extends StatelessWidget {
                       children: [
                         Text(
                           item.label,
-                          style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
-                            fontSize:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? 16
-                                    : 14,
-                            fontWeight: FontWeight.w700,
+                          style: bitcount(
+                            context,
+                            color: isLight ? Colors.black : Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          isOk ? 'SECURE' : 'ATTENTION',
+                          isOk ? 'Secure' : 'Requires attention',
                           style: TextStyle(
-                            color: statusColor,
-                            fontSize:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? 13
-                                    : 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
+                            color: isOk
+                                ? (isLight
+                                    ? AppTheme.lightTextSecondary
+                                    : Colors.white70)
+                                : statusColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],

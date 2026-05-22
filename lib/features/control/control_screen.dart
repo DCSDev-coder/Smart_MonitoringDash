@@ -243,7 +243,7 @@ class _ControlScreenState extends State<ControlScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSectionButtons(),
-                      const SizedBox(height: 0),
+                      const SizedBox(height: AppSpacing.sectionGapSm),
                       if (_writing)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 25, left: 4),
@@ -311,7 +311,7 @@ class _ControlScreenState extends State<ControlScreen>
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
                 : const Color(0xFF0E141B),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
                 color: Theme.of(context).brightness == Brightness.light
                     ? AppTheme.lightStroke
@@ -395,12 +395,10 @@ class _ControlScreenState extends State<ControlScreen>
 
   Widget _navBtn(String label, _ControlSection s) {
     return Expanded(
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: () => _selectTab(s),
-          borderRadius: BorderRadius.circular(10),
-          child: Center(
+      child: GestureDetector(
+        onTap: () => _selectTab(s),
+        behavior: HitTestBehavior.opaque,
+        child: Center(
             child: AnimatedBuilder(
               animation: _tabSelC,
               builder: (context, _) {
@@ -426,7 +424,6 @@ class _ControlScreenState extends State<ControlScreen>
               },
             ),
           ),
-        ),
       ),
     );
   }
@@ -467,24 +464,50 @@ class _ControlScreenState extends State<ControlScreen>
                     fontSize: 13,
                     height: 1.4)),
           ),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: writable.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
-          itemBuilder: (context, idx) {
-            final r = writable[idx];
-            return _metricTile(
-              title: r.name,
-              value: r.displayValue,
-              unit: r.unit,
-              time: r.updateTime,
-              canSet: r.write,
-              onSet: r.write
-                  ? () => _openSetDialog(nodeId: node?.id, row: r)
-                  : null,
-            );
-          },
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.light ? Colors.white : Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: Theme.of(context).brightness == Brightness.light
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : null,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: writable.length,
+            separatorBuilder: (_, __) => Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: Theme.of(context).brightness == Brightness.light 
+                    ? Colors.black.withValues(alpha: 0.05) 
+                    : Colors.white.withValues(alpha: 0.05),
+              ),
+            ),
+            itemBuilder: (context, idx) {
+              final r = writable[idx];
+              return _metricTile(
+                title: r.name,
+                value: r.displayValue,
+                unit: r.unit,
+                time: r.updateTime,
+                canSet: r.write,
+                onSet: r.write
+                    ? () => _openSetDialog(nodeId: node?.id, row: r)
+                    : null,
+              );
+            },
+          ),
         ),
         if (writable.isEmpty)
           Padding(
@@ -514,80 +537,59 @@ class _ControlScreenState extends State<ControlScreen>
     required String title,
     required String value,
     required String unit,
-    required String time,
+    required String time, // Time is kept in signature but not displayed per request
     required bool canSet,
     required VoidCallback? onSet,
   }) {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
-    return DashboardGlass(
-      radius: 22,
-      padding: const EdgeInsets.all(18),
-      tint: isLight
-          ? Colors.white.withValues(alpha: 0.95)
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white.withValues(alpha: 0.92),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(value,
-                        style: TextStyle(
-                            color: isLight
-                                ? AppTheme.lightTextPrimary
-                                : Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15)),
-                    if (unit.isNotEmpty)
-                      Text(unit,
-                          style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextSecondary
-                                  : Colors.white.withValues(alpha: 0.65),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12)),
-                    Text(time,
-                        style: TextStyle(
-                            color: isLight
-                                ? AppTheme.lightTextSecondary
-                                    .withValues(alpha: 0.7)
-                                : Colors.white.withValues(alpha: 0.45),
-                            fontSize: 11)),
-                  ],
+    final textColor = isLight ? Colors.black : Colors.white;
+    final subtitleColor = isLight 
+        ? Colors.black.withValues(alpha: 0.6) 
+        : Colors.white.withValues(alpha: 0.6);
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _writing ? null : onSet,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                  ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          if (canSet)
-            FilledButton(
-              onPressed: _writing ? null : onSet,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.orangeAccent.withValues(alpha: 0.85),
-                foregroundColor: Colors.black,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
               ),
-              child: const Text('Set'),
-            ),
-        ],
+              const SizedBox(width: 16),
+              Row(
+                children: [
+                  Text(
+                    '$value${unit.isNotEmpty ? ' $unit' : ''}',
+                    style: TextStyle(
+                      color: subtitleColor,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                    ),
+                  ),
+                  if (canSet) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: subtitleColor.withValues(alpha: 0.5),
+                      size: 20,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1041,7 +1043,7 @@ class _AuraPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.35),

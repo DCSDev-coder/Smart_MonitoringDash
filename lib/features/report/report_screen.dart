@@ -1664,14 +1664,17 @@ class _ReportScreenState extends State<ReportScreen>
           ),
         ],
       ),
-      child: DashboardGlass(
-        radius: 16,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        // In light mode, the mock uses a solid colored card.
-        tint: isLight ? color : color.withValues(alpha: 0.22),
-        borderColor:
-            isLight ? Colors.transparent : color.withValues(alpha: 0.35),
-        child: Row(
+      child: Card(
+        elevation: 0,
+        color: isLight ? color : color.withValues(alpha: 0.22),
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: isLight ? BorderSide.none : BorderSide(color: color.withValues(alpha: 0.35), width: 1.0),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _MiniRing(
@@ -1717,8 +1720,9 @@ class _ReportScreenState extends State<ReportScreen>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _AuraPill extends StatelessWidget {
@@ -1730,7 +1734,7 @@ class _AuraPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final r = BorderRadius.circular(10);
+    final r = BorderRadius.circular(20);
 
     return DecoratedBox(
       decoration: BoxDecoration(

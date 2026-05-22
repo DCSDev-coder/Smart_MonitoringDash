@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Defines the application-wide ThemeData.
 /// Colour palette matches the Dashboard.Template.pen design:
@@ -10,15 +11,15 @@ class AppTheme {
   AppTheme._();
 
   // ─── Colour tokens ────────────────────────────────────────────────────────
-  static const Color bgColor = Color(0xFF0F1C2E); // Dark navy background
-  static const Color surfaceColor = Color(0xFF162436); // Card navy
-  static const Color cardColor = Color(0xFF162436);
+  static const Color bgColor = Colors.black; // Dark navy background
+  static const Color surfaceColor = Color(0xFF151515); // Match hardware background
+  static const Color cardColor = Color(0xFF151515);
   static const Color accentGreen = Color(0xFF00C08B); // Accent green
   static const Color accentBlue = Color(0xFF42A5F5); // Soft blue
   static const Color accentRed = Color(0xFFCE4A4A); // Soft red
   static const Color textPrimary = Colors.white; // White text
   static const Color textSecondary = Colors.white70; // Slightly dim white
-  static const Color dividerColor = Color(0xFF1E3046); // Darker divider
+  static const Color dividerColor = Color(0xFF2E2E2E); // Darker divider
 
   // Light mode tokens (Twitter-like)
   // Very light blue (almost white) for light mode backgrounds.
@@ -47,6 +48,7 @@ class AppTheme {
 
   // ─── ThemeData ────────────────────────────────────────────────────────────
   static ThemeData get dark => ThemeData(
+        fontFamily: GoogleFonts.manrope().fontFamily,
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: bgColor,
@@ -64,7 +66,7 @@ class AppTheme {
           shadowColor: Colors.black26,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
           ),
         ),
         appBarTheme: const AppBarTheme(
@@ -143,6 +145,7 @@ class AppTheme {
       );
 
   static ThemeData get light => ThemeData(
+        fontFamily: GoogleFonts.manrope().fontFamily,
         useMaterial3: true,
         brightness: Brightness.light,
         scaffoldBackgroundColor: lightBg,
@@ -159,8 +162,7 @@ class AppTheme {
           elevation: 0,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: lightStroke, width: 1),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
           ),
         ),
         appBarTheme: const AppBarTheme(

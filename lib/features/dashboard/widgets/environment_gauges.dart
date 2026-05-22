@@ -396,15 +396,9 @@ class _EnvironmentGaugeSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DashboardGlass(
-      radius: 18,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      tint: Theme.of(context).brightness == Brightness.light
-          ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: Theme.of(context).brightness == Brightness.light
-          ? AppTheme.lightStroke
-          : const Color(0x22FFFFFF),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -442,6 +436,7 @@ class _EnvironmentGaugeSkeleton extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
         ],
+      ),
       ),
     );
   }
@@ -501,11 +496,10 @@ class _MiniGaugeCard extends StatelessWidget {
                 : const Color(0xFF00A3FF)))
         : null;
 
-    return DashboardGlass(
-      radius: 18,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      tint: bgTint,
-      borderColor: isLight ? Colors.transparent : null,
+    return Card(
+      color: bgTint,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -605,6 +599,7 @@ class _MiniGaugeCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -738,9 +733,8 @@ class _PagerArrow extends StatelessWidget {
           height: 22,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: enabled ? 0.06 : 0.03),
+            color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white).withValues(alpha: enabled ? 0.06 : 0.03),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
           ),
           child: Icon(icon, size: 20, color: c),
         ),

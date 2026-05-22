@@ -27,12 +27,10 @@ class DoorControlSection extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
 
     if (loading) {
-      return DashboardGlass(
-        radius: 22,
-        padding: const EdgeInsets.all(16),
-        tint: isLight ? const Color(0xFF00A3FF) : null,
-        borderColor: isLight ? Colors.transparent : null,
-        child: Row(
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(
@@ -48,7 +46,7 @@ class DoorControlSection extends StatelessWidget {
                 'Loading doors...',
                 style: TextStyle(
                   color: isLight
-                      ? Colors.white.withValues(alpha: 0.85)
+                      ? AppTheme.lightTextPrimary
                       : Colors.white.withValues(alpha: 0.72),
                   fontSize: isLight ? 13 : 12,
                   fontWeight: FontWeight.w700,
@@ -56,38 +54,36 @@ class DoorControlSection extends StatelessWidget {
               ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
     if (doors.isEmpty) {
-      return DashboardGlass(
-        radius: 18,
-        padding: const EdgeInsets.all(16),
-        tint: isLight ? const Color(0xFF00A3FF) : null,
-        borderColor: isLight ? Colors.transparent : null,
-        child: Center(
-          child: Text(
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text(
             'No doors configured',
             style: TextStyle(
               color: isLight
-                  ? Colors.white.withValues(alpha: 0.85)
+                  ? AppTheme.lightTextPrimary
                   : Colors.white.withValues(alpha: 0.65),
               fontSize: isLight ? 13 : 12,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return DashboardGlass(
-      radius: 22,
-      padding: const EdgeInsets.all(16),
-      tint: isLight ? const Color(0xFF00A3FF) : null,
-      borderColor: isLight ? Colors.transparent : null,
-      child: LayoutBuilder(
-        builder: (context, outer) {
-          final heightBounded = outer.maxHeight.isFinite;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, outer) {
+            final heightBounded = outer.maxHeight.isFinite;
 
           Widget doorBody({required bool scrollable}) {
             return LayoutBuilder(builder: (context, c) {
@@ -150,7 +146,7 @@ class DoorControlSection extends StatelessWidget {
               Text(
                 'DOOR ACCESS',
                 style: TextStyle(
-                  color: isLight ? Colors.white : Colors.white,
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
                   fontSize: isLight ? 13 : 12,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
@@ -161,7 +157,7 @@ class DoorControlSection extends StatelessWidget {
                 '${doors.length} doors',
                 style: TextStyle(
                   color: isLight
-                      ? Colors.white.withValues(alpha: 0.75)
+                      ? AppTheme.lightTextSecondary
                       : Colors.white.withValues(alpha: 0.55),
                   fontSize: isLight ? 12 : 11,
                   fontWeight: FontWeight.w600,
@@ -175,6 +171,7 @@ class DoorControlSection extends StatelessWidget {
             ],
           );
         },
+      ),
       ),
     );
   }
@@ -205,14 +202,18 @@ class _DoorRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DashboardGlass(
-        radius: 18,
+      child: Container(
+        decoration: BoxDecoration(
+          color: rowTint ??
+              (isLight
+                  ? const Color(0xFFF5F7FF)
+                  : const Color(0xFF0B0F14).withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(18),
+          border: isLight
+              ? Border.all(color: AppTheme.lightStroke)
+              : Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        tint: rowTint ??
-            (isLight
-                ? const Color(0xFFF5F7FF)
-                : const Color(0xFF0B0F14).withValues(alpha: 0.35)),
-        borderColor: isLight ? AppTheme.lightStroke : null,
         child: Row(
           children: [
             Expanded(
@@ -263,13 +264,17 @@ class _DoorTile extends StatelessWidget {
     final isUnlocked = door['isOpen'] == true;
     final enabled = canUnlock && !isUnlocked && id != 0;
 
-    return DashboardGlass(
-      radius: 18,
+    return Container(
+      decoration: BoxDecoration(
+        color: isLight
+            ? const Color(0xFFF5F7FF)
+            : const Color(0xFF0B0F14).withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(16),
+        border: isLight
+            ? Border.all(color: AppTheme.lightStroke)
+            : Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      tint: isLight
-          ? const Color(0xFFF5F7FF)
-          : const Color(0xFF0B0F14).withValues(alpha: 0.35),
-      borderColor: isLight ? AppTheme.lightStroke : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -616,15 +621,13 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
     return Padding(
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: DashboardGlass(
-        radius: 24,
-        padding: const EdgeInsets.all(24),
-        tint: isLight ? Colors.white : const Color(0xFF0B0F14),
-        borderColor: isLight ? AppTheme.lightStroke : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Center(
               child: Container(
                 width: 40,
@@ -775,6 +778,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

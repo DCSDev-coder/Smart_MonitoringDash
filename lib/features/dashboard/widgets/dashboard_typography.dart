@@ -12,15 +12,20 @@ TextStyle bitcount(
   FontWeight fontWeight = FontWeight.w600,
   List<Shadow>? shadows,
 }) {
+  // Respect device accessibility setting for bold text
+  final isBoldText = MediaQuery.boldTextOf(context);
+  final actualWeight = isBoldText 
+      ? FontWeight.values.firstWhere((w) => w.value == (fontWeight.value + 200).clamp(100, 900), orElse: () => fontWeight)
+      : fontWeight;
+
   final base = TextStyle(
     fontSize: fontSize,
     color: color,
-    fontWeight: fontWeight,
+    fontWeight: actualWeight,
     letterSpacing: letterSpacing,
     shadows: shadows,
     height: 1.1,
   );
 
-  // Manrope reads well on mobile + desktop and feels neutral/corporate.
   return GoogleFonts.manrope(textStyle: base);
 }

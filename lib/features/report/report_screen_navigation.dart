@@ -12,7 +12,7 @@ extension _ReportScreenNavigation on _ReportScreenState {
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
                 : const Color(0xFF0E141B),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: Theme.of(context).brightness == Brightness.light
                   ? AppTheme.lightStroke
@@ -68,12 +68,10 @@ extension _ReportScreenNavigation on _ReportScreenState {
 
   Widget _navBtn(String label, int index) {
     return Expanded(
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: () => _selectTab(index),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
+      child: GestureDetector(
+        onTap: () => _selectTab(index),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Center(
               child: AnimatedBuilder(
@@ -105,8 +103,7 @@ extension _ReportScreenNavigation on _ReportScreenState {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildEventFilterRow() {

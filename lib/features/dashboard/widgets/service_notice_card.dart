@@ -35,13 +35,10 @@ class ServiceNoticeCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: DashboardGlass(
-        radius: 22,
-        padding: const EdgeInsets.all(16),
-        borderColor: Theme.of(context).brightness == Brightness.light
-            ? Colors.transparent
-            : null,
-        child: Row(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
           children: [
             SizedBox(
               width: 150,
@@ -129,6 +126,7 @@ class ServiceNoticeCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

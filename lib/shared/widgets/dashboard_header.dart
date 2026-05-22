@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../core/constants/app_constants.dart';
 import 'dashboard_glass.dart';
 import 'safe_network_image.dart';
 
@@ -36,7 +37,9 @@ class DashboardHeader extends StatelessWidget {
       builder: (context, c) {
         // Keep enough room for the right-side buttons on narrow screens.
         // Prevents RenderFlex overflow in web layouts.
-        final reservedRight = 48.0 + 12.0 + 48.0 + 12.0 + (trailing != null ? 60.0 : 0.0);
+        const gap = 8.0;
+        final reservedRight =
+            48.0 + gap + 48.0 + gap + (trailing != null ? 60.0 : 0.0);
         final maxLogo = (c.maxWidth - reservedRight).clamp(96.0, 220.0);
 
         return Row(
@@ -46,22 +49,25 @@ class DashboardHeader extends StatelessWidget {
               child: GestureDetector(
                 onTap: onLogoTap,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: EdgeInsets.zero,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (logoUrl != null)
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: maxLogo),
-                          child: SafeNetworkImage(
-                            logoUrl!,
-                            height: 54,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_) => Icon(
-                              Icons.business_rounded,
-                              color:
-                                  isLight ? Colors.black26 : Colors.white24,
-                              size: 36,
+                        SizedBox(
+                          height: AppConstants.headerContentHeight,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: maxLogo),
+                            child: SafeNetworkImage(
+                              logoUrl!,
+                              height: AppConstants.headerContentHeight,
+                              fit: BoxFit.fitHeight,
+                              errorBuilder: (_) => Icon(
+                                Icons.business_rounded,
+                                color:
+                                    isLight ? Colors.black26 : Colors.white24,
+                                size: 36,
+                              ),
                             ),
                           ),
                         ),
@@ -71,31 +77,31 @@ class DashboardHeader extends StatelessWidget {
               ),
             ),
             const Spacer(),
-        
-        // Notification Button (no count badge; bell itself reflects alert state)
-        _HeaderIconButton(
-          icon: Icons.notifications_none_rounded,
-          onTap: onNotificationTap,
-          isLight: isLight,
-          activeColor: activeColor,
-          isAlert: hasNotifications,
-        ),
-        
-        if (trailing != null) ...[
-          const SizedBox(width: 12),
-          trailing!,
-        ],
-        const SizedBox(width: 12),
-        
-        // Settings Button
-        _HeaderIconButton(
-          key: settingsIconKey,
-          icon: Icons.menu_rounded,
-          onTap: onMenuTap,
-          isLight: isLight,
-          activeColor: activeColor,
-          isAlert: false,
-        ),
+
+            // Notification Button (no count badge; bell itself reflects alert state)
+            _HeaderIconButton(
+              icon: Icons.notifications_none_rounded,
+              onTap: onNotificationTap,
+              isLight: isLight,
+              activeColor: activeColor,
+              isAlert: hasNotifications,
+            ),
+
+            if (trailing != null) ...[
+              const SizedBox(width: gap),
+              trailing!,
+            ],
+            const SizedBox(width: gap),
+
+            // Settings Button
+            _HeaderIconButton(
+              key: settingsIconKey,
+              icon: Icons.menu_rounded,
+              onTap: onMenuTap,
+              isLight: isLight,
+              activeColor: activeColor,
+              isAlert: false,
+            ),
           ],
         );
       },
@@ -145,9 +151,9 @@ class _HeaderIconButton extends StatelessWidget {
       );
     }
 
-    // In light mode, use the new solid cyan/red background style
+    // In light mode, revert to the solid cyan/red style.
     final bgColor = isAlert ? const Color(0xFFFF4D4D) : activeColor;
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -208,7 +214,8 @@ class _BreathingOutlineGlowState extends State<_BreathingOutlineGlow>
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine);
+    final curved =
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine);
     return AnimatedBuilder(
       animation: curved,
       builder: (context, _) {
@@ -241,6 +248,3 @@ class _BreathingOutlineGlowState extends State<_BreathingOutlineGlow>
     );
   }
 }
-
-
-

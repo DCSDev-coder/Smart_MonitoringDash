@@ -83,12 +83,9 @@ class PueHeroCard extends StatelessWidget {
       builder: (ctx) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: DashboardGlass(
-            radius: 24,
-            padding: const EdgeInsets.all(24),
-            tint: isLight
-                ? theme.colorScheme.surface.withValues(alpha: 0.98)
-                : const Color(0xFF0B0F14).withValues(alpha: 0.9),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,8 +158,9 @@ class PueHeroCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _infoRow(BuildContext context, String val, String label, String desc,
       Color color) {
@@ -226,13 +224,11 @@ class PueHeroCard extends StatelessWidget {
         isLight ? _lightModeGaugeColor(status.color) : status.color;
     final cardTint = isLight ? _lightModeCardTint(status.color) : null;
 
-    return DashboardGlass(
-      radius: 26,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-      // Light-mode: tint based on status; grey when down.
-      tint: cardTint,
-      borderColor: isLight ? Colors.transparent : null,
-      child: Stack(
+    return Card(
+      color: cardTint,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+        child: Stack(
         children: [
           LayoutBuilder(
             builder: (context, c) {
@@ -263,14 +259,15 @@ class PueHeroCard extends StatelessWidget {
                     const SizedBox(height: gap),
                     SizedBox(
                       height: energyBarHeight,
-                      child: DashboardGlass(
-                        radius: 14,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isLight
+                              ? const Color(0xFF0B56D6)
+                              : const Color(0xFF2A2A2A).withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
-                        tint: isLight
-                            ? const Color(0xFF0B56D6)
-                            : const Color(0xFF2A2A2A).withValues(alpha: 0.55),
-                        borderColor: isLight ? Colors.transparent : null,
                         child: const Row(
                           children: [
                             Expanded(
@@ -353,7 +350,9 @@ class PueHeroCard extends StatelessWidget {
                                 Text(
                                   'DOWN',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.75),
+                                    color: isLight
+                                        ? Colors.white.withValues(alpha: 0.8)
+                                        : Colors.white.withValues(alpha: 0.75),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 1.2,
@@ -368,15 +367,15 @@ class PueHeroCard extends StatelessWidget {
                   const SizedBox(height: gap),
                   SizedBox(
                     height: energyBarHeight,
-                    child: DashboardGlass(
-                      radius: 14,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isLight
+                            ? Colors.white.withValues(alpha: 0.2)
+                            : const Color(0xFF2A2A2A).withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
-                      inset: !isLight,
-                      tint: isLight
-                          ? Colors.white
-                          : const Color(0xFF2A2A2A).withValues(alpha: 0.55),
-                      borderColor: isLight ? AppTheme.lightStroke : null,
                       child: Row(
                         children: [
                           Expanded(
@@ -384,7 +383,7 @@ class PueHeroCard extends StatelessWidget {
                               'Monthly Energy Consumption',
                               style: TextStyle(
                                 color: isLight
-                                    ? AppTheme.lightTextPrimary
+                                    ? Colors.white
                                     : Colors.white.withValues(alpha: 0.85),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -396,9 +395,7 @@ class PueHeroCard extends StatelessWidget {
                           Text(
                             '$energyText kWh',
                             style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
+                              color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -424,6 +421,7 @@ class PueHeroCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

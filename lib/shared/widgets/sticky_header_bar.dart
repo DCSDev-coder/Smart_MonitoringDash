@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class StickyHeaderBar extends StatelessWidget {
@@ -24,30 +25,28 @@ class StickyHeaderBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
-    
+
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: glass ? 1.0 : 0.0),
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
       builder: (context, tRaw, _) {
         final t = tRaw.clamp(0.0, 1.0);
-        
+
         Color bgColor;
         List<BoxShadow>? shadows;
         BorderSide bottomBorder;
 
         if (isLight) {
-          bgColor = const Color(0xFFEEEEFA);
-          shadows = const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ];
+          // Light mode: keep the header untinted (fully transparent) and let the blur
+          // do the work. Any color tint here reads as a blue/gray band on top.
+          bgColor = Colors.transparent;
+          // No shadow/border in light mode; both slightly darken the blue background
+          // and make the header look like a different colored strip.
+          shadows = null;
           bottomBorder = BorderSide.none;
         } else {
-          bgColor = const Color(0xFF060B11);
+          bgColor = const Color(0xFF060B11).withValues(alpha: 0.75);
           bottomBorder = BorderSide(
             color: Colors.white.withValues(alpha: 0.15),
             width: 1,
@@ -63,25 +62,29 @@ class StickyHeaderBar extends StatelessWidget {
           }
         }
 
-        return Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: bgColor,
-            border: Border(bottom: bottomBorder),
-            boxShadow: shadows,
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              topPad + topPadding,
-              16,
-              bottomPadding,
-            ),
-            child: SizedBox(
-              height: contentHeight,
-              child: Align(
-                alignment: Alignment.center,
-                child: child,
+        return ClipRect(
+          child: BackdropFilter(
+            // Keep blur subtle so it reads "clear" instead of foggy.
+            filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+            child: Container(
+              height: height,
+              decoration: BoxDecoration(
+                color: bgColor,
+                border: Border(bottom: bottomBorder),
+                boxShadow: shadows,
+              ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  topPad + topPadding,
+                  0,
+                  bottomPadding,
+                ),
+                child: SizedBox(
+                  height: contentHeight,
+                  width: double.infinity,
+                  child: child,
+                ),
               ),
             ),
           ),

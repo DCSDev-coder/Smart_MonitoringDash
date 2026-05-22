@@ -55,9 +55,10 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               'No events found for this period.',
               style: TextStyle(
                 color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary.withValues(alpha: 0.6)
+                    ? AppTheme.lightTextPrimary
                     : Colors.white,
                 fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
@@ -596,9 +597,10 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
                 'No security events found.',
                 style: TextStyle(
                   color: Theme.of(context).brightness == Brightness.light
-                      ? AppTheme.lightTextPrimary.withValues(alpha: 0.6)
+                      ? AppTheme.lightTextPrimary
                       : Colors.white,
                   fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),

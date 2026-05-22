@@ -28,34 +28,17 @@ class DashboardGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isLight = theme.brightness == Brightness.light;
-
-    final effectiveTint = tint ??
-        (isLight
-            ? (inset
-                ? theme.scaffoldBackgroundColor
-                : theme.colorScheme.surface)
-            : const Color(0xFF0E141B));
-
-    final effectiveBorder =
-        borderColor ?? (isLight ? AppTheme.lightStroke : const Color(0x1AFFFFFF));
-
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: effectiveTint,
+    // We completely ignore legacy glass tints and borders to enforce 
+    // the new unified solid Card style globally.
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: effectiveBorder, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.25),
-            blurRadius: isLight ? 12 : 12,
-            offset: Offset(0, isLight ? 4 : 4),
-          ),
-        ],
       ),
-      child: child,
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
     );
   }
 }

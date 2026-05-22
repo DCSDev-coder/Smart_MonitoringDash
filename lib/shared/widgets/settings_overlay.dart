@@ -586,47 +586,94 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
-                          if (_canManageUsers) ...[
-                            _SettingsTile(
-                              title: 'Manage Users',
-                              icon: Icons.manage_accounts_outlined,
-                              onTap: widget.onManageUsers,
+                          Container(
+                            decoration: BoxDecoration(
+                              color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: isLight
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.03),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      )
+                                    ]
+                                  : null,
                             ),
-                          ],
-                          _SettingsTile(
-                            title: 'Reset Password',
-                            icon: Icons.lock_reset_rounded,
-                            onTap: _handleChangePassword,
-                          ),
-                          // CCTV Configuration Hidden as requested
-                          _SettingsTile(
-                            title: 'Appearance',
-                            icon: Icons.palette_outlined,
-                            trailing: Text(
-                              AppThemeController.instance.themeMode.name
-                                  .toUpperCase(),
-                              style: TextStyle(
-                                color: trailingTextColor,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                                fontSize: 12,
-                              ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              children: [
+                                if (_canManageUsers) ...[
+                                  _SettingsTile(
+                                    title: 'Manage Users',
+                                    icon: Icons.manage_accounts_outlined,
+                                    iconColor: const Color(0xFF007AFF),
+                                    onTap: widget.onManageUsers,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 72, right: 16),
+                                    child: Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      color: isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05),
+                                    ),
+                                  ),
+                                ],
+                                _SettingsTile(
+                                  title: 'Reset Password',
+                                  icon: Icons.lock_reset_rounded,
+                                  iconColor: const Color(0xFFFF9500),
+                                  onTap: _handleChangePassword,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 72, right: 16),
+                                  child: Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05),
+                                  ),
+                                ),
+                                _SettingsTile(
+                                  title: 'Appearance',
+                                  icon: Icons.palette_outlined,
+                                  iconColor: const Color(0xFF5856D6),
+                                  trailing: Text(
+                                    AppThemeController.instance.themeMode.name
+                                        .toUpperCase(),
+                                    style: TextStyle(
+                                      color: trailingTextColor,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 1.0,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onTap: _showThemeDialog,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 72, right: 16),
+                                  child: Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05),
+                                  ),
+                                ),
+                                _SettingsTile(
+                                  title: 'Performance',
+                                  icon: Icons.speed_rounded,
+                                  iconColor: const Color(0xFF4CD964),
+                                  trailing: Text(
+                                    _pollingModeLabel(_pollingMode),
+                                    style: TextStyle(
+                                      color: trailingTextColor,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 1.0,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onTap: _showPollingModeDialog,
+                                ),
+                              ],
                             ),
-                            onTap: _showThemeDialog,
-                          ),
-                          _SettingsTile(
-                            title: 'Performance',
-                            icon: Icons.speed_rounded,
-                            trailing: Text(
-                              _pollingModeLabel(_pollingMode),
-                              style: TextStyle(
-                                color: trailingTextColor,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                                fontSize: 12,
-                              ),
-                            ),
-                            onTap: _showPollingModeDialog,
                           ),
                           const SizedBox(height: 32),
                           SizedBox(
@@ -668,12 +715,14 @@ class _SettingsPanelState extends State<_SettingsPanel> {
 class _SettingsTile extends StatelessWidget {
   final String title;
   final IconData icon;
+  final Color iconColor;
   final Widget? trailing;
   final VoidCallback? onTap;
 
   const _SettingsTile({
     required this.title,
     required this.icon,
+    required this.iconColor,
     this.trailing,
     this.onTap,
   });
@@ -683,33 +732,42 @@ class _SettingsTile extends StatelessWidget {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
 
-    final textColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
-    final iconColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
+    final textColor = isLight ? Colors.black : Colors.white;
     final chevronColor = isLight
-        ? Colors.black.withValues(alpha: 0.55)
-        : Colors.white.withValues(alpha: 0.75);
+        ? Colors.black.withValues(alpha: 0.3)
+        : Colors.white.withValues(alpha: 0.5);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: iconColor,
-                size: 28,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: 20),
               Expanded(
                 child: Text(
                   title,
                   style: bitcount(
                     context,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                     color: textColor,
                   ),
                 ),
