@@ -239,8 +239,9 @@ class _RackViewScreenState extends State<RackViewScreen>
           _pdu1Records = records;
           _pdu1P =
               _getMetric(records, 'pdu_active_power_single_phase') / 1000.0;
-          if (_pdu1P == 0)
+          if (_pdu1P == 0) {
             _pdu1P = _getMetric(records, 'activepowersinglephase_') / 1000.0;
+          }
           _pdu1A = _getMetric(records, 'currenvaluesinglephase_');
           for (int i = 1; i <= 16; i++) {
             _pdu1Outlets[i] = _getMetric(records, 'outlet${i}activepower_');

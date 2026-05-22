@@ -174,7 +174,9 @@ class DeviceHealthSection extends StatelessWidget {
           up == 'HUM' ||
           compact == 'TH' ||
           compact == 'TEMPHUM' ||
-          compact == 'TEMPHUMID') return 'T&H';
+          compact == 'TEMPHUMID') {
+        return 'T&H';
+      }
 
       // Leak / water leak detector variants
       if (up == 'WLD' ||
@@ -183,7 +185,9 @@ class DeviceHealthSection extends StatelessWidget {
           compact == 'WLD' ||
           compact == 'LEAK' ||
           compact == 'WATERLEAK' ||
-          compact == 'WATERLEAKDETECTOR') return 'WLD';
+          compact == 'WATERLEAKDETECTOR') {
+        return 'WLD';
+      }
 
       // Smoke / fire detector variants
       if (up == 'SMOKE' ||
@@ -191,19 +195,27 @@ class DeviceHealthSection extends StatelessWidget {
           up == 'SMOKEDETECTOR' ||
           compact == 'SMOKE' ||
           compact == 'FIRE' ||
-          compact == 'SMOKEDETECTOR') return 'SMOKE';
+          compact == 'SMOKEDETECTOR') {
+        return 'SMOKE';
+      }
 
       // UPS variants
-      if (up == 'UPS' || compact == 'UPS') return 'UPS';
+      if (up == 'UPS' || compact == 'UPS') {
+        return 'UPS';
+      }
 
       // PDU variants
-      if (up == 'PDU' || compact == 'PDU') return 'PDU';
+      if (up == 'PDU' || compact == 'PDU') {
+        return 'PDU';
+      }
 
       // Power variants: POWER ENV / POWERENV / POWER
       if (up == 'POWER' ||
           compact == 'POWER' ||
           compact == 'POWERENV' ||
-          up.contains('POWER')) return 'POWER';
+          up.contains('POWER')) {
+        return 'POWER';
+      }
 
       // Aircon variants
       if (up == 'AC' ||
@@ -211,7 +223,9 @@ class DeviceHealthSection extends StatelessWidget {
           up.contains('AIR') ||
           up.contains('AIRCON') ||
           up.contains('AIR CON') ||
-          up.contains('COOL')) return 'AC';
+          up.contains('COOL')) {
+        return 'AC';
+      }
 
       return up;
     }

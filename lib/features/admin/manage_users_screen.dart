@@ -1444,7 +1444,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
   bool _canViewReport = false;
   bool _canViewRack = false;
   bool _canViewControl = false;
-  bool _canViewCctv = false;
+  final bool _canViewCctv = false;
   bool _canControlDoors = false;
   bool _canManageUsers = false;
   bool _submitting = false;

@@ -115,41 +115,61 @@ class ApiService {
     if (path.contains('byTypeForStatus') && q['rangeType'] == '1') {
       return 'B586C31039FA8A0754B01646A7BBD8E5';
     }
-    if (path.contains('forAlarmByRange'))
+    if (path.contains('forAlarmByRange')) {
       return 'D296867CEFAC1B142215D23D3B27548B';
-    if (path.contains('last5WithCabinet'))
+    }
+    if (path.contains('last5WithCabinet')) {
       return '701B6581FCDC535F9B0EE55A4A5F73EA';
-    if (path.contains('checkPue')) return 'ABBA792021B709D79854FA9503D1FF30';
-    if (path.contains('getCurrentPue'))
+    }
+    if (path.contains('checkPue')) {
+      return 'ABBA792021B709D79854FA9503D1FF30';
+    }
+    if (path.contains('getCurrentPue')) {
       return 'BDEE34CCCAD55816BDE344758457B5C1';
-    if (path.contains('pueRegion/getAll'))
+    }
+    if (path.contains('pueRegion/getAll')) {
       return '9C85FCC34A7ACF3B7D909D1EB45E3507';
-    if (path.contains('cabinet/tree'))
+    }
+    if (path.contains('cabinet/tree')) {
       return '461CBDA413089067DADD90FF81C5693E';
-    if (path.contains('cabinetEnv')) return 'E0D73B3F9CED2EEBC298A9D267FE987E';
-    if (path.contains('dataTest/range'))
+    }
+    if (path.contains('cabinetEnv')) {
+      return 'E0D73B3F9CED2EEBC298A9D267FE987E';
+    }
+    if (path.contains('dataTest/range')) {
       return '2947F38FA23FF1AFDE874541533E092C';
-    if (q.containsKey('powerEnv')) return '2947F38FA23FF1AFDE874541533E092C';
+    }
+    if (q.containsKey('powerEnv')) {
+      return '2947F38FA23FF1AFDE874541533E092C';
+    }
 
-    if (path.contains('sysInfo')) return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    if (path.contains('actuator/redis/info'))
+    if (path.contains('sysInfo')) {
       return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    if (path.contains('actuator/redis/memoryInfo'))
+    }
+    if (path.contains('actuator/redis/info')) {
       return 'E19D6243CB1945AB4F7202A1B00F77D5';
-    if (path.contains('gate/listByLocationId'))
+    }
+    if (path.contains('actuator/redis/memoryInfo')) {
+      return 'E19D6243CB1945AB4F7202A1B00F77D5';
+    }
+    if (path.contains('gate/listByLocationId')) {
       return '31DAD80CDF8CE1A1A6E172DB9A43C0A3';
-    if (path.contains('cabinet/mangeListByLocationId'))
+    }
+    if (path.contains('cabinet/mangeListByLocationId')) {
       return 'C515065BEAC6599D80BF3BF1246B3330';
+    }
     if (path.contains('log/openClose') ||
         path.contains('log/query') ||
         path.contains('log/list') ||
         path.contains('log/page')) {
       return '1480D6E26ECFAF81F66498F8152EFB38';
     }
-    if (path.contains('camera/forCabinet'))
+    if (path.contains('camera/forCabinet')) {
       return '31DAD80CDF8CE1A1A6E172DB9A43C0A3';
-    if (path.contains('cameraGroup/list'))
+    }
+    if (path.contains('cameraGroup/list')) {
       return '31DAD80CDF8CE1A1A6E172DB9A43C0A3';
+    }
 
     // Fallback for PUE/Power if specific ones above didn't match or failed
     if (path.contains('pueRegion') || path.contains('getPower')) {

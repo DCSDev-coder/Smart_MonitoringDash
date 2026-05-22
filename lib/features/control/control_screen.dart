@@ -851,6 +851,7 @@ class _ControlScreenState extends State<ControlScreen>
       required Object value,
       required bool closeAfterWrite}) async {
     if (_writing) return;
+    final navigator = Navigator.of(context);
 
     final ok = await showDialog<bool>(
       context: context,
@@ -919,6 +920,7 @@ class _ControlScreenState extends State<ControlScreen>
       ),
     );
 
+    if (!mounted) return;
     if (ok != true) return;
 
     final authorized = await SecureActionGuard.ensureAuthorized(
@@ -926,6 +928,7 @@ class _ControlScreenState extends State<ControlScreen>
       reason: 'Confirm to apply control setting',
       ttl: const Duration(seconds: 30),
     );
+    if (!mounted) return;
     if (!authorized) return;
 
     setState(() => _writing = true);
@@ -969,8 +972,8 @@ class _ControlScreenState extends State<ControlScreen>
           nodeId: nodeId, metricCode: metricCode, desired: value);
       // Only close the enum bottom sheet. For numeric-input actions we should
       // stay on the Control screen.
-      if (closeAfterWrite && mounted && Navigator.of(context).canPop()) {
-        Navigator.pop(context);
+      if (closeAfterWrite && mounted && navigator.canPop()) {
+        navigator.pop();
       }
     } finally {
       if (mounted) setState(() => _writing = false);
