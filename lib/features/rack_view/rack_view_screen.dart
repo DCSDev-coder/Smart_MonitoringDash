@@ -468,37 +468,6 @@ class _RackViewScreenState extends State<RackViewScreen>
     return (code: null, value: null);
   }
 
-  bool _hasOutletMetric(List<dynamic> records, int index) {
-    final patterns = <String>[
-      'outlet${index}current_',
-      'outlet${index}activepower_',
-      'outlet${index}electricenergy_',
-      'outlet_${index}_current',
-      'outlet_${index}_active_power',
-      'outlet_${index}_electrical_energy',
-      'outlet${index}onoffcontrol_',
-      'outlet_${index}_onoffcontrol_',
-      'outlet_${index}_on_off_control',
-      'outlet $index output control',
-    ];
-    for (final r in records) {
-      final code =
-          (r['code'] ?? r['metricTypeLibCode'] ?? r['name'])?.toString() ?? '';
-      final lower = code.toLowerCase();
-      final name = (r['name'])?.toString().toLowerCase() ?? '';
-      if (patterns.any((p) => lower.startsWith(p))) {
-        return true;
-      }
-      if (name == 'outlet $index active power'.toLowerCase() ||
-          name == 'outlet $index current'.toLowerCase() ||
-          name == 'outlet $index energy'.toLowerCase() ||
-          name == 'outlet $index power factor'.toLowerCase() ||
-          name == 'outlet $index output control'.toLowerCase()) {
-        return true;
-      }
-    }
-    return false;
-  }
 
   bool _outletIsOn(
       {required List<dynamic> records,

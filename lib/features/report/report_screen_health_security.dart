@@ -51,9 +51,14 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: const Text(
+            child: Text(
               'No events found for this period.',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppTheme.lightTextPrimary.withValues(alpha: 0.6)
+                    : Colors.white,
+                fontSize: 13,
+              ),
               textAlign: TextAlign.center,
             ),
           )
@@ -587,9 +592,14 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: const Text(
+              child: Text(
                 'No security events found.',
-                style: TextStyle(color: Colors.white, fontSize: 13),
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppTheme.lightTextPrimary.withValues(alpha: 0.6)
+                      : Colors.white,
+                  fontSize: 13,
+                ),
                 textAlign: TextAlign.center,
               ),
             )
