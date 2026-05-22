@@ -113,7 +113,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Account Section
               _sectionLabel('ACCOUNT'),
               const SizedBox(height: 12),
-              if (kDebugMode) ...[
+              // Debug-only tool: opt-in via --dart-define=ENABLE_DEBUG_TOKEN_COPY=true
+              if (kDebugMode &&
+                  const bool.fromEnvironment(
+                    'ENABLE_DEBUG_TOKEN_COPY',
+                    defaultValue: false,
+                  )) ...[
                 Builder(builder: (context) {
                   final token =
                       CpanelApiService.instance.getAuthTokenInMemory() ?? '';

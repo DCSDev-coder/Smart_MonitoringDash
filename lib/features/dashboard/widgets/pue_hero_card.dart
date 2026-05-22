@@ -21,10 +21,38 @@ class PueHeroCard extends StatelessWidget {
 
   static const Color _idealGreen = Color.fromARGB(255, 0, 161, 116);
 
+  Color _lightModeGaugeColor(Color base) {
+    final hsl = HSLColor.fromColor(base);
+    return hsl
+        .withSaturation((hsl.saturation + 0.10).clamp(0.0, 1.0))
+        .withLightness((hsl.lightness * 0.68).clamp(0.20, 0.42))
+        .toColor();
+  }
+
+  Color _lightModeCardTint(Color base) {
+    return base;
+  }
+
   double _pueProgress(double pue) {
-    if (pue <= 0) return 0.0;
-    final t = (1.5 - pue) / 0.5;
-    return t.clamp(0.0, 0.92);
+    if (pue <= 0) {
+      return 0.0;
+    }
+    if (pue <= 1.0) {
+      return 0.98;
+    }
+    if (pue <= 1.5) {
+      final t = (pue - 1.0) / 0.5;
+      return (0.98 + ((0.58 - 0.98) * t)).clamp(0.58, 0.98);
+    }
+    if (pue <= 2.0) {
+      final t = (pue - 1.5) / 0.5;
+      return (0.58 + ((0.34 - 0.58) * t)).clamp(0.34, 0.58);
+    }
+    if (pue <= 3.0) {
+      final t = (pue - 2.0) / 1.0;
+      return (0.34 + ((0.24 - 0.34) * t)).clamp(0.24, 0.34);
+    }
+    return 0.24;
   }
 
   ({String label, Color color}) _pueStatus(double pue) {
@@ -40,7 +68,7 @@ class PueHeroCard extends StatelessWidget {
     if (pue <= 1.2) {
       return (label: 'IDEAL', color: _idealGreen);
     }
-    if (pue <= 1.6) {
+    if (pue < 2.0) {
       return (label: 'AVERAGE', color: const Color(0xFFFF8A00));
     }
     return (label: 'POOR', color: const Color(0xFFFF3B30));
@@ -194,7 +222,9 @@ class PueHeroCard extends StatelessWidget {
     final energyText =
         monthlyEnergyKwh == null ? '--' : monthlyEnergyKwh!.toStringAsFixed(2);
 
-    final cardTint = isLight ? status.color : null;
+    final gaugeColor =
+        isLight ? _lightModeGaugeColor(status.color) : status.color;
+    final cardTint = isLight ? _lightModeCardTint(status.color) : null;
 
     return DashboardGlass(
       radius: 26,
@@ -280,7 +310,8 @@ class PueHeroCard extends StatelessWidget {
                             curve: Curves.easeOutCubic,
                             builder: (context, value, _) => _PueHeroGauge(
                               progress: value,
-                              glowColor: status.color,
+                              glowColor: gaugeColor,
+                              isLight: isLight,
                             ),
                           ),
                         ),
@@ -401,10 +432,12 @@ class PueHeroCard extends StatelessWidget {
 class _PueHeroGauge extends StatefulWidget {
   final double progress;
   final Color glowColor;
+  final bool isLight;
 
   const _PueHeroGauge({
     required this.progress,
     required this.glowColor,
+    required this.isLight,
   });
 
   @override
@@ -440,6 +473,7 @@ class _PueHeroGaugeStateV2 extends State<_PueHeroGauge>
           painter: _PueHeroGaugePainter(
             progress: widget.progress.clamp(0.0, 1.0),
             glowColor: widget.glowColor,
+            isLight: widget.isLight,
             rotation: _animController.value,
           ),
           child: const SizedBox.expand(),
@@ -452,11 +486,13 @@ class _PueHeroGaugeStateV2 extends State<_PueHeroGauge>
 class _PueHeroGaugePainter extends CustomPainter {
   final double progress;
   final Color glowColor;
+  final bool isLight;
   final double rotation;
 
   _PueHeroGaugePainter({
     required this.progress,
     required this.glowColor,
+    required this.isLight,
     required this.rotation,
   });
 
@@ -475,7 +511,9 @@ class _PueHeroGaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 38
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFF4A4A4A).withValues(alpha: 0.38);
+      ..color = isLight
+          ? const Color(0xFF2A3240).withValues(alpha: 0.28)
+          : const Color(0xFF4A4A4A).withValues(alpha: 0.38);
     canvas.drawArc(rect, start, sweep, false, trackPaint);
 
     final prog = sweep * progress.clamp(0.0, 1.0);
@@ -498,11 +536,27 @@ class _PueHeroGaugePainter extends CustomPainter {
     }
 
     if (prog > 0) {
+      final highlightColor = Color.lerp(
+            glowColor,
+            Colors.white,
+            isLight
+                ? (progress <= 0.34 ? 0.10 : 0.22)
+                : (progress <= 0.34 ? 0.18 : 0.45),
+          ) ??
+          Colors.white;
+      final edgeColor = isLight
+          ? (Color.lerp(glowColor, Colors.black, 0.18) ?? glowColor)
+          : glowColor;
+
       final ambientGlow = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 52
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: 0.18)
+        ..color = glowColor.withValues(
+          alpha: isLight
+              ? (progress <= 0.34 ? 0.12 : 0.10)
+              : (progress <= 0.34 ? 0.24 : 0.18),
+        )
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28);
       canvas.drawArc(rect, start, prog, false, ambientGlow);
 
@@ -510,7 +564,11 @@ class _PueHeroGaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 44
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: 0.35)
+        ..color = glowColor.withValues(
+          alpha: isLight
+              ? (progress <= 0.34 ? 0.26 : 0.22)
+              : (progress <= 0.34 ? 0.44 : 0.35),
+        )
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
       canvas.drawArc(rect, start, prog, false, haloGlow);
 
@@ -518,7 +576,7 @@ class _PueHeroGaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 40
         ..strokeCap = StrokeCap.round
-        ..color = Colors.white.withValues(alpha: 0.25)
+        ..color = Colors.white.withValues(alpha: isLight ? 0.12 : 0.25)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawArc(rect, start, prog, false, coreGlow);
 
@@ -529,11 +587,11 @@ class _PueHeroGaugePainter extends CustomPainter {
 
       progPaint.shader = SweepGradient(
         colors: [
-          glowColor.withValues(alpha: 0.80),
+          edgeColor.withValues(alpha: 0.95),
           glowColor,
-          const Color(0xFFD4FFDC),
+          highlightColor,
           glowColor,
-          glowColor.withValues(alpha: 0.80),
+          edgeColor.withValues(alpha: 0.95),
         ],
         stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
         transform: GradientRotation(rotation * 2 * pi),
@@ -563,6 +621,7 @@ class _PueHeroGaugePainter extends CustomPainter {
   bool shouldRepaint(covariant _PueHeroGaugePainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.glowColor != glowColor ||
+        oldDelegate.isLight != isLight ||
         oldDelegate.rotation != rotation;
   }
 

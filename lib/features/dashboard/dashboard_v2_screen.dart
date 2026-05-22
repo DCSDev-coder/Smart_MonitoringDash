@@ -68,6 +68,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   double _pue = 0.0;
   String _pueStatus = 'down'; // ok | unavailable | error | down
   Map<String, double> _powerMonth = {};
+  double? _lastGoodPue;
+  DateTime? _lastGoodPueAt;
+  int _consecutiveBadPueSamples = 0;
 
   // Site Environment
   int _smokeStatus = -1;
@@ -212,7 +215,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      final viaAdapter = await AdapterApiService.instance.fetchPue(siteId: siteId);
+      final viaAdapter =
+          await AdapterApiService.instance.fetchPue(siteId: siteId);
       if (viaAdapter != null) return viaAdapter;
     }
     return ApiService.instance.fetchPue(id: cabinetId);
@@ -351,7 +355,14 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
             0.0;
 
         if (itE > 0) {
-          _pue = totalE / itE;
+          final derived = totalE / itE;
+          if (derived.isFinite && derived > 0) {
+            _pue = derived;
+            // Treat derived PUE as a "good" sample so brief backend hiccups
+            // don't flip the UI to DOWN for a few seconds.
+            _lastGoodPue = derived;
+            _lastGoodPueAt = now;
+          }
         }
       }
 
@@ -361,12 +372,10 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       if (pueRes != null && pueRes.containsKey('pueStatus')) {
         _lastPueFetch = now;
         final status = pueRes['pueStatus']?.toString() ?? 'error';
-        _pueStatus = status;
 
         final v = pueRes['pue'];
-        final parsed = (v is num)
-            ? v.toDouble()
-            : double.tryParse(v?.toString() ?? '');
+        final parsed =
+            (v is num) ? v.toDouble() : double.tryParse(v?.toString() ?? '');
 
         if (kDebugMode && !_loggedPuePayload) {
           _loggedPuePayload = true;
@@ -379,8 +388,24 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
         if (parsed != null && parsed > 0) {
           _pue = parsed;
+          _lastGoodPue = parsed;
+          _lastGoodPueAt = now;
+          _consecutiveBadPueSamples = 0;
+          _pueStatus = 'ok';
         } else {
-          _pue = 0.0;
+          _consecutiveBadPueSamples += 1;
+          final recentGood = _lastGoodPueAt != null &&
+              now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
+          if (recentGood &&
+              _lastGoodPue != null &&
+              _consecutiveBadPueSamples < 3) {
+            _pue = _lastGoodPue!;
+            _pueStatus = 'ok';
+          } else {
+            // Keep the last visible number (if any) instead of snapping to 0.0.
+            // This avoids a brief "DOWN" flicker on single bad samples.
+            _pueStatus = status;
+          }
         }
       } else if (pueRes != null &&
           pueRes['result'] != null &&
@@ -421,10 +446,39 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
         }
 
         _pue = parsed > 0 ? parsed : 0.0;
-        if (_pue <= 0) _pueStatus = 'unavailable';
+        if (_pue > 0) {
+          _lastGoodPue = _pue;
+          _lastGoodPueAt = now;
+          _consecutiveBadPueSamples = 0;
+          _pueStatus = 'ok';
+        } else {
+          _consecutiveBadPueSamples += 1;
+          final recentGood = _lastGoodPueAt != null &&
+              now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
+          if (recentGood &&
+              _lastGoodPue != null &&
+              _consecutiveBadPueSamples < 3) {
+            _pue = _lastGoodPue!;
+            _pueStatus = 'ok';
+          } else {
+            // Keep the last visible number (if any) instead of snapping to 0.0.
+            _pueStatus = 'unavailable';
+          }
+        }
       } else {
-        _pueStatus = 'down';
-        _pue = 0.0;
+        _consecutiveBadPueSamples += 1;
+        final recentGood = _lastGoodPueAt != null &&
+            now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
+        if (recentGood &&
+            _lastGoodPue != null &&
+            _consecutiveBadPueSamples < 3) {
+          _pue = _lastGoodPue!;
+          _pueStatus = 'ok';
+        } else {
+          // Keep the last visible number (if any) instead of snapping to 0.0.
+          // We still mark status as down so the UI can tint appropriately.
+          _pueStatus = 'down';
+        }
       }
 
       // 4. Site Maintenance Info (Cpanel)
@@ -751,7 +805,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       } else {
         final msg = res?['message']?.toString() ??
             'Unlock failed. If your session expired, please login again.';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (_) {
       if (!mounted) return;

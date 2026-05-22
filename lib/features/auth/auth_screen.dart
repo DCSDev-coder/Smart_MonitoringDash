@@ -531,7 +531,12 @@ class _AuthScreenState extends State<AuthScreen> {
                                           ),
                                         ),
 
-                                        if (kDebugMode)
+                                        // Debug-only tool: opt-in via --dart-define=ENABLE_DEBUG_TOKEN_COPY=true
+                                        if (kDebugMode &&
+                                            const bool.fromEnvironment(
+                                              'ENABLE_DEBUG_TOKEN_COPY',
+                                              defaultValue: false,
+                                            ))
                                           Builder(
                                             builder: (context) {
                                               final token = CpanelApiService

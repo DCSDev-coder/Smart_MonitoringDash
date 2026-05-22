@@ -47,7 +47,9 @@ class _RackViewScreenState extends State<RackViewScreen>
   // PDU 1 (Node 6)
   double _pdu1P = 0.0;
   double _pdu1A = 0.0;
+  bool _pdu1Online = false;
   final Map<int, double> _pdu1Outlets = {};
+  final Map<int, bool> _pdu1OutletOnline = {};
   final Map<int, String?> _pdu1OutletControlCodes = {};
   final Map<int, int?> _pdu1OutletControlValues = {};
   List<dynamic> _pdu1Records = [];
@@ -55,7 +57,9 @@ class _RackViewScreenState extends State<RackViewScreen>
   // PDU 2 (Node 7)
   double _pdu2P = 0.0;
   double _pdu2A = 0.0;
+  bool _pdu2Online = false;
   final Map<int, double> _pdu2Outlets = {};
+  final Map<int, bool> _pdu2OutletOnline = {};
   final Map<int, String?> _pdu2OutletControlCodes = {};
   final Map<int, int?> _pdu2OutletControlValues = {};
   List<dynamic> _pdu2Records = [];
@@ -124,8 +128,8 @@ class _RackViewScreenState extends State<RackViewScreen>
               int.tryParse(site['id']?.toString() ?? ''));
 
       if (AdapterApiService.instance.isConfigured && siteId != null) {
-        final telem = await AdapterApiService.instance
-            .fetchRackTelemetry(siteId: siteId);
+        final telem =
+            await AdapterApiService.instance.fetchRackTelemetry(siteId: siteId);
 
         if (!mounted) return;
         if (telem != null) {
@@ -152,7 +156,8 @@ class _RackViewScreenState extends State<RackViewScreen>
 
             // Inlet
             final inletKw = (inlet is Map) ? readNum(inlet['kw']) : 0.0;
-            final inletOnline = (inlet is Map) ? (inlet['online'] == true) : false;
+            final inletOnline =
+                (inlet is Map) ? (inlet['online'] == true) : false;
             _inletP = inletKw;
             _inletOnline = inletOnline || (inletRecords?.isNotEmpty == true);
             // We intentionally do not depend on VOLTS/AMPS (omitted in UI).
@@ -162,18 +167,32 @@ class _RackViewScreenState extends State<RackViewScreen>
             // PDU summaries
             _pdu1P = (pdu1 is Map) ? readNum(pdu1['kw']) : 0.0;
             _pdu1A = (pdu1 is Map) ? readNum(pdu1['amps']) : 0.0;
+            _pdu1Online = (pdu1 is Map)
+                ? (pdu1['online'] == true || _pdu1P > 0 || _pdu1A > 0)
+                : false;
             _pdu2P = (pdu2 is Map) ? readNum(pdu2['kw']) : 0.0;
             _pdu2A = (pdu2 is Map) ? readNum(pdu2['amps']) : 0.0;
+            _pdu2Online = (pdu2 is Map)
+                ? (pdu2['online'] == true || _pdu2P > 0 || _pdu2A > 0)
+                : false;
+            _pdu1Records = (pdu1 is Map && pdu1['records'] is List)
+                ? List<dynamic>.from(pdu1['records'] as List)
+                : [];
+            _pdu2Records = (pdu2 is Map && pdu2['records'] is List)
+                ? List<dynamic>.from(pdu2['records'] as List)
+                : [];
 
             // Per-outlet watts (prefer adapter-normalized list)
             void fillOutlets(
               dynamic pduObj,
               Map<int, double> wattsTarget,
+              Map<int, bool> onlineTarget,
               Map<int, String?> controlCodeTarget,
               Map<int, int?> controlValueTarget,
             ) {
               for (int i = 1; i <= 16; i++) {
                 wattsTarget[i] = 0.0;
+                onlineTarget[i] = false;
                 controlCodeTarget[i] = null;
                 controlValueTarget[i] = null;
               }
@@ -188,8 +207,11 @@ class _RackViewScreenState extends State<RackViewScreen>
                     : int.tryParse(idxRaw?.toString() ?? '');
                 if (idx == null) continue;
                 wattsTarget[idx] = readNum(o['watts']);
-
                 final c = o['control'];
+                final controlSaysOn = c is Map && c['value'] == 1;
+                onlineTarget[idx] = o['isOn'] == true ||
+                    wattsTarget[idx]! > 0.5 ||
+                    controlSaysOn;
                 if (c is Map) {
                   controlCodeTarget[idx] = c['metricCode']?.toString();
                   final v = c['value'];
@@ -202,10 +224,10 @@ class _RackViewScreenState extends State<RackViewScreen>
               }
             }
 
-            fillOutlets(pdu1, _pdu1Outlets, _pdu1OutletControlCodes,
-                _pdu1OutletControlValues);
-            fillOutlets(pdu2, _pdu2Outlets, _pdu2OutletControlCodes,
-                _pdu2OutletControlValues);
+            fillOutlets(pdu1, _pdu1Outlets, _pdu1OutletOnline,
+                _pdu1OutletControlCodes, _pdu1OutletControlValues);
+            fillOutlets(pdu2, _pdu2Outlets, _pdu2OutletOnline,
+                _pdu2OutletControlCodes, _pdu2OutletControlValues);
 
             _loading = false;
           });
@@ -224,34 +246,73 @@ class _RackViewScreenState extends State<RackViewScreen>
       }
 
       final results = await Future.wait([
-        ApiService.instance.fetchNodeMetrics(6), // PDU 1
-        ApiService.instance.fetchNodeMetrics(7), // PDU 2
-        ApiService.instance.fetchNodeMetrics(1), // Main UPS
+        ApiService.instance.fetchNodeWithMetric(6), // PDU 1 rich snapshot
+        ApiService.instance.fetchNodeWithMetric(7), // PDU 2 rich snapshot
+        ApiService.instance.fetchNodeWithMetric(1), // Main UPS rich snapshot
+        ApiService.instance.fetchNodeMetrics(6), // PDU 1 metric list fallback
+        ApiService.instance.fetchNodeMetrics(7), // PDU 2 metric list fallback
+        ApiService.instance
+            .fetchNodeMetrics(1), // Main UPS metric list fallback
       ]);
 
       if (!mounted) return;
 
       setState(() {
+        List<dynamic> recordsFrom(dynamic payload) {
+          if (payload is! Map) return const [];
+          final result = payload['result'];
+          if (result is! Map) return const [];
+          final metrics = result['metrics'];
+          if (metrics is List) return List<dynamic>.from(metrics);
+          final records = result['records'];
+          if (records is List) return List<dynamic>.from(records);
+          final list = result['list'];
+          if (list is List) return List<dynamic>.from(list);
+          final data = result['data'];
+          if (data is List) return List<dynamic>.from(data);
+          return const [];
+        }
+
         // PDU 1 (Node 6)
         final pdu1Res = results[0];
-        if (pdu1Res != null && pdu1Res['result'] is Map) {
-          final records = pdu1Res['result']['records'] as List? ?? [];
+        final pdu1MetricRes = results[3];
+        final pdu1Records = _mergeMetricRecords(
+          recordsFrom(pdu1Res),
+          recordsFrom(pdu1MetricRes),
+        );
+        if (pdu1Records.isNotEmpty) {
+          final records = pdu1Records;
           _pdu1Records = records;
           _pdu1P =
               _getMetric(records, 'pdu_active_power_single_phase') / 1000.0;
           if (_pdu1P == 0) {
             _pdu1P = _getMetric(records, 'activepowersinglephase_') / 1000.0;
           }
-          _pdu1A = _getMetric(records, 'currenvaluesinglephase_');
-          for (int i = 1; i <= 16; i++) {
-            _pdu1Outlets[i] = _getMetric(records, 'outlet${i}activepower_');
+          if (_pdu1P == 0) {
+            _pdu1P = _getMetric(records, 'active_power_single_phase') / 1000.0;
           }
+          _pdu1A = _getMetric(records, 'currenvaluesinglephase_');
+          if (_pdu1A == 0) _pdu1A = _getMetric(records, 'current_single_phase');
+          for (int i = 1; i <= 16; i++) {
+            _pdu1Outlets[i] = _getOutletActivePower(records, i);
+            final control = _findOutletControl(records, i);
+            _pdu1OutletControlCodes[i] = control.code;
+            _pdu1OutletControlValues[i] = control.value;
+            _pdu1OutletOnline[i] = _outletIsOn(
+                records: records, watts: _pdu1Outlets[i] ?? 0.0, index: i);
+          }
+          _pdu1Online = _pdu1P > 0 || _pdu1A > 0 || records.isNotEmpty;
         }
 
         // PDU 2 (Node 7)
         final pdu2Res = results[1];
-        if (pdu2Res != null && pdu2Res['result'] is Map) {
-          final records = pdu2Res['result']['records'] as List? ?? [];
+        final pdu2MetricRes = results[4];
+        final pdu2Records = _mergeMetricRecords(
+          recordsFrom(pdu2Res),
+          recordsFrom(pdu2MetricRes),
+        );
+        if (pdu2Records.isNotEmpty) {
+          final records = pdu2Records;
           _pdu2Records = records;
           _pdu2P =
               _getMetric(records, 'pdu_active_power_single_phase') / 1000.0;
@@ -266,16 +327,23 @@ class _RackViewScreenState extends State<RackViewScreen>
           _pdu2A = _getMetric(records, 'currenvaluesinglephase_');
           if (_pdu2A == 0) _pdu2A = _getMetric(records, 'current_single_phase');
           for (int i = 1; i <= 16; i++) {
-            _pdu2Outlets[i] = _getMetric(records, 'outlet${i}activepower_');
-            if (_pdu2Outlets[i] == 0) {
-              _pdu2Outlets[i] = _getMetric(records, 'outlet_${i}_active_power');
-            }
+            _pdu2Outlets[i] = _getOutletActivePower(records, i);
+            final control = _findOutletControl(records, i);
+            _pdu2OutletControlCodes[i] = control.code;
+            _pdu2OutletControlValues[i] = control.value;
+            _pdu2OutletOnline[i] = _outletIsOn(
+                records: records, watts: _pdu2Outlets[i] ?? 0.0, index: i);
           }
+          _pdu2Online = _pdu2P > 0 || _pdu2A > 0 || records.isNotEmpty;
         }
 
         // Main UPS (Node 1)
         final inletRes = results[2];
-        final inletRecords = (inletRes?['result']?['records'] as List?) ?? [];
+        final inletMetricRes = results[5];
+        final inletRecords = _mergeMetricRecords(
+          recordsFrom(inletRes),
+          recordsFrom(inletMetricRes),
+        );
         _inletV = _getMetric(inletRecords, 'voltagevaluesinglephase_');
         if (_inletV == 0) _inletV = _getMetric(inletRecords, 'voltage');
 
@@ -310,13 +378,135 @@ class _RackViewScreenState extends State<RackViewScreen>
     return 0.0;
   }
 
+  double _getMetricByExactName(List<dynamic> records, String name) {
+    final want = name.trim().toLowerCase();
+    for (final r in records) {
+      final currentName = (r['name'])?.toString().trim().toLowerCase() ?? '';
+      if (currentName != want) continue;
+      final val = r['value'] ?? r['val'];
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  double _getOutletActivePower(List<dynamic> records, int index) {
+    final byCode = _getMetric(records, 'outlet${index}activepower_');
+    if (byCode != 0) return byCode;
+    final altCode = _getMetric(records, 'outlet_${index}_active_power');
+    if (altCode != 0) return altCode;
+    return _getMetricByExactName(records, 'Outlet $index Active Power');
+  }
+
+  double _getOutletCurrent(List<dynamic> records, int index) {
+    final byCode = _getMetric(records, 'outlet${index}current_');
+    if (byCode != 0) return byCode;
+    final altCode = _getMetric(records, 'outlet_${index}_current');
+    if (altCode != 0) return altCode;
+    return _getMetricByExactName(records, 'Outlet $index Current');
+  }
+
+  double _getOutletEnergy(List<dynamic> records, int index) {
+    final byCode = _getMetric(records, 'outlet_${index}_electrical_energy');
+    if (byCode != 0) return byCode;
+    final altCode = _getMetric(records, 'outlet${index}electricenergy_');
+    if (altCode != 0) return altCode;
+    return _getMetricByExactName(records, 'Outlet $index Energy');
+  }
+
+  double _getOutletPowerFactor(List<dynamic> records, int index) {
+    final byCode = _getMetric(records, 'outlet_${index}_power_factor');
+    if (byCode != 0) return byCode;
+    return _getMetricByExactName(records, 'Outlet $index Power Factor');
+  }
+
+  List<dynamic> _mergeMetricRecords(
+      List<dynamic> primary, List<dynamic> extra) {
+    final out = <dynamic>[];
+    final seen = <String>{};
+    for (final r in [...primary, ...extra]) {
+      final key =
+          ((r['code'] ?? r['metricTypeLibCode'] ?? r['name'])?.toString() ?? '')
+              .trim()
+              .toLowerCase();
+      if (key.isEmpty || seen.contains(key)) continue;
+      seen.add(key);
+      out.add(r);
+    }
+    return out;
+  }
+
+  ({String? code, int? value}) _findOutletControl(
+      List<dynamic> records, int index) {
+    final patterns = <String>[
+      'outlet${index}onoffcontrol_',
+      'outlet_${index}_onoffcontrol_',
+      'outlet_${index}_on_off_control',
+    ];
+    for (final r in records) {
+      final code =
+          (r['code'] ?? r['metricTypeLibCode'] ?? r['name'])?.toString() ?? '';
+      final lower = code.toLowerCase();
+      final matched = patterns.any((p) => lower.startsWith(p)) ||
+          (lower.contains('outlet$index') &&
+              lower.contains('control') &&
+              lower.contains('on')) ||
+          (lower.contains('outlet_${index}_') && lower.contains('control')) ||
+          ((r['name']?.toString().trim().toLowerCase() ?? '') ==
+              'outlet $index output control'.toLowerCase());
+      if (!matched) continue;
+      final raw = r['value'] ?? r['val'] ?? r['writerVal'];
+      int? value;
+      if (raw is num) {
+        value = raw.toInt();
+      } else if (raw is String) {
+        value = int.tryParse(raw);
+      }
+      return (code: code, value: value);
+    }
+    return (code: null, value: null);
+  }
+
+  bool _hasOutletMetric(List<dynamic> records, int index) {
+    final patterns = <String>[
+      'outlet${index}current_',
+      'outlet${index}activepower_',
+      'outlet${index}electricenergy_',
+      'outlet_${index}_current',
+      'outlet_${index}_active_power',
+      'outlet_${index}_electrical_energy',
+      'outlet${index}onoffcontrol_',
+      'outlet_${index}_onoffcontrol_',
+      'outlet_${index}_on_off_control',
+      'outlet $index output control',
+    ];
+    for (final r in records) {
+      final code =
+          (r['code'] ?? r['metricTypeLibCode'] ?? r['name'])?.toString() ?? '';
+      final lower = code.toLowerCase();
+      final name = (r['name'])?.toString().toLowerCase() ?? '';
+      if (patterns.any((p) => lower.startsWith(p))) {
+        return true;
+      }
+      if (name == 'outlet $index active power'.toLowerCase() ||
+          name == 'outlet $index current'.toLowerCase() ||
+          name == 'outlet $index energy'.toLowerCase() ||
+          name == 'outlet $index power factor'.toLowerCase() ||
+          name == 'outlet $index output control'.toLowerCase()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool _outletIsOn(
       {required List<dynamic> records,
       required double watts,
       required int index}) {
-    var amps = _getMetric(records, 'outlet${index}current_');
-    if (amps == 0) amps = _getMetric(records, 'outlet_${index}_current');
-    return watts > 0.5 || amps > 0.05;
+    final amps = _getOutletCurrent(records, index);
+    final control = _findOutletControl(records, index);
+    final controlSaysOn = control.value == 1;
+    return watts > 0.5 || amps > 0.05 || controlSaysOn;
   }
 
   @override
@@ -615,10 +805,14 @@ class _RackViewScreenState extends State<RackViewScreen>
     final pdu1 = _buildPduPanel(
         nodeId: 6,
         title: 'RACK PDU 1',
+        online: _pdu1Online,
         pKw: _pdu1P,
         pA: _pdu1A,
         records: _pdu1Records,
         outlets: _pdu1Outlets,
+        outletOnline: _pdu1OutletOnline,
+        outletControlCodes: _pdu1OutletControlCodes,
+        outletControlValues: _pdu1OutletControlValues,
         expanded: _pdu1Expanded,
         columns: columns,
         uiScale: uiScale,
@@ -628,10 +822,14 @@ class _RackViewScreenState extends State<RackViewScreen>
     final pdu2 = _buildPduPanel(
         nodeId: 7,
         title: 'RACK PDU 2',
+        online: _pdu2Online,
         pKw: _pdu2P,
         pA: _pdu2A,
         records: _pdu2Records,
         outlets: _pdu2Outlets,
+        outletOnline: _pdu2OutletOnline,
+        outletControlCodes: _pdu2OutletControlCodes,
+        outletControlValues: _pdu2OutletControlValues,
         expanded: _pdu2Expanded,
         columns: columns,
         uiScale: uiScale,
@@ -716,22 +914,24 @@ class _RackViewScreenState extends State<RackViewScreen>
   Widget _buildPduPanel(
       {required int nodeId,
       required String title,
+      required bool online,
       required double pKw,
       required double pA,
       required List<dynamic> records,
       required Map<int, double> outlets,
+      required Map<int, bool> outletOnline,
       Map<int, String?>? outletControlCodes,
       Map<int, int?>? outletControlValues,
       required bool expanded,
       required int columns,
       required double uiScale,
       VoidCallback? onToggle}) {
+    final allOutlets = List.generate(16, (i) => i + 1);
+    final activeOrKnown =
+        allOutlets.where((i) => (outlets[i] ?? 0.0) > 0.5).toList();
     final showing = expanded
-        ? List.generate(16, (i) => i + 1)
-        : List.generate(16, (i) => i + 1)
-            .where((i) => _outletIsOn(
-                records: records, watts: outlets[i] ?? 0.0, index: i))
-            .toList();
+        ? allOutlets
+        : (activeOrKnown.isNotEmpty ? activeOrKnown : allOutlets);
     final isLight = Theme.of(context).brightness == Brightness.light;
     return AnimatedSize(
       duration: const Duration(milliseconds: 360),
@@ -752,56 +952,78 @@ class _RackViewScreenState extends State<RackViewScreen>
           children: [
             Row(
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
+                Expanded(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextPrimary
+                                : Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.bolt_rounded,
-                      size: 14 * uiScale,
-                      color: isLight
-                          ? const Color(0xFFFFB020)
-                          : const Color(0xFFFFD15C),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${pKw.toStringAsFixed(2)} kW',
-                      style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.bolt_rounded,
+                            size: 14 * uiScale,
+                            color: isLight
+                                ? const Color(0xFFFFB020)
+                                : const Color(0xFFFFD15C),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${pKw.toStringAsFixed(2)} kW',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 14 * uiScale,
+                            color: isLight
+                                ? const Color(0xFF2F7BFF)
+                                : const Color(0xFF7DB7FF),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${pA.toStringAsFixed(1)}A',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.speed_rounded,
-                      size: 14 * uiScale,
-                      color: isLight
-                          ? const Color(0xFF2F7BFF)
-                          : const Color(0xFF7DB7FF),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${pA.toStringAsFixed(1)}A',
-                      style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -840,7 +1062,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                     nodeId: nodeId,
                     outletNum: n,
                     watts: w,
-                    isOn: _outletIsOn(records: records, watts: w, index: n),
+                    isOn: w > 0.5,
                     records: records,
                     controlMetricCode: outletControlCodes?[n],
                     controlCurrentValue: outletControlValues?[n],
@@ -877,11 +1099,9 @@ class _RackViewScreenState extends State<RackViewScreen>
     required List<dynamic> records,
     required double uiScale,
   }) async {
-    double amps = _getMetric(records, 'outlet${outletNum}current_');
-    if (amps == 0) amps = _getMetric(records, 'outlet_${outletNum}_current');
-
-    final kwh = _getMetric(records, 'outlet_${outletNum}_electrical_energy');
-    final pf = _getMetric(records, 'outlet_${outletNum}_power_factor');
+    final amps = _getOutletCurrent(records, outletNum);
+    final kwh = _getOutletEnergy(records, outletNum);
+    final pf = _getOutletPowerFactor(records, outletNum);
     final hasEnergy = kwh > 0;
     final hasPf = pf > 0;
 
@@ -895,8 +1115,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
         final labelColor =
             isLight ? AppTheme.lightTextSecondary : Colors.white70;
-        final valueColor =
-            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final valueColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
         final iconColor = isLight
             ? AppTheme.lightTextSecondary.withValues(alpha: 0.80)
             : Colors.white.withValues(alpha: 0.75);
@@ -958,18 +1177,18 @@ class _RackViewScreenState extends State<RackViewScreen>
                   ),
                   const Spacer(),
                   IconButton(
-                    icon:
-                        Icon(Icons.close_rounded,
-                            color: isLight
-                                ? AppTheme.lightTextSecondary
-                                : Colors.white70),
+                    icon: Icon(Icons.close_rounded,
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white70),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: isOn
                       ? AppTheme.accentGreen.withValues(alpha: 0.18)
