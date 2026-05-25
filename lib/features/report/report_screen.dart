@@ -1820,33 +1820,25 @@ class _ReportScreenState extends State<ReportScreen>
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _kpiRingCard(
-                title: 'Vendor PUE',
-                subtitle: 'Original System',
-                color: const Color(0xFF05A100),
-                valueText:
-                    _vendorPue <= 0 ? '--' : _vendorPue.toStringAsFixed(2),
-                progress: _vendorPue <= 0
-                    ? 0.0
-                    : (1.5 - _vendorPue).clamp(0.0, 0.8) / 0.8,
-                trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: _kpiRingCard(
-                title: 'IT Ratio',
-                subtitle: 'Utilization',
-                color: const Color(0xFF3271D7),
-                valueText: '${(itRatio * 100).toStringAsFixed(0)}%',
-                progress: itRatio,
-                trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-              ),
-            ),
-          ],
+        _kpiRingCard(
+          title: 'Vendor PUE',
+          subtitle: 'Original System',
+          color: const Color(0xFF05A100),
+          valueText:
+              _vendorPue <= 0 ? '--' : _vendorPue.toStringAsFixed(2),
+          progress: _vendorPue <= 0
+              ? 0.0
+              : (1.5 - _vendorPue).clamp(0.0, 0.8) / 0.8,
+          trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+        ),
+        const SizedBox(height: 14),
+        _kpiRingCard(
+          title: 'IT Ratio',
+          subtitle: 'Utilization',
+          color: const Color(0xFF3271D7),
+          valueText: '${(itRatio * 100).toStringAsFixed(0)}%',
+          progress: itRatio,
+          trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
         ),
         const SizedBox(height: 14),
         _kpiRingCard(
@@ -1870,47 +1862,31 @@ class _ReportScreenState extends State<ReportScreen>
     required double progress,
     required Color trackColor,
   }) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
 
-    return DecoratedBox(
+    final c2 = Color.lerp(color, Colors.black, 0.25)!;
+
+    return Container(
       decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, c2],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x22FFFFFF)),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.22),
-            blurRadius: 26,
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 18,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Card(
-        elevation: 0,
-        color: isLight ? color : color.withValues(alpha: 0.22),
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: isLight ? BorderSide.none : BorderSide(color: color.withValues(alpha: 0.35), width: 1.0),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Row(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _MiniRing(
-              color: color,
-              progress: progress.clamp(0.0, 1.0),
-              trackColor: trackColor,
-              // White value text on the solid cards (both Avg PUE + IT Ratio).
-              child: Text(
-                valueText,
-                style: bitcount(
-                  context,
-                  fontSize: 16,
-                  color: Colors.white,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1935,11 +1911,26 @@ class _ReportScreenState extends State<ReportScreen>
                 ],
               ),
             ),
+            const SizedBox(width: 12),
+            _MiniRing(
+              color: color,
+              progress: progress.clamp(0.0, 1.0),
+              trackColor: trackColor,
+              // White value text on the solid cards (both Avg PUE + IT Ratio).
+              child: Text(
+                valueText,
+                style: bitcount(
+                  context,
+                  fontSize: 16,
+                  color: Colors.white,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    ),
-  );
+    );
 }
 }
 
@@ -2014,11 +2005,26 @@ class _MiniRingState extends State<_MiniRing>
     final size = 64.0 * scale;
     final stroke = 6.5 * scale;
     return SizedBox(
-      width: size,
-      height: size,
+      width: size + 24,
+      height: size + 24,
       child: Stack(
         alignment: Alignment.center,
         children: [
+          Container(
+            width: size + 12,
+            height: size + 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF141A21).withValues(alpha: 0.65),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                )
+              ]
+            ),
+          ),
           AnimatedBuilder(
             animation: _c,
             builder: (context, _) => CustomPaint(
@@ -2191,19 +2197,30 @@ class _RingPainter extends CustomPainter {
       final glowBase = (gradientColors != null && gradientColors!.length > 1)
           ? gradientColors![1]
           : (gradientColors?.first ?? color);
-      final glowPaint = Paint()
+          
+      final ambientGlow = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke + 2
+        ..strokeWidth = stroke + 18
         ..strokeCap = StrokeCap.round
-        ..color = glowBase.withValues(alpha: 0.55)
+        ..color = glowBase.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 26);
+      canvas.drawArc(arcRect, start, sweep, false, ambientGlow);
+
+      final haloGlow = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke + 12
+        ..strokeCap = StrokeCap.round
+        ..color = glowBase.withValues(alpha: 0.34)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
+      canvas.drawArc(arcRect, start, sweep, false, haloGlow);
+
+      final coreGlow = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke + 6
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.22)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      canvas.drawArc(
-        arcRect,
-        start,
-        sweep,
-        false,
-        glowPaint,
-      );
+      canvas.drawArc(arcRect, start, sweep, false, coreGlow);
     }
 
     if (sweep > 0) {
