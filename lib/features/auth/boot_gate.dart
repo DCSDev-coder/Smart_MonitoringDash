@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/remember_me_store.dart';
+import '../../core/network/adapter_api_service.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
@@ -68,8 +69,9 @@ class _BootGateState extends State<BootGate> {
         return;
       }
 
-      final site = await CpanelApiService.instance
+      final mergedSite = await CpanelApiService.instance
           .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
+      final site = await _mergeSiteWithRemoteConfig(mergedSite);
       CpanelApiService.instance.currentSite = site;
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
@@ -113,6 +115,22 @@ class _BootGateState extends State<BootGate> {
         setState(() => _working = false);
       }
     }
+  }
+
+  Future<Map<String, dynamic>> _mergeSiteWithRemoteConfig(
+      Map<String, dynamic> site) async {
+    final siteId = int.tryParse(site['site_id']?.toString() ?? '');
+    Map<String, dynamic>? cfgEnvelope;
+
+    if (siteId != null) {
+      if (AdapterApiService.instance.isConfigured) {
+        cfgEnvelope = await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
+      }
+      cfgEnvelope ??=
+          await CpanelApiService.instance.fetchAppConfig(siteId: siteId);
+    }
+
+    return CpanelApiService.instance.mergeSiteWithAppConfig(site, cfgEnvelope);
   }
 
   void _goWelcome() {

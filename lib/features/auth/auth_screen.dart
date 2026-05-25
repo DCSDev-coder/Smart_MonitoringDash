@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/network/api_service.dart';
+import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/auth/remember_me_store.dart';
@@ -87,6 +88,22 @@ class _AuthScreenState extends State<AuthScreen> {
     await _signInWithToken(token: token, isAuto: true);
   }
 
+  Future<Map<String, dynamic>> _mergeSiteWithRemoteConfig(
+      Map<String, dynamic> site) async {
+    final siteId = int.tryParse(site['site_id']?.toString() ?? '');
+    Map<String, dynamic>? cfgEnvelope;
+
+    if (siteId != null) {
+      if (AdapterApiService.instance.isConfigured) {
+        cfgEnvelope = await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
+      }
+      cfgEnvelope ??=
+          await CpanelApiService.instance.fetchAppConfig(siteId: siteId);
+    }
+
+    return CpanelApiService.instance.mergeSiteWithAppConfig(site, cfgEnvelope);
+  }
+
   Future<void> _signInWithToken(
       {required String token, bool isAuto = false}) async {
     setState(() => _loading = true);
@@ -102,8 +119,10 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       final firstSite = sites[0] as Map<String, dynamic>;
-      CpanelApiService.instance.currentSite = await CpanelApiService.instance
+      final mergedSite = await CpanelApiService.instance
           .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
+      CpanelApiService.instance.currentSite =
+          await _mergeSiteWithRemoteConfig(mergedSite);
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
       final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
@@ -220,8 +239,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
       // 3. Connect to the first site using its SPECIFIC credentials
       final firstSite = sites[0];
-      CpanelApiService.instance.currentSite = await CpanelApiService.instance
+      final mergedSite = await CpanelApiService.instance
           .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
+      CpanelApiService.instance.currentSite =
+          await _mergeSiteWithRemoteConfig(mergedSite);
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
       final targetIp = CpanelApiService.instance.currentSite?['open_ip'];

@@ -17,6 +17,7 @@ class CpanelApiService {
   static const String _keyPortalUserId = 'cpanel_user_id';
 
   Map<String, dynamic>? currentSite;
+  Map<String, dynamic>? currentAppConfig;
 
   String? _portalUsername;
   int? _portalUserId;
@@ -357,6 +358,64 @@ class CpanelApiService {
       _portalAuthToken = null;
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>?> fetchAppConfig({
+    required int siteId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=app_config&site_id=$siteId"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "app_config",
+              "site_id": siteId,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      final status = (decoded['status'] ?? '').toString().toLowerCase();
+      if (status.isNotEmpty && status != 'success') return null;
+      return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Fetch app config error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> mergeSiteWithAppConfig(
+    Map<String, dynamic> site,
+    Map<String, dynamic>? appConfigEnvelope,
+  ) {
+    if (appConfigEnvelope == null) return Map<String, dynamic>.from(site);
+
+    final cfgRaw =
+        appConfigEnvelope['config'] ?? appConfigEnvelope['result'] ?? appConfigEnvelope;
+    if (cfgRaw is! Map) return Map<String, dynamic>.from(site);
+    final cfg = Map<String, dynamic>.from(cfgRaw);
+
+    currentAppConfig = cfg;
+
+    final out = Map<String, dynamic>.from(site);
+    final dahuaCabinetId = cfg['dahua_cabinet_id'] ?? cfg['cabinet_id'];
+    if (dahuaCabinetId != null && dahuaCabinetId.toString().trim().isNotEmpty) {
+      out['dahua_cabinet_id'] = dahuaCabinetId.toString();
+    }
+    if (cfg['config_version'] != null) {
+      out['config_version'] = cfg['config_version'];
+    }
+    if (cfg['nodes'] != null) {
+      out['app_config_nodes'] = cfg['nodes'];
+    }
+    if (cfg['charts'] != null) {
+      out['app_config_charts'] = cfg['charts'];
+    }
+    return out;
   }
 
   Future<Map<String, dynamic>> mergeCurrentMemberPermissions(

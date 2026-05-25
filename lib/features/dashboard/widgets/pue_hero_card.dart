@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/dashboard_glass.dart';
 import '../../../shared/widgets/skeleton.dart';
 import 'dashboard_typography.dart';
 
@@ -76,7 +75,6 @@ class PueHeroCard extends StatelessWidget {
 
   void _showPueInfo(BuildContext context) {
     final theme = Theme.of(context);
-    final isLight = theme.brightness == Brightness.light;
     final onSurface = theme.colorScheme.onSurface;
     showDialog(
       context: context,
@@ -394,7 +392,7 @@ class PueHeroCard extends StatelessWidget {
                           ),
                           Text(
                             '$energyText kWh',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,

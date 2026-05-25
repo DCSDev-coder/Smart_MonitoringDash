@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:collection';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -125,7 +124,7 @@ class ApiService {
     final src = query ?? const <String, String>{};
     final keys = src.keys.toList()..sort();
 
-    final sorted = LinkedHashMap<String, Object>();
+    final sorted = <String, Object>{};
     for (final k in keys) {
       sorted[k] = _coerceXSignValue(src[k] ?? '');
     }

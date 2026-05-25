@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/dashboard_glass.dart';
 import '../../../shared/widgets/skeleton.dart';
 import 'dashboard_typography.dart';
 
@@ -396,10 +395,10 @@ class _EnvironmentGaugeSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return const Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      child: const Column(
+        padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

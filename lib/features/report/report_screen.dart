@@ -9,6 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
+import '../../core/config/site_runtime_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/constants/app_constants.dart';
@@ -81,6 +82,8 @@ class _ReportScreenState extends State<ReportScreen>
   int _floodStatus = -1;
   DateTime? _lastMaintenance;
   int? _siteId;
+  int _adapterMissStreak = 0;
+  bool get _showAdapterDegraded => _adapterMissStreak >= 2;
 
   late final AnimationController _tabSelC;
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
@@ -142,14 +145,42 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
+  bool _isAdapterReady(int? siteId) =>
+      AdapterApiService.instance.isConfigured && siteId != null;
+
+  bool _shouldUseAdapter(int? siteId) =>
+      _isAdapterReady(siteId) && !_showAdapterDegraded;
+
   Future<void> _fetchReportData({bool showSkeleton = true}) async {
     if (showSkeleton) setState(() => _loading = true);
     try {
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = SiteRuntimeConfig.siteId(site);
+      final cabinetId = SiteRuntimeConfig.cabinetId(site);
+      final adapterReady = _shouldUseAdapter(siteId);
+
       final results = await Future.wait([
-        ApiService.instance.fetchPowerMonth(),
-        ApiService.instance.fetchAlarmsByLevel(),
-        ApiService.instance.fetchSysInfo(),
+        adapterReady
+            ? AdapterApiService.instance.fetchPowerMonth(siteId: siteId!)
+            : ApiService.instance.fetchPowerMonth(id: cabinetId),
+        adapterReady
+            ? AdapterApiService.instance.fetchRecentAlarms(siteId: siteId!)
+            : ApiService.instance.fetchAlarmsByLevel(),
+        adapterReady
+            ? AdapterApiService.instance.fetchSysInfo(siteId: siteId!)
+            : ApiService.instance.fetchSysInfo(),
       ]);
+
+      if (adapterReady) {
+        final adapterMiss = results[0] == null || results[1] == null || results[2] == null;
+        if (adapterMiss) {
+          _adapterMissStreak += 1;
+        } else {
+          _adapterMissStreak = 0;
+        }
+      } else {
+        _adapterMissStreak = 0;
+      }
 
       if (mounted) {
         setState(() {
@@ -162,7 +193,14 @@ class _ReportScreenState extends State<ReportScreen>
 
           final alRes = results[1];
           if (alRes != null) {
-            _alarms = (alRes['result'] as List?) ?? [];
+            final raw = alRes['result'];
+            if (raw is List) {
+              _alarms = raw;
+            } else if (raw is Map && raw['records'] is List) {
+              _alarms = raw['records'];
+            } else {
+              _alarms = [];
+            }
           }
 
           final sysRes = results[2];
@@ -171,9 +209,8 @@ class _ReportScreenState extends State<ReportScreen>
           }
 
           // 7. Load Cpanel Site Info
-          final site = CpanelApiService.instance.currentSite;
           if (site != null) {
-            _siteId = int.tryParse(site['site_id']?.toString() ?? '');
+            _siteId = siteId;
             if (site['last_maintenance'] != null) {
               _lastMaintenance = DateTime.tryParse(site['last_maintenance']);
             }
@@ -216,20 +253,19 @@ class _ReportScreenState extends State<ReportScreen>
     final int startTime = _eventRangeStartFor(now);
     final int endTime = now.millisecondsSinceEpoch;
 
-    final site = CpanelApiService.instance.currentSite;
-    final siteId = site == null
-        ? null
-        : (int.tryParse(site['site_id']?.toString() ?? '') ??
-            int.tryParse(site['id']?.toString() ?? ''));
+    final siteId = SiteRuntimeConfig.siteId(
+      CpanelApiService.instance.currentSite,
+    );
 
-    if (AdapterApiService.instance.isConfigured && siteId != null) {
+    if (_shouldUseAdapter(siteId)) {
+      final sid = siteId!;
       setState(() {
         _fetchingHistoricalEvents = true;
         _fetchingDoorLogs = true;
       });
       try {
         final bundle = await AdapterApiService.instance.fetchReportBundle(
-          siteId: siteId,
+          siteId: sid,
           startTime: startTime,
           endTime: endTime,
           page: 1,
@@ -237,6 +273,7 @@ class _ReportScreenState extends State<ReportScreen>
         );
 
         if (bundle != null && mounted) {
+          _adapterMissStreak = 0;
           setState(() {
             final ra = bundle['reportAlarms'];
             final al = bundle['accessLogs'];
@@ -258,14 +295,27 @@ class _ReportScreenState extends State<ReportScreen>
             _fetchingDoorLogs = false;
           });
         } else {
+          _adapterMissStreak += 1;
+          AppLog.w(
+            'Adapter report bundle returned null/invalid payload',
+            tag: 'ReportScreen',
+            fields: {'siteId': siteId},
+          );
           if (mounted) {
             setState(() {
               _fetchingHistoricalEvents = false;
               _fetchingDoorLogs = false;
             });
           }
+          if (_showAdapterDegraded) {
+            await Future.wait([
+              _fetchHistoricalEvents(),
+              _fetchDoorLogs(),
+            ]);
+          }
         }
       } catch (e) {
+        _adapterMissStreak += 1;
         AppLog.w('Report bundle fetch error', tag: 'ReportScreen', error: e);
         if (mounted) {
           setState(() {
@@ -273,11 +323,22 @@ class _ReportScreenState extends State<ReportScreen>
             _fetchingDoorLogs = false;
           });
         }
+        if (_showAdapterDegraded) {
+          await Future.wait([
+            _fetchHistoricalEvents(),
+            _fetchDoorLogs(),
+          ]);
+        }
       }
       return;
     }
 
-    // Fallback: legacy 2 calls.
+    AppLog.i(
+      'Using direct fallback for report events because adapter is not configured',
+      tag: 'ReportScreen',
+      fields: {'siteId': siteId},
+    );
+    // Fallback: legacy 2 calls only when adapter is not configured.
     await Future.wait([
       _fetchHistoricalEvents(),
       _fetchDoorLogs(),
@@ -321,26 +382,31 @@ class _ReportScreenState extends State<ReportScreen>
       final int startTime = _eventRangeStartFor(now);
       final int endTime = now.millisecondsSinceEpoch;
 
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
+      final siteId = SiteRuntimeConfig.siteId(
+        CpanelApiService.instance.currentSite,
+      );
 
       Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
+      if (_shouldUseAdapter(siteId)) {
+        final sid = siteId!;
         res = await AdapterApiService.instance.fetchReportAlarms(
-          siteId: siteId,
+          siteId: sid,
           startTime: startTime,
           endTime: endTime,
           page: 1,
           pageSize: 20,
         );
+        if (res == null) {
+          _adapterMissStreak += 1;
+        } else {
+          _adapterMissStreak = 0;
+        }
       }
 
-      // Fallback to direct Dahua call if adapter is not available.
-      res ??= await ApiService.instance
-          .fetchReportAlarms(startTime: startTime, endTime: endTime);
+      if (!_shouldUseAdapter(siteId)) {
+        res ??= await ApiService.instance
+            .fetchReportAlarms(startTime: startTime, endTime: endTime);
+      }
 
       if (mounted) {
         setState(() {
@@ -362,26 +428,31 @@ class _ReportScreenState extends State<ReportScreen>
       final int startTime = _eventRangeStartFor(now);
       final int endTime = now.millisecondsSinceEpoch;
 
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
+      final siteId = SiteRuntimeConfig.siteId(
+        CpanelApiService.instance.currentSite,
+      );
 
       Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
+      if (_shouldUseAdapter(siteId)) {
+        final sid = siteId!;
         res = await AdapterApiService.instance.fetchAccessLogs(
-          siteId: siteId,
+          siteId: sid,
           startTime: startTime,
           endTime: endTime,
           accessType: '1',
         );
+        if (res == null) {
+          _adapterMissStreak += 1;
+        } else {
+          _adapterMissStreak = 0;
+        }
       }
 
-      // Fallback to direct Dahua call if adapter is not available.
-      res ??= await ApiService.instance.fetchDoorAccessLogs(
-        accessType: '1',
-      );
+      if (!_shouldUseAdapter(siteId)) {
+        res ??= await ApiService.instance.fetchDoorAccessLogs(
+          accessType: '1',
+        );
+      }
 
       if (mounted) {
         setState(() {
@@ -415,28 +486,24 @@ class _ReportScreenState extends State<ReportScreen>
 
       // 1. Fetch Production Energy Trends & PUE
       final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
+      final siteId = SiteRuntimeConfig.siteId(
+        CpanelApiService.instance.currentSite,
+      );
 
       Future<Map<String, dynamic>?> fetchPueWithFallback(
           {required int? siteId}) async {
-        final rawCabinetId = site != null
-            ? (site['dahua_cabinet_id'] ??
-                    site['cabinet_id'] ??
-                    site['cabinetId'] ??
-                    site['rack_cabinet_id'])
-                ?.toString()
-            : null;
-        final cabinetId = rawCabinetId == null
-            ? null
-            : int.tryParse(rawCabinetId)?.toString();
+        final cabinetId = SiteRuntimeConfig.cabinetId(site);
 
-        if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter =
-              await AdapterApiService.instance.fetchPue(siteId: siteId);
-          if (viaAdapter != null) return viaAdapter;
+        if (_shouldUseAdapter(siteId)) {
+          final sid = siteId!;
+          final res = await AdapterApiService.instance.fetchPue(siteId: sid);
+          if (res == null) {
+            _adapterMissStreak += 1;
+            if (!_showAdapterDegraded) return null;
+          } else {
+            _adapterMissStreak = 0;
+            return res;
+          }
         }
         // Legacy fallback expects a cabinet id (string), default to 1.
         return ApiService.instance.fetchPue(id: cabinetId ?? '1');
@@ -446,15 +513,22 @@ class _ReportScreenState extends State<ReportScreen>
         required int nodeId,
         required String metricCode,
       }) async {
-        if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter = await AdapterApiService.instance.fetchRange(
-            siteId: siteId,
+        if (_shouldUseAdapter(siteId)) {
+          final sid = siteId!;
+          final res = await AdapterApiService.instance.fetchRange(
+            siteId: sid,
             nodeId: nodeId,
             metricCode: metricCode,
             startTime: startTime,
             endTime: endTime,
           );
-          if (viaAdapter != null) return viaAdapter;
+          if (res == null) {
+            _adapterMissStreak += 1;
+            if (!_showAdapterDegraded) return null;
+          } else {
+            _adapterMissStreak = 0;
+            return res;
+          }
         }
         return ApiService.instance.fetchHistoricalData(
           nodeId: nodeId,
@@ -466,15 +540,22 @@ class _ReportScreenState extends State<ReportScreen>
 
       final results = await Future.wait([
         fetchPueWithFallback(siteId: siteId),
-        // PDU 1 active power history (hashed metric code)
+        // Prefer app_config node metric mapping, then fall back to known defaults.
         fetchRangeWithFallback(
           nodeId: 6,
-          metricCode: 'pdu_active_power_single_phase',
+          metricCode: SiteRuntimeConfig.metricCodeForNode(
+            site,
+            6,
+            fallback: 'pdu_active_power_single_phase',
+          ),
         ),
-        // PDU 2 active power history (non-hashed metric code)
         fetchRangeWithFallback(
           nodeId: 7,
-          metricCode: 'active_power_single_phase',
+          metricCode: SiteRuntimeConfig.metricCodeForNode(
+            site,
+            7,
+            fallback: 'active_power_single_phase',
+          ),
         ),
       ]);
 
@@ -544,27 +625,43 @@ class _ReportScreenState extends State<ReportScreen>
           final pueRes = (results[0] is Map<String, dynamic>)
               ? results[0] as Map<String, dynamic>
               : null;
-          if (pueRes != null && pueRes['result'] != null) {
-            final r = pueRes['result'];
+          if (pueRes != null) {
+            // Adapter shape:
+            // { pueStatus, pue, vendorPue, ... }
+            // Legacy shape:
+            // { result: { pue | pueValue, power } }
+            final dynamic topLevelPue = pueRes['pue'] ?? pueRes['vendorPue'];
+            final dynamic legacy = pueRes['result'];
+            final dynamic legacyPue = legacy is Map
+                ? (legacy['pue'] ?? legacy['pueValue'])
+                : null;
+            final dynamic resolved = topLevelPue ?? legacyPue;
+            final pueVal = resolved is num
+                ? resolved.toDouble()
+                : double.tryParse(resolved?.toString() ?? '');
 
-            // getCurrentPue: { result: { pue, power } }
-            if (r is Map && (r['pue'] != null || r['pueValue'] != null)) {
-              final v = r['pue'] ?? r['pueValue'];
-              final pueVal =
-                  (v is num) ? v.toDouble() : double.tryParse(v.toString());
-              if (pueVal != null && pueVal > 0) {
-                hasRealHistory = true;
-                _avgPue = pueVal;
-                // Align points to totalPower labels if we have them.
-                final n =
-                    _totalPowerLabels.isNotEmpty ? _totalPowerLabels.length : 1;
-                for (int i = 0; i < n; i++) {
-                  _pueSpots.add(FlSpot(i.toDouble(), pueVal));
-                  _pueLabels.add(_totalPowerLabels.isNotEmpty
-                      ? _totalPowerLabels[i]
-                      : 'Now');
-                }
+            if (pueVal != null && pueVal > 0) {
+              hasRealHistory = true;
+              _avgPue = pueVal;
+              // Align points to totalPower labels if we have them.
+              final n =
+                  _totalPowerLabels.isNotEmpty ? _totalPowerLabels.length : 1;
+              for (int i = 0; i < n; i++) {
+                _pueSpots.add(FlSpot(i.toDouble(), pueVal));
+                _pueLabels
+                    .add(_totalPowerLabels.isNotEmpty ? _totalPowerLabels[i] : 'Now');
               }
+            } else {
+              AppLog.w(
+                'PUE payload present but no valid PUE value',
+                tag: 'EnergyHistory',
+                fields: {
+                  'keys': pueRes.keys.toList(),
+                  'pueStatus': pueRes['pueStatus'],
+                  'rawPue': topLevelPue,
+                  'rawVendorPue': pueRes['vendorPue'],
+                },
+              );
             }
           }
 
@@ -573,7 +670,6 @@ class _ReportScreenState extends State<ReportScreen>
             AppLog.d(
                 '[EnergyHistory] History empty. No fallback data generated per user request. Chart will remain empty until real data is available.');
           }
-
           _fetchingEnergy = false;
         });
       }
@@ -888,6 +984,37 @@ class _ReportScreenState extends State<ReportScreen>
               ),
 
               // 2. Custom Navigation
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPadding),
+                  child: _showAdapterDegraded
+                      ? Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFB020).withValues(alpha: 0.20),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0xFFFFB020).withValues(alpha: 0.55),
+                              ),
+                            ),
+                            child: const Text(
+                              'Data source reconnecting...',
+                              style: TextStyle(
+                                color: Color(0xFFFFD479),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: hPadding),
@@ -1362,6 +1489,12 @@ class _ReportScreenState extends State<ReportScreen>
     }
 
     final sliced = _sliceSeriesForRange(_pueSpots, _pueLabels, range);
+    final maxObserved = sliced.spots.isEmpty
+        ? 2.5
+        : sliced.spots
+            .map((s) => s.y)
+            .reduce((a, b) => a > b ? a : b);
+    final dynamicMaxY = (maxObserved + 0.2).clamp(1.8, 5.0).toDouble();
     return ScrollableTimeSeriesChart(
       spots: sliced.spots,
       xLabels: sliced.labels,
@@ -1369,7 +1502,7 @@ class _ReportScreenState extends State<ReportScreen>
       height: baseHeight,
       targetYTicks: 4,
       minY: 1.0,
-      maxY: 2.5,
+      maxY: dynamicMaxY,
       pxPerPoint: _pxPerPointForRange(range),
       targetXTicks: _targetTicksForRange(range),
       padding: const EdgeInsets.fromLTRB(2, 6, 10, 2),

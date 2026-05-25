@@ -8,6 +8,7 @@ import '../../core/network/api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../../core/network/cpanel_api_service.dart';
+import '../../core/config/site_runtime_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
 
@@ -67,6 +68,8 @@ class _RackViewScreenState extends State<RackViewScreen>
 
   bool _pdu1Expanded = false;
   bool _pdu2Expanded = false;
+  int _adapterMissStreak = 0;
+  bool get _showAdapterDegraded => _adapterMissStreak >= 2;
 
   @override
   void initState() {
@@ -134,6 +137,7 @@ class _RackViewScreenState extends State<RackViewScreen>
 
         if (!mounted) return;
         if (telem != null) {
+          _adapterMissStreak = 0;
           setState(() {
             final inlet = telem['inlet'];
             final pdu1 = telem['pdu1'];
@@ -244,6 +248,24 @@ class _RackViewScreenState extends State<RackViewScreen>
           );
           return;
         }
+
+        _adapterMissStreak += 1;
+        if (!_showAdapterDegraded) {
+          // Avoid mixed-source polling spikes for short adapter blips.
+          AppLog.w(
+            'Adapter rack telemetry returned null; retrying adapter before direct fallback',
+            tag: 'RackView',
+            fields: {'siteId': siteId, 'missStreak': _adapterMissStreak},
+          );
+          setState(() => _loading = false);
+          return;
+        }
+
+        AppLog.w(
+          'Adapter degraded; enabling direct rack fallback',
+          tag: 'RackView',
+          fields: {'siteId': siteId, 'missStreak': _adapterMissStreak},
+        );
       }
 
       final results = await Future.wait([
@@ -259,6 +281,7 @@ class _RackViewScreenState extends State<RackViewScreen>
       if (!mounted) return;
 
       setState(() {
+        _adapterMissStreak = 0;
         List<dynamic> recordsFrom(dynamic payload) {
           if (payload is! Map) return const [];
           final result = payload['result'];
@@ -284,8 +307,14 @@ class _RackViewScreenState extends State<RackViewScreen>
         if (pdu1Records.isNotEmpty) {
           final records = pdu1Records;
           _pdu1Records = records;
-          _pdu1P =
-              _getMetric(records, 'pdu_active_power_single_phase') / 1000.0;
+          _pdu1P = _getMetric(
+                  records,
+                  SiteRuntimeConfig.metricCodeForNode(
+                    CpanelApiService.instance.currentSite,
+                    6,
+                    fallback: 'pdu_active_power_single_phase',
+                  )) /
+              1000.0;
           if (_pdu1P == 0) {
             _pdu1P = _getMetric(records, 'activepowersinglephase_') / 1000.0;
           }
@@ -315,8 +344,14 @@ class _RackViewScreenState extends State<RackViewScreen>
         if (pdu2Records.isNotEmpty) {
           final records = pdu2Records;
           _pdu2Records = records;
-          _pdu2P =
-              _getMetric(records, 'pdu_active_power_single_phase') / 1000.0;
+          _pdu2P = _getMetric(
+                  records,
+                  SiteRuntimeConfig.metricCodeForNode(
+                    CpanelApiService.instance.currentSite,
+                    7,
+                    fallback: 'pdu_active_power_single_phase',
+                  )) /
+              1000.0;
           if (_pdu2P == 0) {
             _pdu2P = _getMetric(records, 'activepowersinglephase_') / 1000.0;
           }
@@ -351,8 +386,14 @@ class _RackViewScreenState extends State<RackViewScreen>
         _inletA = _getMetric(inletRecords, 'currenvaluesinglephase_');
         if (_inletA == 0) _inletA = _getMetric(inletRecords, 'current');
 
-        _inletP =
-            _getMetric(inletRecords, 'pdu_active_power_single_phase') / 1000.0;
+        _inletP = _getMetric(
+                inletRecords,
+                SiteRuntimeConfig.metricCodeForNode(
+                  CpanelApiService.instance.currentSite,
+                  1,
+                  fallback: 'pdu_active_power_single_phase',
+                )) /
+            1000.0;
         if (_inletP == 0) _inletP = (_pdu1P + _pdu2P);
 
         if (_inletA == 0 && _inletP > 0 && _inletV > 0) {
@@ -509,6 +550,31 @@ class _RackViewScreenState extends State<RackViewScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (_showAdapterDegraded) ...[
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFB020).withValues(alpha: 0.20),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: const Color(0xFFFFB020).withValues(alpha: 0.55),
+                        ),
+                      ),
+                      child: const Text(
+                        'Data source reconnecting...',
+                        style: TextStyle(
+                          color: Color(0xFFFFD479),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 showSkeleton
                     ? _buildInletCardSkeleton(uiScale)
                     : _buildInletCard(uiScale),

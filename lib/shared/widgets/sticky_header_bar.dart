@@ -38,9 +38,10 @@ class StickyHeaderBar extends StatelessWidget {
         BorderSide bottomBorder;
 
         if (isLight) {
-          // Light mode: keep the header untinted (fully transparent) and let the blur
-          // do the work. Any color tint here reads as a blue/gray band on top.
-          bgColor = Colors.transparent;
+          // Light mode: lightly tint with the same scaffold background color so the
+          // header reads like the exact same surface as the dashboard (blur alone
+          // can shift the perceived color).
+          bgColor = theme.scaffoldBackgroundColor.withValues(alpha: 0.10);
           // No shadow/border in light mode; both slightly darken the blue background
           // and make the header look like a different colored strip.
           shadows = null;

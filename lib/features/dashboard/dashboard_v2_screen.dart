@@ -6,6 +6,7 @@ import '../../core/utils/app_log.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/network/adapter_api_service.dart';
+import '../../core/config/site_runtime_config.dart';
 import '../report/report_screen.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/controllers/smart_polling_settings.dart';
@@ -84,6 +85,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   Duration _tickInterval = const Duration(seconds: 10);
   bool _loggedPuePayload = false;
+  int _adapterMissStreak = 0;
+  bool get _showAdapterDegraded => _adapterMissStreak >= 2;
 
   bool get _canControlDoors {
     final site = CpanelApiService.instance.currentSite;
@@ -204,9 +207,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      final viaAdapter =
-          await AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
-      if (viaAdapter != null) return viaAdapter;
+      return AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
     }
     return ApiService.instance.fetchPowerMonth(id: cabinetId);
   }
@@ -216,9 +217,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      final viaAdapter =
-          await AdapterApiService.instance.fetchPue(siteId: siteId);
-      if (viaAdapter != null) return viaAdapter;
+      return AdapterApiService.instance.fetchPue(siteId: siteId);
     }
     return ApiService.instance.fetchPue(id: cabinetId);
   }
@@ -228,9 +227,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      final viaAdapter =
-          await AdapterApiService.instance.fetchDoors(siteId: siteId);
-      if (viaAdapter != null) return viaAdapter;
+      return AdapterApiService.instance.fetchDoors(siteId: siteId);
     }
     final parsed = int.tryParse(cabinetId ?? '');
     return ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
@@ -262,23 +259,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     if (!fetchTempHum && !fetchDoors && !fetchPowerMonth && !fetchPue) return;
 
     final site = CpanelApiService.instance.currentSite;
-
-    final siteId = site == null
-        ? null
-        : (int.tryParse(site['site_id']?.toString() ?? '') ??
-            int.tryParse(site['id']?.toString() ?? ''));
-
-    // Power Month still talks to Dahua directly for now. We'll move it behind the
-    // adapter once the contract is stable.
-    final rawCabinetId = site != null
-        ? (site['dahua_cabinet_id'] ??
-                site['cabinet_id'] ??
-                site['cabinetId'] ??
-                site['rack_cabinet_id'])
-            ?.toString()
-        : null;
-    final cabinetId =
-        rawCabinetId == null ? null : int.tryParse(rawCabinetId)?.toString();
+    final siteId = SiteRuntimeConfig.siteId(site);
+    final cabinetId = SiteRuntimeConfig.cabinetId(site);
+    final adapterReady = AdapterApiService.instance.isConfigured && siteId != null;
 
     final results = await Future.wait([
       fetchTempHum
@@ -302,11 +285,25 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     final pueRes = results[2];
     final gatesRes = results[3];
 
+    if (adapterReady) {
+      final adapterMiss = (fetchPowerMonth && pm == null) ||
+          (fetchPue && pueRes == null) ||
+          (fetchDoors && gatesRes == null);
+      if (adapterMiss) {
+        _adapterMissStreak += 1;
+      } else {
+        _adapterMissStreak = 0;
+      }
+    } else {
+      _adapterMissStreak = 0;
+    }
+
     final shouldUpdate = isInitial ||
         th != null ||
         pm != null ||
         pueRes != null ||
-        gatesRes != null;
+        gatesRes != null ||
+        _showAdapterDegraded;
     if (!shouldUpdate) return;
 
     setState(() {
@@ -623,6 +620,31 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                       AppSpacing.pageBottom(context),
                     ),
                     children: [
+                      if (_showAdapterDegraded) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFB020).withValues(alpha: 0.20),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0xFFFFB020).withValues(alpha: 0.55),
+                              ),
+                            ),
+                            child: const Text(
+                              'Data source reconnecting...',
+                              style: TextStyle(
+                                color: Color(0xFFFFD479),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       Align(
                         alignment: Alignment.topCenter,
                         child: ConstrainedBox(
@@ -781,10 +803,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
     try {
       final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
+      final siteId = SiteRuntimeConfig.siteId(site);
 
       Map<String, dynamic>? res;
       if (AdapterApiService.instance.isConfigured && siteId != null) {
@@ -794,8 +813,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           status: 1,
           accessType: '1',
         );
+      } else {
+        res = await ApiService.instance.openCloseDoor(id, 1);
       }
-      res ??= await ApiService.instance.openCloseDoor(id, 1);
 
       if (!mounted) return;
       final okSuccess = res != null && res['success'] == true;

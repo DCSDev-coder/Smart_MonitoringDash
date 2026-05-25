@@ -57,6 +57,34 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchAppConfig({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/app-config');
+    try {
+      final res =
+          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchAppConfig non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchAppConfig error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> fetchPowerMonth({required int siteId}) async {
     if (!isConfigured) return null;
 
