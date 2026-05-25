@@ -74,7 +74,7 @@ class _ReportScreenState extends State<ReportScreen>
   String _sitePowerRange = '24H';
   String _itDeviceRange = '24H';
   String _pueStabilityRange = '24H';
-  double _avgPue = 0.0;
+  double _vendorPue = 0.0;
 
   // Analytics State
   bool _isExporting = false;
@@ -564,7 +564,7 @@ class _ReportScreenState extends State<ReportScreen>
           _totalPowerSpots = [];
           _itPowerSpots = [];
           _pueSpots = [];
-          _avgPue = 0.0;
+          _vendorPue = 0.0;
           _totalPowerLabels = [];
           _itPowerLabels = [];
           _pueLabels = [];
@@ -589,32 +589,40 @@ class _ReportScreenState extends State<ReportScreen>
             return out;
           }
 
-          final pdu1Series = parseRange(results[1]);
-          final pdu2Series = parseRange(results[2]);
+          // Total vs IT power series.
+          // Adapter requests:
+          // - results[1] range(nodeId=6, metricCode=pdu_active_power_single_phase) => Total power
+          // - results[2] range(nodeId=7, metricCode=active_power_single_phase) => IT device power
+          final totalSeries = parseRange(results[1]);
+          final itSeries = parseRange(results[2]);
 
-          if (pdu1Series.isNotEmpty || pdu2Series.isNotEmpty) {
-            // Merge by time string (vendor uses "YYYY-MM-DD HH:mm:ss" granularity).
-            final byTime = <String, double>{};
-            for (final pt in pdu1Series) {
+          if (totalSeries.isNotEmpty || itSeries.isNotEmpty) {
+            final totalByTime = <String, double>{};
+            for (final pt in totalSeries) {
               final t = pt['time'] as String;
               final v = pt['value'] as double;
-              byTime[t] = (byTime[t] ?? 0) + v;
-            }
-            for (final pt in pdu2Series) {
-              final t = pt['time'] as String;
-              final v = pt['value'] as double;
-              byTime[t] = (byTime[t] ?? 0) + v;
+              totalByTime[t] = v;
             }
 
-            final times = byTime.keys.toList()..sort();
+            final itByTime = <String, double>{};
+            for (final pt in itSeries) {
+              final t = pt['time'] as String;
+              final v = pt['value'] as double;
+              itByTime[t] = v;
+            }
+
+            final times = <String>{...totalByTime.keys, ...itByTime.keys}
+                .toList()
+              ..sort();
             if (times.isNotEmpty) {
               hasRealHistory = true;
               for (int i = 0; i < times.length; i++) {
                 final t = times[i];
                 // Backend values are typically W; convert to kW for display.
-                final kw = (byTime[t] ?? 0) / 1000.0;
-                _totalPowerSpots.add(FlSpot(i.toDouble(), kw));
-                _itPowerSpots.add(FlSpot(i.toDouble(), kw));
+                final totalKw = (totalByTime[t] ?? 0) / 1000.0;
+                final itKw = (itByTime[t] ?? 0) / 1000.0;
+                _totalPowerSpots.add(FlSpot(i.toDouble(), totalKw));
+                _itPowerSpots.add(FlSpot(i.toDouble(), itKw));
                 _totalPowerLabels.add(t);
                 _itPowerLabels.add(t);
               }
@@ -630,19 +638,24 @@ class _ReportScreenState extends State<ReportScreen>
             // { pueStatus, pue, vendorPue, ... }
             // Legacy shape:
             // { result: { pue | pueValue, power } }
-            final dynamic topLevelPue = pueRes['pue'] ?? pueRes['vendorPue'];
+            final dynamic topLevelSystemPue = pueRes['pue'];
+            final dynamic topLevelVendorPue = pueRes['vendorPue'];
             final dynamic legacy = pueRes['result'];
             final dynamic legacyPue = legacy is Map
                 ? (legacy['pue'] ?? legacy['pueValue'])
                 : null;
-            final dynamic resolved = topLevelPue ?? legacyPue;
-            final pueVal = resolved is num
-                ? resolved.toDouble()
-                : double.tryParse(resolved?.toString() ?? '');
+            final dynamic resolvedVendor =
+                topLevelVendorPue ?? topLevelSystemPue ?? legacyPue;
+            final vendorPueVal = resolvedVendor is num
+                ? resolvedVendor.toDouble()
+                : double.tryParse(resolvedVendor?.toString() ?? '');
+            final pueVal = vendorPueVal;
 
             if (pueVal != null && pueVal > 0) {
               hasRealHistory = true;
-              _avgPue = pueVal;
+              _vendorPue = (vendorPueVal != null && vendorPueVal > 0)
+                  ? vendorPueVal
+                  : pueVal;
               // Align points to totalPower labels if we have them.
               final n =
                   _totalPowerLabels.isNotEmpty ? _totalPowerLabels.length : 1;
@@ -658,7 +671,7 @@ class _ReportScreenState extends State<ReportScreen>
                 fields: {
                   'keys': pueRes.keys.toList(),
                   'pueStatus': pueRes['pueStatus'],
-                  'rawPue': topLevelPue,
+                  'rawPue': topLevelSystemPue,
                   'rawVendorPue': pueRes['vendorPue'],
                 },
               );
@@ -689,6 +702,40 @@ class _ReportScreenState extends State<ReportScreen>
       default:
         return 24;
     }
+  }
+
+  ({double pue, int pointsUsed, int itNonZeroPoints}) _computeSystemPueLive() {
+    // We already store both total + IT series on the same x-axis labels list.
+    // Using a sample-sum ratio avoids "0 kWh" edge cases when the kWh estimator
+    // slices differently or the series is sparse.
+    final totalS = _sliceSeriesForRange(
+      _totalPowerSpots,
+      _totalPowerLabels,
+      _sitePowerRange,
+    );
+    final itS = _sliceSeriesForRange(
+      _itPowerSpots,
+      _itPowerLabels,
+      _itDeviceRange,
+    );
+
+    final n = math.min(totalS.spots.length, itS.spots.length);
+    if (n <= 0) return (pue: 0.0, pointsUsed: 0, itNonZeroPoints: 0);
+
+    var totalSum = 0.0;
+    var itSum = 0.0;
+    var itNonZeroPoints = 0;
+    for (int i = 0; i < n; i++) {
+      final t = totalS.spots[i].y;
+      final it = itS.spots[i].y;
+      if (t.isNaN || it.isNaN) continue;
+      if (it <= 0) continue;
+      totalSum += t;
+      itSum += it;
+      itNonZeroPoints += 1;
+    }
+    if (itSum <= 0) return (pue: 0.0, pointsUsed: n, itNonZeroPoints: 0);
+    return (pue: totalSum / itSum, pointsUsed: n, itNonZeroPoints: itNonZeroPoints);
   }
 
   double _estimateConsumptionKwh(
@@ -1107,6 +1154,8 @@ class _ReportScreenState extends State<ReportScreen>
         _totalPowerSpots, _totalPowerLabels, _sitePowerRange);
     final itKwh =
         _estimateConsumptionKwh(_itPowerSpots, _itPowerLabels, _itDeviceRange);
+    final systemPueLive = _computeSystemPueLive();
+    final systemPue = systemPueLive.pue;
     final itRatio = totalKwh > 0 ? (itKwh / totalKwh).clamp(0.0, 1.0) : 0.0;
     return Padding(
       // Let the global bottom nav / safe area handle spacing.
@@ -1122,14 +1171,32 @@ class _ReportScreenState extends State<ReportScreen>
                   const SizedBox(width: 14),
                   Expanded(
                     child: _kpiRingCard(
-                      title: 'Avg PUE',
-                      subtitle: 'Efficiency',
+                      title: 'Vendor PUE',
+                      subtitle: 'Original System',
                       color: const Color(0xFF05A100),
-                      valueText:
-                          _avgPue <= 0 ? '--' : _avgPue.toStringAsFixed(1),
-                      progress: _avgPue <= 0
+                      valueText: _vendorPue <= 0
+                          ? '--'
+                          : _vendorPue.toStringAsFixed(2),
+                      progress: _vendorPue <= 0
                           ? 0.0
-                          : (1.5 - _avgPue).clamp(0.0, 0.8) / 0.8,
+                          : (1.5 - _vendorPue).clamp(0.0, 0.8) / 0.8,
+                      trackColor:
+                          const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _kpiRingCard(
+                      title: 'Our PUE',
+                      subtitle: systemPue > 0
+                          ? 'System Calculated'
+                          : 'No IT power data',
+                      color: const Color(0xFFF59E0B),
+                      valueText:
+                          systemPue <= 0 ? '--' : systemPue.toStringAsFixed(2),
+                      progress: systemPue <= 0
+                          ? 0.0
+                          : (1.5 - systemPue).clamp(0.0, 0.8) / 0.8,
                       trackColor:
                           const Color(0xFF4A4A4A).withValues(alpha: 0.38),
                     ),
@@ -1747,31 +1814,49 @@ class _ReportScreenState extends State<ReportScreen>
         _totalPowerSpots, _totalPowerLabels, _sitePowerRange);
     final itKwh =
         _estimateConsumptionKwh(_itPowerSpots, _itPowerLabels, _itDeviceRange);
+    final systemPueLive = _computeSystemPueLive();
+    final systemPue = systemPueLive.pue;
     final itRatio = totalKwh > 0 ? (itKwh / totalKwh).clamp(0.0, 1.0) : 0.0;
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _kpiRingCard(
-            title: 'Avg PUE',
-            subtitle: 'Efficiency',
-            color: const Color(0xFF05A100),
-            valueText: _avgPue <= 0 ? '--' : _avgPue.toStringAsFixed(1),
-            progress:
-                _avgPue <= 0 ? 0.0 : (1.5 - _avgPue).clamp(0.0, 0.8) / 0.8,
-            trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _kpiRingCard(
+                title: 'Vendor PUE',
+                subtitle: 'Original System',
+                color: const Color(0xFF05A100),
+                valueText:
+                    _vendorPue <= 0 ? '--' : _vendorPue.toStringAsFixed(2),
+                progress: _vendorPue <= 0
+                    ? 0.0
+                    : (1.5 - _vendorPue).clamp(0.0, 0.8) / 0.8,
+                trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _kpiRingCard(
+                title: 'IT Ratio',
+                subtitle: 'Utilization',
+                color: const Color(0xFF3271D7),
+                valueText: '${(itRatio * 100).toStringAsFixed(0)}%',
+                progress: itRatio,
+                trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _kpiRingCard(
-            title: 'IT Ratio',
-            subtitle: 'Utilization',
-            color: const Color(0xFF3271D7),
-            valueText: '${(itRatio * 100).toStringAsFixed(0)}%',
-            progress: itRatio,
-            trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-          ),
+        const SizedBox(height: 14),
+        _kpiRingCard(
+          title: 'Our PUE',
+          subtitle: systemPue > 0 ? 'System Calculated' : 'No IT power data',
+          color: const Color(0xFFF59E0B),
+          valueText: systemPue <= 0 ? '--' : systemPue.toStringAsFixed(2),
+          progress:
+              systemPue <= 0 ? 0.0 : (1.5 - systemPue).clamp(0.0, 0.8) / 0.8,
+          trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
         ),
       ],
     );
