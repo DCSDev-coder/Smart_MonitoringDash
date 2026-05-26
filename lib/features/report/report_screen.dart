@@ -15,9 +15,9 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/utils/app_log.dart';
+
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
-import '../../shared/widgets/scrollable_time_series_chart.dart';
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../dashboard/widgets/dashboard_typography.dart';
@@ -52,7 +52,6 @@ class _ReportScreenState extends State<ReportScreen>
   final GlobalKey _pueChartKey = GlobalKey();
   bool _loading = true;
   bool _refreshing = false;
-  bool _fetchingEnergy = false;
   Map<String, double> _powerMonth = {};
   List<dynamic> _alarms = [];
   List<dynamic> _devices = [];
@@ -70,11 +69,9 @@ class _ReportScreenState extends State<ReportScreen>
   List<String> _totalPowerLabels = [];
   List<String> _itPowerLabels = [];
   List<String> _pueLabels = [];
-  // Per-chart time window filters (independent, per Figma).
-  String _sitePowerRange = '24H';
-  String _itDeviceRange = '24H';
-  String _pueStabilityRange = '24H';
-  double _vendorPue = 0.0;
+  String _totalPowerRange = '24H';
+  String _itPowerRange = '24H';
+  String _otherPowerRange = '24H';
 
   // Analytics State
   bool _isExporting = false;
@@ -189,6 +186,9 @@ class _ReportScreenState extends State<ReportScreen>
             _powerMonth = (pm['result'] as Map).map(
               (k, v) => MapEntry(k.toString(), (v as num?)?.toDouble() ?? 0.0),
             );
+          } else {
+            // System down or disconnected; clear stale data.
+            _powerMonth = {};
           }
 
           final alRes = results[1];
@@ -475,7 +475,6 @@ class _ReportScreenState extends State<ReportScreen>
 
   Future<void> _fetchEnergyHistory() async {
     if (!mounted) return;
-    setState(() => _fetchingEnergy = true);
 
     try {
       final now = DateTime.now();
@@ -564,7 +563,6 @@ class _ReportScreenState extends State<ReportScreen>
           _totalPowerSpots = [];
           _itPowerSpots = [];
           _pueSpots = [];
-          _vendorPue = 0.0;
           _totalPowerLabels = [];
           _itPowerLabels = [];
           _pueLabels = [];
@@ -653,9 +651,6 @@ class _ReportScreenState extends State<ReportScreen>
 
             if (pueVal != null && pueVal > 0) {
               hasRealHistory = true;
-              _vendorPue = (vendorPueVal != null && vendorPueVal > 0)
-                  ? vendorPueVal
-                  : pueVal;
               // Align points to totalPower labels if we have them.
               final n =
                   _totalPowerLabels.isNotEmpty ? _totalPowerLabels.length : 1;
@@ -683,17 +678,17 @@ class _ReportScreenState extends State<ReportScreen>
             AppLog.d(
                 '[EnergyHistory] History empty. No fallback data generated per user request. Chart will remain empty until real data is available.');
           }
-          _fetchingEnergy = false;
         });
       }
     } catch (e) {
       AppLog.w('Production fetch error', tag: 'EnergyHistory', error: e);
-      if (mounted) setState(() => _fetchingEnergy = false);
     }
   }
 
   static int _hoursForRange(String range) {
     switch (range.trim().toUpperCase()) {
+      case '4H':
+        return 4;
       case '8H':
         return 8;
       case '12H':
@@ -704,39 +699,7 @@ class _ReportScreenState extends State<ReportScreen>
     }
   }
 
-  ({double pue, int pointsUsed, int itNonZeroPoints}) _computeSystemPueLive() {
-    // We already store both total + IT series on the same x-axis labels list.
-    // Using a sample-sum ratio avoids "0 kWh" edge cases when the kWh estimator
-    // slices differently or the series is sparse.
-    final totalS = _sliceSeriesForRange(
-      _totalPowerSpots,
-      _totalPowerLabels,
-      _sitePowerRange,
-    );
-    final itS = _sliceSeriesForRange(
-      _itPowerSpots,
-      _itPowerLabels,
-      _itDeviceRange,
-    );
 
-    final n = math.min(totalS.spots.length, itS.spots.length);
-    if (n <= 0) return (pue: 0.0, pointsUsed: 0, itNonZeroPoints: 0);
-
-    var totalSum = 0.0;
-    var itSum = 0.0;
-    var itNonZeroPoints = 0;
-    for (int i = 0; i < n; i++) {
-      final t = totalS.spots[i].y;
-      final it = itS.spots[i].y;
-      if (t.isNaN || it.isNaN) continue;
-      if (it <= 0) continue;
-      totalSum += t;
-      itSum += it;
-      itNonZeroPoints += 1;
-    }
-    if (itSum <= 0) return (pue: 0.0, pointsUsed: n, itNonZeroPoints: 0);
-    return (pue: totalSum / itSum, pointsUsed: n, itNonZeroPoints: itNonZeroPoints);
-  }
 
   double _estimateConsumptionKwh(
       List<FlSpot> spots, List<String> labels, String range) {
@@ -837,7 +800,7 @@ class _ReportScreenState extends State<ReportScreen>
               pw.Text('Site: $_siteName',
                   style: pw.TextStyle(
                       fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.Text('Report Period: $_sitePowerRange Consumption',
+              pw.Text('Report Period: $_totalPowerRange Consumption',
                   style: const pw.TextStyle(fontSize: 12)),
               pw.SizedBox(height: 20),
               pw.Text('1. Energy Trends & Performance',
@@ -886,7 +849,7 @@ class _ReportScreenState extends State<ReportScreen>
               pw.SizedBox(height: 10),
               pw.Bullet(
                   text:
-                      'Total Usage in Period: ${_estimateConsumptionKwh(_totalPowerSpots, _totalPowerLabels, _sitePowerRange).toStringAsFixed(2)} kWh'),
+                      'Total Usage in Period: ${_estimateConsumptionKwh(_totalPowerSpots, _totalPowerLabels, _totalPowerRange).toStringAsFixed(2)} kWh'),
               pw.Bullet(
                   text:
                       'Monthly Projected (IT): ${itPower.toStringAsFixed(2)} kWh'),
@@ -1150,13 +1113,22 @@ class _ReportScreenState extends State<ReportScreen>
 
   Widget _buildEnergyPage(double hPadding, double totalPower, int healthScore) {
     final isWide = MediaQuery.sizeOf(context).width >= 1100;
-    final totalKwh = _estimateConsumptionKwh(
-        _totalPowerSpots, _totalPowerLabels, _sitePowerRange);
-    final itKwh =
-        _estimateConsumptionKwh(_itPowerSpots, _itPowerLabels, _itDeviceRange);
-    final systemPueLive = _computeSystemPueLive();
-    final systemPue = systemPueLive.pue;
-    final itRatio = totalKwh > 0 ? (itKwh / totalKwh).clamp(0.0, 1.0) : 0.0;
+
+    final double? pmTotal = _powerMonth['Total'];
+    final double? pmIt = _powerMonth['IT Device'];
+    final double? pmOther = _powerMonth['Other'];
+
+    final slicedTotal = _sliceSeriesForRange(_totalPowerSpots, _totalPowerLabels, _totalPowerRange);
+    final slicedIt = _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
+    final slicedOther = _sliceSeriesForRange(
+      List.generate(
+        math.min(_totalPowerSpots.length, _itPowerSpots.length),
+        (i) => FlSpot(_totalPowerSpots[i].x, math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
+      ),
+      _totalPowerLabels,
+      _otherPowerRange,
+    );
+
     return Padding(
       // Let the global bottom nav / safe area handle spacing.
       padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
@@ -1170,47 +1142,44 @@ class _ReportScreenState extends State<ReportScreen>
                   Expanded(child: _buildSummaryCard(healthScore)),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: _kpiRingCard(
-                      title: 'Vendor PUE',
-                      subtitle: 'Original System',
-                      color: const Color(0xFF05A100),
-                      valueText: _vendorPue <= 0
-                          ? '--'
-                          : _vendorPue.toStringAsFixed(2),
-                      progress: _vendorPue <= 0
-                          ? 0.0
-                          : (1.5 - _vendorPue).clamp(0.0, 0.8) / 0.8,
-                      trackColor:
-                          const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+                    child: _sparklineCard(
+                      title: 'Total Power',
+                      subtitle: 'Facility Total',
+                      color: const Color(0xFFD3F928), // Lime Green
+                      textColor: Colors.black,
+                      valueText: pmTotal == null ? 'Offline' : '${pmTotal.toStringAsFixed(1)} kW',
+                      spots: slicedTotal.spots,
+                      labels: slicedTotal.labels,
+                      currentRange: _totalPowerRange,
+                      onRangeChanged: (r) => setState(() => _totalPowerRange = r),
                     ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: _kpiRingCard(
-                      title: 'Our PUE',
-                      subtitle: systemPue > 0
-                          ? 'System Calculated'
-                          : 'No IT power data',
-                      color: const Color(0xFFF59E0B),
-                      valueText:
-                          systemPue <= 0 ? '--' : systemPue.toStringAsFixed(2),
-                      progress: systemPue <= 0
-                          ? 0.0
-                          : (1.5 - systemPue).clamp(0.0, 0.8) / 0.8,
-                      trackColor:
-                          const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+                    child: _sparklineCard(
+                      title: 'IT Devices',
+                      subtitle: 'Active Load',
+                      color: const Color(0xFFFFFFFF), // White
+                      textColor: Colors.black,
+                      valueText: pmIt == null ? 'Offline' : '${pmIt.toStringAsFixed(1)} kW',
+                      spots: slicedIt.spots,
+                      labels: slicedIt.labels,
+                      currentRange: _itPowerRange,
+                      onRangeChanged: (r) => setState(() => _itPowerRange = r),
                     ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: _kpiRingCard(
-                      title: 'IT Ratio',
-                      subtitle: 'Utilization',
-                      color: const Color(0xFF3271D7),
-                      valueText: '${(itRatio * 100).toStringAsFixed(0)}%',
-                      progress: itRatio,
-                      trackColor:
-                          const Color(0xFF4A4A4A).withValues(alpha: 0.38),
+                    child: _sparklineCard(
+                      title: 'Other',
+                      subtitle: 'Cooling & Misc',
+                      color: const Color(0xFFFF6B57), // Coral Red
+                      textColor: Colors.white,
+                      valueText: pmOther == null ? 'Offline' : '${(pmOther).toStringAsFixed(1)} kW',
+                      spots: slicedOther.spots,
+                      labels: slicedOther.labels,
+                      currentRange: _otherPowerRange,
+                      onRangeChanged: (r) => setState(() => _otherPowerRange = r),
                     ),
                   ),
                 ],
@@ -1221,8 +1190,7 @@ class _ReportScreenState extends State<ReportScreen>
             const SizedBox(height: AppSpacing.cardGap),
             _buildTrendAnalysisGrid(),
           ],
-          const SizedBox(height: AppSpacing.sectionGapMd),
-          _buildEnergySection(totalPower),
+
         ],
       ),
     );
@@ -1297,10 +1265,6 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  static double _chartHeight(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
-    return (h * 0.26).clamp(220.0, 320.0);
-  }
 
   static List<String> _coerceLabels(List<String> labels, int len) {
     if (labels.length == len) return labels;
@@ -1311,321 +1275,6 @@ class _ReportScreenState extends State<ReportScreen>
       out.add(out.last);
     }
     return out;
-  }
-
-  static String Function(String raw) _xLabelFormatterForRange(String range) {
-    DateTime? parseDt(String raw) {
-      final s = raw.trim();
-      if (s.isEmpty) return null;
-      // Try ISO or "yyyy-mm-dd hh:mm:ss" variants first.
-      final dt = DateTime.tryParse(s.replaceAll('/', '-'));
-      if (dt != null) return dt;
-
-      // Common patterns from some APIs: "yyyy-MM-dd HH:mm" / "yyyy-MM-dd HH:mm:ss"
-      final m = RegExp(
-              r'(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?')
-          .firstMatch(s);
-      if (m == null) return null;
-      final y = int.tryParse(m.group(1) ?? '');
-      final mo = int.tryParse(m.group(2) ?? '');
-      final d = int.tryParse(m.group(3) ?? '');
-      if (y == null || mo == null || d == null) return null;
-      final hh = int.tryParse(m.group(4) ?? '0') ?? 0;
-      final mm = int.tryParse(m.group(5) ?? '0') ?? 0;
-      final ss = int.tryParse(m.group(6) ?? '0') ?? 0;
-      return DateTime(y, mo, d, hh, mm, ss);
-    }
-
-    return (String raw) {
-      final s = raw.trim();
-      if (s.isEmpty) return '';
-
-      // We currently only support hour windows; always format as time.
-      final dt = parseDt(s);
-      if (dt != null) return DateFormat('HH:mm').format(dt);
-      final m = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(s);
-      if (m != null) return '${m.group(1)!.padLeft(2, '0')}:${m.group(2)}';
-      return s.length <= 5 ? s : s.substring(0, 5);
-    };
-  }
-
-  Widget _buildEnergySection(double totalPower) {
-    return Column(
-      children: [
-        RepaintBoundary(
-          key: _siteChartKey,
-          child: _chartCard(
-            title: 'SITE POWER',
-            range: _sitePowerRange,
-            onRange: (v) {
-              setState(() => _sitePowerRange = v);
-            },
-            titleColor: AppTheme.accentGreen,
-            child: _buildPowerIndividualChartBody(
-              _totalPowerSpots,
-              _totalPowerLabels,
-              AppTheme.accentGreen,
-              _sitePowerRange,
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        RepaintBoundary(
-          key: _itChartKey,
-          child: _chartCard(
-            title: 'IT DEVICE',
-            range: _itDeviceRange,
-            onRange: (v) {
-              setState(() => _itDeviceRange = v);
-            },
-            titleColor: const Color(0xFF3271D7),
-            child: _buildPowerIndividualChartBody(
-              _itPowerSpots,
-              _itPowerLabels,
-              const Color(0xFF3271D7),
-              _itDeviceRange,
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        RepaintBoundary(
-          key: _pueChartKey,
-          child: _chartCard(
-            title: 'PUE STABILITY',
-            range: _pueStabilityRange,
-            onRange: (v) {
-              setState(() => _pueStabilityRange = v);
-            },
-            titleColor: const Color(0xFFB76DFF),
-            child: _buildPueTrendChartBody(_pueStabilityRange),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _chartCard({
-    required String title,
-    required String range,
-    required ValueChanged<String> onRange,
-    required Widget child,
-    Color? titleColor,
-  }) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return DashboardGlass(
-      radius: 18,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      tint: isLight
-          ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: isLight
-                      ? (titleColor ?? AppTheme.lightTextPrimary)
-                      : Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const Spacer(),
-              _rangeDropdown(range: range, onChanged: onRange),
-            ],
-          ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _rangeDropdown({
-    required String range,
-    required ValueChanged<String> onChanged,
-  }) {
-    String labelFor(String r) {
-      final u = r.trim().toUpperCase();
-      if (u == '8H') return '8 Hours';
-      if (u == '12H') return '12 Hours';
-      return '24 Hours';
-    }
-
-    return PopupMenuButton<String>(
-      onSelected: onChanged,
-      color: Theme.of(context).brightness == Brightness.light
-          ? Colors.white
-          : const Color(0xFF0E141B),
-      itemBuilder: (context) => [
-        PopupMenuItem(
-            value: '8H',
-            child: Text('8 Hours',
-                style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextPrimary
-                        : Colors.white))),
-        PopupMenuItem(
-            value: '12H',
-            child: Text('12 Hours',
-                style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextPrimary
-                        : Colors.white))),
-        PopupMenuItem(
-            value: '24H',
-            child: Text('24 Hours',
-                style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextPrimary
-                        : Colors.white))),
-      ],
-      child: DashboardGlass(
-        radius: 14,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        tint: Theme.of(context).brightness == Brightness.light
-            ? Colors.white
-            : const Color(0xFF0E141B).withValues(alpha: 0.92),
-        borderColor: Theme.of(context).brightness == Brightness.light
-            ? AppTheme.lightStroke
-            : const Color(0x22FFFFFF),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              labelFor(range),
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Theme.of(context).brightness == Brightness.light
-                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.7)
-                  : Colors.white.withValues(alpha: 0.75),
-              size: 18,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPowerIndividualChartBody(
-      List<FlSpot> spots, List<String> labels, Color chartColor, String range) {
-    final baseHeight = _chartHeight(context) - 56;
-    if (_fetchingEnergy) {
-      return SizedBox(
-        height: baseHeight,
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    final sliced = _sliceSeriesForRange(spots, labels, range);
-    return ScrollableTimeSeriesChart(
-      spots: sliced.spots,
-      xLabels: sliced.labels,
-      lineColor: chartColor,
-      height: baseHeight,
-      targetYTicks: _targetYTicksForPower(range, sliced.spots),
-      pxPerPoint: _pxPerPointForRange(range),
-      targetXTicks: _targetTicksForRange(range),
-      padding: const EdgeInsets.fromLTRB(2, 6, 10, 2),
-      emptyText: 'Calculating power trends...',
-      xLabelFormatter: _xLabelFormatterForRange(range),
-    );
-  }
-
-  Widget _buildPueTrendChartBody(String range) {
-    final baseHeight = _chartHeight(context) - 56;
-    if (_fetchingEnergy) {
-      return SizedBox(
-        height: baseHeight,
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    final sliced = _sliceSeriesForRange(_pueSpots, _pueLabels, range);
-    final maxObserved = sliced.spots.isEmpty
-        ? 2.5
-        : sliced.spots
-            .map((s) => s.y)
-            .reduce((a, b) => a > b ? a : b);
-    final dynamicMaxY = (maxObserved + 0.2).clamp(1.8, 5.0).toDouble();
-    return ScrollableTimeSeriesChart(
-      spots: sliced.spots,
-      xLabels: sliced.labels,
-      lineColor: const Color(0xFFB76DFF),
-      height: baseHeight,
-      targetYTicks: 4,
-      minY: 1.0,
-      maxY: dynamicMaxY,
-      pxPerPoint: _pxPerPointForRange(range),
-      targetXTicks: _targetTicksForRange(range),
-      padding: const EdgeInsets.fromLTRB(2, 6, 10, 2),
-      emptyText: 'Insufficient PUE data',
-      xLabelFormatter: _xLabelFormatterForRange(range),
-    );
-  }
-
-  static double _pxPerPointForRange(String range) {
-    switch (range.trim().toUpperCase()) {
-      case '8H':
-        // Enough spacing to show every HH:mm label without overlap.
-        return 62;
-      case '12H':
-        return 58;
-      case '24H':
-      default:
-        return 56;
-    }
-  }
-
-  static int _targetTicksForRange(String range) {
-    switch (range.trim().toUpperCase()) {
-      case '8H':
-        return 8;
-      case '12H':
-        return 12;
-      case '24H':
-      default:
-        return 6;
-    }
-  }
-
-  static int _targetYTicksForPower(String range, List<FlSpot> spots) {
-    // Aim for more Y guidance on longer windows / larger spans.
-    final span = _spanY(spots);
-    final r = range.trim().toUpperCase();
-    var ticks = (r == '24H')
-        ? 6
-        : (r == '12H')
-            ? 5
-            : 4;
-    if (span > 8000) ticks = math.max(ticks, 7);
-    if (span > 15000) ticks = math.max(ticks, 8);
-    return ticks.clamp(4, 8);
-  }
-
-  static double _spanY(List<FlSpot> spots) {
-    if (spots.isEmpty) return 0;
-    double lo = spots.first.y;
-    double hi = spots.first.y;
-    for (final s in spots) {
-      if (s.y < lo) lo = s.y;
-      if (s.y > hi) hi = s.y;
-    }
-    return (hi - lo).abs();
   }
 
   _SeriesSlice _sliceSeriesForRange(
@@ -1809,129 +1458,319 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Widget _buildTrendAnalysisGrid() {
-    final totalKwh = _estimateConsumptionKwh(
-        _totalPowerSpots, _totalPowerLabels, _sitePowerRange);
-    final itKwh =
-        _estimateConsumptionKwh(_itPowerSpots, _itPowerLabels, _itDeviceRange);
-    final systemPueLive = _computeSystemPueLive();
-    final systemPue = systemPueLive.pue;
-    final itRatio = totalKwh > 0 ? (itKwh / totalKwh).clamp(0.0, 1.0) : 0.0;
-
-    return Column(
-      children: [
-        _kpiRingCard(
-          title: 'Vendor PUE',
-          subtitle: 'Original System',
-          color: const Color(0xFF05A100),
-          valueText:
-              _vendorPue <= 0 ? '--' : _vendorPue.toStringAsFixed(2),
-          progress: _vendorPue <= 0
-              ? 0.0
-              : (1.5 - _vendorPue).clamp(0.0, 0.8) / 0.8,
-          trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-        ),
-        const SizedBox(height: 14),
-        _kpiRingCard(
-          title: 'IT Ratio',
-          subtitle: 'Utilization',
-          color: const Color(0xFF3271D7),
-          valueText: '${(itRatio * 100).toStringAsFixed(0)}%',
-          progress: itRatio,
-          trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-        ),
-        const SizedBox(height: 14),
-        _kpiRingCard(
-          title: 'Our PUE',
-          subtitle: systemPue > 0 ? 'System Calculated' : 'No IT power data',
-          color: const Color(0xFFF59E0B),
-          valueText: systemPue <= 0 ? '--' : systemPue.toStringAsFixed(2),
-          progress:
-              systemPue <= 0 ? 0.0 : (1.5 - systemPue).clamp(0.0, 0.8) / 0.8,
-          trackColor: const Color(0xFF4A4A4A).withValues(alpha: 0.38),
-        ),
-      ],
-    );
-  }
-
-  Widget _kpiRingCard({
+  Widget _sparklineCard({
     required String title,
     required String subtitle,
     required Color color,
+    required Color textColor,
     required String valueText,
-    required double progress,
-    required Color trackColor,
+    required List<FlSpot> spots,
+    List<String>? labels,
+    required String currentRange,
+    required ValueChanged<String> onRangeChanged,
   }) {
+    // Determine bounds for chart
+    double minY = 0.0;
+    double maxY = 1.0;
+    if (spots.isNotEmpty) {
+      minY = spots.map((s) => s.y).reduce(math.min);
+      maxY = spots.map((s) => s.y).reduce(math.max);
+      if (minY == maxY) {
+        maxY += 1;
+        minY -= 1;
+      } else {
+        final diff = maxY - minY;
+        maxY += diff * 0.1;
+        minY = math.max(0, minY - diff * 0.1);
+      }
+    }
 
-    final c2 = Color.lerp(color, Colors.black, 0.25)!;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final bool useDarkTheme = !isLight;
+    
+    // In dark mode, we use the card's accent color for text and lines, and a dark glass background.
+    // In light mode, we use the vibrant solid background and the provided text color.
+    final effectiveTextColor = useDarkTheme ? color : textColor;
+    final chartLineColor = useDarkTheme ? color : textColor;
+    final dividerColor = useDarkTheme ? const Color(0x22FFFFFF) : textColor.withValues(alpha: 0.2);
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color, c2],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x22FFFFFF)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+    return DashboardGlass(
+      radius: 18,
+      padding: const EdgeInsets.all(20),
+      tint: useDarkTheme ? const Color(0xFF0E141B).withValues(alpha: 0.92) : color,
+      borderColor: useDarkTheme ? const Color(0x22FFFFFF) : Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: effectiveTextColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: effectiveTextColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                onSelected: onRangeChanged,
+                color: isLight ? Colors.white : const Color(0xFF0E141B),
+                itemBuilder: (context) => ['4H', '8H', '12H', '24H'].map(
+                  (option) => PopupMenuItem<String>(
+                    value: option,
+                    child: Text(option, style: TextStyle(color: isLight ? AppTheme.lightTextPrimary : Colors.white)),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.88),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+                ).toList(),
+                child: DashboardGlass(
+                  radius: 14,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  tint: isLight ? color : const Color(0xFF0E141B).withValues(alpha: 0.92),
+                  borderColor: isLight ? effectiveTextColor.withValues(alpha: 0.15) : const Color(0x22FFFFFF),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentRange,
+                        style: TextStyle(
+                          color: isLight ? effectiveTextColor : Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: isLight ? effectiveTextColor.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.75),
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // Chart
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                minY: minY,
+                maxY: maxY,
+                minX: spots.isNotEmpty ? spots.first.x : 0,
+                maxX: spots.isNotEmpty ? spots.last.x : 1,
+                lineTouchData: labels != null 
+                    ? LineTouchData(
+                        enabled: true,
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((LineBarSpot touchedSpot) {
+                              final textStyle = TextStyle(
+                                color: chartLineColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              );
+                              return LineTooltipItem(
+                                '${touchedSpot.y.toStringAsFixed(2)} kW',
+                                textStyle,
+                              );
+                            }).toList();
+                          },
+                        ),
+                      )
+                    : const LineTouchData(enabled: false),
+                gridData: labels != null
+                    ? FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: math.max(0.1, (maxY - minY) / 3),
+                        getDrawingHorizontalLine: (value) {
+                          return FlLine(
+                            color: chartLineColor.withValues(alpha: 0.15),
+                            strokeWidth: 1,
+                          );
+                        },
+                      )
+                    : const FlGridData(show: false),
+                titlesData: labels != null
+                    ? FlTitlesData(
+                        show: true,
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 22,
+                            interval: math.max(1, (spots.length / 5).floorToDouble()),
+                            getTitlesWidget: (value, meta) {
+                              final int idx = value.toInt();
+                              if (idx < 0 || idx >= labels.length) {
+                                return const SizedBox();
+                              }
+                              final timeStr = labels[idx];
+                              final parts = timeStr.split(' ');
+                              String timePart = parts.length > 1 ? parts.last : timeStr;
+                              final timeTokens = timePart.split(':');
+                              if (timeTokens.length >= 2) {
+                                timePart = '${timeTokens[0]}:${timeTokens[1]}';
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  timePart,
+                                  style: TextStyle(
+                                    color: effectiveTextColor.withValues(alpha: 0.7),
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      )
+                    : const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: chartLineColor,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: false),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            _MiniRing(
-              color: color,
-              progress: progress.clamp(0.0, 1.0),
-              trackColor: trackColor,
-              // White value text on the solid cards (both Avg PUE + IT Ratio).
-              child: Text(
+          ),
+          const SizedBox(height: 24),
+          // Divider
+          Divider(color: dividerColor, thickness: 1, height: 1),
+          const SizedBox(height: 16),
+          // Metadata and Value
+          Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Min ${minY.toStringAsFixed(2)}',
+                    style: TextStyle(color: effectiveTextColor, fontSize: 10, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Max ${maxY.toStringAsFixed(2)}',
+                    style: TextStyle(color: effectiveTextColor, fontSize: 10, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              Text(
                 valueText,
-                style: bitcount(
-                  context,
-                  fontSize: 16,
-                  color: Colors.white,
-                  letterSpacing: 1.2,
+                style: TextStyle(
+                  color: effectiveTextColor,
+                  fontSize: 32, // slightly smaller so it fits well
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1,
+                  height: 1,
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
-}
+  }
+
+  Widget _buildTrendAnalysisGrid() {
+    final double? pmTotal = _powerMonth['Total'];
+    final double? pmIt = _powerMonth['IT Device'];
+    final double? pmOther = _powerMonth['Other'];
+
+    final slicedTotal = _sliceSeriesForRange(_totalPowerSpots, _totalPowerLabels, _totalPowerRange);
+    final slicedIt = _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
+    final slicedOther = _sliceSeriesForRange(
+      List.generate(
+        math.min(_totalPowerSpots.length, _itPowerSpots.length),
+        (i) => FlSpot(_totalPowerSpots[i].x, math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
+      ),
+      _totalPowerLabels,
+      _otherPowerRange,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 300,
+          child: _sparklineCard(
+            title: 'Total Power',
+            subtitle: 'Facility Total',
+            color: const Color(0xFFD3F928), // Lime Green
+            textColor: Colors.black,
+            valueText: pmTotal == null ? 'Offline' : '${pmTotal.toStringAsFixed(1)} kW',
+            spots: slicedTotal.spots,
+            labels: slicedTotal.labels,
+            currentRange: _totalPowerRange,
+            onRangeChanged: (r) => setState(() => _totalPowerRange = r),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 300,
+          child: _sparklineCard(
+            title: 'IT Devices',
+            subtitle: 'Active Load',
+            color: const Color(0xFFFFFFFF), // White
+            textColor: Colors.black,
+            valueText: pmIt == null ? 'Offline' : '${pmIt.toStringAsFixed(1)} kW',
+            spots: slicedIt.spots,
+            labels: slicedIt.labels,
+            currentRange: _itPowerRange,
+            onRangeChanged: (r) => setState(() => _itPowerRange = r),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 300,
+          child: _sparklineCard(
+            title: 'Other',
+            subtitle: 'Cooling & Misc',
+            color: const Color(0xFFFF6B57), // Coral Red
+            textColor: Colors.white,
+            valueText: pmOther == null ? 'Offline' : '${pmOther.toStringAsFixed(1)} kW',
+            spots: slicedOther.spots,
+            labels: slicedOther.labels,
+            currentRange: _otherPowerRange,
+            onRangeChanged: (r) => setState(() => _otherPowerRange = r),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _AuraPill extends StatelessWidget {

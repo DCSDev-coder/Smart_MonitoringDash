@@ -113,6 +113,42 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchOurPueHourly({
+    required int siteId,
+    int hours = 24,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/our-pue-hourly').replace(
+      queryParameters: <String, String>{
+        'hours': hours.toString(),
+      },
+    );
+
+    try {
+      final res =
+          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchOurPueHourly non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchOurPueHourly error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> fetchDoors({required int siteId}) async {
     if (!isConfigured) return null;
 
