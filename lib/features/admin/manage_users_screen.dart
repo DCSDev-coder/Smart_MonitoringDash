@@ -3,7 +3,10 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/background_layer.dart';
 import '../../shared/widgets/dashboard_glass.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 import '../dashboard/widgets/dashboard_typography.dart';
+import 'add_user_screen.dart';
+import 'edit_user_screen.dart';
 
 class ManageUsersScreen extends StatefulWidget {
   const ManageUsersScreen({super.key});
@@ -205,6 +208,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     required String username,
     required String role,
   }) async {
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Please authenticate to remove member.',
+    );
+    if (!authorized) return;
+    if (!mounted) return;
+
     final adminUsername = await CpanelApiService.instance.getUsername();
     if (!mounted) return;
     final siteId = _siteId;
@@ -385,6 +395,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   Future<void> _editMember(Map<String, dynamic> member) async {
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Please authenticate to edit member.',
+    );
+    if (!authorized) return;
+    if (!mounted) return;
+
     final adminUsername = await CpanelApiService.instance.getUsername();
     if (!mounted) return;
     final siteId = _siteId;
@@ -419,230 +436,24 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     bool canViewReport = flag('can_view_report', defaultValue: false);
     bool canViewRack = flag('can_view_rack', defaultValue: false);
     bool canViewControl = flag('can_view_control', defaultValue: false);
-    bool canViewCctv = flag('can_view_cctv', defaultValue: false);
     bool canControlDoors = flag('can_control_doors', defaultValue: false);
     bool canManageUsers = flag('can_manage_users', defaultValue: false);
 
-    bool submitting = false;
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final isLight = Theme.of(context).brightness == Brightness.light;
-            // Keep backend API compatibility: treat "Manage Users" as "admin".
-            final roleComputed = canManageUsers ? 'admin' : 'user';
-
-            return Material(
-              type: MaterialType.transparency,
-              child: SafeArea(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      // Slightly narrower so it doesn't feel oversized on phones/tablets.
-                      maxWidth: (MediaQuery.of(context).size.width - 32)
-                          .clamp(300.0, 380.0),
-                      maxHeight: MediaQuery.of(context).size.height * 0.84,
-                    ),
-                    child: DashboardGlass(
-                      radius: 28,
-                      padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-                      tint: isLight
-                          ? const Color(0xFFE7E7E7)
-                          : const Color(0xFF0B0F14),
-                      borderColor: isLight ? Colors.transparent : null,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 6),
-                          Text(
-                            'Edit $username',
-                            style: bitcount(
-                              context,
-                              fontSize: 26,
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                              letterSpacing: 0.2,
-                              fontWeight:
-                                  isLight ? FontWeight.w700 : FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          // Unlike Add Users, Edit is short enough to "pack"
-                          // naturally without forcing a tall panel.
-                          _PermToggle(
-                            label: 'Dashboard',
-                            value: canViewDashboard,
-                            onChanged: submitting
-                                ? null
-                                : (v) =>
-                                    setDialogState(() => canViewDashboard = v),
-                          ),
-                          _PermToggle(
-                            label: 'Reports + PDF',
-                            value: canViewReport,
-                            onChanged: submitting
-                                ? null
-                                : (v) =>
-                                    setDialogState(() => canViewReport = v),
-                          ),
-                          _PermToggle(
-                            label: 'View Power',
-                            value: canViewRack,
-                            onChanged: submitting
-                                ? null
-                                : (v) => setDialogState(() => canViewRack = v),
-                          ),
-                          _PermToggle(
-                            label: 'Control Panel',
-                            value: canViewControl,
-                            onChanged: submitting
-                                ? null
-                                : (v) =>
-                                    setDialogState(() => canViewControl = v),
-                          ),
-                          _PermToggle(
-                            label: 'Door Access',
-                            value: canControlDoors,
-                            onChanged: submitting
-                                ? null
-                                : (v) =>
-                                    setDialogState(() => canControlDoors = v),
-                          ),
-                          _PermToggle(
-                            label: 'Manage Users',
-                            value: canManageUsers,
-                            onChanged: submitting
-                                ? null
-                                : (v) =>
-                                    setDialogState(() => canManageUsers = v),
-                          ),
-                          const SizedBox(height: 18),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 52,
-                                  child: FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFFB30000),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    onPressed: submitting
-                                        ? null
-                                        : () => Navigator.pop(dialogCtx, false),
-                                    child: const Text(
-                                      'Cancel',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 52,
-                                  child: FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: AppTheme.accentGreen,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    onPressed: submitting
-                                        ? null
-                                        : () async {
-                                            setDialogState(
-                                                () => submitting = true);
-                                            final res = await CpanelApiService
-                                                .instance
-                                                .updateSiteMember(
-                                              siteId: siteId,
-                                              adminUsername: adminUsername,
-                                              memberUserId: memberUserId,
-                                              role: roleComputed,
-                                              permissions: {
-                                                "can_view_dashboard":
-                                                    canViewDashboard ? 1 : 0,
-                                                "can_view_report":
-                                                    canViewReport ? 1 : 0,
-                                                "can_view_rack":
-                                                    canViewRack ? 1 : 0,
-                                                "can_view_control":
-                                                    canViewControl ? 1 : 0,
-                                                "can_view_cctv":
-                                                    canViewCctv ? 1 : 0,
-                                                "can_control_doors":
-                                                    canControlDoors ? 1 : 0,
-                                                "can_manage_users":
-                                                    canManageUsers ? 1 : 0,
-                                              },
-                                            );
-
-                                            if (!context.mounted) return;
-                                            final ok =
-                                                res?['status']?.toString() ==
-                                                    'success';
-                                            if (ok) {
-                                              Navigator.pop(dialogCtx, true);
-                                            } else {
-                                              setDialogState(
-                                                  () => submitting = false);
-                                              final msg = res?['message']
-                                                      ?.toString() ??
-                                                  'Failed to update member.';
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content: Text(msg),
-                                                  backgroundColor:
-                                                      AppTheme.statusError,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                    child: submitting
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : const Text(
-                                            'Create',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditUserScreen(
+          username: username,
+          siteId: siteId,
+          memberUserId: memberUserId,
+          adminUsername: adminUsername,
+          canViewDashboard: canViewDashboard,
+          canViewReport: canViewReport,
+          canViewRack: canViewRack,
+          canViewControl: canViewControl,
+          canControlDoors: canControlDoors,
+          canManageUsers: canManageUsers,
+        ),
+      ),
     );
 
     if (saved == true) {
@@ -671,12 +482,13 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final adminPassword = await _promptAdminPasswordIfMissing();
     if (!mounted) return;
     if (adminPassword == null) return;
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) => _AddUserDialog(
-        siteId: siteId,
-        adminUsername: adminUsername,
-        adminPassword: adminPassword,
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddUserScreen(
+          siteId: siteId,
+          adminUsername: adminUsername,
+          adminPassword: adminPassword,
+        ),
       ),
     );
 
@@ -725,30 +537,27 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       children: [
                         IconButton(
                           icon: Icon(
-                            Icons.arrow_back_ios_new_rounded,
+                            Icons.arrow_back,
                             color: isLight
                                 ? AppTheme.lightTextPrimary
                                 : Colors.white,
-                            size: 18,
                           ),
                           onPressed: () => Navigator.pop(context),
                         ),
-                        Expanded(
-                          child: Text(
-                            'Manage Users',
-                            style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Manage Users',
+                      style: TextStyle(
+                        color: isLight
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       siteName.toUpperCase(),
                       style: TextStyle(
@@ -1290,400 +1099,4 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
   }
 }
 
-class _OverlayTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final bool enabled;
-  final bool obscureText;
-  final Widget? trailing;
 
-  const _OverlayTextField({
-    required this.controller,
-    required this.hint,
-    required this.enabled,
-    this.obscureText = false,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isLight ? const Color(0xFFE7E7E7) : const Color(0xFF0F161E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isLight
-              ? const Color(0xFFA7A7A7)
-              : Colors.white.withValues(alpha: 0.10),
-        ),
-        boxShadow: [
-          if (!isLight)
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              obscureText: obscureText,
-              style: TextStyle(
-                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-              cursorColor: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextPrimary.withValues(alpha: 0.78)
-                      : Colors.white.withValues(alpha: 0.50),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-                // Our app theme uses `InputDecorationTheme(filled: true, ...)`.
-                // For glass inputs we must explicitly disable that fill, otherwise
-                // a solid (often white) layer is drawn on top of the glass.
-                filled: false,
-                fillColor: Colors.transparent,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-              ),
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
-      ),
-    );
-  }
-}
-
-class _PermToggle extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  const _PermToggle({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppTheme.accentGreen,
-            inactiveThumbColor: isLight
-                ? const Color(0xFFEDEDED)
-                : Colors.white.withValues(alpha: 0.85),
-            inactiveTrackColor: isLight
-                ? const Color(0xFF3F3F3F)
-                : Colors.white.withValues(alpha: 0.18),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// _permSwitch was used by the older Edit Permissions dialog UI.
-// We keep permissions rendering via `_PermToggle` in the new overlay panels.
-
-class _AddUserDialog extends StatefulWidget {
-  final int siteId;
-  final String adminUsername;
-  final String adminPassword;
-
-  const _AddUserDialog({
-    required this.siteId,
-    required this.adminUsername,
-    required this.adminPassword,
-  });
-
-  @override
-  State<_AddUserDialog> createState() => _AddUserDialogState();
-}
-
-class _AddUserDialogState extends State<_AddUserDialog> {
-  final _newUserCtrl = TextEditingController();
-  final _newPassCtrl = TextEditingController();
-
-  bool _obscureTempPassword = true;
-  bool _canViewDashboard = true;
-  bool _canViewReport = false;
-  bool _canViewRack = false;
-  bool _canViewControl = false;
-  final bool _canViewCctv = false;
-  bool _canControlDoors = false;
-  bool _canManageUsers = false;
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _newUserCtrl.dispose();
-    _newPassCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (_submitting) return;
-    final nu = _newUserCtrl.text.trim();
-    final np = _newPassCtrl.text;
-    if (nu.isEmpty || np.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username and password are required.')),
-      );
-      return;
-    }
-
-    setState(() => _submitting = true);
-    // Keep backend API compatibility: treat "Manage Users" as "admin".
-    final roleComputed = _canManageUsers ? 'admin' : 'user';
-    final res = await CpanelApiService.instance.createSiteUser(
-      siteId: widget.siteId,
-      adminUsername: widget.adminUsername,
-      adminPassword: widget.adminPassword,
-      newUsername: nu,
-      newPassword: np,
-      role: roleComputed,
-      permissions: {
-        "can_view_dashboard": _canViewDashboard ? 1 : 0,
-        "can_view_report": _canViewReport ? 1 : 0,
-        "can_view_rack": _canViewRack ? 1 : 0,
-        "can_view_control": _canViewControl ? 1 : 0,
-        "can_view_cctv": _canViewCctv ? 1 : 0,
-        "can_control_doors": _canControlDoors ? 1 : 0,
-        "can_manage_users": _canManageUsers ? 1 : 0,
-      },
-    );
-
-    if (!mounted) return;
-    final status = res?['status']?.toString();
-    final ok = status == 'success';
-    if (ok) {
-      Navigator.pop(context, true);
-      return;
-    }
-
-    setState(() => _submitting = false);
-    final msg = res?['message']?.toString() ??
-        'Failed to create user. Please check your inputs and try again.';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppTheme.statusError),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final maxW = (MediaQuery.of(context).size.width - 32).clamp(300.0, 380.0);
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Material(
-      type: MaterialType.transparency,
-      child: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxW,
-              maxHeight: MediaQuery.of(context).size.height * 0.84,
-            ),
-            child: DashboardGlass(
-              radius: 28,
-              padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-              tint: isLight ? const Color(0xFFE7E7E7) : const Color(0xFF0B0F14),
-              borderColor: isLight ? Colors.transparent : null,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 6),
-                  Text(
-                    'Add Users',
-                    style: bitcount(
-                      context,
-                      fontSize: 26,
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      letterSpacing: 0.2,
-                      fontWeight: isLight ? FontWeight.w700 : FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _OverlayTextField(
-                    controller: _newUserCtrl,
-                    hint: 'Username',
-                    enabled: !_submitting,
-                  ),
-                  const SizedBox(height: 14),
-                  _OverlayTextField(
-                    controller: _newPassCtrl,
-                    hint: 'Temporary Password',
-                    enabled: !_submitting,
-                    obscureText: _obscureTempPassword,
-                    trailing: IconButton(
-                      icon: Icon(
-                        _obscureTempPassword
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        color: isLight
-                            ? const Color(0xFF4C4C4C)
-                            : Colors.white.withValues(alpha: 0.75),
-                      ),
-                      onPressed: _submitting
-                          ? null
-                          : () => setState(() =>
-                              _obscureTempPassword = !_obscureTempPassword),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          _PermToggle(
-                            label: 'Dashboard',
-                            value: _canViewDashboard,
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _canViewDashboard = v),
-                          ),
-                          _PermToggle(
-                            label: 'Reports + PDF',
-                            value: _canViewReport,
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _canViewReport = v),
-                          ),
-                          _PermToggle(
-                            label: 'View Power',
-                            value: _canViewRack,
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _canViewRack = v),
-                          ),
-                          _PermToggle(
-                            label: 'Control Panel',
-                            value: _canViewControl,
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _canViewControl = v),
-                          ),
-                          _PermToggle(
-                            label: 'Door Access',
-                            value: _canControlDoors,
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _canControlDoors = v),
-                          ),
-                          _PermToggle(
-                            label: 'Manage Users',
-                            value: _canManageUsers,
-                            onChanged: _submitting
-                                ? null
-                                : (v) => setState(() => _canManageUsers = v),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 52,
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFB30000),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            onPressed: _submitting
-                                ? null
-                                : () => Navigator.pop(context, false),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: SizedBox(
-                          height: 52,
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.accentGreen,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            onPressed: _submitting ? null : _submit,
-                            child: _submitting
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Create',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

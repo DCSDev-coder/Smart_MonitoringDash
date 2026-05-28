@@ -581,6 +581,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final media = MediaQuery.of(context);
     final screenW = media.size.width;
     final bool wideLayout = screenW >= 1100;
@@ -628,16 +629,20 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFB020).withValues(alpha: 0.20),
+                              color: isLight 
+                                  ? const Color(0xFFFF9800) // Vibrant orange/yellow in light mode
+                                  : const Color(0xFFFFB020).withValues(alpha: 0.20),
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: const Color(0xFFFFB020).withValues(alpha: 0.55),
-                              ),
+                              border: isLight 
+                                  ? null 
+                                  : Border.all(
+                                      color: const Color(0xFFFFB020).withValues(alpha: 0.55),
+                                    ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Data source reconnecting...',
                               style: TextStyle(
-                                color: Color(0xFFFFD479),
+                                color: isLight ? Colors.white : const Color(0xFFFFD479),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 11,
                               ),

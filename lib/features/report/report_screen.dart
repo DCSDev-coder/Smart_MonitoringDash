@@ -43,7 +43,6 @@ class _ReportScreenState extends State<ReportScreen>
     'Today',
     'Weekly',
     'Monthly',
-    'Yearly',
   ];
 
   int _selectedTabIndex = 0;
@@ -280,16 +279,35 @@ class _ReportScreenState extends State<ReportScreen>
             final dynamic raResult = (ra is Map) ? ra['result'] : null;
             final dynamic raRecords =
                 (raResult is Map) ? raResult['records'] : null;
-            _reportAlarms = (raRecords is List) ? raRecords : const [];
+            final List<dynamic> rawAlarms = (raRecords is List) ? raRecords : [];
+
+            _reportAlarms = rawAlarms.where((alarm) {
+              final timeStr = (alarm['happenTime'] ??
+                      alarm['happen_time'] ??
+                      alarm['alarmTime'])
+                  ?.toString();
+              if (timeStr == null || timeStr.trim().isEmpty) return true;
+              final dt = DateTime.tryParse(timeStr);
+              if (dt == null) return true;
+              final ms = dt.millisecondsSinceEpoch;
+              return ms >= startTime && ms <= endTime;
+            }).toList();
 
             final dynamic logsResult = (al is Map ? al['result'] : null);
+            List<dynamic> rawLogs = [];
             if (logsResult is List) {
-              _doorLogs = logsResult;
+              rawLogs = logsResult;
             } else if (logsResult is Map && logsResult['records'] is List) {
-              _doorLogs = logsResult['records'];
-            } else {
-              _doorLogs = [];
+              rawLogs = logsResult['records'];
             }
+            
+            _doorLogs = rawLogs.where((log) {
+              final timeStr = log['opTime']?.toString() ?? '';
+              final dt = DateTime.tryParse(timeStr);
+              if (dt == null) return true;
+              final ms = dt.millisecondsSinceEpoch;
+              return ms >= startTime && ms <= endTime;
+            }).toList();
 
             _fetchingHistoricalEvents = false;
             _fetchingDoorLogs = false;
@@ -364,8 +382,6 @@ class _ReportScreenState extends State<ReportScreen>
     switch (_eventLogRange) {
       case 'Today':
         return DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
-      case 'Yearly':
-        return now.subtract(const Duration(days: 365)).millisecondsSinceEpoch;
       case 'Monthly':
         return now.subtract(const Duration(days: 30)).millisecondsSinceEpoch;
       case 'Weekly':
@@ -457,13 +473,23 @@ class _ReportScreenState extends State<ReportScreen>
       if (mounted) {
         setState(() {
           final dynamic resultData = res?['result'];
+          List<dynamic> rawLogs = [];
           if (resultData is List) {
-            _doorLogs = resultData;
+            rawLogs = resultData;
           } else if (resultData is Map && resultData['records'] is List) {
-            _doorLogs = resultData['records'];
-          } else {
-            _doorLogs = [];
+            rawLogs = resultData['records'];
           }
+          
+          // The direct API doesn't support time filtering for access logs,
+          // so we filter them on the client side.
+          _doorLogs = rawLogs.where((log) {
+            final timeStr = log['opTime']?.toString() ?? '';
+            final dt = DateTime.tryParse(timeStr);
+            if (dt == null) return true; // keep if invalid format
+            final ms = dt.millisecondsSinceEpoch;
+            return ms >= startTime && ms <= endTime;
+          }).toList();
+          
           _fetchingDoorLogs = false;
         });
       }

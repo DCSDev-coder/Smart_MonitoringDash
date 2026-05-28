@@ -70,228 +70,231 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
             itemCount: _reportAlarms.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
-              final alarm = _reportAlarms[index];
-              final bool resolved = alarm['recoveryTime'] != null;
-              final String title =
-                  (alarm['alarmTypeName'] ?? alarm['content'] ?? 'Alert')
-                      .toString();
-
-              String alarmValue() {
-                final dynamic v = alarm['alarmValueValue'] ??
-                    alarm['alarmValue'] ??
-                    alarm['value'] ??
-                    alarm['alarm_value'];
-                if (v == null) return '--';
-                final s = v.toString().trim();
-                return s.isEmpty ? '--' : s;
-              }
-
-              String valueWithUnit() {
-                final v = alarmValue();
-                if (v == '--') return v;
-                final upper = v.toUpperCase();
-                if (upper.contains('%') ||
-                    upper.contains('C') ||
-                    upper.contains('V') ||
-                    upper.contains('A') ||
-                    upper.contains('W')) {
-                  return v;
-                }
-                final content = (alarm['content'] ??
-                        alarm['alarmMsg'] ??
-                        alarm['message'] ??
-                        '')
-                    .toString()
-                    .toUpperCase();
-                if (content.contains('TEMP')) return '$v C';
-                if (content.contains('HUM')) return '$v %';
-                return v;
-              }
-
-              String alarmLevelName() {
-                final dynamic raw = alarm['alarmLevelName'] ??
-                    alarm['alarmLevelLevel'] ??
-                    alarm['alarmLevel'] ??
-                    alarm['level'] ??
-                    alarm['severity'];
-                if (raw == null) return '--';
-                final s = raw.toString().trim();
-                if (s.isEmpty) return '--';
-                final n = int.tryParse(s);
-                if (n != null) {
-                  switch (n) {
-                    case 0:
-                    case 1:
-                      return 'Info';
-                    case 2:
-                      return 'Good';
-                    case 3:
-                      return 'Moderate';
-                    case 4:
-                      return 'Critical';
-                    case 5:
-                      return 'Red';
-                  }
-                }
-                return s;
-              }
-
-              final String valueStr = valueWithUnit();
-              final String typeStr = (alarm['alarmTypeType'] ??
-                          alarm['alarmTypeName'] ??
-                          alarm['alarmType'] ??
-                          alarm['type'] ??
-                          title)
-                      .toString()
-                      .trim()
-                      .isEmpty
-                  ? title
-                  : (alarm['alarmTypeType'] ??
-                          alarm['alarmTypeName'] ??
-                          alarm['alarmType'] ??
-                          alarm['type'] ??
-                          title)
-                      .toString()
-                      .trim();
-              final String levelStr = alarmLevelName();
-
-              Color baseLevelColor() {
-                if (resolved) return const Color(0xFF2D8CFF);
-                final l = levelStr.toLowerCase();
-                if (l.contains('critical') ||
-                    l.contains('orange') ||
-                    l.contains('red')) {
-                  return const Color(0xFFFF5A5F);
-                }
-                final raw = alarm['alarmLevelColor'];
-                if (raw != null) {
-                  final s = raw.toString().trim();
-                  if (s.isNotEmpty) {
-                    return Color(int.parse(s.replaceAll('#', '0xFF')));
-                  }
-                }
-                if (l.contains('moderate') || l.contains('yellow')) {
-                  return const Color(0xFFFFB000);
-                }
-                if (l.contains('good') || l.contains('green')) {
-                  return AppTheme.accentGreen;
-                }
-                if (l.contains('info') || l.contains('blue')) {
-                  return const Color(0xFF2D8CFF);
-                }
-                return const Color(0xFFFF5A5F);
-              }
-
-              final levelColor = baseLevelColor();
-              final isLight = Theme.of(context).brightness == Brightness.light;
-              final fill = isLight
-                  ? Colors.white
-                  : Color.lerp(levelColor, Colors.black, 0.82)!;
-              final titleColor =
-                  isLight ? AppTheme.lightTextPrimary : Colors.white;
-              final detailColor = isLight
-                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.92)
-                  : Colors.white70;
-
-              return Container(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                decoration: BoxDecoration(
-                  color: fill,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: levelColor.withValues(alpha: isLight ? 0.65 : 0.85),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          levelColor.withValues(alpha: isLight ? 0.30 : 0.40),
-                      blurRadius: isLight ? 18 : 20,
-                      offset: Offset(0, isLight ? 10 : 12),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: levelColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: TextStyle(
-                              color: titleColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: resolved ? 15 : 14,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 19),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Alarm Value: $valueStr',
-                            style: TextStyle(
-                              color: detailColor,
-                              fontSize: resolved ? 12 : 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Alarm Type: $typeStr',
-                            style: TextStyle(
-                              color: detailColor,
-                              fontSize: resolved ? 12 : 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Alarm Level: $levelStr',
-                            style: TextStyle(
-                              color: detailColor,
-                              fontSize: resolved ? 12 : 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (resolved) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'Resolved: ${alarm['recoveryTime']}',
-                              style: TextStyle(
-                                color: const Color(0xFF2D8CFF),
-                                fontSize: resolved ? 12 : 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
+              return _buildReportAlarmItem(_reportAlarms[index]);
             },
           ),
       ],
     );
+  }
+  Widget _buildReportAlarmItem(dynamic alarm) {
+        final bool resolved = alarm['recoveryTime'] != null;
+    final String title =
+        (alarm['alarmTypeName'] ?? alarm['content'] ?? 'Alert')
+            .toString();
+
+    String alarmValue() {
+      final dynamic v = alarm['alarmValueValue'] ??
+          alarm['alarmValue'] ??
+          alarm['value'] ??
+          alarm['alarm_value'];
+      if (v == null) return '--';
+      final s = v.toString().trim();
+      return s.isEmpty ? '--' : s;
+    }
+
+    String valueWithUnit() {
+      final v = alarmValue();
+      if (v == '--') return v;
+      final upper = v.toUpperCase();
+      if (upper.contains('%') ||
+          upper.contains('C') ||
+          upper.contains('V') ||
+          upper.contains('A') ||
+          upper.contains('W')) {
+        return v;
+      }
+      final content = (alarm['content'] ??
+              alarm['alarmMsg'] ??
+              alarm['message'] ??
+              '')
+          .toString()
+          .toUpperCase();
+      if (content.contains('TEMP')) return '$v C';
+      if (content.contains('HUM')) return '$v %';
+      return v;
+    }
+
+    String alarmLevelName() {
+      final dynamic raw = alarm['alarmLevelName'] ??
+          alarm['alarmLevelLevel'] ??
+          alarm['alarmLevel'] ??
+          alarm['level'] ??
+          alarm['severity'];
+      if (raw == null) return '--';
+      final s = raw.toString().trim();
+      if (s.isEmpty) return '--';
+      final n = int.tryParse(s);
+      if (n != null) {
+        switch (n) {
+          case 0:
+          case 1:
+            return 'Info';
+          case 2:
+            return 'Good';
+          case 3:
+            return 'Moderate';
+          case 4:
+            return 'Critical';
+          case 5:
+            return 'Red';
+        }
+      }
+      return s;
+    }
+
+    final String valueStr = valueWithUnit();
+    final String typeStr = (alarm['alarmTypeType'] ??
+                alarm['alarmTypeName'] ??
+                alarm['alarmType'] ??
+                alarm['type'] ??
+                title)
+            .toString()
+            .trim()
+            .isEmpty
+        ? title
+        : (alarm['alarmTypeType'] ??
+                alarm['alarmTypeName'] ??
+                alarm['alarmType'] ??
+                alarm['type'] ??
+                title)
+            .toString()
+            .trim();
+    final String levelStr = alarmLevelName();
+
+    Color baseLevelColor() {
+      if (resolved) return const Color(0xFF2D8CFF);
+      final l = levelStr.toLowerCase();
+      if (l.contains('critical') ||
+          l.contains('orange') ||
+          l.contains('red')) {
+        return const Color(0xFFFF5A5F);
+      }
+      final raw = alarm['alarmLevelColor'];
+      if (raw != null) {
+        final s = raw.toString().trim();
+        if (s.isNotEmpty) {
+          return Color(int.parse(s.replaceAll('#', '0xFF')));
+        }
+      }
+      if (l.contains('moderate') || l.contains('yellow')) {
+        return const Color(0xFFFFB000);
+      }
+      if (l.contains('good') || l.contains('green')) {
+        return AppTheme.accentGreen;
+      }
+      if (l.contains('info') || l.contains('blue')) {
+        return const Color(0xFF2D8CFF);
+      }
+      return const Color(0xFFFF5A5F);
+    }
+
+    final levelColor = baseLevelColor();
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final fill = isLight
+        ? Colors.white
+        : Color.lerp(levelColor, Colors.black, 0.82)!;
+    final titleColor =
+        isLight ? AppTheme.lightTextPrimary : Colors.white;
+    final detailColor = isLight
+        ? AppTheme.lightTextSecondary.withValues(alpha: 0.92)
+        : Colors.white70;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: levelColor.withValues(alpha: isLight ? 0.65 : 0.85),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                levelColor.withValues(alpha: isLight ? 0.30 : 0.40),
+            blurRadius: isLight ? 18 : 20,
+            offset: Offset(0, isLight ? 10 : 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: levelColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: titleColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: resolved ? 15 : 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 19),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Alarm Value: $valueStr',
+                  style: TextStyle(
+                    color: detailColor,
+                    fontSize: resolved ? 12 : 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Alarm Type: $typeStr',
+                  style: TextStyle(
+                    color: detailColor,
+                    fontSize: resolved ? 12 : 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Alarm Level: $levelStr',
+                  style: TextStyle(
+                    color: detailColor,
+                    fontSize: resolved ? 12 : 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (resolved) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Resolved: ${alarm['recoveryTime']}',
+                    style: TextStyle(
+                      color: const Color(0xFF2D8CFF),
+                      fontSize: resolved ? 12 : 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
   }
 
   Widget _buildDiagnosticsSection() {
@@ -606,17 +609,66 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               ),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _doorLogs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                return _buildReportLogItem(_doorLogs[index]);
-              },
-            ),
+            _buildCategorizedLogs(_doorLogs),
         ],
       ),
+    );
+  }
+
+  Widget _buildCategorizedLogs(List<dynamic> logs) {
+    if (logs.isEmpty) return const SizedBox.shrink();
+
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final Map<String, List<dynamic>> groupedLogs = {};
+
+    for (final log in logs) {
+      final timeStr = log['opTime']?.toString() ?? '';
+      final dt = DateTime.tryParse(timeStr);
+      String category = 'Unknown Date';
+      
+      if (dt != null) {
+        if (_eventLogRange == 'Monthly') {
+          category = DateFormat('MMMM dd, yyyy').format(dt);
+        } else if (_eventLogRange == 'Weekly') {
+          category = DateFormat('EEEE, MMMM dd').format(dt);
+        } else {
+          category = DateFormat('MMMM dd, yyyy').format(dt);
+        }
+      }
+      
+      groupedLogs.putIfAbsent(category, () => []).add(log);
+    }
+
+    final children = <Widget>[];
+    for (final entry in groupedLogs.entries) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8, left: 4),
+          child: Text(
+            entry.key.toUpperCase(),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+              color: isLight
+                  ? AppTheme.lightTextSecondary
+                  : Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+
+      for (int i = 0; i < entry.value.length; i++) {
+        children.add(_buildReportLogItem(entry.value[i]));
+        if (i < entry.value.length - 1) {
+          children.add(const SizedBox(height: 8));
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 

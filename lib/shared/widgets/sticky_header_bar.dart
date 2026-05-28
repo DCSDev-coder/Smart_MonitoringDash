@@ -78,7 +78,7 @@ class StickyHeaderBar extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(
                   16,
                   topPad + topPadding,
-                  0,
+                  16,
                   bottomPadding,
                 ),
                 child: SizedBox(

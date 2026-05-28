@@ -269,239 +269,166 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
     required VoidCallback onToggle,
   }) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isLight
-            ? const Color(0xFFF3F4F7)
-            : Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isLight
-              ? const Color(0xFFD5DAE2)
-              : Colors.white.withValues(alpha: 0.12),
+    final color = isLight ? AppTheme.lightTextPrimary : Colors.white;
+    final hintColor = isLight ? AppTheme.lightTextSecondary : Colors.white70;
+    final borderColor = isLight ? const Color(0xFFD5DAE2) : Colors.white24;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          hint,
+          style: TextStyle(
+            color: hintColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscure,
-              style: TextStyle(
-                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: borderColor,
+                width: 1.5,
               ),
-              cursorColor:
-                  isLight ? AppTheme.lightTextPrimary : Colors.white,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.40),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  obscureText: obscure,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: obscure ? 6.0 : 1.0,
+                  ),
+                  cursorColor: color,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    filled: false,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
-                // Explicitly disable ALL borders to avoid a "double input"
-                // look from theme-provided focused/outlined borders.
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                filled: false,
-                fillColor: Colors.transparent,
-                isDense: true,
-                isCollapsed: true,
-                contentPadding: EdgeInsets.zero,
               ),
-            ),
+              IconButton(
+                onPressed: _isSubmitting ? null : onToggle,
+                icon: Icon(
+                  obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: hintColor,
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            onPressed: _isSubmitting ? null : onToggle,
-            icon: Icon(
-              obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-              color: isLight
-                  ? AppTheme.lightTextSecondary
-                  : Colors.white.withValues(alpha: 0.75),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    // We keep the existing glass styling choices from SettingsOverlay for consistency.
-    final maxW = (MediaQuery.of(context).size.width - 32).clamp(300.0, 380.0);
-    final viewInsets = MediaQuery.of(context).viewInsets;
+    final bgColor = isLight ? Colors.white : const Color(0xFF0B0F14);
 
-    // Local helper for the same font used by SettingsOverlay.
-    TextStyle bitcount(BuildContext ctx,
-        {required double fontSize,
-        required Color color,
-        double? letterSpacing}) {
-      return TextStyle(
-        fontSize: fontSize,
-        fontWeight: FontWeight.w900,
-        color: color,
-        letterSpacing: letterSpacing,
-      );
-    }
-
-    // NOTE: We intentionally do NOT use a translucent material barrier color here.
-    // The caller (SettingsOverlay) already blurs/dims the background.
-    return Material(
-      type: MaterialType.transparency,
-      child: SafeArea(
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + viewInsets.bottom),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: maxW,
-                maxHeight: MediaQuery.of(context).size.height * 0.84,
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+          ),
+          onPressed: () => Navigator.pop(context, false),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Reset Password',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  letterSpacing: 0.5,
+                ),
               ),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-                decoration: BoxDecoration(
-                  // Fully opaque background (user request): the dialog card itself
-                  // should not be see-through.
-                  color: isLight ? Colors.white : const Color(0xFF0B0F14),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: isLight
-                        ? const Color(0xFFD7DCE4)
-                        : Colors.white.withValues(alpha: 0.08),
+              const SizedBox(height: 40),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _passwordField(
+                        controller: _currentCtrl,
+                        hint: 'Current Password',
+                        obscure: _obscureCurrent,
+                        onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                      ),
+                      const SizedBox(height: 24),
+                      _passwordField(
+                        controller: _newCtrl,
+                        hint: 'New Password',
+                        obscure: _obscureNew,
+                        onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                      ),
+                      const SizedBox(height: 24),
+                      _passwordField(
+                        controller: _confirmCtrl,
+                        hint: 'Confirm New Password',
+                        obscure: _obscureConfirm,
+                        onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      ),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 6),
-                    Text(
-                      'Reset Password',
-                      style: bitcount(
-                        context,
-                        fontSize: 24,
-                        color: isLight
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
-                        letterSpacing: 1.0,
-                      ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 18),
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            _passwordField(
-                              controller: _currentCtrl,
-                              hint: 'Current Password',
-                              obscure: _obscureCurrent,
-                              onToggle: () =>
-                                  setState(() => _obscureCurrent = !_obscureCurrent),
-                            ),
-                            const SizedBox(height: 14),
-                            _passwordField(
-                              controller: _newCtrl,
-                              hint: 'New Password',
-                              obscure: _obscureNew,
-                              onToggle: () => setState(() => _obscureNew = !_obscureNew),
-                            ),
-                            const SizedBox(height: 14),
-                            _passwordField(
-                              controller: _confirmCtrl,
-                              hint: 'Confirm New Password',
-                              obscure: _obscureConfirm,
-                              onToggle: () =>
-                                  setState(() => _obscureConfirm = !_obscureConfirm),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isLight
-                                    ? AppTheme.lightTextPrimary
-                                    : Colors.white,
-                                backgroundColor: isLight
-                                    ? const Color(0xFFF1F2F5)
-                                    : Colors.transparent,
-                                side: BorderSide(
-                                  color: isLight
-                                      ? const Color(0xFFD5DAE2)
-                                      : Colors.white.withValues(alpha: 0.18),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                              onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-                              ),
-                            ),
+                  ),
+                  onPressed: _isSubmitting ? null : _submit,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'UPDATE PASSWORD',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
                           ),
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: FilledButton(
-                              style: FilledButton.styleFrom(
-                                // Match the app's primary accent green.
-                                backgroundColor: AppTheme.accentGreen,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                              onPressed: _isSubmitting ? null : _submit,
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Save',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
       ),

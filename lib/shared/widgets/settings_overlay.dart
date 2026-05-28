@@ -11,6 +11,7 @@ import '../../features/dashboard/widgets/dashboard_typography.dart';
 import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
 import 'safe_network_image.dart';
+import 'secure_action_guard.dart';
 
 class SettingsOverlay {
   static Rect? rectFromKey(GlobalKey key) {
@@ -38,9 +39,9 @@ class SettingsOverlay {
     return nav.push<void>(
       _SettingsOverlayRoute(
         onManageUsers: () {
-          // Replace the settings popup route directly to avoid a pop->push
-          // intermediate frame (which looks like a flash).
-          nav.pushReplacementNamed('/manage_users');
+          // Push instead of replace so that popping the manage users page
+          // returns the user back to the settings overlay.
+          nav.pushNamed('/manage_users');
         },
         onCctvConfig: onCctvConfig,
         onUploadLogo: onUploadLogo,
@@ -221,6 +222,8 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     super.dispose();
   }
 
+  bool _isAppearanceExpanded = false;
+
   void _syncPollingMode() {
     if (!mounted) return;
     setState(() {
@@ -233,186 +236,76 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     setState(() {});
   }
 
-  Future<void> _showPollingModeDialog() async {
-    SmartPollingMode temp = _pollingMode;
-    final selected = await showDialog<SmartPollingMode>(
-      context: context,
-      builder: (context) {
-        final isLight = Theme.of(context).brightness == Brightness.light;
-        return AlertDialog(
-          backgroundColor:
-              isLight ? Colors.white : const Color(0xFF0B0F14),
-          surfaceTintColor: Colors.transparent,
-          title: Text(
-            'Performance',
-            style: bitcount(
-              context,
-              fontSize: 16,
-              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              letterSpacing: 1.0,
-            ),
-          ),
-          content: StatefulBuilder(builder: (context, setStateDialog) {
-            final items = <SmartPollingMode, String>{
-              SmartPollingMode.auto: 'Auto (Recommended)',
-              SmartPollingMode.balanced: 'Balanced',
-              SmartPollingMode.lowData: 'Low Data',
-              SmartPollingMode.performance: 'Performance',
-            };
-
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: isLight
-                    ? const Color(0xFFF3F4F7)
-                    : Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isLight
-                      ? const Color(0xFFD5DAE2)
-                      : Colors.white.withValues(alpha: 0.10),
-                ),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<SmartPollingMode>(
-                  value: temp,
-                  isExpanded: true,
-                  dropdownColor:
-                      isLight ? Colors.white : const Color(0xFF0B0F14),
-                  iconEnabledColor: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.8),
-                  style: TextStyle(
-                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                  items: items.entries
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.key,
-                          child: Text(e.value),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setStateDialog(() => temp = v ?? temp),
-                ),
-              ),
-            );
-          }),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white70,
-                ),
-              ),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.accentGreen,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(context, temp);
-              },
-              child: const Text('Save',
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (selected == null) return;
-    await SmartPollingSettings.instance.setMode(selected);
-  }
-
-  String _pollingModeLabel(SmartPollingMode m) {
-    switch (m) {
-      case SmartPollingMode.auto:
-        return 'AUTO';
-      case SmartPollingMode.balanced:
-        return 'BALANCED';
-      case SmartPollingMode.lowData:
-        return 'LOW DATA';
-      case SmartPollingMode.performance:
-        return 'PERFORMANCE';
-    }
-  }
-
-  Future<void> _showThemeDialog() async {
+  Widget _buildAppearanceDropdown() {
+    if (!_isAppearanceExpanded) return const SizedBox.shrink();
+    
     final current = AppThemeController.instance.themeMode;
-    final selected = await showDialog<ThemeMode>(
-      context: context,
-      builder: (context) {
-        final isLight = Theme.of(context).brightness == Brightness.light;
-        return AlertDialog(
-          backgroundColor:
-              isLight ? Colors.white : const Color(0xFF0B0F14),
-          surfaceTintColor: Colors.transparent,
-          title: Text(
-            'Appearance',
-            style: bitcount(
-              context,
-              fontSize: 16,
-              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              letterSpacing: 1.0,
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    
+    Widget buildBtn(ThemeMode mode, String label, IconData icon) {
+      final isSelected = current == mode;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () async {
+            await AppThemeController.instance.setThemeMode(mode);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected 
+                  ? AppTheme.accentGreen 
+                  : (isLight ? const Color(0xFFF0F0F0) : const Color(0xFF1E242B)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? AppTheme.accentGreen : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  size: 24,
+                  color: isSelected 
+                      ? Colors.white 
+                      : (isLight ? Colors.black54 : Colors.white54),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected 
+                        ? Colors.white 
+                        : (isLight ? Colors.black87 : Colors.white70),
+                  ),
+                ),
+              ],
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _themeOption(context, ThemeMode.light, 'Light Mode',
-                  Icons.light_mode_rounded, current),
-              _themeOption(context, ThemeMode.dark, 'Dark Mode',
-                  Icons.dark_mode_rounded, current),
-              _themeOption(context, ThemeMode.system, 'System Default',
-                  Icons.settings_suggest_rounded, current),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (selected != null) {
-      await AppThemeController.instance.setThemeMode(selected);
+        ),
+      );
     }
-  }
-
-  Widget _themeOption(BuildContext context, ThemeMode mode, String label,
-      IconData icon, ThemeMode current) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final isSelected = current == mode;
-    return ListTile(
-      leading:
-          Icon(
-            icon,
-            color: isSelected
-                ? AppTheme.accentGreen
-                : (isLight
-                    ? AppTheme.lightTextSecondary
-                    : Colors.white70),
-          ),
-      title: Text(label,
-          style: TextStyle(
-              color: isSelected
-                  ? (isLight ? AppTheme.lightTextPrimary : Colors.white)
-                  : (isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white70),
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle_rounded,
-              color: AppTheme.accentGreen, size: 20)
-          : null,
-      onTap: () => Navigator.pop(context, mode),
+    
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Row(
+        children: [
+          buildBtn(ThemeMode.light, 'Light', Icons.light_mode_rounded),
+          const SizedBox(width: 8),
+          buildBtn(ThemeMode.system, 'System', Icons.settings_suggest_rounded),
+          const SizedBox(width: 8),
+          buildBtn(ThemeMode.dark, 'Dark', Icons.dark_mode_rounded),
+        ],
+      ),
     );
   }
+
+
+
+
 
   Future<void> _loadUserInfo() async {
     final user = await CpanelApiService.instance.getUsername();
@@ -460,9 +353,18 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       return;
     }
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => ResetPasswordGlassDialog(username: username),
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Please authenticate to reset password.',
+    );
+    if (!authorized) return;
+
+    if (!context.mounted) return;
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ResetPasswordGlassDialog(username: username),
+      ),
     );
 
     if (result == true && context.mounted) {
@@ -568,13 +470,13 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                           ],
                         ),
                       ),
-                      // Top right close button
+                      // Top left back button
                       Positioned(
                         top: 0,
-                        right: 0,
+                        left: 0,
                         child: IconButton(
-                          icon: Icon(Icons.close_rounded,
-                              color: headerIconColor, size: 28),
+                          icon: Icon(Icons.arrow_back,
+                              color: headerTextColor),
                           onPressed: widget.onClose,
                         ),
                       ),
@@ -637,41 +539,27 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                   title: 'Appearance',
                                   icon: Icons.palette_outlined,
                                   iconColor: const Color(0xFF5856D6),
-                                  trailing: Text(
-                                    AppThemeController.instance.themeMode.name
-                                        .toUpperCase(),
-                                    style: TextStyle(
+                                  trailing: AnimatedRotation(
+                                    turns: _isAppearanceExpanded ? 0.25 : 0,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
                                       color: trailingTextColor,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 1.0,
-                                      fontSize: 12,
                                     ),
                                   ),
-                                  onTap: _showThemeDialog,
+                                  onTap: () {
+                                    setState(() {
+                                      _isAppearanceExpanded = !_isAppearanceExpanded;
+                                    });
+                                  },
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 72, right: 16),
-                                  child: Divider(
-                                    height: 1,
-                                    thickness: 1,
-                                    color: isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05),
-                                  ),
+                                AnimatedSize(
+                                  duration: const Duration(milliseconds: 200),
+                                  alignment: Alignment.topCenter,
+                                  child: _buildAppearanceDropdown(),
                                 ),
-                                _SettingsTile(
-                                  title: 'Performance',
-                                  icon: Icons.speed_rounded,
-                                  iconColor: const Color(0xFF4CD964),
-                                  trailing: Text(
-                                    _pollingModeLabel(_pollingMode),
-                                    style: TextStyle(
-                                      color: trailingTextColor,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 1.0,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  onTap: _showPollingModeDialog,
-                                ),
+
+
                               ],
                             ),
                           ),

@@ -135,9 +135,7 @@ class FloatingNavBar extends StatelessWidget {
             child: Container(
               decoration: shadowDecoration.copyWith(
                 color: isGlass ? const Color(0xFF0B0F14) : barColor,
-                border: isGlass
-                    ? Border.all(color: Colors.white.withValues(alpha: 0.12))
-                    : Border.all(color: Colors.black.withValues(alpha: 0.05)),
+                // Border removed per user request for both modes
               ),
             ),
           ),

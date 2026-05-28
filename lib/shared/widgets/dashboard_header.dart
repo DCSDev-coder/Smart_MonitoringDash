@@ -43,6 +43,7 @@ class DashboardHeader extends StatelessWidget {
         final maxLogo = (c.maxWidth - reservedRight).clamp(96.0, 220.0);
 
         return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Flexible(
               fit: FlexFit.loose,
@@ -76,31 +77,36 @@ class DashboardHeader extends StatelessWidget {
                 ),
               ),
             ),
-            const Spacer(),
+            
+            // Right Side Buttons
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Notification Button (no count badge; bell itself reflects alert state)
+                _HeaderIconButton(
+                  icon: Icons.notifications_none_rounded,
+                  onTap: onNotificationTap,
+                  isLight: isLight,
+                  activeColor: activeColor,
+                  isAlert: hasNotifications,
+                ),
 
-            // Notification Button (no count badge; bell itself reflects alert state)
-            _HeaderIconButton(
-              icon: Icons.notifications_none_rounded,
-              onTap: onNotificationTap,
-              isLight: isLight,
-              activeColor: activeColor,
-              isAlert: hasNotifications,
-            ),
+                if (trailing != null) ...[
+                  const SizedBox(width: gap),
+                  trailing!,
+                ],
+                const SizedBox(width: gap),
 
-            if (trailing != null) ...[
-              const SizedBox(width: gap),
-              trailing!,
-            ],
-            const SizedBox(width: gap),
-
-            // Settings Button
-            _HeaderIconButton(
-              key: settingsIconKey,
-              icon: Icons.menu_rounded,
-              onTap: onMenuTap,
-              isLight: isLight,
-              activeColor: activeColor,
-              isAlert: false,
+                // Settings Button
+                _HeaderIconButton(
+                  key: settingsIconKey,
+                  icon: Icons.menu_rounded,
+                  onTap: onMenuTap,
+                  isLight: isLight,
+                  activeColor: activeColor,
+                  isAlert: false,
+                ),
+              ],
             ),
           ],
         );
