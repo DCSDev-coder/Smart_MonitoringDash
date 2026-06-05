@@ -36,121 +36,121 @@ class ServiceNoticeCard extends StatelessWidget {
       onTap: onTap,
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-          children: [
-            SizedBox(
-              width: 150,
-              height: 120,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned.fill(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0, end: ringProgress),
-                      duration: const Duration(milliseconds: 1600),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, v, _) => _RingGauge(
-                        progress: v,
-                        glowA: ringA,
-                        glowB: ringB,
-                        strokeWidth: 16,
-                      ),
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        ringText,
-                        style: bitcount(
-                          context,
-                          fontSize: 38,
-                          color: ringA,
-                          shadows: const [
-                            Shadow(color: Color(0x66FF8A1F), blurRadius: 22),
-                          ],
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Next Scheduled Maintenance',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: 160,
+                height: 160,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0, end: ringProgress),
+                        duration: const Duration(milliseconds: 1600),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, v, _) => _RingGauge(
+                          progress: v,
+                          glowA: ringA,
+                          glowB: ringB,
+                          strokeWidth: 16,
                         ),
                       ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          ringText,
+                          style: bitcount(
+                            context,
+                            fontSize: 42,
+                            color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'DAYS',
+                          style: bitcount(
+                            context,
+                            fontSize: 14,
+                            color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white).withValues(alpha: 0.65),
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Divider(
+                color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightStroke.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'DAYS',
-                        style: bitcount(
-                          context,
-                          fontSize: 16,
-                          color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white).withValues(alpha: 0.65),
-                          letterSpacing: 3,
+                        'LAST SERVICE',
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        lastService == null ? '--' : fmt.format(lastService!),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'EXPECTED SERVICE',
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        expected == null ? '--' : fmt.format(expected),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'LAST SERVICE',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _ServiceField(
-                      text: lastService == null
-                          ? '--'
-                          : fmt.format(lastService!)),
-                  const SizedBox(height: 8),
-                  Text(
-                    'EXPECTED SERVICE',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: const Color(0xFFFF8A00).withValues(alpha: 0.85),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _ServiceField(
-                      text: expected == null ? '--' : fmt.format(expected)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-}
-
-class _ServiceField extends StatelessWidget {
-  final String text;
-  const _ServiceField({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: (Theme.of(context).brightness == Brightness.light ? Colors.black : Colors.white).withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: (Theme.of(context).brightness == Brightness.light ? Colors.black : Colors.white).withValues(alpha: 0.12)),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+            ],
+          ),
         ),
       ),
     );

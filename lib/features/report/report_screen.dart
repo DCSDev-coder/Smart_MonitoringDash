@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../core/navigation/app_navigator.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -27,10 +28,12 @@ part 'report_screen_health_security.dart';
 
 class ReportScreen extends StatefulWidget {
   final int initialTabIndex;
+  final bool isActive;
 
   const ReportScreen({
     super.key,
     this.initialTabIndex = 0,
+    this.isActive = true,
   });
 
   @override
@@ -83,6 +86,7 @@ class _ReportScreenState extends State<ReportScreen>
 
   late final AnimationController _tabSelC;
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
+  final ScrollController _scrollController = ScrollController();
 
   bool get _canViewReport {
     final site = CpanelApiService.instance.currentSite;
@@ -100,6 +104,18 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   @override
+  void didUpdateWidget(covariant ReportScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive == widget.isActive) return;
+    if (widget.isActive) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0.0);
+      }
+      _fetchReportData();
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     // Allow external deep-links (e.g. Dashboard service card) to open directly on
@@ -112,14 +128,38 @@ class _ReportScreenState extends State<ReportScreen>
       upperBound: 2.0,
     );
     _poller.addListener(_syncFromPoller);
+    GlobalEventBus.targetHistoricalAlarm.addListener(_onTargetAlarmChanged);
+    GlobalEventBus.targetMaintenancePage.addListener(_onTargetMaintenanceChanged);
     _syncFromPoller();
     _fetchReportData();
+    _onTargetAlarmChanged();
+    _onTargetMaintenanceChanged();
+  }
+
+  void _onTargetMaintenanceChanged() {
+    if (GlobalEventBus.targetMaintenancePage.value) {
+      if (_selectedTabIndex != 1) {
+        _selectTab(1);
+      }
+      GlobalEventBus.targetMaintenancePage.value = false;
+    }
+  }
+
+  void _onTargetAlarmChanged() {
+    if (GlobalEventBus.targetHistoricalAlarm.value != null) {
+      if (_selectedTabIndex != 1) {
+        _selectTab(1);
+      }
+    }
   }
 
   @override
   void dispose() {
     _poller.removeListener(_syncFromPoller);
+    GlobalEventBus.targetHistoricalAlarm.removeListener(_onTargetAlarmChanged);
+    GlobalEventBus.targetMaintenancePage.removeListener(_onTargetMaintenanceChanged);
     _tabSelC.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -1007,6 +1047,7 @@ class _ReportScreenState extends State<ReportScreen>
           edgeOffset: AppConstants.headerClearance(context),
           onRefresh: _onRefresh,
           child: CustomScrollView(
+            controller: _scrollController,
             // Avoid iOS-style "rubber band" overscroll that can feel like infinite
             // scrolling, while still allowing pull-to-refresh even when content is
             // shorter than the viewport.
@@ -1228,28 +1269,20 @@ class _ReportScreenState extends State<ReportScreen>
     const c1 = Color(0xFF00A3FF);
     const c2 = Color(0xFF0077D6);
 
-    return Container(
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return DashboardGlass(
+      radius: 18,
       padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [c1, c2],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x22FFFFFF)),
-        boxShadow: [
-          BoxShadow(
-            color: c1.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      tint: isLight
+          ? Colors.white
+          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+      borderColor: Colors.transparent,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
+            flex: 5,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1258,8 +1291,8 @@ class _ReportScreenState extends State<ReportScreen>
                     Text(
                       'Site Health Index',
                       style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.white.withValues(alpha: 0.85)
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
                             : Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1267,16 +1300,18 @@ class _ReportScreenState extends State<ReportScreen>
                     ),
                     const SizedBox(width: 8),
                     _infoIconButton(
-                      iconColor: Colors.white.withValues(alpha: 0.55),
+                      iconColor: isLight
+                          ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
+                          : Colors.white.withValues(alpha: 0.55),
                       onTap: () => _showSiteHealthInfo(context),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Operational',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1285,7 +1320,10 @@ class _ReportScreenState extends State<ReportScreen>
             ),
           ),
           const SizedBox(width: 10),
-          _HealthRing(score: score),
+          Expanded(
+            flex: 4,
+            child: _BatteryGauge(score: score),
+          ),
         ],
       ),
     );
@@ -1524,7 +1562,7 @@ class _ReportScreenState extends State<ReportScreen>
       radius: 18,
       padding: const EdgeInsets.all(20),
       tint: useDarkTheme ? const Color(0xFF0E141B).withValues(alpha: 0.92) : color,
-      borderColor: useDarkTheme ? const Color(0x22FFFFFF) : Colors.transparent,
+      borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1933,26 +1971,45 @@ class _MiniRingState extends State<_MiniRing>
   }
 }
 
-class _HealthRing extends StatefulWidget {
+class _BatteryGauge extends StatefulWidget {
   final int score;
 
-  const _HealthRing({required this.score});
+  const _BatteryGauge({required this.score});
 
   @override
-  State<_HealthRing> createState() => _HealthRingState();
+  State<_BatteryGauge> createState() => _BatteryGaugeState();
 }
 
-class _HealthRingState extends State<_HealthRing>
+class _BatteryGaugeState extends State<_BatteryGauge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
+  late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 5200),
-    )..repeat();
+      duration: const Duration(milliseconds: 1500),
+    );
+    final targetPct = (widget.score.clamp(0, 100)) / 100.0;
+    _anim = Tween<double>(begin: 1.0, end: targetPct).animate(
+      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
+    );
+    _c.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BatteryGauge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.score != widget.score) {
+      final oldPct = (oldWidget.score.clamp(0, 100)) / 100.0;
+      final newPct = (widget.score.clamp(0, 100)) / 100.0;
+      _anim = Tween<double>(begin: oldPct, end: newPct).animate(
+        CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
+      );
+      _c.forward(from: 0.0);
+    }
   }
 
   @override
@@ -1961,49 +2018,112 @@ class _HealthRingState extends State<_HealthRing>
     super.dispose();
   }
 
+  Color _getColor(double pct) {
+    if (pct >= 0.80) return const Color(0xFF4CAF50); // Green
+    if (pct >= 0.40) return const Color(0xFFE6A600); // Yellow/Orange
+    return const Color(0xFFE53935); // Red
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pct = (widget.score.clamp(0, 100)) / 100.0;
-    final scale = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.35);
-    final size = 78.0 * scale;
-    final stroke = 7.5 * scale;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) => CustomPaint(
-              size: Size.square(size),
-              painter: _RingPainter(
-                color: const Color(0xFFFFFFFF),
-                progress: pct,
-                stroke: stroke,
-                trackColor: Colors.white24,
-                glow: false,
-                gradientColors: const [
-                  Colors.white,
-                  Color(0xFFD7E6FF),
-                  Colors.white,
-                ],
-                gradientRotation: _c.value * math.pi * 2,
-              ),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        // Keep the battery proportions relatively standard (e.g. 2.5 : 1)
+        final height = math.min(constraints.maxHeight, width * 0.45);
+
+        return Center(
+          child: AnimatedBuilder(
+            animation: _anim,
+            builder: (context, _) {
+              final pct = _anim.value;
+              final isLight = Theme.of(context).brightness == Brightness.light;
+
+              return SizedBox(
+                width: width,
+                height: height,
+                child: CustomPaint(
+                  painter: _BatteryPainter(
+                    progress: pct,
+                    isLight: isLight,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${(pct * 100).toInt()}%',
+                      style: bitcount(
+                        context,
+                        fontSize: height * 0.45,
+                        color: Colors.white,
+                        letterSpacing: 1.2,
+                      ).copyWith(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
-          Text(
-            '${widget.score}%',
-            style: bitcount(
-              context,
-              fontSize: 18,
-              color: Colors.white,
-              letterSpacing: 1.6,
-            ).copyWith(fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+}
+
+class _BatteryPainter extends CustomPainter {
+  final double progress;
+  final bool isLight;
+
+  _BatteryPainter({
+    required this.progress,
+    required this.isLight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    
+    // Background track
+    final trackRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final trackRRect = RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
+    
+    final trackColor = isLight 
+        ? Colors.black.withValues(alpha: 0.05) 
+        : Colors.white.withValues(alpha: 0.1);
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = trackColor;
+      
+    canvas.drawRRect(trackRRect, trackPaint);
+
+    // Fill
+    final currentFillWidth = size.width * progress;
+    
+    if (currentFillWidth > 0) {
+      final fillRect = Rect.fromLTWH(0, 0, currentFillWidth, size.height);
+      final fillRRect = RRect.fromRectAndRadius(fillRect, Radius.circular(size.height * 0.15));
+      
+      Color baseColor;
+      if (progress >= 0.80) baseColor = const Color(0xFF4CAF50);
+      else if (progress >= 0.40) baseColor = const Color(0xFFE6A600);
+      else baseColor = const Color(0xFFE53935);
+
+      final fillPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = baseColor;
+        
+      canvas.drawRRect(fillRRect, fillPaint);
+      
+      final glowPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = baseColor.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawRRect(fillRRect, glowPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BatteryPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 

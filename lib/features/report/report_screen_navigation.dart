@@ -13,11 +13,7 @@ extension _ReportScreenNavigation on _ReportScreenState {
                 ? Colors.white
                 : const Color(0xFF0E141B),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? AppTheme.lightStroke
-                  : const Color(0x22FFFFFF),
-            ),
+            border: Border.all(color: Colors.transparent),
           ),
           child: SizedBox(
             height: 44,
@@ -116,55 +112,62 @@ extension _ReportScreenNavigation on _ReportScreenState {
     final display = _eventLogRange.isEmpty ? 'Today' : _eventLogRange;
     final isLight = Theme.of(context).brightness == Brightness.light;
 
-    return PopupMenuButton<String>(
-      onSelected: (v) {
-        _setEventLogRange(v);
-      },
-      color: isLight ? Colors.white : const Color(0xFF0E141B),
-      itemBuilder: (context) => _ReportScreenState._eventRangeOptions
-          .map(
-            (option) => PopupMenuItem<String>(
-              value: option,
-              child: Text(
-                option,
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+      ),
+      child: PopupMenuButton<String>(
+        onSelected: (v) {
+          _setEventLogRange(v);
+        },
+        color: isLight ? Colors.white : const Color(0xFF0E141B),
+        itemBuilder: (context) => _ReportScreenState._eventRangeOptions
+            .map(
+              (option) => PopupMenuItem<String>(
+                value: option,
+                child: Text(
+                  option,
+                  style: TextStyle(
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  ),
                 ),
               ),
-            ),
-          )
-          .toList(),
-      child: DashboardGlass(
-        radius: 14,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        tint: Theme.of(context).brightness == Brightness.light
-            ? Colors.white
-            : const Color(0xFF0E141B).withValues(alpha: 0.92),
-        borderColor: Theme.of(context).brightness == Brightness.light
-            ? AppTheme.lightStroke
-            : const Color(0x22FFFFFF),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              labelFor(display),
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+            )
+            .toList(),
+        child: DashboardGlass(
+          radius: 14,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          tint: Theme.of(context).brightness == Brightness.light
+              ? Colors.white
+              : const Color(0xFF0E141B).withValues(alpha: 0.92),
+          borderColor: Theme.of(context).brightness == Brightness.light
+              ? AppTheme.lightStroke
+              : const Color(0x22FFFFFF),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                labelFor(display),
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppTheme.lightTextPrimary
+                      : Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: isLight
-                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.7)
-                  : Colors.white.withValues(alpha: 0.75),
-              size: 18,
-            ),
-          ],
+              const SizedBox(width: 8),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: isLight
+                    ? AppTheme.lightTextSecondary.withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.75),
+                size: 18,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -11,6 +11,7 @@ import '../report/report_screen.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/controllers/smart_polling_settings.dart';
 import '../../shared/widgets/secure_action_guard.dart';
+import '../../core/navigation/app_navigator.dart';
 
 // New Modular Widgets
 import 'widgets/pue_hero_card.dart';
@@ -27,6 +28,7 @@ import '../../core/theme/app_spacing.dart';
 class DashboardV2Screen extends StatefulWidget {
   final VoidCallback? onNotificationTap;
   final VoidCallback? onMenuTap;
+  final VoidCallback? onNavigateToReport;
   final int notificationCount;
   final bool? notificationCriticalGlow;
   final bool isActive;
@@ -35,6 +37,7 @@ class DashboardV2Screen extends StatefulWidget {
     super.key,
     this.onNotificationTap,
     this.onMenuTap,
+    this.onNavigateToReport,
     this.notificationCount = 0,
     this.notificationCriticalGlow,
     this.isActive = true,
@@ -155,6 +158,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive == widget.isActive) return;
     if (widget.isActive) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0.0);
+      }
       _fetchAll(isInitial: true);
       _startTimer();
     } else {
@@ -670,8 +676,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                         child: PueHeroCard(
                                           pue: _pue,
                                           pueStatus: _pueStatus,
-                                          monthlyEnergyKwh:
-                                              _powerMonth['Total'],
+                                          totalEnergyKwh: _powerMonth['Total'] ?? _powerMonth['TOTAL'] ?? _powerMonth['total_power'] ?? _powerMonth['totalPower'],
+                                          itEnergyKwh: _powerMonth['IT Device'] ?? _powerMonth['IT DEVICE'] ?? _powerMonth['IT'] ?? _powerMonth['it_power'] ?? _powerMonth['itPower'] ?? _powerMonth['IT_DEVICE'],
                                           loading: _loading || _refreshing,
                                         ),
                                       ),
@@ -696,7 +702,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                 PueHeroCard(
                                   pue: _pue,
                                   pueStatus: _pueStatus,
-                                  monthlyEnergyKwh: _powerMonth['Total'],
+                                  totalEnergyKwh: _powerMonth['Total'] ?? _powerMonth['TOTAL'] ?? _powerMonth['total_power'] ?? _powerMonth['totalPower'],
+                                  itEnergyKwh: _powerMonth['IT Device'] ?? _powerMonth['IT DEVICE'] ?? _powerMonth['IT'] ?? _powerMonth['it_power'] ?? _powerMonth['itPower'] ?? _powerMonth['IT_DEVICE'],
                                   loading: _loading || _refreshing,
                                 ),
                                 const SizedBox(height: 20),
@@ -715,25 +722,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                     Expanded(
                                       child: SizedBox(
                                         height: wideBottomHeight,
-                                        child: ServiceNoticeCard(
-                                          lastService: _lastMaintenance,
-                                          cycleDays: 90,
-                                          onTap: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ReportScreen(
-                                                        initialTabIndex: 1),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: wideBottomHeight,
                                         child: DoorControlSection(
                                           doors: _doors ?? const [],
                                           loading: _doors == null && _loading,
@@ -742,27 +730,37 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                         ),
                                       ),
                                     ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: wideBottomHeight,
+                                        child: ServiceNoticeCard(
+                                          lastService: _lastMaintenance,
+                                          cycleDays: 90,
+                                          onTap: () {
+                                            GlobalEventBus.targetMaintenancePage.value = true;
+                                            widget.onNavigateToReport?.call();
+                                          },
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ] else ...[
-                                ServiceNoticeCard(
-                                  lastService: _lastMaintenance,
-                                  cycleDays: 90,
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const ReportScreen(
-                                            initialTabIndex: 1),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 16),
                                 DoorControlSection(
                                   doors: _doors ?? const [],
                                   loading: _doors == null && _loading,
                                   canUnlock: _canControlDoors,
                                   onUnlock: _handleDoorUnlock,
+                                ),
+                                const SizedBox(height: 16),
+                                ServiceNoticeCard(
+                                  lastService: _lastMaintenance,
+                                  cycleDays: 90,
+                                  onTap: () {
+                                    GlobalEventBus.targetMaintenancePage.value = true;
+                                    widget.onNavigateToReport?.call();
+                                  },
                                 ),
                               ],
                               const SizedBox(height: 16),
@@ -789,14 +787,14 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     );
   }
 
-  void _handleDoorUnlock(int id, String name) async {
+  Future<bool> _handleDoorUnlock(int id, String name) async {
     if (!_canControlDoors) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('You do not have permission to unlock doors.'),
         ),
       );
-      return;
+      return false;
     }
 
     final authorized = await SecureActionGuard.ensureAuthorized(
@@ -804,7 +802,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       reason: 'Confirm to unlock $name',
       ttl: const Duration(seconds: 30),
     );
-    if (!authorized) return;
+    if (!authorized) return false;
 
     try {
       final site = CpanelApiService.instance.currentSite;
@@ -822,23 +820,26 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
         res = await ApiService.instance.openCloseDoor(id, 1);
       }
 
-      if (!mounted) return;
+      if (!mounted) return false;
       final okSuccess = res != null && res['success'] == true;
       if (okSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$name unlocked!')),
         );
+        return true;
       } else {
         final msg = res?['message']?.toString() ??
             'Unlock failed. If your session expired, please login again.';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
+        return false;
       }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unlock failed. Try again.')),
       );
+      return false;
     }
   }
 }

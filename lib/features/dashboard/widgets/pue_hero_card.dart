@@ -7,14 +7,16 @@ import 'dashboard_typography.dart';
 class PueHeroCard extends StatelessWidget {
   final double pue;
   final String? pueStatus; // ok | unavailable | error | down
-  final double? monthlyEnergyKwh;
+  final double? totalEnergyKwh;
+  final double? itEnergyKwh;
   final bool loading;
 
   const PueHeroCard({
     super.key,
     required this.pue,
     this.pueStatus,
-    required this.monthlyEnergyKwh,
+    required this.totalEnergyKwh,
+    required this.itEnergyKwh,
     required this.loading,
   });
 
@@ -215,8 +217,10 @@ class PueHeroCard extends StatelessWidget {
     final hasPue = !loading && pue > 0;
     final status = _pueStatus(hasPue ? pue : 0);
     final pueText = hasPue ? pue.toStringAsFixed(2) : '--';
-    final energyText =
-        monthlyEnergyKwh == null ? '--' : monthlyEnergyKwh!.toStringAsFixed(2);
+    final totalText =
+        totalEnergyKwh == null ? '--' : totalEnergyKwh!.toStringAsFixed(2);
+    final itText =
+        itEnergyKwh == null ? '--' : itEnergyKwh!.toStringAsFixed(2);
 
     final gaugeColor =
         isLight ? _lightModeGaugeColor(status.color) : status.color;
@@ -230,7 +234,7 @@ class PueHeroCard extends StatelessWidget {
         children: [
           LayoutBuilder(
             builder: (context, c) {
-              const energyBarHeight = 52.0;
+              const energyBarHeight = 88.0;
               const gap = 8.0;
               final maxH = c.maxHeight.isFinite ? c.maxHeight : 360.0;
               final gaugeH = (maxH - energyBarHeight - gap).clamp(200.0, 340.0);
@@ -363,45 +367,83 @@ class PueHeroCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: gap),
-                  SizedBox(
-                    height: energyBarHeight,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isLight
-                            ? Colors.white.withValues(alpha: 0.2)
-                            : const Color(0xFF2A2A2A).withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(14),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isLight
+                          ? gaugeColor
+                          : const Color(0xFF0B0F14).withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(18),
+                      border: isLight
+                          ? Border.all(color: Colors.black.withValues(alpha: 0.05))
+                          : Border.all(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Monthly Energy Consumption',
-                              style: TextStyle(
-                                color: isLight
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.85),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.2,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Monthly Energy Consumption',
+                                    style: TextStyle(
+                                      color: isLight
+                                          ? Colors.white.withValues(alpha: 0.95)
+                                          : Colors.white.withValues(alpha: 0.65),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.2,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  '$totalText kWh',
+                                  style: TextStyle(
+                                    color: isLight ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          Text(
-                            '$energyText kWh',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                            Divider(
+                              height: 24,
+                              thickness: 1,
+                              color: isLight
+                                  ? Colors.white.withValues(alpha: 0.20)
+                                  : Colors.white.withValues(alpha: 0.08),
                             ),
-                          ),
-                        ],
-                      ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'IT Energy Consumption',
+                                    style: TextStyle(
+                                      color: isLight
+                                          ? Colors.white.withValues(alpha: 0.95)
+                                          : Colors.white.withValues(alpha: 0.65),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.2,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  '$itText kWh',
+                                  style: TextStyle(
+                                    color: isLight ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                     ),
-                  ),
                 ],
               );
             },

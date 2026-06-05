@@ -13,7 +13,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
 
 class ControlScreen extends StatefulWidget {
-  const ControlScreen({super.key});
+  final bool isActive;
+  const ControlScreen({super.key, this.isActive = true});
 
   @override
   State<ControlScreen> createState() => _ControlScreenState();
@@ -36,6 +37,7 @@ class _ControlScreenState extends State<ControlScreen>
   String? _acHint;
   _ControlSection _section = _ControlSection.pdu1;
   late final AnimationController _tabSelC;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -56,6 +58,18 @@ class _ControlScreenState extends State<ControlScreen>
       s.index.toDouble(),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant ControlScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive == widget.isActive) return;
+    if (widget.isActive) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0.0);
+      }
+      _fetchAll();
+    }
   }
 
   Future<void> _onRefresh() async {
@@ -191,6 +205,7 @@ class _ControlScreenState extends State<ControlScreen>
   @override
   void dispose() {
     _tabSelC.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -230,6 +245,7 @@ class _ControlScreenState extends State<ControlScreen>
           edgeOffset: AppConstants.headerClearance(context),
           onRefresh: _onRefresh,
           child: CustomScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics()),
             slivers: [
@@ -273,21 +289,7 @@ class _ControlScreenState extends State<ControlScreen>
                       _loading
                           ? _tableSkeleton()
                           : _nodeTable(node, hint: hint),
-                      const SizedBox(height: AppSpacing.sectionGapMd),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          'Note: Control actions mirror the hardware dashboard. If AC controls do not appear, the device may require manual configuration on the physical panel.',
-                          style: TextStyle(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.light
-                                  ? AppTheme.lightTextSecondary
-                                      .withValues(alpha: 0.6)
-                                  : Colors.white.withValues(alpha: 0.45),
-                              fontSize: 11,
-                              height: 1.4),
-                        ),
-                      ),
+
                       SizedBox(height: AppSpacing.pageBottom(context)), // Bottom padding
                     ],
                   ),
@@ -312,10 +314,7 @@ class _ControlScreenState extends State<ControlScreen>
                 ? Colors.white
                 : const Color(0xFF0E141B),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightStroke
-                    : const Color(0x22FFFFFF)),
+            border: Border.all(color: Colors.transparent),
           ),
           child: SizedBox(
             height: 44,
@@ -625,7 +624,7 @@ class _ControlScreenState extends State<ControlScreen>
               : const Color(0xFF0E141B).withValues(alpha: 0.96),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
-              : const Color(0x22FFFFFF),
+              : Colors.transparent,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,7 +749,7 @@ class _ControlScreenState extends State<ControlScreen>
               : const Color(0xFF0E141B).withValues(alpha: 0.96),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
-              : const Color(0x22FFFFFF),
+              : Colors.transparent,
           child: SafeArea(
             top: false,
             child: Column(
@@ -867,7 +866,7 @@ class _ControlScreenState extends State<ControlScreen>
               : const Color(0xFF0E141B).withValues(alpha: 0.96),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
-              : const Color(0x22FFFFFF),
+              : Colors.transparent,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1051,7 +1050,7 @@ class _AuraPill extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(color: const Color(0x22FFFFFF)),
+        border: Border.all(color: Colors.transparent),
       ),
     );
   }

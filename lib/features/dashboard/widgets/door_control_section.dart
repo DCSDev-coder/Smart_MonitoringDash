@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:local_auth/local_auth.dart';
@@ -9,7 +10,7 @@ import '../../../shared/widgets/animated_gradient_fill.dart';
 
 class DoorControlSection extends StatelessWidget {
   final List<Map<String, dynamic>> doors;
-  final void Function(int id, String name) onUnlock;
+  final Future<bool> Function(int id, String name) onUnlock;
   final bool canUnlock;
   final bool loading;
 
@@ -77,92 +78,54 @@ class DoorControlSection extends StatelessWidget {
     );
   }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (context, outer) {
-            final heightBounded = outer.maxHeight.isFinite;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, outer) {
+          final heightBounded = outer.maxHeight.isFinite;
 
           Widget doorBody({required bool scrollable}) {
-            return LayoutBuilder(builder: (context, c) {
-              final isWide = c.maxWidth >= 520;
+            final tiles = doors
+                .map((d) => _DoorTile(
+                      door: d,
+                      canUnlock: canUnlock,
+                      onUnlock: onUnlock,
+                    ))
+                .toList();
 
-              if (!isWide) {
-                final list = Column(
-                  children: [
-                    for (final door in doors)
-                      _DoorRow(
-                        door: door,
-                        canUnlock: canUnlock,
-                        onUnlock: onUnlock,
-                      ),
-                  ],
-                );
-                if (!scrollable) return list;
-                return SingleChildScrollView(child: list);
-              }
-
-              final tiles = doors
-                  .map((d) => _DoorTile(
-                        door: d,
-                        canUnlock: canUnlock,
-                        onUnlock: onUnlock,
-                      ))
-                  .toList();
-
-              if (!scrollable) {
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
+            if (tiles.length > 2) {
+              return SizedBox(
+                height: 230,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
                   itemCount: tiles.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 2.45,
+                  clipBehavior: Clip.none,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, i) => SizedBox(
+                    width: (outer.maxWidth - 12) / 2, // 2 visible items at a time
+                    child: tiles[i],
                   ),
-                  itemBuilder: (_, i) => tiles[i],
-                );
-              }
-
-              return GridView.builder(
-                itemCount: tiles.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 2.45,
                 ),
-                itemBuilder: (_, i) => tiles[i],
               );
-            });
+            }
+
+            return GridView.builder(
+              shrinkWrap: !scrollable,
+              physics: scrollable ? null : const NeverScrollableScrollPhysics(),
+              itemCount: tiles.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.05,
+              ),
+              itemBuilder: (_, i) => tiles[i],
+            );
           }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'DOOR ACCESS',
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontSize: isLight ? 13 : 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${doors.length} doors',
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.55),
-                  fontSize: isLight ? 12 : 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
               if (heightBounded)
                 Expanded(child: doorBody(scrollable: true))
               else
@@ -171,15 +134,14 @@ class DoorControlSection extends StatelessWidget {
           );
         },
       ),
-      ),
     );
   }
 }
 
-class _DoorRow extends StatelessWidget {
+class _DoorRow extends StatefulWidget {
   final Map<String, dynamic> door;
   final bool canUnlock;
-  final void Function(int id, String name) onUnlock;
+  final Future<bool> Function(int id, String name) onUnlock;
 
   const _DoorRow({
     required this.door,
@@ -188,12 +150,37 @@ class _DoorRow extends StatelessWidget {
   });
 
   @override
+  State<_DoorRow> createState() => _DoorRowState();
+}
+
+class _DoorRowState extends State<_DoorRow> {
+  bool _localUnlocked = false;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _doUnlock(int id, String rawName) async {
+    final success = await widget.onUnlock(id, rawName);
+    if (success == true && mounted) {
+      setState(() => _localUnlocked = true);
+      _timer?.cancel();
+      _timer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _localUnlocked = false);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final rawName = door['name']?.toString() ?? 'Unknown';
-    final id = int.tryParse(door['id']?.toString() ?? '') ?? 0;
-    final isUnlocked = door['isOpen'] == true;
-    final enabled = canUnlock && !isUnlocked && id != 0;
+    final rawName = widget.door['name']?.toString() ?? 'Unknown';
+    final id = int.tryParse(widget.door['id']?.toString() ?? '') ?? 0;
+    final isUnlocked = _localUnlocked || (widget.door['isOpen'] == true);
+    final enabled = widget.canUnlock && !isUnlocked && id != 0;
 
     // Light-mode: keep the section card blue but make each row a light surface.
     // User request: keep all door rows the same background color.
@@ -216,15 +203,23 @@ class _DoorRow extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                rawName,
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: isLight ? 14 : 13,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  _DoorLockIcon(isUnlocked: isUnlocked),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      rawName,
+                      style: TextStyle(
+                        color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: isLight ? 14 : 13,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 12),
@@ -233,8 +228,8 @@ class _DoorRow extends StatelessWidget {
               height: isLight ? 40 : 38,
               child: _AnimatedUnlockButton(
                 enabled: enabled,
-                label: isUnlocked ? 'Unlocked' : (canUnlock ? 'Unlock' : 'No Access'),
-                onPressed: enabled ? () => onUnlock(id, rawName) : null,
+                label: isUnlocked ? 'UNLOCKED' : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
+                onPressed: enabled ? () => _doUnlock(id, rawName) : null,
               ),
             ),
           ],
@@ -244,10 +239,10 @@ class _DoorRow extends StatelessWidget {
   }
 }
 
-class _DoorTile extends StatelessWidget {
+class _DoorTile extends StatefulWidget {
   final Map<String, dynamic> door;
   final bool canUnlock;
-  final void Function(int id, String name) onUnlock;
+  final Future<bool> Function(int id, String name) onUnlock;
 
   const _DoorTile({
     required this.door,
@@ -256,50 +251,79 @@ class _DoorTile extends StatelessWidget {
   });
 
   @override
+  State<_DoorTile> createState() => _DoorTileState();
+}
+
+class _DoorTileState extends State<_DoorTile> {
+  bool _localUnlocked = false;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _doUnlock(int id, String rawName) async {
+    final success = await widget.onUnlock(id, rawName);
+    if (success == true && mounted) {
+      setState(() => _localUnlocked = true);
+      _timer?.cancel();
+      _timer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _localUnlocked = false);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final rawName = (door['name']?.toString() ?? 'Unknown').toUpperCase();
-    final id = int.tryParse(door['id']?.toString() ?? '') ?? 0;
-    final isUnlocked = door['isOpen'] == true;
-    final enabled = canUnlock && !isUnlocked && id != 0;
+    final rawName = widget.door['name']?.toString() ?? 'Unknown';
+    final id = int.tryParse(widget.door['id']?.toString() ?? '') ?? 0;
+    final isUnlocked = _localUnlocked || (widget.door['isOpen'] == true);
+    final enabled = widget.canUnlock && !isUnlocked && id != 0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight
-            ? const Color(0xFFF5F7FF)
-            : const Color(0xFF0B0F14).withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(16),
-        border: isLight
-            ? Border.all(color: AppTheme.lightStroke)
-            : Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: isLight ? const Color(0xFFF1F5F9) : Colors.white.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: _DoorLockIcon(isUnlocked: isUnlocked),
+            ),
+          ),
+          const SizedBox(height: 5),
           Text(
             rawName,
-            textAlign: TextAlign.center,
             style: TextStyle(
               color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: isLight ? 14 : 13,
-              letterSpacing: 1.1,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           SizedBox(
-            height: isLight ? 42 : 40,
+            width: double.infinity,
+            height: 42,
             child: _AnimatedUnlockButton(
               enabled: enabled,
-              label: isUnlocked ? 'UNLOCKED' : (canUnlock ? 'UNLOCK' : 'NO ACCESS'),
-              onPressed: enabled ? () => onUnlock(id, door['name']?.toString() ?? '') : null,
+              label: isUnlocked ? 'UNLOCKED' : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
+              onPressed: enabled ? () => _doUnlock(id, widget.door['name']?.toString() ?? '') : null,
               pill: true,
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -353,6 +377,8 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
 
         return Material(
           color: Colors.transparent,
+          borderRadius: BorderRadius.circular(radius),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: widget.onPressed,
             borderRadius: BorderRadius.circular(radius),
@@ -534,7 +560,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${widget.doorName} unlocked!')),
         );
@@ -595,7 +621,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${widget.doorName} unlocked!')),
         );
@@ -779,6 +805,30 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         ),
       ),
       ),
+    );
+  }
+}
+
+class _DoorLockIcon extends StatelessWidget {
+  final bool isUnlocked;
+  const _DoorLockIcon({required this.isUnlocked});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return AnimatedSwitcher(
+       duration: const Duration(milliseconds: 300),
+       transitionBuilder: (child, animation) {
+         return ScaleTransition(scale: animation, child: child);
+       },
+       child: Icon(
+         isUnlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+         key: ValueKey(isUnlocked),
+         size: 28,
+         color: isUnlocked
+             ? AppTheme.accentGreen
+             : (isLight ? AppTheme.lightTextSecondary : Colors.white54),
+       ),
     );
   }
 }

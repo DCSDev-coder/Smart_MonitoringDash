@@ -1066,11 +1066,7 @@ class _DeviceDetailRow extends StatelessWidget {
           color:
               (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color:
-                (isLight ? Colors.black : Colors.white).withValues(alpha: 0.08),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.transparent),
         ),
         child: Row(
           children: [

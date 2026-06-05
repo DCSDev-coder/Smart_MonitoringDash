@@ -540,49 +540,62 @@ class _MiniGaugeCard extends StatelessWidget {
                     // Temp: warnHigh=28 (maxScale=50) => 0.56
                     // Hum: warnHigh=70 (maxScale=100) => 0.70
                     Positioned.fill(
-                      child: style == EnvironmentGaugeStyle.meter
-                          ? TweenAnimationBuilder<double>(
-                              tween: Tween<double>(
-                                begin: 0,
-                                end: placeholder ? 0.0 : progress,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 500),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeInBack,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(scale: animation, child: child),
+                          );
+                        },
+                        child: style == EnvironmentGaugeStyle.meter
+                            ? TweenAnimationBuilder<double>(
+                                key: const ValueKey(EnvironmentGaugeStyle.meter),
+                                tween: Tween<double>(
+                                  begin: 0,
+                                  end: placeholder ? 0.0 : progress,
+                                ),
+                                duration: const Duration(milliseconds: 1600),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, v, _) => _DialMeterGauge(
+                                  progress: v,
+                                  glowColor: accent,
+                                  glowIntensity: 1.0,
+                                  warningStops: [
+                                    if (warnLow != null)
+                                      (warnLow! / maxScale).clamp(0.0, 1.0),
+                                    if (warnHigh != null)
+                                      (warnHigh! / maxScale).clamp(0.0, 1.0),
+                                  ],
+                                ),
+                              )
+                            : TweenAnimationBuilder<double>(
+                                key: const ValueKey(EnvironmentGaugeStyle.arc),
+                                tween: Tween<double>(
+                                  begin: 0,
+                                  end: placeholder ? 0.0 : progress,
+                                ),
+                                duration: const Duration(milliseconds: 1600),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, v, _) => _ArcGauge(
+                                  progress: v,
+                                  glowColor: accent,
+                                  baseColor: const Color(0xFF5A5A5A),
+                                  strokeWidth: isWide ? 22 : 18,
+                                  sweepDegrees: 210,
+                                  startDegrees: 195,
+                                  glowIntensity: 1.0,
+                                  warningStops: [
+                                    if (warnLow != null)
+                                      (warnLow! / maxScale).clamp(0.0, 1.0),
+                                    if (warnHigh != null)
+                                      (warnHigh! / maxScale).clamp(0.0, 1.0),
+                                  ],
+                                ),
                               ),
-                              duration: const Duration(milliseconds: 1600),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, v, _) => _DialMeterGauge(
-                                progress: v,
-                                glowColor: accent,
-                                glowIntensity: 1.0,
-                                warningStops: [
-                                  if (warnLow != null)
-                                    (warnLow! / maxScale).clamp(0.0, 1.0),
-                                  if (warnHigh != null)
-                                    (warnHigh! / maxScale).clamp(0.0, 1.0),
-                                ],
-                              ),
-                            )
-                          : TweenAnimationBuilder<double>(
-                              tween: Tween<double>(
-                                begin: 0,
-                                end: placeholder ? 0.0 : progress,
-                              ),
-                              duration: const Duration(milliseconds: 1600),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, v, _) => _ArcGauge(
-                                progress: v,
-                                glowColor: accent,
-                                baseColor: const Color(0xFF5A5A5A),
-                                strokeWidth: isWide ? 22 : 18,
-                                sweepDegrees: 210,
-                                startDegrees: 195,
-                                glowIntensity: 1.0,
-                                warningStops: [
-                                  if (warnLow != null)
-                                    (warnLow! / maxScale).clamp(0.0, 1.0),
-                                  if (warnHigh != null)
-                                    (warnHigh! / maxScale).clamp(0.0, 1.0),
-                                ],
-                              ),
-                            ),
+                      ),
                     ),
                     Text(
                       valueText,
@@ -1230,6 +1243,12 @@ class _GaugeStyleSwitch extends StatelessWidget {
         inactiveThumbColor: (isLight ? AppTheme.lightTextPrimary : Colors.white)
             .withValues(alpha: 0.85),
         inactiveTrackColor: Colors.transparent,
+        trackOutlineColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return AppTheme.accentGreen;
+          }
+          return isLight ? AppTheme.lightTextPrimary : Colors.white;
+        }),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );

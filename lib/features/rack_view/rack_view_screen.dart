@@ -70,6 +70,8 @@ class _RackViewScreenState extends State<RackViewScreen>
   bool _pdu2Expanded = false;
   int _adapterMissStreak = 0;
   bool get _showAdapterDegraded => _adapterMissStreak >= 2;
+  
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -87,6 +89,9 @@ class _RackViewScreenState extends State<RackViewScreen>
     if (oldWidget.isActive == widget.isActive) return;
 
     if (widget.isActive) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0.0);
+      }
       _fetchRackData();
       _startTimer();
     } else {
@@ -99,7 +104,20 @@ class _RackViewScreenState extends State<RackViewScreen>
   void dispose() {
     _refreshTimer?.cancel();
     SmartPollingSettings.instance.removeListener(_onPollingSettingsChanged);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _startTimer() {
@@ -543,6 +561,7 @@ class _RackViewScreenState extends State<RackViewScreen>
           edgeOffset: AppConstants.headerClearance(context),
           onRefresh: _onRefresh,
           child: SingleChildScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics()),
             padding: EdgeInsets.fromLTRB(
@@ -605,7 +624,7 @@ class _RackViewScreenState extends State<RackViewScreen>
           : const Color(0xFF0E141B).withValues(alpha: 0.92),
       borderColor: Theme.of(context).brightness == Brightness.light
           ? AppTheme.lightStroke
-          : const Color(0x22FFFFFF),
+          : Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -659,7 +678,7 @@ class _RackViewScreenState extends State<RackViewScreen>
               : const Color(0xFF0B0F14).withValues(alpha: 0.65),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
-              : const Color(0x22FFFFFF),
+              : Colors.transparent,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -702,7 +721,7 @@ class _RackViewScreenState extends State<RackViewScreen>
           : const Color(0xFF0E141B).withValues(alpha: 0.92),
       borderColor: Theme.of(context).brightness == Brightness.light
           ? AppTheme.lightStroke
-          : const Color(0x22FFFFFF),
+          : Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -739,14 +758,15 @@ class _RackViewScreenState extends State<RackViewScreen>
   Widget _buildInletCard(double uiScale) {
     final loadPct = (_inletP / _totalRackMaxKw).clamp(0.0, 1.0);
     final isLight = Theme.of(context).brightness == Brightness.light;
-    return DashboardGlass(
-      radius: 22 * uiScale,
-      padding: EdgeInsets.all(18 * uiScale),
-      tint: isLight
-          ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF),
-      child: Column(
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22 * uiScale),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(18 * uiScale),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -831,6 +851,7 @@ class _RackViewScreenState extends State<RackViewScreen>
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -854,7 +875,10 @@ class _RackViewScreenState extends State<RackViewScreen>
         uiScale: uiScale,
         onToggle: sideBySide
             ? null
-            : () => setState(() => _pdu1Expanded = !_pdu1Expanded));
+            : () {
+                setState(() => _pdu1Expanded = !_pdu1Expanded);
+                if (_pdu1Expanded) _scrollToBottom();
+              });
     final pdu2 = _buildPduPanel(
         nodeId: 7,
         title: 'RACK PDU 2',
@@ -871,18 +895,20 @@ class _RackViewScreenState extends State<RackViewScreen>
         uiScale: uiScale,
         onToggle: sideBySide
             ? null
-            : () => setState(() => _pdu2Expanded = !_pdu2Expanded));
+            : () {
+                setState(() => _pdu2Expanded = !_pdu2Expanded);
+                if (_pdu2Expanded) _scrollToBottom();
+              });
 
-    return DashboardGlass(
-      radius: 22 * uiScale,
-      padding: EdgeInsets.all(18 * uiScale),
-      tint: Theme.of(context).brightness == Brightness.light
-          ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: Theme.of(context).brightness == Brightness.light
-          ? AppTheme.lightStroke
-          : const Color(0x22FFFFFF),
-      child: Column(
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22 * uiScale),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(18 * uiScale),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -917,10 +943,13 @@ class _RackViewScreenState extends State<RackViewScreen>
             const SizedBox(height: 14),
             Center(
               child: InkWell(
-                onTap: () => setState(() {
-                  _pdu1Expanded = !_pdu1Expanded;
-                  _pdu2Expanded = _pdu1Expanded;
-                }),
+                onTap: () {
+                  setState(() {
+                    _pdu1Expanded = !_pdu1Expanded;
+                    _pdu2Expanded = _pdu1Expanded;
+                  });
+                  if (_pdu1Expanded) _scrollToBottom();
+                },
                 child: Padding(
                     padding: const EdgeInsets.all(8),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -943,6 +972,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             pdu2
           ],
         ],
+      ),
       ),
     );
   }
@@ -976,7 +1006,7 @@ class _RackViewScreenState extends State<RackViewScreen>
       child: Container(
         padding: EdgeInsets.all(12 * uiScale),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : Colors.white.withValues(alpha: 0.12),
+          color: isLight ? Colors.white : const Color(0xFF0B0F14).withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(18 * uiScale),
           border: Border.all(
             color: isLight
@@ -1088,7 +1118,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                   crossAxisCount: columns,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
-                  childAspectRatio: columns == 3 ? 0.76 : 0.65,
+                  childAspectRatio: columns == 3 ? 1.0 : 0.90,
                 ),
                 itemCount: showing.length,
                 itemBuilder: (context, idx) {
@@ -1148,7 +1178,7 @@ class _RackViewScreenState extends State<RackViewScreen>
         final isLight = Theme.of(context).brightness == Brightness.light;
         final sheetTint = isLight ? Colors.white : const Color(0xFF0E141B);
         final sheetBorder =
-            isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
+            isLight ? AppTheme.lightStroke : Colors.transparent;
         final labelColor =
             isLight ? AppTheme.lightTextSecondary : Colors.white70;
         final valueColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
@@ -1445,7 +1475,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             padding: const EdgeInsets.all(18),
             tint: isLight ? Colors.white : const Color(0xFF0E141B),
             borderColor:
-                isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF),
+                isLight ? AppTheme.lightStroke : Colors.transparent,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

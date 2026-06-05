@@ -77,224 +77,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
     );
   }
   Widget _buildReportAlarmItem(dynamic alarm) {
-        final bool resolved = alarm['recoveryTime'] != null;
-    final String title =
-        (alarm['alarmTypeName'] ?? alarm['content'] ?? 'Alert')
-            .toString();
-
-    String alarmValue() {
-      final dynamic v = alarm['alarmValueValue'] ??
-          alarm['alarmValue'] ??
-          alarm['value'] ??
-          alarm['alarm_value'];
-      if (v == null) return '--';
-      final s = v.toString().trim();
-      return s.isEmpty ? '--' : s;
-    }
-
-    String valueWithUnit() {
-      final v = alarmValue();
-      if (v == '--') return v;
-      final upper = v.toUpperCase();
-      if (upper.contains('%') ||
-          upper.contains('C') ||
-          upper.contains('V') ||
-          upper.contains('A') ||
-          upper.contains('W')) {
-        return v;
-      }
-      final content = (alarm['content'] ??
-              alarm['alarmMsg'] ??
-              alarm['message'] ??
-              '')
-          .toString()
-          .toUpperCase();
-      if (content.contains('TEMP')) return '$v C';
-      if (content.contains('HUM')) return '$v %';
-      return v;
-    }
-
-    String alarmLevelName() {
-      final dynamic raw = alarm['alarmLevelName'] ??
-          alarm['alarmLevelLevel'] ??
-          alarm['alarmLevel'] ??
-          alarm['level'] ??
-          alarm['severity'];
-      if (raw == null) return '--';
-      final s = raw.toString().trim();
-      if (s.isEmpty) return '--';
-      final n = int.tryParse(s);
-      if (n != null) {
-        switch (n) {
-          case 0:
-          case 1:
-            return 'Info';
-          case 2:
-            return 'Good';
-          case 3:
-            return 'Moderate';
-          case 4:
-            return 'Critical';
-          case 5:
-            return 'Red';
-        }
-      }
-      return s;
-    }
-
-    final String valueStr = valueWithUnit();
-    final String typeStr = (alarm['alarmTypeType'] ??
-                alarm['alarmTypeName'] ??
-                alarm['alarmType'] ??
-                alarm['type'] ??
-                title)
-            .toString()
-            .trim()
-            .isEmpty
-        ? title
-        : (alarm['alarmTypeType'] ??
-                alarm['alarmTypeName'] ??
-                alarm['alarmType'] ??
-                alarm['type'] ??
-                title)
-            .toString()
-            .trim();
-    final String levelStr = alarmLevelName();
-
-    Color baseLevelColor() {
-      if (resolved) return const Color(0xFF2D8CFF);
-      final l = levelStr.toLowerCase();
-      if (l.contains('critical') ||
-          l.contains('orange') ||
-          l.contains('red')) {
-        return const Color(0xFFFF5A5F);
-      }
-      final raw = alarm['alarmLevelColor'];
-      if (raw != null) {
-        final s = raw.toString().trim();
-        if (s.isNotEmpty) {
-          return Color(int.parse(s.replaceAll('#', '0xFF')));
-        }
-      }
-      if (l.contains('moderate') || l.contains('yellow')) {
-        return const Color(0xFFFFB000);
-      }
-      if (l.contains('good') || l.contains('green')) {
-        return AppTheme.accentGreen;
-      }
-      if (l.contains('info') || l.contains('blue')) {
-        return const Color(0xFF2D8CFF);
-      }
-      return const Color(0xFFFF5A5F);
-    }
-
-    final levelColor = baseLevelColor();
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final fill = isLight
-        ? Colors.white
-        : Color.lerp(levelColor, Colors.black, 0.82)!;
-    final titleColor =
-        isLight ? AppTheme.lightTextPrimary : Colors.white;
-    final detailColor = isLight
-        ? AppTheme.lightTextSecondary.withValues(alpha: 0.92)
-        : Colors.white70;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: levelColor.withValues(alpha: isLight ? 0.65 : 0.85),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                levelColor.withValues(alpha: isLight ? 0.30 : 0.40),
-            blurRadius: isLight ? 18 : 20,
-            offset: Offset(0, isLight ? 10 : 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: levelColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: titleColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: resolved ? 15 : 14,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.only(left: 19),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Alarm Value: $valueStr',
-                  style: TextStyle(
-                    color: detailColor,
-                    fontSize: resolved ? 12 : 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Alarm Type: $typeStr',
-                  style: TextStyle(
-                    color: detailColor,
-                    fontSize: resolved ? 12 : 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Alarm Level: $levelStr',
-                  style: TextStyle(
-                    color: detailColor,
-                    fontSize: resolved ? 12 : 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (resolved) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Resolved: ${alarm['recoveryTime']}',
-                    style: TextStyle(
-                      color: const Color(0xFF2D8CFF),
-                      fontSize: resolved ? 12 : 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-
+    return ExpandableHistoricalAlarmCard(alarm: alarm);
   }
 
   Widget _buildDiagnosticsSection() {
@@ -375,24 +158,31 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  _lastMaintenance == null
-                      ? 'No Service Record'
-                      : DateFormat('d MMMM yyyy').format(_lastMaintenance!),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isOverdue ? Colors.redAccent : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _lastMaintenance == null ? '' : '( $days Days Ago )',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      _lastMaintenance == null
+                          ? 'No Service Record'
+                          : DateFormat('d MMMM yyyy').format(_lastMaintenance!),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isOverdue ? Colors.redAccent : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_lastMaintenance != null)
+                      Text(
+                        '( $days Days Ago )',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -486,72 +276,68 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       tint: isLight
           ? Colors.white
           : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF),
-      child: Row(
+      borderColor: isLight ? AppTheme.lightStroke : Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Devices Online',
-                  style: TextStyle(
-                    color: AppTheme.accentGreen,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Devices Status',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '$online/${total == 0 ? '--' : total}',
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.accentGreen,
-                  ),
+              ),
+              Text(
+                '$online/${total == 0 ? '--' : total}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.accentGreen,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Container(
-            width: 10,
-            height: 74,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2D7DFF),
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Device Offline',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
+          const SizedBox(height: 18),
+          if (total > 0)
+            Row(
+              children: List.generate(total, (index) {
+                final isOnline = index < online;
+                return Expanded(
+                  child: Container(
+                    height: 28,
+                    margin: EdgeInsets.only(right: index == total - 1 ? 0 : 6),
+                    decoration: BoxDecoration(
+                      color: isOnline ? AppTheme.accentGreen : Colors.redAccent,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: isOnline && !isLight
+                          ? [
+                              BoxShadow(
+                                color: AppTheme.accentGreen.withValues(alpha: 0.35),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              )
+                            ]
+                          : null,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$offline',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: offline > 0
-                          ? Colors.red
-                          : (isLight
-                              ? AppTheme.lightTextPrimary
-                              : AppTheme.textPrimary),
-                    ),
-                  ),
-                ],
+                );
+              }),
+            )
+          else
+            Text(
+              'No devices found',
+              style: TextStyle(
+                fontSize: 14,
+                color: isLight ? Colors.grey[600] : Colors.white54,
               ),
             ),
-          ),
         ],
       ),
     );
@@ -698,14 +484,12 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       decoration: BoxDecoration(
         color: isLight
             ? Colors.white
-            : const Color(0xFF2A2E33).withValues(alpha: 0.6),
+            : const Color(0xFF0E141B).withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isLight
               ? Colors.black.withValues(alpha: 0.10)
-              : (isOpened
-                  ? AppTheme.accentGreen.withValues(alpha: 0.2)
-                  : const Color(0x1AFFFFFF)),
+              : Colors.transparent,
         ),
       ),
       child: Row(
@@ -783,6 +567,395 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ExpandableHistoricalAlarmCard extends StatefulWidget {
+  final Map alarm;
+  const ExpandableHistoricalAlarmCard({super.key, required this.alarm});
+
+  @override
+  State<ExpandableHistoricalAlarmCard> createState() => _ExpandableHistoricalAlarmCardState();
+}
+
+class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlarmCard> {
+  bool _isExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-expand if this is the target alarm clicked from Notifications Overlay
+    final target = GlobalEventBus.targetHistoricalAlarm.value;
+    if (target != null &&
+        target['occurrenceTime'] == widget.alarm['occurrenceTime'] &&
+        target['collectControlNodeName'] == widget.alarm['collectControlNodeName']) {
+      _isExpanded = true;
+      // We don't clear the value immediately in case the list re-renders, 
+      // but you can choose to clear it if you only want it to happen once.
+      // GlobalEventBus.targetHistoricalAlarm.value = null; 
+    }
+  }
+
+  String _formatTime(dynamic rawTime) {
+    if (rawTime == null) return '--';
+    if (rawTime is String && rawTime.isEmpty) return '--';
+    
+    DateTime? dt;
+    if (rawTime is int) {
+      dt = rawTime > 2000000000 
+          ? DateTime.fromMillisecondsSinceEpoch(rawTime) 
+          : DateTime.fromMillisecondsSinceEpoch(rawTime * 1000);
+    } else if (rawTime is num) {
+      final v = rawTime.toInt();
+      dt = v > 2000000000 
+          ? DateTime.fromMillisecondsSinceEpoch(v) 
+          : DateTime.fromMillisecondsSinceEpoch(v * 1000);
+    } else {
+      final s = rawTime.toString().trim();
+      final normalized = s.contains(' ') && !s.contains('T') ? s.replaceFirst(' ', 'T') : s;
+      dt = DateTime.tryParse(normalized) ?? DateTime.tryParse(s);
+    }
+
+    if (dt == null) return '--';
+    return DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
+  }
+
+  Widget _buildTimelineNode(String title, String time, {bool isFirst = false, bool isLast = false, String? subtitle}) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 20,
+            child: Column(
+              children: [
+                Container(
+                  width: 2,
+                  height: 8,
+                  color: isFirst ? Colors.transparent : (isLight ? Colors.white70 : const Color(0xFFEAA61E)),
+                ),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: isLight ? Colors.white : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isLight ? Colors.white : const Color(0xFFEAA61E), width: 3),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: isLast ? Colors.transparent : (isLight ? Colors.white70 : const Color(0xFFEAA61E)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: isLight ? Colors.white : const Color(0xFFEAA61E),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            style: TextStyle(color: isLight ? Colors.white70 : Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time_rounded, color: Color(0xFF4C8FE1), size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        time,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final alarm = widget.alarm;
+    final bool resolved = alarm['recoveryTime'] != null || alarm['recoverTime'] != null;
+    final String title =
+        (alarm['alarmTypeName'] ?? alarm['content'] ?? 'Alert')
+            .toString();
+
+    String alarmValue() {
+      final dynamic v = alarm['alarmValueValue'] ??
+          alarm['alarmValue'] ??
+          alarm['value'] ??
+          alarm['alarm_value'];
+      if (v == null) return '--';
+      final s = v.toString().trim();
+      return s.isEmpty ? '--' : s;
+    }
+
+    String valueWithUnit() {
+      final v = alarmValue();
+      if (v == '--') return v;
+      final upper = v.toUpperCase();
+      if (upper.contains('%') ||
+          upper.contains('C') ||
+          upper.contains('V') ||
+          upper.contains('A') ||
+          upper.contains('W')) {
+        return v;
+      }
+      final content = (alarm['content'] ??
+              alarm['alarmMsg'] ??
+              alarm['message'] ??
+              '')
+          .toString()
+          .toUpperCase();
+      if (content.contains('TEMP')) return '$v C';
+      if (content.contains('HUM')) return '$v %';
+      return v;
+    }
+
+    String alarmLevelName() {
+      final dynamic raw = alarm['alarmLevelName'] ??
+          alarm['alarmLevelLevel'] ??
+          alarm['alarmLevel'] ??
+          alarm['level'] ??
+          alarm['severity'];
+      if (raw == null) return '--';
+      final s = raw.toString().trim();
+      if (s.isEmpty) return '--';
+      final n = int.tryParse(s);
+      if (n != null) {
+        switch (n) {
+          case 0:
+          case 1:
+            return 'Info';
+          case 2:
+            return 'Good';
+          case 3:
+            return 'Moderate';
+          case 4:
+            return 'Critical';
+          case 5:
+            return 'Red';
+        }
+      }
+      return s;
+    }
+
+    final String valueStr = valueWithUnit();
+    final String typeStr = (alarm['alarmTypeType'] ??
+                alarm['alarmTypeName'] ??
+                alarm['alarmType'] ??
+                alarm['type'] ??
+                title)
+            .toString()
+            .trim()
+            .isEmpty
+        ? title
+        : (alarm['alarmTypeType'] ??
+                alarm['alarmTypeName'] ??
+                alarm['alarmType'] ??
+                alarm['type'] ??
+                title)
+            .toString()
+            .trim();
+    final String levelStr = alarmLevelName();
+
+    Color baseLevelColor() {
+      if (resolved) return const Color(0xFF2D8CFF);
+      final l = levelStr.toLowerCase();
+      if (l.contains('critical') ||
+          l.contains('orange') ||
+          l.contains('red')) {
+        return const Color(0xFFFF5A5F);
+      }
+      final raw = alarm['alarmLevelColor'];
+      if (raw != null) {
+        final s = raw.toString().trim();
+        if (s.isNotEmpty) {
+          return Color(int.parse(s.replaceAll('#', '0xFF')));
+        }
+      }
+      if (l.contains('moderate') || l.contains('yellow')) {
+        return const Color(0xFFFFB000);
+      }
+      if (l.contains('good') || l.contains('green')) {
+        return AppTheme.accentGreen;
+      }
+      if (l.contains('info') || l.contains('blue')) {
+        return const Color(0xFF2D8CFF);
+      }
+      return const Color(0xFFFF5A5F);
+    }
+
+    final levelColor = baseLevelColor();
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final fill = isLight
+        ? AppTheme.accentBlue
+        : Color.lerp(levelColor, Colors.black, 0.82)!;
+    final titleColor = Colors.white;
+    final detailColor = isLight
+        ? Colors.white.withValues(alpha: 0.92)
+        : Colors.white70;
+
+    // Timeline parsing
+    final occurTime = _formatTime(alarm['occurrenceTime'] ?? alarm['createTime'] ?? alarm['timestamp']);
+    final recoverTime = _formatTime(alarm['recoverTime'] ?? alarm['recoveryTime']);
+    final clearTime = _formatTime(alarm['clearTime'] ?? alarm['endTime']);
+    final confirmUser = alarm['confirmUser'] ?? alarm['ackUser'] ?? 'Unknown User';
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isExpanded = !_isExpanded;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isLight ? Colors.transparent : levelColor.withValues(alpha: 0.85),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isLight 
+                  ? AppTheme.accentBlue.withValues(alpha: 0.35) 
+                  : levelColor.withValues(alpha: 0.40),
+              blurRadius: isLight ? 18 : 20,
+              offset: Offset(0, isLight ? 10 : 12),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: isLight ? Colors.white : levelColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: titleColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: resolved ? 15 : 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: detailColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.only(left: 19),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Alarm Value: $valueStr',
+                    style: TextStyle(
+                      color: detailColor,
+                      fontSize: resolved ? 12 : 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Alarm Type: $typeStr',
+                    style: TextStyle(
+                      color: detailColor,
+                      fontSize: resolved ? 12 : 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Alarm Level: $levelStr',
+                    style: TextStyle(
+                      color: detailColor,
+                      fontSize: resolved ? 12 : 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (resolved && !_isExpanded) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Resolved: ${alarm['recoveryTime'] ?? alarm['recoverTime'] ?? '--'}',
+                      style: TextStyle(
+                        color: isLight ? Colors.white : const Color(0xFF2D8CFF),
+                        fontSize: resolved ? 12 : 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            // Expanded Timeline Content
+            if (_isExpanded) ...[
+              const SizedBox(height: 24),
+              const Divider(color: Colors.white24, height: 1),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.only(left: 19),
+                child: Column(
+                  children: [
+                    _buildTimelineNode('Alarm Occurrence', occurTime, isFirst: true),
+                    _buildTimelineNode('Alarm Recovery', recoverTime),
+                    _buildTimelineNode('Alarm Clear', clearTime, isLast: true, subtitle: 'Confirmed By: $confirmUser'),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

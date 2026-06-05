@@ -9,8 +9,9 @@ class AppSpacing {
 
   static double pageBottom(BuildContext context){
     final w = MediaQuery.sizeOf(context).width;
-    //Unifies the 92-95px bottom required for the floating bottom nav
-    return w >= 600 ? 24.0 : MediaQuery.paddingOf(context).bottom + 95.0;
+    // Unifies the bottom padding required for the floating bottom nav,
+    // ensuring content can be scrolled fully above the nav bar.
+    return w >= 600 ? 24.0 : MediaQuery.paddingOf(context).bottom + 140.0;
   }
 
   //Section gaps (between major section)

@@ -450,6 +450,7 @@ class _MainShellState extends State<MainShell>
                           onNotificationTap: () =>
                               _showNotificationsOverlay(context),
                           onMenuTap: null,
+                          onNavigateToReport: () => _onNavTapped(3),
                           notificationCount: _poller.hasAnyIssue ? 1 : 0,
                           notificationCriticalGlow: _poller.hasAnyIssue,
                         );
@@ -460,11 +461,11 @@ class _MainShellState extends State<MainShell>
                       }
 
                       if (t.id == _TabId.control) {
-                        return const ControlScreen();
+                        return ControlScreen(isActive: active);
                       }
 
                       if (t.id == _TabId.report) {
-                        return const ReportScreen();
+                        return ReportScreen(isActive: active);
                       }
 
                       return t.screen;
@@ -792,6 +793,7 @@ class _MainShellState extends State<MainShell>
     NotificationsOverlay.show(
       context,
       alarms: _poller.recentAlarms,
+      onNavigateToReport: () => _onNavTapped(3),
     );
   }
 
