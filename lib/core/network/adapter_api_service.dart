@@ -620,6 +620,82 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> unlockWithPin({
+    required int siteId,
+    required int accessId,
+    required String pin,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/doors/unlock-with-pin');
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'accessId': accessId,
+              'pin': pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('unlockWithPin non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('unlockWithPin error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<bool> setPin(String pin) async {
+    if (!isConfigured) return false;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return false;
+    }
+
+    final url = Uri.parse('$_base/v1/user/set-pin');
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'pin': pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      return res.statusCode == 200;
+    } catch (e) {
+      AppLog.w('setPin error', tag: 'AdapterApi', error: e);
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>?> writeNodeMetric({
     required int siteId,
     required int nodeId,

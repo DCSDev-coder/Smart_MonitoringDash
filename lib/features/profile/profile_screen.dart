@@ -9,6 +9,7 @@ import '../../core/notifications/push_notification_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass_confirm_dialog.dart';
 import '../../shared/widgets/reset_password_dialog.dart';
+import '../../core/network/adapter_api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -170,6 +171,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               _buildProfileTile(
+                icon: Icons.dialpad_rounded,
+                title: 'Set Door Access PIN',
+                subtitle: 'Update your 4-digit PIN for Smart Rack unlock',
+                onTap: () => _handleSetPin(context),
+              ),
+              const SizedBox(height: 12),
+              _buildProfileTile(
                 icon: Icons.logout_rounded,
                 title: 'Sign Out',
                 subtitle: 'Securely end your session',
@@ -288,5 +296,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
       }
     }
+  }
+
+  Future<void> _handleSetPin(BuildContext context) async {
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (_) => const _SetPinDialog(),
+    );
+
+    if (pin != null && pin.length >= 4 && context.mounted) {
+      final success = await AdapterApiService.instance.setPin(pin);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Door Access PIN updated securely' : 'Failed to set PIN'),
+          ),
+        );
+      }
+    }
+  }
+}
+
+class _SetPinDialog extends StatefulWidget {
+  const _SetPinDialog();
+  @override
+  State<_SetPinDialog> createState() => _SetPinDialogState();
+}
+
+class _SetPinDialogState extends State<_SetPinDialog> {
+  final _pinCtrl = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return AlertDialog(
+      title: const Text('Set Door Access PIN'),
+      content: TextField(
+        controller: _pinCtrl,
+        keyboardType: TextInputType.number,
+        obscureText: true,
+        autofocus: true,
+        maxLength: 6,
+        decoration: const InputDecoration(
+          hintText: 'Enter 4-6 digit PIN',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: isLight ? AppTheme.textSecondary : Colors.white70)),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final pin = _pinCtrl.text.trim();
+            if (pin.length < 4) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN must be at least 4 digits')));
+              return;
+            }
+            Navigator.pop(context, pin);
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, foregroundColor: Colors.white),
+          child: const Text('Save PIN'),
+        ),
+      ],
+    );
   }
 }

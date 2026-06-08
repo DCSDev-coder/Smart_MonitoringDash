@@ -584,24 +584,13 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
     }
   }
 
+  bool _usePin = true;
+
   Future<void> _runPasswordUnlock() async {
     if (_isAuthenticating) return;
 
     setState(() => _isAuthenticating = true);
     try {
-      final username = await ApiService.instance.getUsername() ?? 'admin';
-      final pwd = _pwdCtrl.text;
-      final loginSuccess = await ApiService.instance.login(username, pwd);
-      if (!mounted) return;
-
-      if (!loginSuccess) {
-        setState(() => _isAuthenticating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Incorrect password')),
-        );
-        return;
-      }
-
       final site = CpanelApiService.instance.currentSite;
       final siteId = site == null
           ? null
@@ -609,15 +598,40 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               int.tryParse(site['id']?.toString() ?? ''));
 
       Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
-        res = await AdapterApiService.instance.openCloseDoor(
+      
+      if (_usePin && AdapterApiService.instance.isConfigured && siteId != null) {
+        // Try PIN unlock
+        res = await AdapterApiService.instance.unlockWithPin(
           siteId: siteId,
           accessId: widget.doorId,
-          status: 1,
-          accessType: '1',
+          pin: _pwdCtrl.text,
         );
+      } else {
+        // Fallback to old password login
+        final username = await ApiService.instance.getUsername() ?? 'admin';
+        final pwd = _pwdCtrl.text;
+        final loginSuccess = await ApiService.instance.login(username, pwd);
+        if (!mounted) return;
+
+        if (!loginSuccess) {
+          setState(() => _isAuthenticating = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Incorrect password')),
+          );
+          return;
+        }
+
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          res = await AdapterApiService.instance.openCloseDoor(
+            siteId: siteId,
+            accessId: widget.doorId,
+            status: 1,
+            accessType: '1',
+          );
+        }
+        res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
       }
-      res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
@@ -628,7 +642,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       } else {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to unlock door via API')),
+          SnackBar(content: Text(res?['message'] ?? 'Failed to unlock door via API')),
         );
       }
     } catch (_) {
@@ -726,20 +740,45 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               ),
             ],
             const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _usePin ? 'PIN' : 'Password',
+                  style: TextStyle(
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _usePin = !_usePin;
+                      _pwdCtrl.clear();
+                    });
+                  },
+                  child: Text(_usePin ? 'Use Password instead' : 'Use PIN instead'),
+                ),
+              ],
+            ),
             TextField(
               controller: _pwdCtrl,
               focusNode: _pwdFocus,
               obscureText: _obscurePwd,
               autofocus: false,
+              keyboardType: _usePin ? TextInputType.number : TextInputType.text,
               style: TextStyle(
                 color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                fontSize: _usePin ? 24 : 16,
+                letterSpacing: _usePin ? 8.0 : null,
               ),
+              textAlign: _usePin ? TextAlign.center : TextAlign.start,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: isLight
                     ? const Color(0xFFF3F4F7)
                     : Colors.white.withValues(alpha: 0.08),
-                hintText: 'Password',
+                hintText: _usePin ? '••••' : 'Password',
                 hintStyle: TextStyle(
                   color: isLight
                       ? AppTheme.lightTextSecondary
