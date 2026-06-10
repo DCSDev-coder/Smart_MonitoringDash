@@ -29,6 +29,50 @@ class AdapterApiService {
     return decoded is Map<String, dynamic> ? decoded : null;
   }
 
+  Future<bool> registerPushToken(
+      {required int siteId,
+      required String deviceToken,
+      required String platform}) async {
+    if (!isConfigured) return false;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return false;
+    }
+
+    final url = Uri.parse('$_base/v1/user/push-token');
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {
+              ..._headers(token),
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'site_id': siteId,
+              'device_token': deviceToken,
+              'platform': platform,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('registerPushToken non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+          'body': res.body,
+        });
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      AppLog.w('registerPushToken error', tag: 'AdapterApi', error: e);
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>?> fetchPue({required int siteId}) async {
     if (!isConfigured) return null;
 
@@ -40,8 +84,9 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/pue');
     try {
-      final res =
-          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
         AppLog.w('fetchPue non-200', tag: 'AdapterApi', fields: {
@@ -68,8 +113,9 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/app-config');
     try {
-      final res =
-          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
         AppLog.w('fetchAppConfig non-200', tag: 'AdapterApi', fields: {
@@ -96,8 +142,9 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/power-month');
     try {
-      final res =
-          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
         AppLog.w('fetchPowerMonth non-200', tag: 'AdapterApi', fields: {
@@ -132,8 +179,9 @@ class AdapterApiService {
     );
 
     try {
-      final res =
-          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 12));
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 12));
 
       if (res.statusCode != 200) {
         AppLog.w('fetchOurPueHourly non-200', tag: 'AdapterApi', fields: {
@@ -160,8 +208,9 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/doors');
     try {
-      final res =
-          await http.get(url, headers: _headers(token)).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
         AppLog.w('fetchDoors non-200', tag: 'AdapterApi', fields: {
@@ -207,7 +256,37 @@ class AdapterApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchDashboardBundle({required int siteId}) async {
+  Future<Map<String, dynamic>?> fetchTempHumTopN({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/temp-hum-top-n');
+    try {
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchTempHumTopN non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchTempHumTopN error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchDashboardBundle(
+      {required int siteId}) async {
     if (!isConfigured) return null;
 
     final token = _tokenOrNull();
@@ -507,7 +586,8 @@ class AdapterApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchRackTelemetry({required int siteId}) async {
+  Future<Map<String, dynamic>?> fetchRackTelemetry(
+      {required int siteId}) async {
     if (!isConfigured) return null;
 
     final token = _tokenOrNull();
@@ -664,6 +744,50 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> unlockWithUserPin({
+    required int siteId,
+    required int accessId,
+    required String pin,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/doors/unlock-with-user-pin');
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'accessId': accessId,
+              'pin': pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('unlockWithUserPin non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('unlockWithUserPin error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
   Future<bool> setPin(String pin) async {
     if (!isConfigured) return false;
 
@@ -693,6 +817,45 @@ class AdapterApiService {
     } catch (e) {
       AppLog.w('setPin error', tag: 'AdapterApi', error: e);
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> verifyPin(String pin) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/user/verify-pin');
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'pin': pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('verifyPin non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('verifyPin error', tag: 'AdapterApi', error: e);
+      return null;
     }
   }
 
@@ -738,6 +901,57 @@ class AdapterApiService {
       return _decodeMap(res);
     } catch (e) {
       AppLog.w('writeNodeMetric error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> writeNodeMetricWithUserPin({
+    required int siteId,
+    required int nodeId,
+    required String metricTypeLibCode,
+    required Object value,
+    required String pin,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url =
+        Uri.parse('$_base/v1/sites/$siteId/control/write-metric-with-user-pin');
+    try {
+      final res = await http
+          .put(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'nodeId': nodeId,
+              'metricTypeLibCode': metricTypeLibCode,
+              'value': value,
+              'pin': pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('writeNodeMetricWithUserPin non-200',
+            tag: 'AdapterApi',
+            fields: {
+              'status': res.statusCode,
+            });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('writeNodeMetricWithUserPin error', tag: 'AdapterApi', error: e);
       return null;
     }
   }

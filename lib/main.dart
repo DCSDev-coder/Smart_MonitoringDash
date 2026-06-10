@@ -25,7 +25,7 @@ import 'features/admin/manage_users_screen.dart';
 // import 'features/cctv/cctv_settings_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/auth/welcome_screen.dart';
-import 'features/auth/register_info_screen.dart';
+import 'features/auth/setup_user_screen.dart';
 import 'features/auth/boot_gate.dart';
 import 'features/report/report_screen.dart';
 import 'features/control/control_screen.dart';
@@ -38,6 +38,7 @@ import 'shared/widgets/settings_overlay.dart';
 import 'shared/widgets/safe_network_image.dart';
 import 'features/dashboard/widgets/critical_alert_banner.dart';
 import 'features/rack_view/rack_view_screen.dart';
+import 'shared/utils/app_toast.dart';
 
 bool _canManageUsersFromCurrentSite({required int? portalUserId}) {
   final site = CpanelApiService.instance.currentSite;
@@ -68,7 +69,7 @@ PageRouteBuilder<T> _slideFromRightRoute<T>(Widget child) {
       // Prevent a one-frame "flash" when the destination screen is still
       // building (e.g., video background first frame not ready).
       return ColoredBox(
-        color: const Color(0xFF060B11),
+        color: const Color(0xFFD3D1D9),
         child: child,
       );
     },
@@ -178,10 +179,12 @@ Future<void> main() async {
   await safeInit(SmartPollingSettings.instance.init);
   // Load persisted theme mode (best-effort).
   await safeInit(AppThemeController.instance.init);
-  // Android-first Firebase push setup (best-effort; no boot blocking).
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    AppLog.d('Starting Android push init', tag: 'Boot');
-    await safeInit(PushNotificationService.instance.init);
+  // Firebase push setup (best-effort; no boot blocking).
+  if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
+    AppLog.d('Starting push init', tag: 'Boot');
+    PushNotificationService.instance.init().catchError((e) {
+      AppLog.w('Push init failed', tag: 'Boot', error: '$e');
+    });
   }
 
   SystemChrome.setPreferredOrientations([
@@ -254,7 +257,7 @@ class CigApp extends StatelessWidget {
           routes: {
             '/boot': (_) => const BootGate(),
             '/welcome': (_) => const WelcomeScreen(),
-            '/register': (_) => const RegisterInfoScreen(),
+            '/register': (_) => const SetupUserScreen(),
             '/auth': (_) => const AuthScreen(),
             '/home': (_) => const MainShell(),
             '/profile': (_) => const ProfileScreen(),
@@ -302,11 +305,12 @@ class _MainShellState extends State<MainShell>
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
 
   // final GlobalKey<CctvScreenState> _cctvKey = GlobalKey<CctvScreenState>();
-  final GlobalKey _settingsIconKey = GlobalKey();
+  final GlobalKey _mobileSettingsKey = GlobalKey();
+  final GlobalKey _desktopSettingsKey = GlobalKey();
   late AnimationController _headerController;
   bool _isHeaderVisible = true;
-  bool _sidebarExpanded = false;
-  bool _sidebarUserToggled = false;
+  bool _sidebarHovered = false;
+  bool _sidebarSwiped = false;
 
   late final List<_NavTab> _tabs;
   static const ValueKey<String> _dashboardKey =
@@ -372,67 +376,23 @@ class _MainShellState extends State<MainShell>
     // Senior Logic: Determine if we are on a Wide Screen (Tablet/Monitor)
     final double width = MediaQuery.of(context).size.width;
     final bool isWide = width >= 600;
-    final bool defaultSidebarExpanded = width >= 1100;
-    final bool sidebarExpanded =
-        _sidebarUserToggled ? _sidebarExpanded : defaultSidebarExpanded;
+    final bool sidebarExpanded = _sidebarHovered || _sidebarSwiped;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF060B11),
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFF060B11),
       extendBody: true,
-      body: Row(
+      body: Stack(
         children: [
-          // ── NAVIGATION RAIL (Wide Screen Tablet/TV) ───────
-          if (isWide)
-            AnimatedBuilder(
-              animation: _poller,
-              builder: (context, _) {
-                // Keep "Alerts" consistent across the app:
-                // show dot + glow whenever *any* issue exists (alarms/devices/env).
-                final totalNotifications = _poller.hasAnyIssue ? 1 : 0;
-                final criticalGlow = _poller.hasAnyIssue;
-                return _MainSidebar(
-                  expanded: sidebarExpanded,
-                  selectedIndex: _selectedIndex,
-                  tabs: _tabs,
-                  logoUrl: _companyLogoUrl(),
-                  hasNotifications: totalNotifications > 0,
-                  criticalGlow: criticalGlow,
-                  onSelectTab: _onNavTapped,
-                  onToggleExpanded: () {
-                    setState(() {
-                      _sidebarExpanded = !sidebarExpanded;
-                      _sidebarUserToggled = true;
-                    });
-                  },
-                  onTapNotifications: () => _showNotificationsOverlay(context),
-                  onTapSettings: () => SettingsOverlay.show(
-                    context,
-                    originRect: SettingsOverlay.rectFromKey(_settingsIconKey),
-                    // onCctvConfig: _handleCctvSettings,
-                    onUploadLogo: _handleLogoUpload,
-                    onGoHome: () => _onNavTapped(0),
-                  ),
-                  settingsKey: _settingsIconKey,
-                );
-              },
-            ),
-
           // ── MAIN CONTENT AREA ────────────────────────────
-          Expanded(
+          Positioned.fill(
+            left: isWide ? 80.0 : 0.0,
             child: NotificationListener<ScrollNotification>(
               onNotification: _handleScrollNotification,
               child: Stack(
                 children: [
                   // Global Video Background Layer
-                  const Positioned.fill(
-                    child: BackgroundLayer(
-                      channel: BackgroundChannel.app,
-                      overlayAlpha: 0.70,
-                      // Keep auth pages on video, but use a static background
-                      // post-login for smoother navigation and lower GPU load.
-                      staticForApp: true,
-                    ),
-                  ),
                   IndexedStack(
                     index: _selectedIndex,
                     children: _tabs.asMap().entries.map((entry) {
@@ -522,12 +482,12 @@ class _MainShellState extends State<MainShell>
                                     onMenuTap: () => SettingsOverlay.show(
                                       context,
                                       originRect: SettingsOverlay.rectFromKey(
-                                          _settingsIconKey),
+                                          _mobileSettingsKey),
                                       // onCctvConfig: _handleCctvSettings,
                                       onUploadLogo: _handleLogoUpload,
                                       onGoHome: () => _onNavTapped(0),
                                     ),
-                                    settingsIconKey: _settingsIconKey,
+                                    settingsIconKey: _mobileSettingsKey,
                                     notificationCount: totalNotifications,
                                     notificationCriticalGlow: criticalGlow,
                                   ),
@@ -578,6 +538,65 @@ class _MainShellState extends State<MainShell>
               ),
             ),
           ),
+
+          // ── SIDEBAR OVERLAY BARRIER ──────────────────────
+          if (isWide && sidebarExpanded)
+            Positioned.fill(
+              left: 80.0,
+              child: GestureDetector(
+                onTap: () => setState(() => _sidebarSwiped = false),
+                child: Container(color: Colors.black.withValues(alpha: 0.5)),
+              ),
+            ),
+
+          // ── NAVIGATION RAIL (Wide Screen Tablet/TV) ───────
+          if (isWide)
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _sidebarHovered = true),
+                onExit: (_) => setState(() => _sidebarHovered = false),
+                child: GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    if (details.primaryDelta! > 5) {
+                      setState(() => _sidebarSwiped = true);
+                    } else if (details.primaryDelta! < -5) {
+                      setState(() => _sidebarSwiped = false);
+                    }
+                  },
+                  child: AnimatedBuilder(
+                    animation: _poller,
+                    builder: (context, _) {
+                      // Keep "Alerts" consistent across the app:
+                      final totalNotifications = _poller.hasAnyIssue ? 1 : 0;
+                      final criticalGlow = _poller.hasAnyIssue;
+                      return _MainSidebar(
+                        expanded: sidebarExpanded,
+                        selectedIndex: _selectedIndex,
+                        tabs: _tabs,
+                        logoUrl: _companyLogoUrl(),
+                        hasNotifications: totalNotifications > 0,
+                        criticalGlow: criticalGlow,
+                        onSelectTab: (i) {
+                          setState(() => _sidebarSwiped = false);
+                          _onNavTapped(i);
+                        },
+                        onTapNotifications: () => _showNotificationsOverlay(context),
+                        onTapSettings: () => SettingsOverlay.show(
+                          context,
+                          originRect: SettingsOverlay.rectFromKey(_desktopSettingsKey),
+                          onUploadLogo: _handleLogoUpload,
+                          onGoHome: () => _onNavTapped(0),
+                        ),
+                        settingsKey: _desktopSettingsKey,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -710,10 +729,7 @@ class _MainShellState extends State<MainShell>
       if (!mounted) return;
 
       // Show loading indicator
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Uploading logo...'), duration: Duration(seconds: 1)),
-      );
+      AppToast.show(context, 'Uploading logo...');
 
       final result = await CpanelApiService.instance.uploadLogo(
         siteId: siteId,
@@ -816,13 +832,7 @@ class _MainShellState extends State<MainShell>
     }).toList();
 
     if (filtered.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'No ${level ?? ''} alarms ${filter != null ? 'matching "$filter"' : ''}'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.show(context, 'No ${level ?? ''} alarms ${filter != null ? 'matching "$filter"' : ''}');
       return;
     }
 
@@ -873,7 +883,6 @@ class _MainSidebar extends StatelessWidget {
   final bool hasNotifications;
   final bool criticalGlow;
   final ValueChanged<int> onSelectTab;
-  final VoidCallback onToggleExpanded;
   final VoidCallback onTapNotifications;
   final VoidCallback onTapSettings;
   final GlobalKey settingsKey;
@@ -886,7 +895,6 @@ class _MainSidebar extends StatelessWidget {
     required this.hasNotifications,
     required this.criticalGlow,
     required this.onSelectTab,
-    required this.onToggleExpanded,
     required this.onTapNotifications,
     required this.onTapSettings,
     required this.settingsKey,
@@ -896,19 +904,20 @@ class _MainSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final sidebarBg =
-        isLight ? const Color(0xFFF7FBFF) : const Color(0xFF0E141B);
+        isLight ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFF0E141B);
     final sidebarBorder =
         isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutCubic,
       width: expanded ? 240 : 80,
       decoration: BoxDecoration(
         color: sidebarBg,
         border: Border(right: BorderSide(color: sidebarBorder)),
       ),
-      child: Column(
+      child: ClipRect(
+        child: Column(
         children: [
           const SizedBox(height: 50),
           _buildLogo(context),
@@ -922,6 +931,7 @@ class _MainSidebar extends StatelessWidget {
                 final t = tabs[i];
                 final active = selectedIndex == i;
                 return _SidebarItem(
+                  key: ValueKey(t.label),
                   icon: t.icon,
                   label: t.label,
                   active: active,
@@ -935,37 +945,54 @@ class _MainSidebar extends StatelessWidget {
           const SizedBox(height: 20),
         ],
       ),
+      ),
     );
   }
 
   Widget _buildLogo(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    return GestureDetector(
-      onTap: onToggleExpanded,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        height: 40,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 40,
+      child: OverflowBox(
+        minWidth: 0,
+        maxWidth: 240,
+        alignment: Alignment.centerLeft,
         child: Row(
-          mainAxisAlignment:
-              expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            if (logoUrl != null)
-              SafeNetworkImage(logoUrl!, width: 32, height: 32)
-            else
-              const Icon(Icons.blur_on_rounded,
-                  color: AppTheme.accentGreen, size: 32),
-            if (expanded) ...[
-              const SizedBox(width: 12),
-              Text(
-                'DCS SMART',
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  letterSpacing: 1.0,
+            SizedBox(
+              width: 48, // 80 - 32 padding
+              child: Center(
+                child: logoUrl != null
+                    ? SafeNetworkImage(logoUrl!, width: 32, height: 32)
+                    : const Icon(Icons.blur_on_rounded, color: AppTheme.accentGreen, size: 32),
+              ),
+            ),
+            Expanded(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 400),
+                curve: expanded 
+                    ? const Interval(0.4, 1.0, curve: Curves.easeOut) 
+                    : const Interval(0.0, 0.3, curve: Curves.easeOut),
+                opacity: expanded ? 1.0 : 0.0,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 12.0),
+                  child: Text(
+                    'DCS SMART',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.fade,
+                    style: TextStyle(
+                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                 ),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -1001,7 +1028,7 @@ class _MainSidebar extends StatelessWidget {
   }
 }
 
-class _SidebarItem extends StatelessWidget {
+class _SidebarItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool active;
@@ -1022,106 +1049,107 @@ class _SidebarItem extends StatelessWidget {
   });
 
   @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final c = active
+    final c = widget.active
         ? AppTheme.accentGreen
         : (isLight
             ? AppTheme.lightTextSecondary.withValues(alpha: 0.90)
             : Colors.white.withValues(alpha: 0.7));
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 48,
-        padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 0),
-        decoration: BoxDecoration(
-          color: active
-              ? (isLight
-                  ? AppTheme.accentGreen.withValues(alpha: 0.14)
-                  : AppTheme.accentGreen.withValues(alpha: 0.1))
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: isLight && active
-              ? Border.all(
-                  color: AppTheme.accentGreen.withValues(alpha: 0.20),
-                )
-              : null,
-        ),
-        child: expanded
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Stack(
-                    children: [
-                      Icon(icon, color: c, size: 24),
-                      if (hasDot)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: critical
-                                  ? AppTheme.statusError
-                                  : AppTheme.accentGreen,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isLight
-                                    ? const Color(0xFFF7FBFF)
-                                    : const Color(0xFF0E141B),
-                                width: 1.5,
+            
+    final hoverColor = isLight 
+        ? Colors.black.withValues(alpha: 0.04) 
+        : Colors.white.withValues(alpha: 0.06);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          height: 48,
+          decoration: BoxDecoration(
+            color: widget.active
+                ? (isLight
+                    ? AppTheme.accentGreen.withValues(alpha: 0.14)
+                    : AppTheme.accentGreen.withValues(alpha: 0.1))
+                : (_isHovered ? hoverColor : Colors.transparent),
+            borderRadius: BorderRadius.circular(12),
+            border: isLight && widget.active
+                ? Border.all(
+                    color: AppTheme.accentGreen.withValues(alpha: 0.20),
+                  )
+                : null,
+          ),
+          child: OverflowBox(
+            minWidth: 0,
+            maxWidth: 240,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 56, // 80 total - 24 horizontal padding
+                  child: Center(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(widget.icon, color: c, size: 24),
+                        if (widget.hasDot)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: widget.critical ? AppTheme.statusError : AppTheme.accentGreen,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isLight ? const Color(0xFFF7FBFF) : const Color(0xFF0E141B),
+                                  width: 1.5,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                ),
+                Expanded(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 400),
+                    curve: widget.expanded 
+                        ? const Interval(0.4, 1.0, curve: Curves.easeOut) 
+                        : const Interval(0.0, 0.3, curve: Curves.easeOut),
+                    opacity: widget.expanded ? 1.0 : 0.0,
                     child: Text(
-                      label,
+                      widget.label,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      overflow: TextOverflow.fade,
                       style: TextStyle(
                         color: c,
-                        fontWeight:
-                            active ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
                         fontSize: 14,
                       ),
                     ),
                   ),
-                ],
-              )
-            : Center(
-                child: Stack(
-                  children: [
-                    Icon(icon, color: c, size: 24),
-                    if (hasDot)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: critical
-                                ? AppTheme.statusError
-                                : AppTheme.accentGreen,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isLight
-                                  ? const Color(0xFFF7FBFF)
-                                  : const Color(0xFF0E141B),
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
-              ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

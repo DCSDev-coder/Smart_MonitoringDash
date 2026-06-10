@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -9,13 +7,13 @@ import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/auth/remember_me_store.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_log.dart';
 
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/fade_in_slide.dart';
 import '../../shared/utils/global_video_background.dart';
-import 'register_info_screen.dart';
+import 'setup_user_screen.dart';
+import '../../shared/utils/app_toast.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -95,7 +93,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (siteId != null) {
       if (AdapterApiService.instance.isConfigured) {
-        cfgEnvelope = await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
+        cfgEnvelope =
+            await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
       }
       cfgEnvelope ??=
           await CpanelApiService.instance.fetchAppConfig(siteId: siteId);
@@ -129,7 +128,8 @@ class _AuthScreenState extends State<AuthScreen> {
       final siteUser =
           CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
       final sitePass =
-          (CpanelApiService.instance.currentSite?['site_pass'] ?? '').toString();
+          (CpanelApiService.instance.currentSite?['site_pass'] ?? '')
+              .toString();
       final expiryStr = CpanelApiService.instance.currentSite?['expiry_date'];
 
       if (expiryStr != null) {
@@ -139,7 +139,7 @@ class _AuthScreenState extends State<AuthScreen> {
             throw 'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.';
           }
         } catch (e) {
-        AppLog.w('Expiry parse error', tag: 'Auth', error: e);
+          AppLog.w('Expiry parse error', tag: 'Auth', error: e);
         }
       }
 
@@ -147,11 +147,18 @@ class _AuthScreenState extends State<AuthScreen> {
         throw 'Rack credentials are missing for this site. Please ask your admin to update site_user/site_pass.';
       }
 
-      final ok = await ApiService.instance.login(
-        siteUser,
-        sitePass,
-        ip: targetIp,
-      );
+      bool ok = false;
+      if (AdapterApiService.instance.isConfigured) {
+        ok = true;
+        // Attempt direct login in the background for local features (like cameras) if on Wi-Fi
+        ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
+      } else {
+        ok = await ApiService.instance.login(
+          siteUser,
+          sitePass,
+          ip: targetIp,
+        );
+      }
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -159,15 +166,12 @@ class _AuthScreenState extends State<AuthScreen> {
       if (ok) {
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
-        throw 'Connection to Rack failed at $targetIp. Verify your phone is on the Office Wi-Fi and that the Rack login matches.';
+        throw 'Connection to Rack failed.';
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(e.toString()), backgroundColor: AppTheme.statusError),
-      );
+      AppToast.showError(context, e.toString());
       if (isAuto) {
         await rememberMeStore.clear();
       }
@@ -198,10 +202,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final p = (password ?? _passCtrl.text);
 
     if (u.isEmpty || p.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please enter your username and password.')),
-      );
+      AppToast.show(context, 'Please enter your username and password.');
       return;
     }
 
@@ -249,7 +250,8 @@ class _AuthScreenState extends State<AuthScreen> {
       final siteUser =
           CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
       final sitePass =
-          (CpanelApiService.instance.currentSite?['site_pass'] ?? '').toString();
+          (CpanelApiService.instance.currentSite?['site_pass'] ?? '')
+              .toString();
       final expiryStr = CpanelApiService.instance.currentSite?['expiry_date'];
 
       // 4. Validate License Expiry (Production Guard)
@@ -260,15 +262,22 @@ class _AuthScreenState extends State<AuthScreen> {
             throw 'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.';
           }
         } catch (e) {
-        AppLog.w('Expiry parse error', tag: 'Auth', error: e);
+          AppLog.w('Expiry parse error', tag: 'Auth', error: e);
         }
       }
 
-      final ok = await ApiService.instance.login(
-        siteUser,
-        sitePass,
-        ip: targetIp,
-      );
+      bool ok = false;
+      if (AdapterApiService.instance.isConfigured) {
+        ok = true;
+        // Attempt direct login in the background for local features (like cameras) if on Wi-Fi
+        ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
+      } else {
+        ok = await ApiService.instance.login(
+          siteUser,
+          sitePass,
+          ip: targetIp,
+        );
+      }
 
       if (!mounted) {
         return;
@@ -289,15 +298,12 @@ class _AuthScreenState extends State<AuthScreen> {
         if (!mounted) return;
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
-        throw 'Connection to Rack failed at $targetIp. Verify your phone is on the Office Wi-Fi and that the Rack login matches.';
+        throw 'Connection to Rack failed. Verify your phone is on the Office Wi-Fi and that the Rack login matches.';
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(e.toString()), backgroundColor: AppTheme.statusError),
-      );
+      AppToast.showError(context, e.toString());
       if (isAuto) {
         // Auto-login failed; don't keep retrying in a loop.
         await rememberMeStore.clear();
@@ -316,7 +322,7 @@ class _AuthScreenState extends State<AuthScreen> {
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 1100),
         reverseTransitionDuration: const Duration(milliseconds: 1100),
-        pageBuilder: (_, __, ___) => const RegisterInfoScreen(),
+        pageBuilder: (_, __, ___) => const SetupUserScreen(),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -341,7 +347,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final media = MediaQuery.of(context);
     final screenW = media.size.width;
     final uiScale = screenW >= 900 ? (screenW / 1150).clamp(1.0, 1.25) : 1.0;
- 
+
     final bg = GlobalVideoBackground.auth;
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -388,17 +394,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
 
-                // Back button only on wide layouts (tablet/PC).
-                if (MediaQuery.of(context).size.width >= 768)
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 10,
-                    left: 10,
-                    child: BackButton(
-                      color: Colors.white,
-                      onPressed: _goToIntro,
-                    ),
-                  ),
-
                 // 3. Main Content
                 SafeArea(
                   child: LayoutBuilder(
@@ -417,93 +412,98 @@ class _AuthScreenState extends State<AuthScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Column(
                               children: [
-                                  const SizedBox(height: 0),
-                                  // ── Animated Logo ──────────────────────────────────
-                                  const SizedBox(height: 40),
-                                  SizedBox(
-                                    height: 160,
-                                    child: Center(
-                                      child: HeroMode(
-                                        enabled: !_suppressLogoHero,
-                                        child: Hero(
-                                          tag: 'logo',
-                                          transitionOnUserGestures: true,
-                                          flightShuttleBuilder: (
-                                            _,
-                                            animation,
-                                            flightDirection,
-                                            __,
-                                            ___,
-                                          ) {
-                                            // Ensure pop always rotates RIGHT->UP regardless
-                                            // of whether the Hero animation is reversing.
-                                            final curved = CurvedAnimation(
-                                              parent: animation,
-                                              curve: Curves.easeInOutSine,
-                                            );
-                                            final isReversing = animation.status ==
-                                                AnimationStatus.reverse;
-                                            final a = flightDirection ==
-                                                    HeroFlightDirection.pop
-                                                ? (isReversing
-                                                    ? curved
-                                                    : ReverseAnimation(curved))
-                                                : (isReversing
-                                                    ? ReverseAnimation(curved)
-                                                    : curved);
-                                            return Material(
-                                              type: MaterialType.transparency,
-                                              child: RepaintBoundary(
-                                                child: AnimatedDcsLogo.flight(
-                                                  animation: a,
-                                                ),
+                                const SizedBox(height: 0),
+                                // ── Animated Logo ──────────────────────────────────
+                                const SizedBox(height: 40),
+                                SizedBox(
+                                  height: 160,
+                                  child: Center(
+                                    child: HeroMode(
+                                      enabled: !_suppressLogoHero,
+                                      child: Hero(
+                                        tag: 'logo',
+                                        transitionOnUserGestures: true,
+                                        flightShuttleBuilder: (
+                                          _,
+                                          animation,
+                                          flightDirection,
+                                          __,
+                                          ___,
+                                        ) {
+                                          // Ensure pop always rotates RIGHT->UP regardless
+                                          // of whether the Hero animation is reversing.
+                                          final curved = CurvedAnimation(
+                                            parent: animation,
+                                            curve: Curves.easeInOutSine,
+                                          );
+                                          final isReversing =
+                                              animation.status ==
+                                                  AnimationStatus.reverse;
+                                          final a = flightDirection ==
+                                                  HeroFlightDirection.pop
+                                              ? (isReversing
+                                                  ? curved
+                                                  : ReverseAnimation(curved))
+                                              : (isReversing
+                                                  ? ReverseAnimation(curved)
+                                                  : curved);
+                                          return Material(
+                                            type: MaterialType.transparency,
+                                            child: RepaintBoundary(
+                                              child: AnimatedDcsLogo.flight(
+                                                animation: a,
                                               ),
-                                            );
-                                          },
-                                          placeholderBuilder: (context, _, child) {
-                                            // Prevent a 1-frame flash of the destination/static
-                                            // logo during Hero flights (common on pop).
-                                            return const SizedBox(
-                                              width: 250,
-                                              height: 120,
-                                            );
-                                          },
-                                          child: const SizedBox(
+                                            ),
+                                          );
+                                        },
+                                        placeholderBuilder:
+                                            (context, _, child) {
+                                          // Prevent a 1-frame flash of the destination/static
+                                          // logo during Hero flights (common on pop).
+                                          return const SizedBox(
+                                            width: 250,
                                             height: 120,
-                                            child: AnimatedDcsLogo.login(),
-                                          ),
+                                          );
+                                        },
+                                        child: const SizedBox(
+                                          height: 120,
+                                          child: AnimatedDcsLogo.login(),
                                         ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 18),
-                                  FadeInSlide(
-                                    delay: const Duration(milliseconds: 150),
-                                    child: Text(
-                                      'SIGN IN',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 28,
-                                        letterSpacing: 1.2,
-                                        color: Colors.white,
-                                        shadows: const [
-                                          Shadow(
-                                            color: Color(0x6600BD10),
-                                            blurRadius: 18,
-                                          )
-                                        ],
-                                      ),
+                                ),
+                                const SizedBox(height: 18),
+                                FadeInSlide(
+                                  delay: const Duration(milliseconds: 150),
+                                  child: Text(
+                                    'SIGN IN',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 28,
+                                      letterSpacing: 1.2,
+                                      color: Colors.white,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Color(0x6600BD10),
+                                          blurRadius: 18,
+                                        )
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 26),
+                                ),
+                                const SizedBox(height: 26),
 
-                                  // ── Form Fields ────────────────────────────────────
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 560),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
+                                // ── Form Fields ────────────────────────────────────
+                                ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 560),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
                                       _buildAuthFieldBlock(
-                                        delay: const Duration(milliseconds: 200),
+                                        delay:
+                                            const Duration(milliseconds: 200),
                                         label: 'Username :',
                                         child: _buildGlassTextField(
                                           controller: _userCtrl,
@@ -516,7 +516,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                       ),
                                       const SizedBox(height: 18),
                                       _buildAuthFieldBlock(
-                                        delay: const Duration(milliseconds: 400),
+                                        delay:
+                                            const Duration(milliseconds: 400),
                                         label: 'Password :',
                                         child: _buildGlassTextField(
                                           controller: _passCtrl,
@@ -526,145 +527,93 @@ class _AuthScreenState extends State<AuthScreen> {
                                           onSubmitted: (_) => _signIn(),
                                         ),
                                       ),
-                                        const SizedBox(height: 10),
-                                        FadeInSlide(
-                                          delay: const Duration(milliseconds: 450),
-                                          child: CheckboxListTile(
-                                            value: _rememberMe,
-                                            controlAffinity:
-                                                ListTileControlAffinity.leading,
-                                            dense: true,
-                                            contentPadding: EdgeInsets.zero,
-                                            activeColor: const Color(0xFF00BD10),
-                                            checkColor: Colors.white,
-                                            side: const BorderSide(
-                                                color: Colors.white54),
-                                            title: Text(
-                                              'Remember Me',
-                                              style: GoogleFonts.manrope(
-                                                color: Colors.white70,
-                                                fontSize: 14,
-                                                letterSpacing: 0.2,
-                                              ),
+                                      const SizedBox(height: 10),
+                                      FadeInSlide(
+                                        delay:
+                                            const Duration(milliseconds: 450),
+                                        child: CheckboxListTile(
+                                          value: _rememberMe,
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          activeColor: const Color(0xFF00BD10),
+                                          checkColor: Colors.white,
+                                          side: const BorderSide(
+                                              color: Colors.white54),
+                                          title: Text(
+                                            'Remember Me',
+                                            style: GoogleFonts.manrope(
+                                              color: Colors.white70,
+                                              fontSize: 14,
+                                              letterSpacing: 0.2,
                                             ),
-                                            onChanged: (val) => setState(
-                                                () => _rememberMe = val == true),
                                           ),
+                                          onChanged: (val) => setState(
+                                              () => _rememberMe = val == true),
                                         ),
-
-                                        // Debug-only tool: opt-in via --dart-define=ENABLE_DEBUG_TOKEN_COPY=true
-                                        if (kDebugMode &&
-                                            const bool.fromEnvironment(
-                                              'ENABLE_DEBUG_TOKEN_COPY',
-                                              defaultValue: false,
-                                            ))
-                                          Builder(
-                                            builder: (context) {
-                                              final token = CpanelApiService
-                                                  .instance
-                                                  .getAuthTokenInMemory();
-                                              if (token == null ||
-                                                  token.isEmpty) {
-                                                return const SizedBox.shrink();
-                                              }
-                                              final prefix =
-                                                  token.length <= 16
-                                                      ? token
-                                                      : token.substring(0, 16);
-                                              return Padding(
-                                                padding:
-                                                    const EdgeInsets.only(top: 8),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        'Portal token: $prefix… (${token.length})',
-                                                        style: GoogleFonts.manrope(
-                                                          color: Colors.white54,
-                                                          fontSize: 12,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow:
-                                                            TextOverflow.ellipsis,
-                                                      ),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () async {
-                                                        await Clipboard.setData(
-                                                          ClipboardData(
-                                                              text: token),
-                                                        );
-                                                        if (!context.mounted) {
-                                                          return;
-                                                        }
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                                'Portal token copied to clipboard.'),
-                                                          ),
-                                                        );
-                                                      },
-                                                      child: const Text('Copy'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
+                                ),
 
-                                  SizedBox(height: isWide ? 72 : 52),
+                                SizedBox(height: isWide ? 72 : 52),
 
-                                  // ── Buttons ────────────────────────────────
-                                  FadeInSlide(
-                                    delay: const Duration(milliseconds: 600),
-                                    child: Container(
-                                      width: double.infinity,
-                                      constraints: const BoxConstraints(maxWidth: 600),
-                                      margin: const EdgeInsets.only(bottom: 20),
-                                      child: _loading
-                                          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00BD10)))
-                                          : (isWide
-                                              ? Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: _buildButton(
-                                                        label: 'SIGN IN',
-                                                        color: const Color(0xFF5588AA),
-                                                        onPressed: _signIn,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 16),
-                                                    Expanded(
-                                                      child: _buildButton(
-                                                        label: 'REQUEST ACCESS',
-                                                        color: const Color(0xFF00BD10),
-                                                        onPressed: _openRequestAccess,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                )
-                                              : Column(
-                                                  children: [
-                                                    _buildButton(
+                                // ── Buttons ────────────────────────────────
+                                FadeInSlide(
+                                  delay: const Duration(milliseconds: 600),
+                                  child: Container(
+                                    width: double.infinity,
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 600),
+                                    margin: const EdgeInsets.only(bottom: 20),
+                                    child: _loading
+                                        ? const Center(
+                                            child: CircularProgressIndicator(
+                                                color: Color(0xFF00BD10)))
+                                        : (isWide
+                                            ? Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: _buildButton(
                                                       label: 'SIGN IN',
-                                                      color: const Color(0xFF5588AA),
+                                                      color: const Color(
+                                                          0xFF5588AA),
                                                       onPressed: _signIn,
                                                     ),
-                                                    const SizedBox(height: 16),
-                                                    _buildButton(
-                                                      label: 'REQUEST ACCESS',
-                                                      color: const Color(0xFF00BD10),
-                                                      onPressed: _openRequestAccess,
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: _buildButton(
+                                                      label: 'NEW USER SETUP',
+                                                      color: const Color(
+                                                          0xFF00BD10),
+                                                      onPressed:
+                                                          _openRequestAccess,
                                                     ),
-                                                  ],
-                                                )),
-                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : Column(
+                                                children: [
+                                                  _buildButton(
+                                                    label: 'SIGN IN',
+                                                    color:
+                                                        const Color(0xFF5588AA),
+                                                    onPressed: _signIn,
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  _buildButton(
+                                                    label: 'NEW USER SETUP',
+                                                    color:
+                                                        const Color(0xFF00BD10),
+                                                    onPressed:
+                                                        _openRequestAccess,
+                                                  ),
+                                                ],
+                                              )),
                                   ),
+                                ),
                               ],
                             ),
                           ),

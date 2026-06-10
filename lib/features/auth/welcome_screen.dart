@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/utils/global_video_background.dart';
 import 'auth_screen.dart';
-import 'register_info_screen.dart';
+import 'setup_user_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -240,7 +240,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: _buildButton(
-                                        label: 'REQUEST ACCESS',
+                                        label: 'NEW USER SETUP',
                                         color: const Color(0xFF00BD10),
                                         onPressed: () {
                                           Navigator.push(
@@ -252,7 +252,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                                   const Duration(
                                                       milliseconds: 1100),
                                               pageBuilder: (_, __, ___) =>
-                                                  const RegisterInfoScreen(),
+                                                  const SetupUserScreen(),
                                               transitionsBuilder:
                                                   (_, animation, __, child) {
                                                 return FadeTransition(
@@ -293,7 +293,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     ),
                                     const SizedBox(height: 16),
                                     _buildButton(
-                                      label: 'REQUEST ACCESS',
+                                      label: 'NEW USER SETUP',
                                       color: const Color(0xFF00BD10),
                                       onPressed: () {
                                         Navigator.push(
@@ -304,7 +304,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                             reverseTransitionDuration:
                                                 const Duration(milliseconds: 1100),
                                             pageBuilder: (_, __, ___) =>
-                                                const RegisterInfoScreen(),
+                                                const SetupUserScreen(),
                                             transitionsBuilder:
                                                 (_, animation, __, child) {
                                               return FadeTransition(

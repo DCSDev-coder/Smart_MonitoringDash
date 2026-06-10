@@ -22,6 +22,7 @@ import 'package:flutter/rendering.dart';
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../dashboard/widgets/dashboard_typography.dart';
+import '../../shared/utils/app_toast.dart';
 
 part 'report_screen_navigation.dart';
 part 'report_screen_health_security.dart';
@@ -43,7 +44,7 @@ class ReportScreen extends StatefulWidget {
 class _ReportScreenState extends State<ReportScreen>
     with TickerProviderStateMixin {
   static const List<String> _eventRangeOptions = <String>[
-    'Today',
+    'Recent',
     'Weekly',
     'Monthly',
   ];
@@ -52,6 +53,11 @@ class _ReportScreenState extends State<ReportScreen>
   final GlobalKey _siteChartKey = GlobalKey();
   final GlobalKey _itChartKey = GlobalKey();
   final GlobalKey _pueChartKey = GlobalKey();
+
+  // We removed the GlobalKeys for the power cards because moving them around
+  // the tree during responsive layout shifts was causing a framework assertion
+  // failure in InheritedElement dependencies (ancestor == this is not true).
+
   bool _loading = true;
   bool _refreshing = false;
   Map<String, double> _powerMonth = {};
@@ -59,9 +65,10 @@ class _ReportScreenState extends State<ReportScreen>
   List<dynamic> _devices = [];
   List<dynamic> _reportAlarms = [];
   List<dynamic> _doorLogs = [];
+  List<dynamic> _cpanelAccessLogs = [];
   bool _fetchingHistoricalEvents = false;
   bool _fetchingDoorLogs = false;
-  String _eventLogRange = 'Today'; // Today, Weekly, Monthly, All
+  String _eventLogRange = 'Recent'; // Recent, Weekly, Monthly, All
   String _siteName = 'Smart Rack';
 
   // Historical Energy Analytics state
@@ -129,7 +136,8 @@ class _ReportScreenState extends State<ReportScreen>
     );
     _poller.addListener(_syncFromPoller);
     GlobalEventBus.targetHistoricalAlarm.addListener(_onTargetAlarmChanged);
-    GlobalEventBus.targetMaintenancePage.addListener(_onTargetMaintenanceChanged);
+    GlobalEventBus.targetMaintenancePage
+        .addListener(_onTargetMaintenanceChanged);
     _syncFromPoller();
     _fetchReportData();
     _onTargetAlarmChanged();
@@ -157,7 +165,8 @@ class _ReportScreenState extends State<ReportScreen>
   void dispose() {
     _poller.removeListener(_syncFromPoller);
     GlobalEventBus.targetHistoricalAlarm.removeListener(_onTargetAlarmChanged);
-    GlobalEventBus.targetMaintenancePage.removeListener(_onTargetMaintenanceChanged);
+    GlobalEventBus.targetMaintenancePage
+        .removeListener(_onTargetMaintenanceChanged);
     _tabSelC.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -193,7 +202,7 @@ class _ReportScreenState extends State<ReportScreen>
       final site = CpanelApiService.instance.currentSite;
       final siteId = SiteRuntimeConfig.siteId(site);
       final cabinetId = SiteRuntimeConfig.cabinetId(site);
-      final adapterReady = _shouldUseAdapter(siteId);
+      final adapterReady = _isAdapterReady(siteId);
 
       final results = await Future.wait([
         adapterReady
@@ -208,7 +217,8 @@ class _ReportScreenState extends State<ReportScreen>
       ]);
 
       if (adapterReady) {
-        final adapterMiss = results[0] == null || results[1] == null || results[2] == null;
+        final adapterMiss =
+            results[0] == null || results[1] == null || results[2] == null;
         if (adapterMiss) {
           _adapterMissStreak += 1;
         } else {
@@ -255,6 +265,17 @@ class _ReportScreenState extends State<ReportScreen>
             }
           }
 
+          if (results.length > 5 && results[5] != null) {
+            final Map<String, dynamic> accessData = results[5] as Map<String, dynamic>;
+            if (accessData['data'] is List) {
+              _doorLogs = List.from(accessData['data']);
+            }
+          }
+
+          if (results.length > 6 && results[6] != null) {
+            _cpanelAccessLogs = results[6] as List<dynamic>;
+          }
+
           if (showSkeleton) _loading = false;
         });
       }
@@ -298,6 +319,7 @@ class _ReportScreenState extends State<ReportScreen>
 
     if (_shouldUseAdapter(siteId)) {
       final sid = siteId!;
+      if (!mounted) return;
       setState(() {
         _fetchingHistoricalEvents = true;
         _fetchingDoorLogs = true;
@@ -319,7 +341,8 @@ class _ReportScreenState extends State<ReportScreen>
             final dynamic raResult = (ra is Map) ? ra['result'] : null;
             final dynamic raRecords =
                 (raResult is Map) ? raResult['records'] : null;
-            final List<dynamic> rawAlarms = (raRecords is List) ? raRecords : [];
+            final List<dynamic> rawAlarms =
+                (raRecords is List) ? raRecords : [];
 
             _reportAlarms = rawAlarms.where((alarm) {
               final timeStr = (alarm['happenTime'] ??
@@ -334,13 +357,8 @@ class _ReportScreenState extends State<ReportScreen>
             }).toList();
 
             final dynamic logsResult = (al is Map ? al['result'] : null);
-            List<dynamic> rawLogs = [];
-            if (logsResult is List) {
-              rawLogs = logsResult;
-            } else if (logsResult is Map && logsResult['records'] is List) {
-              rawLogs = logsResult['records'];
-            }
-            
+            final rawLogs = _extractAccessLogRows(logsResult);
+
             _doorLogs = rawLogs.where((log) {
               final timeStr = log['opTime']?.toString() ?? '';
               final dt = DateTime.tryParse(timeStr);
@@ -401,6 +419,10 @@ class _ReportScreenState extends State<ReportScreen>
       _fetchHistoricalEvents(),
       _fetchDoorLogs(),
     ]);
+
+    if (mounted) {
+      AppToast.setReconnecting(context, _showAdapterDegraded);
+    }
   }
 
   void _setEventLogRange(String value) {
@@ -418,10 +440,28 @@ class _ReportScreenState extends State<ReportScreen>
     });
   }
 
+  List<dynamic> _extractAccessLogRows(dynamic resultData) {
+    if (resultData is List) {
+      return resultData;
+    }
+    if (resultData is Map) {
+      final pageData = resultData['pageData'];
+      if (pageData is List) {
+        return pageData;
+      }
+      final records = resultData['records'];
+      if (records is List) {
+        return records;
+      }
+    }
+    return const [];
+  }
+
   int _eventRangeStartFor(DateTime now) {
     switch (_eventLogRange) {
-      case 'Today':
-        return DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+      case 'Recent':
+        // Show last 3 days of events to catch unresolved alarms from yesterday
+        return now.subtract(const Duration(days: 3)).millisecondsSinceEpoch;
       case 'Monthly':
         return now.subtract(const Duration(days: 30)).millisecondsSinceEpoch;
       case 'Weekly':
@@ -489,6 +529,8 @@ class _ReportScreenState extends State<ReportScreen>
       );
 
       Map<String, dynamic>? res;
+      List<Map<String, dynamic>> cpanelLogs = [];
+
       if (_shouldUseAdapter(siteId)) {
         final sid = siteId!;
         res = await AdapterApiService.instance.fetchAccessLogs(
@@ -497,11 +539,6 @@ class _ReportScreenState extends State<ReportScreen>
           endTime: endTime,
           accessType: '1',
         );
-        if (res == null) {
-          _adapterMissStreak += 1;
-        } else {
-          _adapterMissStreak = 0;
-        }
       }
 
       if (!_shouldUseAdapter(siteId)) {
@@ -510,16 +547,39 @@ class _ReportScreenState extends State<ReportScreen>
         );
       }
 
+      if (siteId != null) {
+        cpanelLogs = await CpanelApiService.instance.fetchRemoteAccessLogs(
+          siteId: siteId,
+          startTime: startTime, // We still pass these, but the backend now ignores them safely
+          endTime: endTime,
+        );
+      }
+      
+      Map<String, dynamic>? doorsRes;
+      try {
+        if (_shouldUseAdapter(siteId)) {
+          doorsRes = await AdapterApiService.instance.fetchDoors(siteId: siteId!);
+        } else {
+          final cabinetId = SiteRuntimeConfig.cabinetId(CpanelApiService.instance.currentSite);
+          final parsed = int.tryParse(cabinetId ?? '');
+          doorsRes = await ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           final dynamic resultData = res?['result'];
-          List<dynamic> rawLogs = [];
-          if (resultData is List) {
-            rawLogs = resultData;
-          } else if (resultData is Map && resultData['records'] is List) {
-            rawLogs = resultData['records'];
+          final rawLogs = _extractAccessLogRows(resultData);
+
+          final Map<int, String> doorNames = {};
+          for (final log in rawLogs) {
+            final ch = int.tryParse(log['channel']?.toString() ?? '');
+            final name = log['accessName']?.toString();
+            if (ch != null && name != null && name.isNotEmpty) {
+              doorNames[ch] = name;
+            }
           }
-          
+
           // The direct API doesn't support time filtering for access logs,
           // so we filter them on the client side.
           _doorLogs = rawLogs.where((log) {
@@ -527,9 +587,103 @@ class _ReportScreenState extends State<ReportScreen>
             final dt = DateTime.tryParse(timeStr);
             if (dt == null) return true; // keep if invalid format
             final ms = dt.millisecondsSinceEpoch;
-            return ms >= startTime && ms <= endTime;
+            if (ms < startTime || ms > endTime) return false;
+            
+            final u = (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'])?.toString().toLowerCase() ?? '';
+            if (u == 'superadmin' || u == 'admin' || u == 'remote open') {
+               return false; // Remove Dahua's generic remote unlock logs completely
+            }
+            return true;
           }).toList();
-          
+
+          final Map<int, String> synthesizedDoorNames = {};
+          if (doorsRes != null) {
+            final raw = doorsRes['result'];
+            final List cabinets = raw is List ? raw : (raw is Map ? ((raw['list'] as List?) ?? (raw['data'] as List?) ?? const []) : const []);
+            final List<Map<String, dynamic>> tempDoors = [];
+            
+            for (final cabinet in cabinets) {
+              if (cabinet is! Map) continue;
+              final details = (cabinet['detailList'] as List?) ?? (cabinet['detail_list'] as List?) ?? (cabinet['accessList'] as List?) ?? (cabinet['doorList'] as List?) ?? const [];
+              
+              for (final door in details) {
+                if (door is! Map) continue;
+                final dynamic idRaw = door['id'] ?? door['accessId'] ?? door['access_id'];
+                final int? dId = idRaw == null ? null : (idRaw is num ? idRaw.toInt() : int.tryParse(idRaw.toString()));
+                if (dId == null) continue;
+                
+                final rawDoor = (door['accessName'] ?? door['name'] ?? '').toString().trim();
+                final doorSide = rawDoor.toUpperCase().contains('FRONT') ? 'Front' : 'Back';
+                
+                final rawCab = cabinet['cabinetItemName']?.toString() ?? '';
+                final cabNumText = RegExp(r'\d+').firstMatch(rawCab)?.group(0);
+                final cabIndex = int.tryParse(cabNumText ?? '');
+                
+                tempDoors.add({
+                  'id': dId,
+                  'side': doorSide,
+                  'cabIndex': cabIndex,
+                });
+              }
+            }
+            
+            tempDoors.sort((a, b) {
+              final sideA = a['side']?.toString().toLowerCase() ?? '';
+              final sideB = b['side']?.toString().toLowerCase() ?? '';
+              if (sideA == 'front' && sideB == 'back') return -1;
+              if (sideA == 'back' && sideB == 'front') return 1;
+              
+              final cabA = (a['cabIndex'] is int) ? (a['cabIndex'] as int) : null;
+              final cabB = (b['cabIndex'] is int) ? (b['cabIndex'] as int) : null;
+              if (cabA != null && cabB != null) return cabA.compareTo(cabB);
+              if (cabA != null) return -1;
+              if (cabB != null) return 1;
+              return (a['id'] as int).compareTo(b['id'] as int);
+            });
+            
+            int front = 0;
+            int back = 0;
+            for (final d in tempDoors) {
+              final side = d['side']?.toString().toLowerCase();
+              if (side == 'front') {
+                front += 1;
+                synthesizedDoorNames[d['id'] as int] = 'Front $front';
+              } else {
+                back += 1;
+                synthesizedDoorNames[d['id'] as int] = 'Back $back';
+              }
+            }
+          }
+
+          for (final cLog in cpanelLogs) {
+             final dId = int.tryParse(cLog['door_id']?.toString() ?? '');
+             
+             String doorName = 'Door $dId';
+             if (dId != null) {
+               if (synthesizedDoorNames.containsKey(dId)) {
+                 doorName = synthesizedDoorNames[dId]!;
+               } else if (doorNames.containsKey(dId)) {
+                 doorName = doorNames[dId]!;
+               }
+             }
+
+             _doorLogs.add({
+                'opTime': cLog['created_at'],
+                'opUser': cLog['username'],
+                'accessName': doorName,
+                'channel': cLog['door_id'],
+                'op': 1,
+             });
+          }
+
+          _doorLogs.sort((a, b) {
+             final aTime = DateTime.tryParse(a['opTime']?.toString() ?? '')?.millisecondsSinceEpoch ?? 0;
+             final bTime = DateTime.tryParse(b['opTime']?.toString() ?? '')?.millisecondsSinceEpoch ?? 0;
+             return bTime.compareTo(aTime);
+          });
+
+          _cpanelAccessLogs = cpanelLogs;
+
           _fetchingDoorLogs = false;
         });
       }
@@ -559,16 +713,8 @@ class _ReportScreenState extends State<ReportScreen>
           {required int? siteId}) async {
         final cabinetId = SiteRuntimeConfig.cabinetId(site);
 
-        if (_shouldUseAdapter(siteId)) {
-          final sid = siteId!;
-          final res = await AdapterApiService.instance.fetchPue(siteId: sid);
-          if (res == null) {
-            _adapterMissStreak += 1;
-            if (!_showAdapterDegraded) return null;
-          } else {
-            _adapterMissStreak = 0;
-            return res;
-          }
+        if (_isAdapterReady(siteId)) {
+          return AdapterApiService.instance.fetchPue(siteId: siteId!);
         }
         // Legacy fallback expects a cabinet id (string), default to 1.
         return ApiService.instance.fetchPue(id: cabinetId ?? '1');
@@ -578,22 +724,14 @@ class _ReportScreenState extends State<ReportScreen>
         required int nodeId,
         required String metricCode,
       }) async {
-        if (_shouldUseAdapter(siteId)) {
-          final sid = siteId!;
-          final res = await AdapterApiService.instance.fetchRange(
-            siteId: sid,
+        if (_isAdapterReady(siteId)) {
+          return AdapterApiService.instance.fetchRange(
+            siteId: siteId!,
             nodeId: nodeId,
             metricCode: metricCode,
             startTime: startTime,
             endTime: endTime,
           );
-          if (res == null) {
-            _adapterMissStreak += 1;
-            if (!_showAdapterDegraded) return null;
-          } else {
-            _adapterMissStreak = 0;
-            return res;
-          }
         }
         return ApiService.instance.fetchHistoricalData(
           nodeId: nodeId,
@@ -705,9 +843,8 @@ class _ReportScreenState extends State<ReportScreen>
             final dynamic topLevelSystemPue = pueRes['pue'];
             final dynamic topLevelVendorPue = pueRes['vendorPue'];
             final dynamic legacy = pueRes['result'];
-            final dynamic legacyPue = legacy is Map
-                ? (legacy['pue'] ?? legacy['pueValue'])
-                : null;
+            final dynamic legacyPue =
+                legacy is Map ? (legacy['pue'] ?? legacy['pueValue']) : null;
             final dynamic resolvedVendor =
                 topLevelVendorPue ?? topLevelSystemPue ?? legacyPue;
             final vendorPueVal = resolvedVendor is num
@@ -722,8 +859,9 @@ class _ReportScreenState extends State<ReportScreen>
                   _totalPowerLabels.isNotEmpty ? _totalPowerLabels.length : 1;
               for (int i = 0; i < n; i++) {
                 _pueSpots.add(FlSpot(i.toDouble(), pueVal));
-                _pueLabels
-                    .add(_totalPowerLabels.isNotEmpty ? _totalPowerLabels[i] : 'Now');
+                _pueLabels.add(_totalPowerLabels.isNotEmpty
+                    ? _totalPowerLabels[i]
+                    : 'Now');
               }
             } else {
               AppLog.w(
@@ -765,8 +903,6 @@ class _ReportScreenState extends State<ReportScreen>
     }
   }
 
-
-
   double _estimateConsumptionKwh(
       List<FlSpot> spots, List<String> labels, String range) {
     final sliced = _sliceSeriesForRange(spots, labels, range);
@@ -798,11 +934,7 @@ class _ReportScreenState extends State<ReportScreen>
     if (_isExporting) return;
     if (!_canViewReport) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to export reports.'),
-        ),
-      );
+      AppToast.show(context, 'You do not have permission to export reports.');
       return;
     }
     setState(() => _isExporting = true);
@@ -962,18 +1094,12 @@ class _ReportScreenState extends State<ReportScreen>
           onLayout: (PdfPageFormat format) async => pdf.save());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report generated successfully.')),
-        );
+        AppToast.showSuccess(context, 'Report generated successfully.');
       }
     } catch (e) {
       AppLog.w('PDF error', tag: 'ReportScreen', error: e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Failed to generate PDF: $e'),
-              backgroundColor: AppTheme.statusError),
-        );
+        AppToast.showError(context, 'Failed to generate PDF: $e');
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -1064,31 +1190,7 @@ class _ReportScreenState extends State<ReportScreen>
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: hPadding),
-                  child: _showAdapterDegraded
-                      ? Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFB020).withValues(alpha: 0.20),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: const Color(0xFFFFB020).withValues(alpha: 0.55),
-                              ),
-                            ),
-                            child: const Text(
-                              'Data source reconnecting...',
-                              style: TextStyle(
-                                color: Color(0xFFFFD479),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
+                  child: const SizedBox.shrink(),
                 ),
               ),
 
@@ -1185,12 +1287,15 @@ class _ReportScreenState extends State<ReportScreen>
     final double? pmIt = _powerMonth['IT Device'];
     final double? pmOther = _powerMonth['Other'];
 
-    final slicedTotal = _sliceSeriesForRange(_totalPowerSpots, _totalPowerLabels, _totalPowerRange);
-    final slicedIt = _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
+    final slicedTotal = _sliceSeriesForRange(
+        _totalPowerSpots, _totalPowerLabels, _totalPowerRange);
+    final slicedIt =
+        _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
     final slicedOther = _sliceSeriesForRange(
       List.generate(
         math.min(_totalPowerSpots.length, _itPowerSpots.length),
-        (i) => FlSpot(_totalPowerSpots[i].x, math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
+        (i) => FlSpot(_totalPowerSpots[i].x,
+            math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
       ),
       _totalPowerLabels,
       _otherPowerRange,
@@ -1202,62 +1307,89 @@ class _ReportScreenState extends State<ReportScreen>
       child: Column(
         children: [
           if (isWide) ...[
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: _buildSummaryCard(healthScore)),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _sparklineCard(
-                      title: 'Total Power',
-                      subtitle: 'Facility Total',
-                      color: const Color(0xFFD3F928), // Lime Green
-                      textColor: Colors.black,
-                      valueText: pmTotal == null ? 'Offline' : '${pmTotal.toStringAsFixed(1)} kW',
-                      spots: slicedTotal.spots,
-                      labels: slicedTotal.labels,
-                      currentRange: _totalPowerRange,
-                      onRangeChanged: (r) => setState(() => _totalPowerRange = r),
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 260,
+                        child: _buildSummaryCard(healthScore),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 260,
+                        child: _sparklineCard(
+                          title: 'Total Power',
+                          subtitle: 'Facility Total',
+                          color: const Color(0xFFD3F928), // Lime Green
+                          textColor: Colors.black,
+                          valueText: pmTotal == null
+                              ? 'Offline'
+                              : '${pmTotal.toStringAsFixed(1)} kW',
+                          spots: slicedTotal.spots,
+                          labels: slicedTotal.labels,
+                          currentRange: _totalPowerRange,
+                          onRangeChanged: (r) =>
+                              setState(() => _totalPowerRange = r),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _sparklineCard(
-                      title: 'IT Devices',
-                      subtitle: 'Active Load',
-                      color: const Color(0xFFFFFFFF), // White
-                      textColor: Colors.black,
-                      valueText: pmIt == null ? 'Offline' : '${pmIt.toStringAsFixed(1)} kW',
-                      spots: slicedIt.spots,
-                      labels: slicedIt.labels,
-                      currentRange: _itPowerRange,
-                      onRangeChanged: (r) => setState(() => _itPowerRange = r),
-                    ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 260,
+                        child: _sparklineCard(
+                          title: 'IT Devices',
+                          subtitle: 'Active Load',
+                          color: const Color(0xFFFFFFFF), // White
+                          textColor: Colors.black,
+                          valueText: pmIt == null
+                              ? 'Offline'
+                              : '${pmIt.toStringAsFixed(1)} kW',
+                          spots: slicedIt.spots,
+                          labels: slicedIt.labels,
+                          currentRange: _itPowerRange,
+                          onRangeChanged: (r) =>
+                              setState(() => _itPowerRange = r),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 260,
+                        child: _sparklineCard(
+                          title: 'Other/Cooling',
+                          subtitle: 'Losses & Overhead',
+                          color: const Color(0xFFFF6B57), // Coral Red
+                          textColor: Colors.white,
+                          valueText: pmOther == null
+                              ? 'Offline'
+                              : '${(pmOther).toStringAsFixed(1)} kW',
+                          spots: slicedOther.spots,
+                          labels: slicedOther.labels,
+                          currentRange: _otherPowerRange,
+                          onRangeChanged: (r) =>
+                              setState(() => _otherPowerRange = r),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _sparklineCard(
-                      title: 'Other',
-                      subtitle: 'Cooling & Misc',
-                      color: const Color(0xFFFF6B57), // Coral Red
-                      textColor: Colors.white,
-                      valueText: pmOther == null ? 'Offline' : '${(pmOther).toStringAsFixed(1)} kW',
-                      spots: slicedOther.spots,
-                      labels: slicedOther.labels,
-                      currentRange: _otherPowerRange,
-                      onRangeChanged: (r) => setState(() => _otherPowerRange = r),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ] else ...[
-            _buildSummaryCard(healthScore),
+            SizedBox(
+              height: 260,
+              child: _buildSummaryCard(healthScore),
+            ),
             const SizedBox(height: AppSpacing.cardGap),
             _buildTrendAnalysisGrid(),
           ],
-
         ],
       ),
     );
@@ -1278,57 +1410,48 @@ class _ReportScreenState extends State<ReportScreen>
           ? Colors.white
           : const Color(0xFF0E141B).withValues(alpha: 0.92),
       borderColor: Colors.transparent,
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Site Health Index',
-                      style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _infoIconButton(
-                      iconColor: isLight
-                          ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
-                          : Colors.white.withValues(alpha: 0.55),
-                      onTap: () => _showSiteHealthInfo(context),
-                    ),
-                  ],
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Site Health Index',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Operational',
-                  style: TextStyle(
-                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+              ),
+              const SizedBox(width: 8),
+              _infoIconButton(
+                iconColor: isLight
+                    ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
+                    : Colors.white.withValues(alpha: 0.55),
+                onTap: () => _showSiteHealthInfo(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Operational',
+            style: TextStyle(
+              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 4,
-            child: _BatteryGauge(score: score),
-          ),
+          const Spacer(),
+          _BatteryGauge(score: score),
+          const SizedBox(height: 4),
         ],
       ),
     );
   }
-
 
   static List<String> _coerceLabels(List<String> labels, int len) {
     if (labels.length == len) return labels;
@@ -1391,103 +1514,127 @@ class _ReportScreenState extends State<ReportScreen>
 
   void _showSiteHealthInfo(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    showDialog(
+    showGeneralDialog(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (ctx) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: DashboardGlass(
-            radius: 22,
-            padding: const EdgeInsets.all(18),
-            tint: isLight ? Colors.white : const Color(0xFF0B0F14),
-            borderColor: isLight ? AppTheme.lightStroke : null,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'SITE HEALTH INDEX',
-                      style: bitcount(
-                        context,
-                        fontSize: 16,
-                        color: isLight
-                            ? AppTheme.lightTextPrimary
-                            : const Color(0xFF80B4FF),
-                        letterSpacing: 2,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierDismissible: true,
+      barrierLabel: 'Site Health Info',
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (ctx, anim1, anim2) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Material(
+              color: Colors.transparent,
+              child: DashboardGlass(
+                radius: 20,
+                padding: const EdgeInsets.all(16),
+                tint: isLight ? Colors.white : const Color(0xFF0B0F14),
+                borderColor: isLight ? AppTheme.lightStroke : null,
+                child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'SITE HEALTH INDEX',
+                        style: bitcount(
+                          context,
+                          fontSize: 15,
+                          color: isLight
+                              ? AppTheme.lightTextPrimary
+                              : const Color(0xFF80B4FF),
+                          letterSpacing: 2,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close_rounded,
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: isLight
+                              ? AppTheme.lightTextSecondary
+                              : Colors.white,
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'A quick indicator of site availability based on how many discovered devices are currently reporting normally.',
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 12,
+                        height: 1.3),
+                  ),
+                  const SizedBox(height: 10),
+                  _infoBullet(
+                    'Computed as: online devices / total discovered devices.',
+                    isLight: isLight,
+                  ),
+                  _infoBullet(
+                    'Includes infrastructure devices and on-site sensors when available.',
+                    isLight: isLight,
+                  ),
+                  _infoBullet(
+                    'If a device is offline or abnormal, the index will decrease.',
+                    isLight: isLight,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tip: If the index drops, check Notifications or the Health tab to see which devices are affected.',
+                    style: TextStyle(
                         color: isLight
                             ? AppTheme.lightTextSecondary
-                            : Colors.white,
-                      ),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'A quick indicator of site availability based on how many discovered devices are currently reporting normally.',
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? AppTheme.lightTextPrimary
-                          : Colors.white,
-                      fontSize: 13,
-                      height: 1.35),
-                ),
-                const SizedBox(height: 14),
-                _infoBullet(
-                  'Computed as: online devices / total discovered devices.',
-                  isLight: isLight,
-                ),
-                _infoBullet(
-                  'Includes infrastructure devices and on-site sensors when available.',
-                  isLight: isLight,
-                ),
-                _infoBullet(
-                  'If a device is offline or abnormal, the index will decrease.',
-                  isLight: isLight,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Tip: If the index drops, check Notifications or the Health tab to see which devices are affected.',
-                  style: TextStyle(
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.70),
-                      fontSize: 12,
-                      height: 1.35),
-                ),
-              ],
+                            : Colors.white.withValues(alpha: 0.70),
+                        fontSize: 12,
+                        height: 1.35),
+                  ),
+                ],
+              ),
+            ),
             ),
           ),
-        ),
-      ),
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+        return BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * curve.value),
+            child: FadeTransition(
+              opacity: anim1,
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
   static Widget _infoBullet(String text, {bool isLight = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 6,
             height: 6,
-            margin: const EdgeInsets.only(top: 6),
+            margin: const EdgeInsets.only(top: 5),
             decoration: const BoxDecoration(
               color: Color(0xFF80B4FF),
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
@@ -1523,6 +1670,7 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   Widget _sparklineCard({
+    Key? key,
     required String title,
     required String subtitle,
     required Color color,
@@ -1551,17 +1699,23 @@ class _ReportScreenState extends State<ReportScreen>
 
     final isLight = Theme.of(context).brightness == Brightness.light;
     final bool useDarkTheme = !isLight;
-    
+    final isWide = MediaQuery.sizeOf(context).width >= 1100;
+
     // In dark mode, we use the card's accent color for text and lines, and a dark glass background.
     // In light mode, we use the vibrant solid background and the provided text color.
     final effectiveTextColor = useDarkTheme ? color : textColor;
     final chartLineColor = useDarkTheme ? color : textColor;
-    final dividerColor = useDarkTheme ? const Color(0x22FFFFFF) : textColor.withValues(alpha: 0.2);
+    final dividerColor = useDarkTheme
+        ? const Color(0x22FFFFFF)
+        : textColor.withValues(alpha: 0.2);
 
     return DashboardGlass(
+      key: key,
       radius: 18,
       padding: const EdgeInsets.all(20),
-      tint: useDarkTheme ? const Color(0xFF0E141B).withValues(alpha: 0.92) : color,
+      tint: useDarkTheme
+          ? const Color(0xFF0E141B).withValues(alpha: 0.92)
+          : color,
       borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1600,17 +1754,28 @@ class _ReportScreenState extends State<ReportScreen>
               PopupMenuButton<String>(
                 onSelected: onRangeChanged,
                 color: isLight ? Colors.white : const Color(0xFF0E141B),
-                itemBuilder: (context) => ['4H', '8H', '12H', '24H'].map(
-                  (option) => PopupMenuItem<String>(
-                    value: option,
-                    child: Text(option, style: TextStyle(color: isLight ? AppTheme.lightTextPrimary : Colors.white)),
-                  ),
-                ).toList(),
+                itemBuilder: (context) => ['4H', '8H', '12H', '24H']
+                    .map(
+                      (option) => PopupMenuItem<String>(
+                        value: option,
+                        child: Text(option,
+                            style: TextStyle(
+                                color: isLight
+                                    ? AppTheme.lightTextPrimary
+                                    : Colors.white)),
+                      ),
+                    )
+                    .toList(),
                 child: DashboardGlass(
                   radius: 14,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  tint: isLight ? color : const Color(0xFF0E141B).withValues(alpha: 0.92),
-                  borderColor: isLight ? effectiveTextColor.withValues(alpha: 0.15) : const Color(0x22FFFFFF),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  tint: isLight
+                      ? color
+                      : const Color(0xFF0E141B).withValues(alpha: 0.92),
+                  borderColor: isLight
+                      ? effectiveTextColor.withValues(alpha: 0.15)
+                      : const Color(0x22FFFFFF),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1625,7 +1790,9 @@ class _ReportScreenState extends State<ReportScreen>
                       const SizedBox(width: 8),
                       Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: isLight ? effectiveTextColor.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.75),
+                        color: isLight
+                            ? effectiveTextColor.withValues(alpha: 0.7)
+                            : Colors.white.withValues(alpha: 0.75),
                         size: 18,
                       ),
                     ],
@@ -1637,13 +1804,24 @@ class _ReportScreenState extends State<ReportScreen>
           const SizedBox(height: 24),
           // Chart
           Expanded(
-            child: LineChart(
+            child: spots.length < 2
+                ? Center(
+                    child: Text(
+                      'Insufficient data',
+                      style: TextStyle(
+                        color: effectiveTextColor.withValues(alpha: 0.5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                : LineChart(
               LineChartData(
                 minY: minY,
                 maxY: maxY,
-                minX: spots.isNotEmpty ? spots.first.x : 0,
-                maxX: spots.isNotEmpty ? spots.last.x : 1,
-                lineTouchData: labels != null 
+                minX: spots.isNotEmpty ? (spots.first.x == spots.last.x ? spots.first.x - 1 : spots.first.x) : 0,
+                maxX: spots.isNotEmpty ? (spots.first.x == spots.last.x ? spots.first.x + 1 : spots.last.x) : 1,
+                lineTouchData: labels != null && isWide
                     ? LineTouchData(
                         enabled: true,
                         touchTooltipData: LineTouchTooltipData(
@@ -1679,13 +1857,16 @@ class _ReportScreenState extends State<ReportScreen>
                 titlesData: labels != null
                     ? FlTitlesData(
                         show: true,
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
                             reservedSize: 22,
-                            interval: math.max(1, (spots.length / 5).floorToDouble()),
+                            interval:
+                                math.max(1, (spots.length / 5).floorToDouble()),
                             getTitlesWidget: (value, meta) {
                               final int idx = value.toInt();
                               if (idx < 0 || idx >= labels.length) {
@@ -1693,7 +1874,8 @@ class _ReportScreenState extends State<ReportScreen>
                               }
                               final timeStr = labels[idx];
                               final parts = timeStr.split(' ');
-                              String timePart = parts.length > 1 ? parts.last : timeStr;
+                              String timePart =
+                                  parts.length > 1 ? parts.last : timeStr;
                               final timeTokens = timePart.split(':');
                               if (timeTokens.length >= 2) {
                                 timePart = '${timeTokens[0]}:${timeTokens[1]}';
@@ -1703,7 +1885,8 @@ class _ReportScreenState extends State<ReportScreen>
                                 child: Text(
                                   timePart,
                                   style: TextStyle(
-                                    color: effectiveTextColor.withValues(alpha: 0.7),
+                                    color: effectiveTextColor.withValues(
+                                        alpha: 0.7),
                                     fontSize: 10,
                                   ),
                                 ),
@@ -1711,7 +1894,8 @@ class _ReportScreenState extends State<ReportScreen>
                             },
                           ),
                         ),
-                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
                       )
                     : const FlTitlesData(show: false),
                 borderData: FlBorderData(show: false),
@@ -1735,20 +1919,26 @@ class _ReportScreenState extends State<ReportScreen>
           const SizedBox(height: 16),
           // Metadata and Value
           Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Min ${minY.toStringAsFixed(2)}',
-                    style: TextStyle(color: effectiveTextColor, fontSize: 10, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                        color: effectiveTextColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Max ${maxY.toStringAsFixed(2)}',
-                    style: TextStyle(color: effectiveTextColor, fontSize: 10, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                        color: effectiveTextColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -1774,12 +1964,15 @@ class _ReportScreenState extends State<ReportScreen>
     final double? pmIt = _powerMonth['IT Device'];
     final double? pmOther = _powerMonth['Other'];
 
-    final slicedTotal = _sliceSeriesForRange(_totalPowerSpots, _totalPowerLabels, _totalPowerRange);
-    final slicedIt = _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
+    final slicedTotal = _sliceSeriesForRange(
+        _totalPowerSpots, _totalPowerLabels, _totalPowerRange);
+    final slicedIt =
+        _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
     final slicedOther = _sliceSeriesForRange(
       List.generate(
         math.min(_totalPowerSpots.length, _itPowerSpots.length),
-        (i) => FlSpot(_totalPowerSpots[i].x, math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
+        (i) => FlSpot(_totalPowerSpots[i].x,
+            math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
       ),
       _totalPowerLabels,
       _otherPowerRange,
@@ -1795,7 +1988,9 @@ class _ReportScreenState extends State<ReportScreen>
             subtitle: 'Facility Total',
             color: const Color(0xFFD3F928), // Lime Green
             textColor: Colors.black,
-            valueText: pmTotal == null ? 'Offline' : '${pmTotal.toStringAsFixed(1)} kW',
+            valueText: pmTotal == null
+                ? 'Offline'
+                : '${pmTotal.toStringAsFixed(1)} kW',
             spots: slicedTotal.spots,
             labels: slicedTotal.labels,
             currentRange: _totalPowerRange,
@@ -1810,7 +2005,8 @@ class _ReportScreenState extends State<ReportScreen>
             subtitle: 'Active Load',
             color: const Color(0xFFFFFFFF), // White
             textColor: Colors.black,
-            valueText: pmIt == null ? 'Offline' : '${pmIt.toStringAsFixed(1)} kW',
+            valueText:
+                pmIt == null ? 'Offline' : '${pmIt.toStringAsFixed(1)} kW',
             spots: slicedIt.spots,
             labels: slicedIt.labels,
             currentRange: _itPowerRange,
@@ -1821,11 +2017,13 @@ class _ReportScreenState extends State<ReportScreen>
         SizedBox(
           height: 300,
           child: _sparklineCard(
-            title: 'Other',
-            subtitle: 'Cooling & Misc',
+            title: 'Other/Cooling',
+            subtitle: 'Losses & Overhead',
             color: const Color(0xFFFF6B57), // Coral Red
             textColor: Colors.white,
-            valueText: pmOther == null ? 'Offline' : '${pmOther.toStringAsFixed(1)} kW',
+            valueText: pmOther == null
+                ? 'Offline'
+                : '${pmOther.toStringAsFixed(1)} kW',
             spots: slicedOther.spots,
             labels: slicedOther.labels,
             currentRange: _otherPowerRange,
@@ -1917,16 +2115,15 @@ class _MiniRingState extends State<_MiniRing>
             width: size + 12,
             height: size + 12,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF141A21).withValues(alpha: 0.65),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                )
-              ]
-            ),
+                shape: BoxShape.circle,
+                color: const Color(0xFF141A21).withValues(alpha: 0.65),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  )
+                ]),
           ),
           AnimatedBuilder(
             animation: _c,
@@ -2026,44 +2223,37 @@ class _BatteryGaugeState extends State<_BatteryGauge>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        // Keep the battery proportions relatively standard (e.g. 2.5 : 1)
-        final height = math.min(constraints.maxHeight, width * 0.45);
+    return Align(
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: AnimatedBuilder(
+          animation: _anim,
+          builder: (context, _) {
+            final pct = _anim.value;
+            final isLight = Theme.of(context).brightness == Brightness.light;
 
-        return Center(
-          child: AnimatedBuilder(
-            animation: _anim,
-            builder: (context, _) {
-              final pct = _anim.value;
-              final isLight = Theme.of(context).brightness == Brightness.light;
-
-              return SizedBox(
-                width: width,
-                height: height,
-                child: CustomPaint(
-                  painter: _BatteryPainter(
-                    progress: pct,
-                    isLight: isLight,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${(pct * 100).toInt()}%',
-                      style: bitcount(
-                        context,
-                        fontSize: height * 0.45,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
-                      ).copyWith(fontWeight: FontWeight.w900),
-                    ),
-                  ),
+            return CustomPaint(
+              painter: _BatteryPainter(
+                progress: pct,
+                isLight: isLight,
+              ),
+              child: Center(
+                child: Text(
+                  '${(pct * 100).toInt()}%',
+                  style: bitcount(
+                    context,
+                    fontSize: 24,
+                    color: Colors.white,
+                    letterSpacing: 1.2,
+                  ).copyWith(fontWeight: FontWeight.w900),
                 ),
-              );
-            },
-          ),
-        );
-      },
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -2080,39 +2270,44 @@ class _BatteryPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
-    
+
     // Background track
     final trackRect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final trackRRect = RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
-    
-    final trackColor = isLight 
-        ? Colors.black.withValues(alpha: 0.05) 
+    final trackRRect =
+        RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
+
+    final trackColor = isLight
+        ? Colors.black.withValues(alpha: 0.05)
         : Colors.white.withValues(alpha: 0.1);
 
     final trackPaint = Paint()
       ..style = PaintingStyle.fill
       ..color = trackColor;
-      
+
     canvas.drawRRect(trackRRect, trackPaint);
 
     // Fill
     final currentFillWidth = size.width * progress;
-    
+
     if (currentFillWidth > 0) {
       final fillRect = Rect.fromLTWH(0, 0, currentFillWidth, size.height);
-      final fillRRect = RRect.fromRectAndRadius(fillRect, Radius.circular(size.height * 0.15));
-      
+      final fillRRect = RRect.fromRectAndRadius(
+          fillRect, Radius.circular(size.height * 0.15));
+
       Color baseColor;
-      if (progress >= 0.80) baseColor = const Color(0xFF4CAF50);
-      else if (progress >= 0.40) baseColor = const Color(0xFFE6A600);
-      else baseColor = const Color(0xFFE53935);
+      if (progress >= 0.80)
+        baseColor = const Color(0xFF4CAF50);
+      else if (progress >= 0.40)
+        baseColor = const Color(0xFFE6A600);
+      else
+        baseColor = const Color(0xFFE53935);
 
       final fillPaint = Paint()
         ..style = PaintingStyle.fill
         ..color = baseColor;
-        
+
       canvas.drawRRect(fillRRect, fillPaint);
-      
+
       final glowPaint = Paint()
         ..style = PaintingStyle.fill
         ..color = baseColor.withValues(alpha: 0.3)
@@ -2182,7 +2377,7 @@ class _RingPainter extends CustomPainter {
       final glowBase = (gradientColors != null && gradientColors!.length > 1)
           ? gradientColors![1]
           : (gradientColors?.first ?? color);
-          
+
       final ambientGlow = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke + 18

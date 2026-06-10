@@ -117,9 +117,11 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
   }
 
   static String _title(Map a) {
-    final node = (a['collectControlNodeName'] ?? '').toString().trim();
+    final alarmItem = (a['alarmItem'] ?? '').toString().trim();
     final content = (a['content'] ?? '').toString().trim();
-    final candidate = node.isNotEmpty ? node : content;
+    final node = (a['collectControlNodeName'] ?? '').toString().trim();
+    
+    final candidate = alarmItem.isNotEmpty ? alarmItem : (node.isNotEmpty ? node : content);
     if (candidate.isEmpty) return 'ALARM';
 
     final upper = candidate.toUpperCase();
@@ -131,7 +133,18 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     if (upper.contains('UPS')) return 'UPS ISSUE';
     if (upper.contains('PDU')) return 'PDU ISSUE';
     
-    return candidate.length > 30 ? '${candidate.substring(0, 30)}...' : candidate;
+    return candidate.length > 40 ? '${candidate.substring(0, 40)}...' : candidate;
+  }
+
+  static String _subtitle(Map a) {
+    final cabinet = (a['deviceCabinetName'] ?? a['locationName'] ?? '').toString().trim();
+    final device = (a['deviceCabinetItemName'] ?? a['name'] ?? '').toString().trim();
+    if (cabinet.isNotEmpty && device.isNotEmpty) return '$cabinet / $device';
+    if (cabinet.isNotEmpty) return cabinet;
+    if (device.isNotEmpty) return device;
+    final node = (a['collectControlNodeName'] ?? '').toString().trim();
+    if (node.isNotEmpty) return node;
+    return 'System Alarm';
   }
 
   static String _alarmLevel(Map a) {
@@ -271,10 +284,12 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
 
   Widget _buildAlarmItem(Map a, Color textColor) {
     final title = _title(a);
+    final subtitle = _subtitle(a);
     final level = _alarmLevel(a);
     final color = _levelColor(level);
     final icon = _alarmIcon(title);
     final isResolved = level.trim().toLowerCase().contains('resolved');
+    final isLight = Theme.of(context).brightness == Brightness.light;
     
     // We treat active issues as unread (red dot), resolved as read
     final unread = !isResolved;
@@ -297,7 +312,7 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B1B),
+                color: isLight ? color.withValues(alpha: 0.15) : const Color(0xFF1B1B1B),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
@@ -312,14 +327,28 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
             
             // Text Content
             Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: textColor,
-                  height: 1.3,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: textColor.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
               ),
             ),
             

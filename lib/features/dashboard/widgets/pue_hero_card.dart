@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -57,10 +58,8 @@ class PueHeroCard extends StatelessWidget {
   }
 
   ({String label, Color color}) _pueStatus(double pue) {
-    final status = (pueStatus ?? '').trim().toLowerCase();
-    if (status == 'unavailable' || status == 'down') {
-      return (label: 'DOWN', color: const Color(0xFF8A94A6));
-    }
+    // If we have a valid previous PUE, ignore 'unavailable'/'down' status 
+    // to maintain the last known color during polling/fetching.
     // Heuristic buckets aligned with the copy in the info dialog:
     // IDEAL ~ near 1.0, AVERAGE ~ around 1.5, POOR ~ 2.0+.
     if (pue <= 0) {
@@ -78,89 +77,153 @@ class PueHeroCard extends StatelessWidget {
   void _showPueInfo(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (ctx) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'PUE EXPLAINED',
-                      style: bitcount(
-                        context,
-                        fontSize: 16,
-                        color: AppTheme.accentGreen,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: onSurface),
-                      onPressed: () => Navigator.pop(ctx),
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierDismissible: true,
+      barrierLabel: 'PUE Info',
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (ctx, anim1, anim2) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      spreadRadius: 8,
+                      offset: const Offset(0, 12),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Power Usage Effectiveness (PUE) measures how efficiently a data center uses energy.',
-                          style: TextStyle(
-                              color: onSurface, fontSize: 14, height: 1.4),
-                        ),
-                        const SizedBox(height: 20),
-                        _infoRow(
-                            context,
-                            '1.0',
-                            'IDEAL',
-                            'Perfect efficiency. All power goes to IT.',
-                            AppTheme.accentGreen),
-                        const SizedBox(height: 12),
-                        _infoRow(
-                            context,
-                            '1.5',
-                            'AVERAGE',
-                            'Moderate efficiency. Some power is used for cooling.',
-                            Colors.orange),
-                        const SizedBox(height: 12),
-                        _infoRow(
-                            context,
-                            '2.0+',
-                            'POOR',
-                            'High energy waste. Most power goes to overhead.',
-                            Colors.redAccent),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Your gauge is FULL when PUE is near 1.0, showing maximum green efficiency.',
-                          style: TextStyle(
-                            color: onSurface.withValues(alpha: 0.70),
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'PUE EXPLAINED',
+                            style: bitcount(
+                              context,
+                              fontSize: 18,
+                              color: AppTheme.accentGreen,
+                              letterSpacing: 2.5,
+                            ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: onSurface.withValues(alpha: 0.05),
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.close_rounded, color: onSurface, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Power Usage Effectiveness (PUE) measures how efficiently a data center uses energy.',
+                                style: TextStyle(
+                                    color: onSurface, fontSize: 14, height: 1.5),
+                              ),
+                              const SizedBox(height: 28),
+                              _infoRow(
+                                  context,
+                                  '1.0',
+                                  'IDEAL',
+                                  'Perfect efficiency. All power goes to IT.',
+                                  AppTheme.accentGreen),
+                              const SizedBox(height: 20),
+                              _infoRow(
+                                  context,
+                                  '1.5',
+                                  'AVERAGE',
+                                  'Moderate efficiency. Some power is used for cooling.',
+                                  Colors.orange),
+                              const SizedBox(height: 20),
+                              _infoRow(
+                                  context,
+                                  '2.0+',
+                                  'POOR',
+                                  'High energy waste. Most power goes to overhead.',
+                                  Colors.redAccent),
+                              const SizedBox(height: 32),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentGreen.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.info_outline_rounded, color: AppTheme.accentGreen, size: 22),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Text(
+                                        'Your gauge is FULL when PUE is near 1.0, showing maximum green efficiency.',
+                                        style: TextStyle(
+                                          color: AppTheme.accentGreen,
+                                          fontSize: 13,
+                                          fontStyle: FontStyle.italic,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    ),
-  );
-}
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * curve.value),
+            child: FadeTransition(
+              opacity: anim1,
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _infoRow(BuildContext context, String val, String label, String desc,
       Color color) {
@@ -214,8 +277,9 @@ class PueHeroCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
 
-    final hasPue = !loading && pue > 0;
+    final hasPue = pue > 0;
     final status = _pueStatus(hasPue ? pue : 0);
+
     final pueText = hasPue ? pue.toStringAsFixed(2) : '--';
     final totalText =
         totalEnergyKwh == null ? '--' : totalEnergyKwh!.toStringAsFixed(2);
@@ -234,7 +298,7 @@ class PueHeroCard extends StatelessWidget {
         children: [
           LayoutBuilder(
             builder: (context, c) {
-              const energyBarHeight = 88.0;
+              const energyBarHeight = 96.0;
               const gap = 8.0;
               final maxH = c.maxHeight.isFinite ? c.maxHeight : 360.0;
               final gaugeH = (maxH - energyBarHeight - gap).clamp(200.0, 340.0);
@@ -243,7 +307,7 @@ class PueHeroCard extends StatelessWidget {
               final valueSize = 68.0 * gaugeScale;
               final labelSize = 20.0 * gaugeScale;
 
-              if (loading) {
+              if (loading && pue <= 0) {
                 final gaugeW = c.maxWidth.isFinite ? c.maxWidth : 360.0;
                 final blobSize = min(gaugeW, gaugeH) * 0.86;
                 return Column(

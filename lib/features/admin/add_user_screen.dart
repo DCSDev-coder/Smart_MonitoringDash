@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
-import '../dashboard/widgets/dashboard_typography.dart';
 import '../../shared/widgets/background_layer.dart';
+import '../../shared/utils/app_toast.dart';
 
 class AddUserScreen extends StatefulWidget {
   final int siteId;
@@ -22,33 +22,29 @@ class AddUserScreen extends StatefulWidget {
 
 class _AddUserScreenState extends State<AddUserScreen> {
   final _newUserCtrl = TextEditingController();
-  final _newPassCtrl = TextEditingController();
 
-  bool _obscureTempPassword = true;
   bool _canViewDashboard = true;
   bool _canViewReport = false;
   bool _canViewRack = false;
   bool _canViewControl = false;
   final bool _canViewCctv = false;
   bool _canControlDoors = false;
+  bool _canChangeSettings = false;
   bool _canManageUsers = false;
+  bool _isRackConsole = false;
   bool _submitting = false;
 
   @override
   void dispose() {
     _newUserCtrl.dispose();
-    _newPassCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_submitting) return;
     final nu = _newUserCtrl.text.trim();
-    final np = _newPassCtrl.text;
-    if (nu.isEmpty || np.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username and password are required.')),
-      );
+    if (nu.isEmpty) {
+      AppToast.showError(context, 'Username is required.');
       return;
     }
 
@@ -60,7 +56,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
       adminUsername: widget.adminUsername,
       adminPassword: widget.adminPassword,
       newUsername: nu,
-      newPassword: np,
       role: roleComputed,
       permissions: {
         "can_view_dashboard": _canViewDashboard ? 1 : 0,
@@ -69,7 +64,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
         "can_view_control": _canViewControl ? 1 : 0,
         "can_view_cctv": _canViewCctv ? 1 : 0,
         "can_control_doors": _canControlDoors ? 1 : 0,
+        "can_change_settings": _canChangeSettings ? 1 : 0,
         "can_manage_users": _canManageUsers ? 1 : 0,
+        "is_kiosk": _isRackConsole ? 1 : 0,
       },
     );
 
@@ -84,9 +81,25 @@ class _AddUserScreenState extends State<AddUserScreen> {
     setState(() => _submitting = false);
     final msg = res?['message']?.toString() ??
         'Failed to create user. Please check your inputs and try again.';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppTheme.statusError),
-    );
+    AppToast.showError(context, msg);
+  }
+
+  void _setManageUsers(bool value) {
+    setState(() {
+      _canManageUsers = value;
+      if (value) {
+        _isRackConsole = false;
+      }
+    });
+  }
+
+  void _setRackConsoleMode(bool value) {
+    setState(() {
+      _isRackConsole = value;
+      if (value) {
+        _canManageUsers = false;
+      }
+    });
   }
 
   @override
@@ -141,9 +154,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
                     child: Text(
                       'Add User',
                       style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
+                        color:
+                            isLight ? AppTheme.lightTextPrimary : Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
                       ),
@@ -160,29 +172,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
                           controller: _newUserCtrl,
                           hint: 'Enter new username',
                           enabled: !_submitting,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildInputField(
-                          context,
-                          label: 'TEMPORARY PASSWORD',
-                          controller: _newPassCtrl,
-                          hint: 'Enter temporary password',
-                          enabled: !_submitting,
-                          obscureText: _obscureTempPassword,
-                          trailing: IconButton(
-                            icon: Icon(
-                              _obscureTempPassword
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                              color: isLight
-                                  ? const Color(0xFF4C4C4C)
-                                  : Colors.white.withOpacity(0.75),
-                            ),
-                            onPressed: _submitting
-                                ? null
-                                : () => setState(() =>
-                                    _obscureTempPassword = !_obscureTempPassword),
-                          ),
                         ),
                         const SizedBox(height: 36),
                         Text(
@@ -207,8 +196,25 @@ class _AddUserScreenState extends State<AddUserScreen> {
                             (v) => setState(() => _canViewControl = v)),
                         _buildPermToggle('Door Access', _canControlDoors,
                             (v) => setState(() => _canControlDoors = v)),
-                        _buildPermToggle('Manage Users', _canManageUsers,
-                            (v) => setState(() => _canManageUsers = v)),
+                        _buildPermToggle('Settings', _canChangeSettings,
+                            (v) => setState(() => _canChangeSettings = v)),
+                        _buildPermToggle(
+                            'Manage Users', _canManageUsers, _setManageUsers),
+                        const SizedBox(height: 36),
+                        Text(
+                          'ACCOUNT MODE',
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextPrimary.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.5),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildPermToggle('Rack Console Mode', _isRackConsole,
+                            _setRackConsoleMode),
                         const SizedBox(height: 120), // bottom padding
                       ],
                     ),
@@ -221,7 +227,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
               left: 0,
               right: 0,
               child: Container(
-                padding: EdgeInsets.fromLTRB(24, 16, 24, media.padding.bottom + 16),
+                padding:
+                    EdgeInsets.fromLTRB(24, 16, 24, media.padding.bottom + 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -359,7 +366,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
     );
   }
 
-  Widget _buildPermToggle(String label, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildPermToggle(
+      String label, bool value, ValueChanged<bool> onChanged) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

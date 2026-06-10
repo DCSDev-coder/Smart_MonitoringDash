@@ -21,10 +21,9 @@ class AppTheme {
   static const Color textSecondary = Colors.white70; // Slightly dim white
   static const Color dividerColor = Color(0xFF2E2E2E); // Darker divider
 
-  // Light mode tokens (Twitter-like)
-  // Very light blue (almost white) for light mode backgrounds.
-  static const Color lightBg = Color(0xFFA7CDFF);
-  static const Color lightSurface = Color(0xFFFFFFFF); //   White cards
+  // Very light 'ice white' with a hint of blue for a premium background.
+  static const Color lightBg = Color(0xFFF4F7FC);
+  static const Color lightSurface = Color(0xFFFFFFFF); // Pure white cards
   static const Color lightStroke =
       Color(0x4D7D7D7D); // Grey @ ~30% opacity (0x4D)
   static const Color lightTextPrimary = Color(0xFF0B0F14);

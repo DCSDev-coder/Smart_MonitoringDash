@@ -7,6 +7,7 @@ import '../../shared/widgets/secure_action_guard.dart';
 import '../dashboard/widgets/dashboard_typography.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
+import '../../shared/utils/app_toast.dart';
 
 class ManageUsersScreen extends StatefulWidget {
   const ManageUsersScreen({super.key});
@@ -100,30 +101,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Future<void> _verifyAndLoadMembers() async {
     if (_loading) return;
     if (!_canManageUsers) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('You do not have permission to manage users.')),
-      );
+      AppToast.show(context, 'You do not have permission to manage users.');
       return;
     }
 
     final siteId = _siteId;
     if (siteId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Site context is missing. Please sign in again.')),
-      );
+      AppToast.show(context, 'Site context is missing. Please sign in again.');
       return;
     }
 
     final adminUsername = await CpanelApiService.instance.getUsername();
     if (!mounted) return;
     if (adminUsername == null || adminUsername.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Your admin username is not available. Please sign in again.')),
-      );
+      AppToast.show(context,
+          'Your admin username is not available. Please sign in again.');
       return;
     }
 
@@ -148,7 +140,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         _loading = false;
         _members = [];
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      AppToast.show(context, msg);
       return;
     }
 
@@ -220,11 +212,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final siteId = _siteId;
 
     if (adminUsername == null || adminUsername.isEmpty || siteId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Missing admin or site context. Please sign in again.')),
-      );
+      AppToast.show(
+          context, 'Missing admin or site context. Please sign in again.');
       return;
     }
 
@@ -382,15 +371,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     if (ok) {
       await _verifyAndLoadMembers();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Member removed.')),
-      );
+      AppToast.show(context, 'Member removed.');
     } else {
       final msg = res?['message']?.toString() ??
           'Failed to remove member. Make sure `remove_site_member` is enabled on the backend and try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppTheme.statusError),
-      );
+      AppToast.showError(context, msg);
     }
   }
 
@@ -413,11 +398,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         adminUsername.isEmpty ||
         siteId == null ||
         memberUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Missing admin/site/member info. Please sign in again.')),
-      );
+      AppToast.show(
+          context, 'Missing admin/site/member info. Please sign in again.');
       return;
     }
 
@@ -437,7 +419,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     bool canViewRack = flag('can_view_rack', defaultValue: false);
     bool canViewControl = flag('can_view_control', defaultValue: false);
     bool canControlDoors = flag('can_control_doors', defaultValue: false);
+    bool canChangeSettings = flag('can_change_settings', defaultValue: false);
     bool canManageUsers = flag('can_manage_users', defaultValue: false);
+    bool isRackConsole = flag('is_kiosk', defaultValue: false);
 
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -451,7 +435,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           canViewRack: canViewRack,
           canViewControl: canViewControl,
           canControlDoors: canControlDoors,
+          canChangeSettings: canChangeSettings,
           canManageUsers: canManageUsers,
+          isRackConsole: isRackConsole,
         ),
       ),
     );
@@ -459,9 +445,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     if (saved == true) {
       await _verifyAndLoadMembers();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Member updated.')),
-      );
+      AppToast.show(context, 'Member updated.');
     }
   }
 
@@ -471,11 +455,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final siteId = _siteId;
 
     if (adminUsername == null || adminUsername.isEmpty || siteId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Missing admin or site context. Please sign in again.')),
-      );
+      AppToast.show(
+          context, 'Missing admin or site context. Please sign in again.');
       return;
     }
 
@@ -495,9 +476,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     if (created == true) {
       await _verifyAndLoadMembers();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User created successfully.')),
-      );
+      AppToast.showSuccess(context, 'User created successfully.');
     }
   }
 
@@ -550,9 +529,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     Text(
                       'Manage Users',
                       style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
+                        color:
+                            isLight ? AppTheme.lightTextPrimary : Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
                       ),
@@ -738,6 +716,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       _permChip('POWER', flag('can_view_rack')),
       _permChip('CONTROL', flag('can_view_control')),
       _permChip('DOORS', flag('can_control_doors')),
+      _permChip('SETTINGS', flag('can_change_settings')),
+      _permChip('RACK CONSOLE', flag('is_kiosk')),
       _permChip('USERS', flag('can_manage_users')),
     ];
 
@@ -1098,5 +1078,3 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
     );
   }
 }
-
-

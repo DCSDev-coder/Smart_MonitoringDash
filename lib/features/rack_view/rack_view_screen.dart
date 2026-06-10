@@ -1,6 +1,5 @@
 import 'dart:async';
-
-import 'package:flutter/material.dart';
+import 'dart:ui';import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/controllers/smart_polling_settings.dart';
@@ -14,6 +13,7 @@ import '../../core/theme/app_spacing.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
+import '../../shared/utils/app_toast.dart';
 
 class RackViewScreen extends StatefulWidget {
   final bool isActive;
@@ -423,6 +423,10 @@ class _RackViewScreenState extends State<RackViewScreen>
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
+
+    if (mounted) {
+      AppToast.setReconnecting(context, _showAdapterDegraded);
+    }
   }
 
   double _getMetric(List<dynamic> records, String codePrefix) {
@@ -549,8 +553,7 @@ class _RackViewScreenState extends State<RackViewScreen>
     final hPadding = screenWidth * 0.06;
     final columns = isVerySmall ? 3 : 4;
     final bool sideBySide = screenWidth >= 720;
-    final int effectivePduColumns =
-        sideBySide ? (screenWidth >= 1100 ? 4 : 2) : columns;
+    final int effectivePduColumns = columns; // Use the same 4 columns everywhere since PDU takes half screen on tablet
     final showSkeleton = _loading || _refreshing;
 
     return MediaQuery(
@@ -569,31 +572,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_showAdapterDegraded) ...[
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFB020).withValues(alpha: 0.20),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: const Color(0xFFFFB020).withValues(alpha: 0.55),
-                        ),
-                      ),
-                      child: const Text(
-                        'Data source reconnecting...',
-                        style: TextStyle(
-                          color: Color(0xFFFFD479),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+
                 showSkeleton
                     ? _buildInletCardSkeleton(uiScale)
                     : _buildInletCard(uiScale),
@@ -772,7 +751,7 @@ class _RackViewScreenState extends State<RackViewScreen>
           Row(
             children: [
               Icon(Icons.flash_on_rounded,
-                  color: AppTheme.accentGreen, size: 18 * uiScale),
+                  color: Color(0xFF00A174), size: 18 * uiScale),
               const SizedBox(width: 8),
               Text('INLET',
                   style: TextStyle(
@@ -797,7 +776,7 @@ class _RackViewScreenState extends State<RackViewScreen>
           Text(
             '${_inletP.toStringAsFixed(2)} kW',
             style: TextStyle(
-              color: AppTheme.accentGreen,
+              color: Color(0xFF00A174),
               fontSize: 38 * uiScale,
               fontWeight: FontWeight.w900,
               height: 1.0,
@@ -846,7 +825,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                   ? const Color(0xFFD0D5DD)
                   : Colors.white.withValues(alpha: 0.12),
               valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppTheme.accentGreen),
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF00A174)),
             ),
           ),
         ],
@@ -943,6 +922,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             const SizedBox(height: 14),
             Center(
               child: InkWell(
+                borderRadius: BorderRadius.circular(8),
                 onTap: () {
                   setState(() {
                     _pdu1Expanded = !_pdu1Expanded;
@@ -1118,7 +1098,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                   crossAxisCount: columns,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
-                  childAspectRatio: columns == 3 ? 1.0 : 0.90,
+                  mainAxisExtent: 82 * uiScale, // Fixed compact height so they are never "too big"
                 ),
                 itemCount: showing.length,
                 itemBuilder: (context, idx) {
@@ -1139,6 +1119,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             ),
             if (onToggle != null)
               InkWell(
+                borderRadius: BorderRadius.circular(999),
                 onTap: onToggle,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
@@ -1223,7 +1204,13 @@ class _RackViewScreenState extends State<RackViewScreen>
           );
         }
 
-        return DashboardGlass(
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
+          child: DashboardGlass(
           radius: 22,
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           tint: sheetTint.withValues(alpha: isLight ? 0.98 : 0.96),
@@ -1257,7 +1244,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: isOn
-                      ? AppTheme.accentGreen.withValues(alpha: 0.18)
+                      ? Color(0xFF00A174).withValues(alpha: 0.18)
                       : (isLight
                           ? const Color(0xFFE5E7EB)
                           : Colors.white.withValues(alpha: 0.10)),
@@ -1273,7 +1260,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                       isOn ? Icons.power_rounded : Icons.power_off_rounded,
                       size: 18,
                       color: isOn
-                          ? AppTheme.accentGreen
+                          ? Color(0xFF00A174)
                           : (isLight
                               ? AppTheme.lightTextSecondary
                               : Colors.white.withValues(alpha: 0.75)),
@@ -1314,6 +1301,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                 ),
             ],
           ),
+        ),
         );
       },
     );
@@ -1334,7 +1322,7 @@ class _RackViewScreenState extends State<RackViewScreen>
     // Outlet tile palette tuned to match WhitePower.png:
     // - ON: solid green tile with white text
     // - OFF: solid grey tile with dark text
-    const onFill = AppTheme.accentGreen;
+    const onFill = Color(0xFF00A174);
     const offFillLight = Color(0xFFD9D9D9);
     final offFillDark = Colors.white.withValues(alpha: 0.10);
     final fill = isOn ? onFill : (isLight ? offFillLight : offFillDark);
@@ -1405,7 +1393,7 @@ class _RackViewScreenState extends State<RackViewScreen>
 
   Widget _statusPill({required bool online, required double uiScale}) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final c = online ? AppTheme.accentGreen : AppTheme.statusError;
+    final c = online ? Color(0xFF00A174) : AppTheme.statusError;
     return Container(
       padding:
           EdgeInsets.symmetric(horizontal: 16 * uiScale, vertical: 6 * uiScale),
@@ -1452,68 +1440,125 @@ class _RackViewScreenState extends State<RackViewScreen>
   Widget _infoIcon({required VoidCallback onTap, required double uiScale}) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return InkWell(
+      borderRadius: BorderRadius.circular(999),
       onTap: onTap,
-      child: Icon(
-        Icons.info_outline_rounded,
-        size: 16 * uiScale,
-        color: isLight
-            ? AppTheme.lightTextSecondary.withValues(alpha: 0.8)
-            : Colors.white.withValues(alpha: 0.4),
+      child: Padding(
+        padding: const EdgeInsets.all(2.0),
+        child: Icon(
+          Icons.info_outline_rounded,
+          size: 14 * uiScale,
+          color: isLight
+              ? AppTheme.lightTextSecondary.withValues(alpha: 0.8)
+              : Colors.white.withValues(alpha: 0.4),
+        ),
       ),
     );
   }
 
   void _showInfoDialog({required String title, required String body}) {
-    showDialog<void>(
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final isLight = theme.brightness == Brightness.light;
+
+    showGeneralDialog(
       context: context,
-      builder: (context) {
-        final isLight = Theme.of(context).brightness == Brightness.light;
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: DashboardGlass(
-            radius: 18,
-            padding: const EdgeInsets.all(18),
-            tint: isLight ? Colors.white : const Color(0xFF0E141B),
-            borderColor:
-                isLight ? AppTheme.lightStroke : Colors.transparent,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color: isLight
-                              ? AppTheme.lightTextPrimary
-                              : Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white70,
-                      ),
-                      onPressed: () => Navigator.pop(context),
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierDismissible: true,
+      barrierLabel: '$title Info',
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (ctx, anim1, anim2) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                decoration: BoxDecoration(
+                  color: isLight ? Colors.white : const Color(0xFF0E141B),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: isLight
+                        ? Colors.black.withValues(alpha: 0.05)
+                        : Colors.white.withValues(alpha: 0.08),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      spreadRadius: 8,
+                      offset: const Offset(0, 12),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  body,
-                  style: TextStyle(
-                    color:
-                        isLight ? AppTheme.lightTextSecondary : Colors.white70,
-                    height: 1.35,
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF00A174),
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: onSurface.withValues(alpha: 0.05),
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.close_rounded,
+                                  color: onSurface, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                  minWidth: 36, minHeight: 36),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        body,
+                        style: TextStyle(
+                          color: isLight
+                              ? AppTheme.lightTextSecondary
+                              : Colors.white.withValues(alpha: 0.8),
+                          fontSize: 14,
+                          height: 1.6,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve =
+            CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+        return BackdropFilter(
+          filter: ImageFilter.blur(
+              sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * curve.value),
+            child: FadeTransition(
+              opacity: anim1,
+              child: child,
             ),
           ),
         );

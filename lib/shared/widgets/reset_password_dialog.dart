@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/utils/app_toast.dart';
 
 /// A safe, self-contained reset-password dialog.
 ///
@@ -42,23 +43,17 @@ class _ResetPasswordAlertDialogState extends State<ResetPasswordAlertDialog> {
     final confirmPassword = _confirmCtrl.text.trim();
 
     if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all password fields.')),
-      );
+      AppToast.showError(context, 'Please fill all password fields.');
       return;
     }
 
     if (newPassword.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New password must be at least 8 characters.')),
-      );
+      AppToast.showError(context, 'New password must be at least 8 characters.');
       return;
     }
 
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New password and confirmation do not match.')),
-      );
+      AppToast.showError(context, 'New password and confirmation do not match.');
       return;
     }
 
@@ -75,12 +70,7 @@ class _ResetPasswordAlertDialogState extends State<ResetPasswordAlertDialog> {
       Navigator.pop(context, true);
     } else {
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset failed. Check your current password and try again.'),
-          backgroundColor: AppTheme.statusError,
-        ),
-      );
+      AppToast.showError(context, 'Password reset failed. Check your current password and try again.');
     }
   }
 
@@ -220,23 +210,17 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
     final confirmPassword = _confirmCtrl.text.trim();
 
     if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all password fields.')),
-      );
+      AppToast.showError(context, 'Please fill all password fields.');
       return;
     }
 
     if (newPassword.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New password must be at least 8 characters.')),
-      );
+      AppToast.showError(context, 'New password must be at least 8 characters.');
       return;
     }
 
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New password and confirmation do not match.')),
-      );
+      AppToast.showError(context, 'New password and confirmation do not match.');
       return;
     }
 
@@ -253,12 +237,7 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
       Navigator.pop(context, true);
     } else {
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset failed. Check your current password and try again.'),
-          backgroundColor: AppTheme.statusError,
-        ),
-      );
+      AppToast.showError(context, 'Password reset failed. Check your current password and try again.');
     }
   }
 

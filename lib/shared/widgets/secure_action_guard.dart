@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/network/api_service.dart';
+import '../../core/network/adapter_api_service.dart';
+import '../../core/network/cpanel_api_service.dart';
 import '../../core/security/secure_action_session.dart';
 import './dashboard_glass.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/utils/app_toast.dart';
 
 class SecureActionGuard {
   SecureActionGuard._();
@@ -14,6 +17,7 @@ class SecureActionGuard {
     BuildContext context, {
     required String reason,
     Duration ttl = const Duration(seconds: 30),
+    bool allowPin = false,
   }) async {
     if (SecureActionSession.instance.isValid) return true;
 
@@ -21,7 +25,7 @@ class SecureActionGuard {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _SecureActionSheet(reason: reason),
+      builder: (ctx) => _SecureActionSheet(reason: reason, allowPin: allowPin),
     );
 
     if (ok == true) {
@@ -34,7 +38,8 @@ class SecureActionGuard {
 
 class _SecureActionSheet extends StatefulWidget {
   final String reason;
-  const _SecureActionSheet({required this.reason});
+  final bool allowPin;
+  const _SecureActionSheet({required this.reason, required this.allowPin});
 
   @override
   State<_SecureActionSheet> createState() => _SecureActionSheetState();
@@ -42,11 +47,13 @@ class _SecureActionSheet extends StatefulWidget {
 
 class _SecureActionSheetState extends State<_SecureActionSheet> {
   final _localAuth = LocalAuthentication();
+  final _userCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   final _pwdFocus = FocusNode();
 
   bool _isAuthenticating = false;
   bool _obscurePwd = true;
+  late bool _usePin = widget.allowPin;
 
   bool _biometricsChecked = false;
   bool _deviceAuthSupported = false;
@@ -56,13 +63,24 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
   @override
   void initState() {
     super.initState();
+    _initUsername();
     if (!kIsWeb) {
       _checkAndAutoPrompt();
     }
   }
 
+  Future<void> _initUsername() async {
+    final portalUsername = await CpanelApiService.instance.getUsername() ?? 'admin';
+    if (mounted) {
+      setState(() {
+        _userCtrl.text = portalUsername;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _userCtrl.dispose();
     _pwdCtrl.dispose();
     _pwdFocus.dispose();
     super.dispose();
@@ -120,11 +138,7 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isAuthenticating = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Biometric auth failed. Use password instead.'),
-        ),
-      );
+      AppToast.showError(context, 'Biometric auth failed. Use password instead.');
     }
   }
 
@@ -133,26 +147,60 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
 
     setState(() => _isAuthenticating = true);
     try {
-      final username = await ApiService.instance.getUsername() ?? 'admin';
+      if (_usePin) {
+        final pin = _pwdCtrl.text.trim();
+        if (pin.length < 4) {
+          setState(() => _isAuthenticating = false);
+          AppToast.show(context, 'Enter your 4-6 digit PIN');
+          return;
+        }
+
+        Map<String, dynamic>? verifyRes;
+        if (AdapterApiService.instance.isConfigured) {
+          verifyRes = await AdapterApiService.instance.verifyPin(pin);
+        }
+        verifyRes ??= await CpanelApiService.instance.verifyPin(pin);
+        if (!mounted) return;
+
+        final verified = verifyRes != null && verifyRes['status'] == 'success';
+        if (!verified) {
+          setState(() => _isAuthenticating = false);
+          AppToast.showError(context, 'Incorrect PIN');
+          return;
+        }
+
+        Navigator.pop(context, true);
+        return;
+      }
+
+      final portalUsername = _userCtrl.text.trim();
       final pwd = _pwdCtrl.text;
-      final loginSuccess = await ApiService.instance.login(username, pwd);
+      
+      final loginRes =
+          await CpanelApiService.instance.login(portalUsername, pwd);
       if (!mounted) return;
 
+      bool loginSuccess = loginRes != null && loginRes['status'] == 'success';
       if (!loginSuccess) {
-        setState(() => _isAuthenticating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Incorrect password')),
-        );
-        return;
+        // Fallback to Dahua credentials check
+        final dahuaUsername =
+            await ApiService.instance.getUsername() ?? 'admin';
+        final dahuaLoginSuccess =
+            await ApiService.instance.login(dahuaUsername, pwd);
+        if (!mounted) return;
+
+        if (!dahuaLoginSuccess) {
+          setState(() => _isAuthenticating = false);
+          AppToast.showError(context, 'Incorrect password');
+          return;
+        }
       }
 
       Navigator.pop(context, true);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isAuthenticating = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Auth failed. Try again.')),
-      );
+      AppToast.showError(context, 'Auth failed. Try again.');
     }
   }
 
@@ -160,7 +208,11 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
       child: DashboardGlass(
         radius: 24,
         padding: const EdgeInsets.all(24),
@@ -208,7 +260,11 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
             ),
             const SizedBox(height: 10),
             Text(
-              widget.reason,
+              _usePin
+                  ? (_deviceAuthSupported
+                      ? '${widget.reason}. Confirm with biometrics, or enter your 4-6 digit PIN.'
+                      : '${widget.reason}. Enter your 4-6 digit PIN.')
+                  : widget.reason,
               style: TextStyle(
                 color: isLight
                     ? AppTheme.lightTextSecondary
@@ -222,24 +278,62 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
                 child: FilledButton(
                   onPressed: _isAuthenticating ? null : _runDeviceAuth,
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.orangeAccent.withValues(alpha: 0.85),
+                    backgroundColor:
+                        Colors.orangeAccent.withValues(alpha: 0.85),
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: Text(_hasBiometrics ? 'Use Biometrics' : 'Use PIN'),
+                  child: Text(
+                      _hasBiometrics ? 'Use Biometrics' : 'Use Device PIN'),
                 ),
               ),
               const SizedBox(height: 12),
             ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _usePin ? 'PIN' : 'Password',
+                  style: TextStyle(
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (widget.allowPin)
+                  TextButton(
+                    onPressed: _isAuthenticating
+                        ? null
+                        : () {
+                            setState(() {
+                              _usePin = !_usePin;
+                              _pwdCtrl.clear();
+                            });
+                          },
+                    child: Text(
+                        _usePin ? 'Use Password instead' : 'Use PIN instead'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
             TextField(
               controller: _pwdCtrl,
               focusNode: _pwdFocus,
               obscureText: _obscurePwd,
+              keyboardType: _usePin ? TextInputType.number : TextInputType.text,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _runPasswordAuth(),
+              style: TextStyle(
+                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                fontSize: _usePin ? 24 : null,
+                letterSpacing: _usePin ? 8.0 : null,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: _usePin ? TextAlign.center : TextAlign.start,
               decoration: InputDecoration(
-                labelText: 'Password',
+                labelText: _usePin ? 'PIN' : 'Password',
+                hintText: _usePin ? '••••' : null,
                 suffixIcon: IconButton(
                   onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
                   icon: Icon(

@@ -7,6 +7,7 @@ import '../../../core/network/adapter_api_service.dart';
 import '../../../core/network/cpanel_api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/animated_gradient_fill.dart';
+import '../../../shared/utils/app_toast.dart';
 
 class DoorControlSection extends StatelessWidget {
   final List<Map<String, dynamic>> doors;
@@ -31,17 +32,17 @@ class DoorControlSection extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                color: AppTheme.accentGreen,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: AppTheme.accentGreen,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
+              const SizedBox(width: 10),
               Text(
                 'Loading doors...',
                 style: TextStyle(
@@ -52,11 +53,11 @@ class DoorControlSection extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
     if (doors.isEmpty) {
       return Card(
@@ -64,19 +65,19 @@ class DoorControlSection extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Center(
             child: Text(
-            'No doors configured',
-            style: TextStyle(
-              color: isLight
-                  ? AppTheme.lightTextPrimary
-                  : Colors.white.withValues(alpha: 0.65),
-              fontSize: isLight ? 13 : 12,
-              fontWeight: FontWeight.w600,
+              'No doors configured',
+              style: TextStyle(
+                color: isLight
+                    ? AppTheme.lightTextPrimary
+                    : Colors.white.withValues(alpha: 0.65),
+                fontSize: isLight ? 13 : 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -102,7 +103,8 @@ class DoorControlSection extends StatelessWidget {
                   clipBehavior: Clip.none,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (_, i) => SizedBox(
-                    width: (outer.maxWidth - 12) / 2, // 2 visible items at a time
+                    width:
+                        (outer.maxWidth - 12) / 2, // 2 visible items at a time
                     child: tiles[i],
                   ),
                 ),
@@ -117,7 +119,8 @@ class DoorControlSection extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.05,
+                mainAxisExtent:
+                    220, // Fixed card height instead of square aspect ratio
               ),
               itemBuilder: (_, i) => tiles[i],
             );
@@ -211,7 +214,8 @@ class _DoorRowState extends State<_DoorRow> {
                     child: Text(
                       rawName,
                       style: TextStyle(
-                        color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                        color:
+                            isLight ? AppTheme.lightTextPrimary : Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: isLight ? 14 : 13,
                       ),
@@ -228,7 +232,9 @@ class _DoorRowState extends State<_DoorRow> {
               height: isLight ? 40 : 38,
               child: _AnimatedUnlockButton(
                 enabled: enabled,
-                label: isUnlocked ? 'UNLOCKED' : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
+                label: isUnlocked
+                    ? 'UNLOCKED'
+                    : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
                 onPressed: enabled ? () => _doUnlock(id, rawName) : null,
               ),
             ),
@@ -289,41 +295,47 @@ class _DoorTileState extends State<_DoorTile> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: isLight ? const Color(0xFFF1F5F9) : Colors.white.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: isLight
+                    ? const Color(0xFFF1F5F9)
+                    : Colors.white.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: _DoorLockIcon(isUnlocked: isUnlocked, size: 38),
+              ),
             ),
-            child: Center(
-              child: _DoorLockIcon(isUnlocked: isUnlocked),
+            const SizedBox(height: 5),
+            Text(
+              rawName,
+              style: TextStyle(
+                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            rawName,
-            style: TextStyle(
-              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: _AnimatedUnlockButton(
+                enabled: enabled,
+                label: isUnlocked
+                    ? 'UNLOCKED'
+                    : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
+                onPressed: enabled
+                    ? () => _doUnlock(id, widget.door['name']?.toString() ?? '')
+                    : null,
+                pill: true,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: _AnimatedUnlockButton(
-              enabled: enabled,
-              label: isUnlocked ? 'UNLOCKED' : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
-              onPressed: enabled ? () => _doUnlock(id, widget.door['name']?.toString() ?? '') : null,
-              pill: true,
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -372,8 +384,9 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final bg =
-            disabled ? (isLight ? Colors.black : Colors.white).withValues(alpha: 0.10) : null;
+        final bg = disabled
+            ? (isLight ? Colors.black : Colors.white).withValues(alpha: 0.10)
+            : null;
 
         return Material(
           color: Colors.transparent,
@@ -392,14 +405,13 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
                         BoxShadow(
                           // Keep the button glow aligned with the light-mode
                           // Door Access section tint (cyan).
-                          color: const Color(0xFF00A3FF)
-                              .withValues(alpha: 0.16),
+                          color:
+                              const Color(0xFF00A3FF).withValues(alpha: 0.16),
                           blurRadius: 18,
                           spreadRadius: 1,
                         ),
                         BoxShadow(
-                          color: AppTheme.accentGreen
-                              .withValues(alpha: 0.10),
+                          color: AppTheme.accentGreen.withValues(alpha: 0.10),
                           blurRadius: 28,
                           spreadRadius: 6,
                         ),
@@ -431,8 +443,9 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
                             : Colors.white,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
-                        fontSize:
-                            widget.pill ? (isLight ? 15 : 14) : (isLight ? 13 : 12),
+                        fontSize: widget.pill
+                            ? (isLight ? 15 : 14)
+                            : (isLight ? 13 : 12),
                       ),
                     ),
                   ),
@@ -462,6 +475,7 @@ class UnlockDoorSheet extends StatefulWidget {
 
 class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   final _localAuth = LocalAuthentication();
+  final _userCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   final _pwdFocus = FocusNode();
 
@@ -472,17 +486,30 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   bool _deviceAuthSupported = false;
   bool _hasBiometrics = false;
   bool _autoPrompted = false;
+  bool get _isRackConsoleMode =>
+      CpanelApiService.instance.isCurrentSiteRackConsole();
 
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb) {
+    _initUsername();
+    if (!kIsWeb && !_isRackConsoleMode) {
       _checkAndAutoPrompt();
+    }
+  }
+
+  Future<void> _initUsername() async {
+    final portalUsername = await CpanelApiService.instance.getUsername() ?? 'admin';
+    if (mounted) {
+      setState(() {
+        _userCtrl.text = portalUsername;
+      });
     }
   }
 
   @override
   void dispose() {
+    _userCtrl.dispose();
     _pwdCtrl.dispose();
     _pwdFocus.dispose();
     super.dispose();
@@ -561,26 +588,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
       if (res != null && res['success'] == true) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${widget.doorName} unlocked!')),
-        );
+        AppToast.showSuccess(context, '${widget.doorName} unlocked!');
       } else {
         setState(() => _isAuthenticating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Unlock failed. If your session expired, use password.'),
-          ),
-        );
+        AppToast.showError(
+            context, 'Unlock failed. If your session expired, use password.');
       }
     } catch (_) {
       if (!mounted) return;
       setState(() => _isAuthenticating = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Biometric auth failed. Use password instead.'),
-        ),
-      );
+      AppToast.showError(
+          context, 'Biometric auth failed. Use password instead.');
     }
   }
 
@@ -597,28 +615,93 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           : (int.tryParse(site['site_id']?.toString() ?? '') ??
               int.tryParse(site['id']?.toString() ?? ''));
 
+      int? remoteLogOverrideUserId;
       Map<String, dynamic>? res;
-      
-      if (_usePin && AdapterApiService.instance.isConfigured && siteId != null) {
-        // Try PIN unlock
-        res = await AdapterApiService.instance.unlockWithPin(
+
+      if (_isRackConsoleMode) {
+        if (siteId == null) {
+          setState(() => _isAuthenticating = false);
+          AppToast.show(context, 'Site connection required.');
+          return;
+        }
+
+        final pin = _pwdCtrl.text.trim();
+        if (pin.length < 4 || pin.length > 6) {
+          setState(() => _isAuthenticating = false);
+          AppToast.show(context, 'Enter a 4-6 digit PIN.');
+          return;
+        }
+
+        final verifyRes = await CpanelApiService.instance.verifySiteUserPin(
           siteId: siteId,
-          accessId: widget.doorId,
-          pin: _pwdCtrl.text,
+          pin: pin,
         );
-      } else {
-        // Fallback to old password login
-        final username = await ApiService.instance.getUsername() ?? 'admin';
-        final pwd = _pwdCtrl.text;
-        final loginSuccess = await ApiService.instance.login(username, pwd);
         if (!mounted) return;
 
-        if (!loginSuccess) {
-          setState(() => _isAuthenticating = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Incorrect password')),
+        if (verifyRes != null && verifyRes['status'] == 'success') {
+          remoteLogOverrideUserId = verifyRes['user_id'];
+          res = await AdapterApiService.instance.openCloseDoor(
+            siteId: siteId,
+            accessId: widget.doorId,
+            status: 1,
+            accessType: '1',
           );
+          res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+        } else {
+          setState(() => _isAuthenticating = false);
+          AppToast.showError(context, 'Invalid PIN or Access Denied');
           return;
+        }
+      } else if (_usePin) {
+        final pin = _pwdCtrl.text.trim();
+        if (pin.isEmpty) {
+          AppToast.showError(context, 'Please enter PIN');
+          setState(() => _isAuthenticating = false);
+          return;
+        }
+
+        // Strictly verify PIN with our secure CPanel backend
+        final verifyRes = await CpanelApiService.instance.verifyPin(pin);
+        if (!mounted) return;
+
+        if (verifyRes != null && verifyRes['status'] == 'success') {
+          // PIN is securely verified! Now open the door.
+          if (AdapterApiService.instance.isConfigured && siteId != null) {
+            res = await AdapterApiService.instance.openCloseDoor(
+              siteId: siteId,
+              accessId: widget.doorId,
+              status: 1,
+              accessType: '1',
+            );
+          }
+          res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+        } else {
+          setState(() => _isAuthenticating = false);
+          AppToast.showError(context, 'Incorrect PIN');
+          return;
+        }
+      } else {
+        // Try portal password check first
+        final portalUsername = _userCtrl.text.trim();
+        final pwd = _pwdCtrl.text;
+        final loginRes =
+            await CpanelApiService.instance.login(portalUsername, pwd);
+        if (!mounted) return;
+
+        bool loginSuccess = loginRes != null && loginRes['status'] == 'success';
+        if (!loginSuccess) {
+          // Fallback to old password login against physical Dahua
+          final dahuaUsername =
+              await ApiService.instance.getUsername() ?? 'admin';
+          final dahuaLoginSuccess =
+              await ApiService.instance.login(dahuaUsername, pwd);
+          if (!mounted) return;
+
+          if (!dahuaLoginSuccess) {
+            setState(() => _isAuthenticating = false);
+            AppToast.showError(context, 'Incorrect password');
+            return;
+          }
         }
 
         if (AdapterApiService.instance.isConfigured && siteId != null) {
@@ -635,22 +718,24 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
+        if (siteId != null) {
+          CpanelApiService.instance.logRemoteAccess(
+            siteId: siteId,
+            doorId: widget.doorId,
+            overrideUserId: remoteLogOverrideUserId,
+          );
+        }
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${widget.doorName} unlocked!')),
-        );
+        AppToast.showSuccess(context, '${widget.doorName} unlocked!');
       } else {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res?['message'] ?? 'Failed to unlock door via API')),
-        );
+        AppToast.showError(
+            context, res?['message'] ?? 'Failed to unlock door via API');
       }
     } catch (_) {
       if (!mounted) return;
       setState(() => _isAuthenticating = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unlock failed. Try again.')),
-      );
+      AppToast.showError(context, 'Unlock failed. Try again.');
     }
   }
 
@@ -658,8 +743,11 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -667,182 +755,195 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isLight
-                      ? Colors.black.withValues(alpha: 0.16)
-                      : Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'UNLOCK DOOR',
-                  style: TextStyle(
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
                     color: isLight
-                        ? AppTheme.lightTextPrimary
-                        : Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.8)),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _deviceAuthSupported
-                  ? (_hasBiometrics
-                      ? 'Confirm with fingerprint/Face ID, or enter password to unlock ${widget.doorName}'
-                      : 'Confirm with phone PIN, or enter password to unlock ${widget.doorName}')
-                  : 'Please enter password to unlock ${widget.doorName}',
-              style: TextStyle(
-                color: isLight
-                    ? AppTheme.lightTextSecondary
-                    : Colors.white.withValues(alpha: 0.70),
-                fontSize: 12,
-              ),
-            ),
-            if (_deviceAuthSupported) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.fingerprint_rounded, size: 18),
-                label: Text(
-                  _hasBiometrics ? 'Use Fingerprint / Face ID' : 'Use Phone PIN',
-                ),
-                onPressed:
-                    _isAuthenticating ? null : _runDeviceAuthUnlock,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.accentGreen,
-                  side: BorderSide(
-                    color: isLight
-                        ? AppTheme.lightStroke
+                        ? Colors.black.withValues(alpha: 0.16)
                         : Colors.white.withValues(alpha: 0.22),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _usePin ? 'PIN' : 'Password',
-                  style: TextStyle(
-                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'UNLOCK DOOR',
+                    style: TextStyle(
+                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _usePin = !_usePin;
-                      _pwdCtrl.clear();
-                    });
-                  },
-                  child: Text(_usePin ? 'Use Password instead' : 'Use PIN instead'),
-                ),
-              ],
-            ),
-            TextField(
-              controller: _pwdCtrl,
-              focusNode: _pwdFocus,
-              obscureText: _obscurePwd,
-              autofocus: false,
-              keyboardType: _usePin ? TextInputType.number : TextInputType.text,
-              style: TextStyle(
-                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                fontSize: _usePin ? 24 : 16,
-                letterSpacing: _usePin ? 8.0 : null,
+                  IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.8)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              textAlign: _usePin ? TextAlign.center : TextAlign.start,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: isLight
-                    ? const Color(0xFFF3F4F7)
-                    : Colors.white.withValues(alpha: 0.08),
-                hintText: _usePin ? '••••' : 'Password',
-                hintStyle: TextStyle(
+              const SizedBox(height: 10),
+              Text(
+                _isRackConsoleMode
+                    ? 'Enter the approving user PIN to unlock ${widget.doorName} from the Rack Console.'
+                    : _usePin
+                        ? (_deviceAuthSupported
+                            ? 'Confirm with fingerprint/Face ID, or enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}'
+                            : 'Please enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}')
+                        : 'Please enter your account password to unlock ${widget.doorName}',
+                style: TextStyle(
                   color: isLight
                       ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.45),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isLight
-                        ? const Color(0xFFD5DAE2)
-                        : Colors.white.withValues(alpha: 0.18),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isLight
-                        ? const Color(0xFFD5DAE2)
-                        : Colors.white.withValues(alpha: 0.18),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      const BorderSide(color: AppTheme.accentGreen, width: 1.4),
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePwd ? Icons.visibility_off : Icons.visibility,
-                    color: isLight
-                        ? AppTheme.lightTextSecondary
-                        : Colors.white.withValues(alpha: 0.75),
-                  ),
-                  onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
+                      : Colors.white.withValues(alpha: 0.70),
+                  fontSize: 12,
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            if (_isAuthenticating)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: CircularProgressIndicator(color: AppTheme.accentGreen),
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.lock_open_rounded, size: 16),
-                  label: const Text('Unlock Door'),
-                  onPressed: _runPasswordUnlock,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
-                    foregroundColor: Colors.white,
+              if (!_isRackConsoleMode && _deviceAuthSupported) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.fingerprint_rounded, size: 18),
+                  label: Text(
+                    _hasBiometrics
+                        ? 'Use Fingerprint / Face ID'
+                        : 'Use Phone PIN',
+                  ),
+                  onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.accentGreen,
+                    side: BorderSide(
+                      color: isLight
+                          ? AppTheme.lightStroke
+                          : Colors.white.withValues(alpha: 0.22),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                 ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _isRackConsoleMode ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
+                    style: TextStyle(
+                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (!_isRackConsoleMode)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _usePin = !_usePin;
+                          _pwdCtrl.clear();
+                        });
+                      },
+                      child: Text(
+                        _usePin ? 'Use Password' : 'Use PIN',
+                        style: TextStyle(
+                          color: isLight ? AppTheme.accentGreen : Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(height: 8),
+
+              TextField(
+                controller: _pwdCtrl,
+                focusNode: _pwdFocus,
+                obscureText: _obscurePwd,
+                autofocus: false,
+                keyboardType:
+                    _usePin ? TextInputType.number : TextInputType.text,
+                style: TextStyle(
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  fontSize: _usePin ? 24 : 16,
+                  letterSpacing: _usePin ? 8.0 : null,
+                ),
+                textAlign: _usePin ? TextAlign.center : TextAlign.start,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: isLight
+                      ? const Color(0xFFF3F4F7)
+                      : Colors.white.withValues(alpha: 0.08),
+                  hintText: _usePin ? '••••' : 'Password',
+                  hintStyle: TextStyle(
+                    color: isLight
+                        ? AppTheme.lightTextSecondary
+                        : Colors.white.withValues(alpha: 0.45),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: isLight
+                          ? const Color(0xFFD5DAE2)
+                          : Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: isLight
+                          ? const Color(0xFFD5DAE2)
+                          : Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                        color: AppTheme.accentGreen, width: 1.4),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePwd ? Icons.visibility_off : Icons.visibility,
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.75),
+                    ),
+                    onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (_isAuthenticating)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child:
+                        CircularProgressIndicator(color: AppTheme.accentGreen),
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.lock_open_rounded, size: 16),
+                    label: const Text('Unlock Door'),
+                    onPressed: _runPasswordUnlock,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -850,24 +951,25 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
 class _DoorLockIcon extends StatelessWidget {
   final bool isUnlocked;
-  const _DoorLockIcon({required this.isUnlocked});
+  final double size;
+  const _DoorLockIcon({required this.isUnlocked, this.size = 28});
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return AnimatedSwitcher(
-       duration: const Duration(milliseconds: 300),
-       transitionBuilder: (child, animation) {
-         return ScaleTransition(scale: animation, child: child);
-       },
-       child: Icon(
-         isUnlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
-         key: ValueKey(isUnlocked),
-         size: 28,
-         color: isUnlocked
-             ? AppTheme.accentGreen
-             : (isLight ? AppTheme.lightTextSecondary : Colors.white54),
-       ),
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, animation) {
+        return ScaleTransition(scale: animation, child: child);
+      },
+      child: Icon(
+        isUnlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+        key: ValueKey(isUnlocked),
+        size: size,
+        color: isUnlocked
+            ? AppTheme.accentGreen
+            : (isLight ? AppTheme.lightTextSecondary : Colors.white54),
+      ),
     );
   }
 }

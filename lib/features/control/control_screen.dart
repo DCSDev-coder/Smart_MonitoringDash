@@ -7,10 +7,12 @@ import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../../shared/widgets/dashboard_glass.dart';
+import '../../shared/widgets/kiosk_user_pin_sheet.dart';
 import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../shared/utils/app_toast.dart';
 
 class ControlScreen extends StatefulWidget {
   final bool isActive;
@@ -84,8 +86,10 @@ class _ControlScreenState extends State<ControlScreen>
 
   Future<void> _fetchAll() async {
     try {
-      final pdu1Res = await _fetchNodeWithMetricPreferAdapter(_pdu1NodeId);
-      final pdu2Res = await _fetchNodeWithMetricPreferAdapter(_pdu2NodeId);
+      final pdu1Node =
+          await _fetchNodeSnapshot(_pdu1NodeId, fallbackName: 'PDU 1');
+      final pdu2Node =
+          await _fetchNodeSnapshot(_pdu2NodeId, fallbackName: 'PDU 2');
       final acRes = await _discoverAndFetchAc();
 
       // Diagnostics: AC values sometimes live in unexpected fields on some vendor builds.
@@ -114,8 +118,8 @@ class _ControlScreenState extends State<ControlScreen>
 
       if (!mounted) return;
       setState(() {
-        _pdu1 = _NodeMetrics.fromApi(pdu1Res);
-        _pdu2 = _NodeMetrics.fromApi(pdu2Res);
+        _pdu1 = pdu1Node;
+        _pdu2 = pdu2Node;
         _ac = acRes;
         _loading = false;
       });
@@ -125,7 +129,8 @@ class _ControlScreenState extends State<ControlScreen>
     }
   }
 
-  Future<Map<String, dynamic>?> _fetchNodeWithMetricPreferAdapter(int nodeId) async {
+  Future<Map<String, dynamic>?> _fetchNodeWithMetricPreferAdapter(
+      int nodeId) async {
     final site = CpanelApiService.instance.currentSite;
     final siteId = site == null
         ? null
@@ -140,50 +145,101 @@ class _ControlScreenState extends State<ControlScreen>
     return ApiService.instance.fetchNodeWithMetric(nodeId);
   }
 
-  Future<_NodeMetrics?> _discoverAndFetchAc() async {
-    // We can’t hardcode AC node id reliably. Try to discover it from the same
-    // endpoint the vendor uses for the Power Environment list.
-    //
-    // If this doesn’t find AC in your deployment, we’ll need an HAR capture
-    // of the AC control page to identify the correct node id + metric codes.
+  Future<_NodeMetrics?> _fetchNodeMetricsFallback(
+    int nodeId, {
+    String? fallbackName,
+  }) async {
     try {
-      // In vendor deployments the name is often just "AC" (uppercase), but the
-      // backend "like" filter appears case-sensitive in some environments.
-      // We prefer a lower-case wildcard and fall back if needed.
-      var list = await ApiService.instance.fetchPowerEnvNodes(name: '*ac*');
-      final recordsTry1 = (list?['result']?['records'] as List?) ?? const [];
-      if (recordsTry1.isEmpty) {
-        list = await ApiService.instance.fetchPowerEnvNodes(name: '*AC*');
-      }
-      final records = (list?['result']?['records'] as List?) ?? const [];
-      final candidates = <Map<String, dynamic>>[];
-      for (final r in records) {
-        if (r is! Map) continue;
-        candidates.add(r.cast<String, dynamic>());
-      }
-
-      // Pick the “most AC-like” record.
-      candidates.sort((a, b) => _acScore(b).compareTo(_acScore(a)));
-      final pick = candidates.isEmpty ? null : candidates.first;
-      final id = pick?['id'];
-      final nodeId =
-          (id is num) ? id.toInt() : int.tryParse(id?.toString() ?? '');
-      // ACSetup.har confirms AC can be nodeId=17 on at least one deployment.
-      final resolvedNodeId = nodeId ?? 17;
-
-      final res = await ApiService.instance.fetchNodeWithMetric(resolvedNodeId);
-      final node = _NodeMetrics.fromApi(res);
-      if (node == null) {
-        _acHint = 'AC metrics unavailable (node $resolvedNodeId).';
-      }
-      return node;
+      final res = await ApiService.instance.fetchNodeMetrics(nodeId);
+      return _NodeMetrics.fromMetricList(
+        res,
+        fallbackNodeId: nodeId,
+        fallbackName: fallbackName,
+      );
     } catch (_) {
-      // ACSetup.har confirms AC can be nodeId=17 on at least one deployment.
-      try {
-        final res = await ApiService.instance.fetchNodeWithMetric(17);
-        final node = _NodeMetrics.fromApi(res);
-        if (node != null) return node;
-      } catch (_) {}
+      return null;
+    }
+  }
+
+  Future<_NodeMetrics?> _fetchNodeSnapshot(
+    int nodeId, {
+    String? fallbackName,
+  }) async {
+    final primary = _NodeMetrics.fromApi(
+      await _fetchNodeWithMetricPreferAdapter(nodeId),
+    );
+    if (primary != null && primary.rows.isNotEmpty) {
+      return primary;
+    }
+
+    final fallback = await _fetchNodeMetricsFallback(
+      nodeId,
+      fallbackName: fallbackName,
+    );
+    if (fallback != null && fallback.rows.isNotEmpty) {
+      return fallback;
+    }
+
+    return primary ?? fallback;
+  }
+
+  Future<_NodeMetrics?> _discoverAndFetchAc() async {
+    try {
+      final candidates = <Map<String, dynamic>>[];
+      final seenIds = <int>{};
+
+      Future<void> collectCandidates(String? name) async {
+        final list = await ApiService.instance.fetchPowerEnvNodes(
+          name: name,
+          pageSize: 100,
+        );
+        final records = (list?['result']?['records'] as List?) ?? const [];
+        for (final r in records) {
+          if (r is! Map) continue;
+          final item = r.cast<String, dynamic>();
+          final id = item['id'];
+          final nodeId =
+              (id is num) ? id.toInt() : int.tryParse(id?.toString() ?? '');
+          if (nodeId == null || !seenIds.add(nodeId)) continue;
+          candidates.add(item);
+        }
+      }
+
+      await collectCandidates('*ac*');
+      await collectCandidates('*AC*');
+      await collectCandidates(null);
+
+      candidates.sort((a, b) => _acScore(b).compareTo(_acScore(a)));
+      for (final pick in candidates) {
+        final id = pick['id'];
+        final nodeId =
+            (id is num) ? id.toInt() : int.tryParse(id?.toString() ?? '');
+        if (nodeId == null) continue;
+
+        final node = await _fetchNodeSnapshot(
+          nodeId,
+          fallbackName: pick['name']?.toString(),
+        );
+        if (node != null && node.rows.isNotEmpty) {
+          _acHint = node.rows.any((row) => row.write)
+              ? null
+              : 'AC status is available, but this device exposes read-only metrics only.';
+          return node;
+        }
+      }
+
+      final legacyNode = await _fetchNodeSnapshot(17, fallbackName: 'AC');
+      if (legacyNode != null && legacyNode.rows.isNotEmpty) {
+        _acHint = legacyNode.rows.any((row) => row.write)
+            ? 'AC loaded from legacy fallback node 17.'
+            : 'AC status is available from legacy node 17, but controls are read-only.';
+        return legacyNode;
+      }
+
+      _acHint =
+          'AC discovery failed. Ensure the AC device is configured in the vendor system.';
+      return null;
+    } catch (_) {
       _acHint =
           'AC discovery failed. Ensure the AC device is configured in the vendor system.';
       return null;
@@ -192,13 +248,20 @@ class _ControlScreenState extends State<ControlScreen>
 
   int _acScore(Map<String, dynamic> r) {
     final name = (r['name'] ?? '').toString().toLowerCase();
-    final type =
-        (r['nodeTypeCode'] ?? r['nodeTypeName'] ?? '').toString().toLowerCase();
+    final typeName = (r['nodeTypeName'] ?? '').toString().toLowerCase();
+    final typeCode = (r['nodeTypeCode'] ?? '').toString().toLowerCase();
+    final typeId = int.tryParse(r['nodeTypeId']?.toString() ?? '');
     int s = 0;
-    if (name.contains('ac')) s += 10;
-    if (name.contains('air')) s += 5;
-    if (type.contains('ac')) s += 10;
-    if (type.contains('air')) s += 6;
+    if (typeId == 15) s += 40;
+    if (name == 'ac') s += 20;
+    if (name.contains(' ac')) s += 16;
+    if (name.contains('ac')) s += 12;
+    if (name.contains('air')) s += 8;
+    if (typeName == 'ac') s += 25;
+    if (typeName.contains('ac')) s += 14;
+    if (typeName.contains('air')) s += 8;
+    if (typeCode.contains('ac')) s += 12;
+    if (typeCode.contains('air')) s += 6;
     return s;
   }
 
@@ -211,14 +274,7 @@ class _ControlScreenState extends State<ControlScreen>
 
   void _toast(String msg) {
     if (!mounted) return;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: isLight ? Colors.white : const Color(0xFF0E141B),
-      ),
-    );
+    AppToast.show(context, msg);
   }
 
   @override
@@ -290,7 +346,9 @@ class _ControlScreenState extends State<ControlScreen>
                           ? _tableSkeleton()
                           : _nodeTable(node, hint: hint),
 
-                      SizedBox(height: AppSpacing.pageBottom(context)), // Bottom padding
+                      SizedBox(
+                          height:
+                              AppSpacing.pageBottom(context)), // Bottom padding
                     ],
                   ),
                 ),
@@ -398,31 +456,30 @@ class _ControlScreenState extends State<ControlScreen>
         onTap: () => _selectTab(s),
         behavior: HitTestBehavior.opaque,
         child: Center(
-            child: AnimatedBuilder(
-              animation: _tabSelC,
-              builder: (context, _) {
-                final t = _tabSelC.value.clamp(0.0, 2.0);
-                final selectedness =
-                    (1.0 - (t - s.index).abs()).clamp(0.0, 1.0).toDouble();
-                final isLight =
-                    Theme.of(context).brightness == Brightness.light;
-                const selectedColor = Colors.white;
-                final unselectedColor = isLight
-                    ? AppTheme.lightTextSecondary.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.5);
-                return Text(
-                  label,
-                  style: TextStyle(
-                    color: Color.lerp(
-                        unselectedColor, selectedColor, selectedness),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.8,
-                  ),
-                );
-              },
-            ),
+          child: AnimatedBuilder(
+            animation: _tabSelC,
+            builder: (context, _) {
+              final t = _tabSelC.value.clamp(0.0, 2.0);
+              final selectedness =
+                  (1.0 - (t - s.index).abs()).clamp(0.0, 1.0).toDouble();
+              final isLight = Theme.of(context).brightness == Brightness.light;
+              const selectedColor = Colors.white;
+              final unselectedColor = isLight
+                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.5);
+              return Text(
+                label,
+                style: TextStyle(
+                  color:
+                      Color.lerp(unselectedColor, selectedColor, selectedness),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              );
+            },
           ),
+        ),
       ),
     );
   }
@@ -448,6 +505,7 @@ class _ControlScreenState extends State<ControlScreen>
   Widget _nodeTable(_NodeMetrics? node, {String? hint}) {
     final rows = node?.rows ?? const <_MetricRow>[];
     final writable = rows.where((r) => r.write).toList();
+    final visibleRows = writable.isNotEmpty ? writable : rows;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,7 +523,9 @@ class _ControlScreenState extends State<ControlScreen>
           ),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.light ? Colors.white : Theme.of(context).cardTheme.color,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.white
+                : Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(24),
             boxShadow: Theme.of(context).brightness == Brightness.light
                 ? [
@@ -482,19 +542,19 @@ class _ControlScreenState extends State<ControlScreen>
             padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: writable.length,
+            itemCount: visibleRows.length,
             separatorBuilder: (_, __) => Padding(
               padding: const EdgeInsets.only(left: 16, right: 16),
               child: Divider(
                 height: 1,
                 thickness: 1,
-                color: Theme.of(context).brightness == Brightness.light 
-                    ? Colors.black.withValues(alpha: 0.05) 
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black.withValues(alpha: 0.05)
                     : Colors.white.withValues(alpha: 0.05),
               ),
             ),
             itemBuilder: (context, idx) {
-              final r = writable[idx];
+              final r = visibleRows[idx];
               return _metricTile(
                 title: r.name,
                 value: r.displayValue,
@@ -508,7 +568,21 @@ class _ControlScreenState extends State<ControlScreen>
             },
           ),
         ),
-        if (writable.isEmpty)
+        if (rows.isNotEmpty && writable.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 14, left: 4),
+            child: Text(
+              'This device is reporting status only. No writable controls were exposed by the rack API.',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppTheme.lightTextSecondary
+                    : Colors.white.withValues(alpha: 0.5),
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        if (rows.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 24),
             child: Center(
@@ -536,17 +610,18 @@ class _ControlScreenState extends State<ControlScreen>
     required String title,
     required String value,
     required String unit,
-    required String time, // Time is kept in signature but not displayed per request
+    required String
+        time, // Time is kept in signature but not displayed per request
     required bool canSet,
     required VoidCallback? onSet,
   }) {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
     final textColor = isLight ? Colors.black : Colors.white;
-    final subtitleColor = isLight 
-        ? Colors.black.withValues(alpha: 0.6) 
+    final subtitleColor = isLight
+        ? Colors.black.withValues(alpha: 0.6)
         : Colors.white.withValues(alpha: 0.6);
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -741,78 +816,86 @@ class _ControlScreenState extends State<ControlScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return DashboardGlass(
-          radius: 22,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          tint: Theme.of(context).brightness == Brightness.light
-              ? Colors.white
-              : const Color(0xFF0E141B).withValues(alpha: 0.96),
-          borderColor: Theme.of(context).brightness == Brightness.light
-              ? AppTheme.lightStroke
-              : Colors.transparent,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Align(
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(2),
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
+          child: DashboardGlass(
+            radius: 22,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            tint: Theme.of(context).brightness == Brightness.light
+                ? Colors.white
+                : const Color(0xFF0E141B).withValues(alpha: 0.96),
+            borderColor: Theme.of(context).brightness == Brightness.light
+                ? AppTheme.lightStroke
+                : Colors.transparent,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Align(
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(row.name,
-                          style: TextStyle(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.light
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                              fontWeight: FontWeight.w900)),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(row.name,
+                            style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? AppTheme.lightTextPrimary
+                                    : Colors.white,
+                                fontWeight: FontWeight.w900)),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? AppTheme.lightTextPrimary
+                                    : Colors.white70),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  Text('Current: ${row.displayValue}',
+                      style: TextStyle(
                           color:
                               Theme.of(context).brightness == Brightness.light
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white70),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                Text('Current: ${row.displayValue}',
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.7))),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    for (final o in options)
-                      _chip(
-                        label: o.value.trim(),
-                        active: row.currentIntValue == o.key,
-                        onTap: () => _confirmAndWrite(
-                            nodeId: nodeId,
-                            metricCode: row.metricCode,
-                            value: o.key,
-                            closeAfterWrite: true),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 60), // Pushes the options higher
-              ],
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white.withValues(alpha: 0.7))),
+                  const SizedBox(height: 18),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final o in options)
+                        _chip(
+                          label: o.value.trim(),
+                          active: row.currentIntValue == o.key,
+                          onTap: () => _confirmAndWrite(
+                              nodeId: nodeId,
+                              metricCode: row.metricCode,
+                              value: o.key,
+                              closeAfterWrite: true),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 60), // Pushes the options higher
+                ],
+              ),
             ),
           ),
         );
@@ -924,24 +1007,52 @@ class _ControlScreenState extends State<ControlScreen>
     if (!mounted) return;
     if (ok != true) return;
 
-    final authorized = await SecureActionGuard.ensureAuthorized(
-      context,
-      reason: 'Confirm to apply control setting',
-      ttl: const Duration(seconds: 30),
-    );
-    if (!mounted) return;
-    if (!authorized) return;
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = site == null
+        ? null
+        : (int.tryParse(site['site_id']?.toString() ?? '') ??
+            int.tryParse(site['id']?.toString() ?? ''));
+    final isRackConsoleMode =
+        CpanelApiService.instance.isCurrentSiteRackConsole(site);
+
+    RackConsoleApprovalResult? rackConsoleApproval;
+    if (isRackConsoleMode) {
+      rackConsoleApproval = await RackConsoleUserPinSheet.show(
+        context,
+        title: 'RACK CONSOLE CONTROL APPROVAL',
+        reason:
+            'Enter the approving user PIN to apply this control setting from the Rack Console.',
+        confirmLabel: 'Approve and Apply',
+      );
+      if (!mounted) return;
+      if (rackConsoleApproval == null) return;
+      if (!AdapterApiService.instance.isConfigured || siteId == null) {
+        _toast('Rack Console PIN control requires the adapter connection.');
+        return;
+      }
+    } else {
+      final authorized = await SecureActionGuard.ensureAuthorized(
+        context,
+        reason: 'Confirm to apply control setting',
+        ttl: const Duration(seconds: 30),
+        allowPin: true,
+      );
+      if (!mounted) return;
+      if (!authorized) return;
+    }
 
     setState(() => _writing = true);
     try {
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
-
       Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
+      if (isRackConsoleMode && siteId != null && rackConsoleApproval != null) {
+        res = await AdapterApiService.instance.writeNodeMetricWithUserPin(
+          siteId: siteId,
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: value,
+          pin: rackConsoleApproval.pin,
+        );
+      } else if (AdapterApiService.instance.isConfigured && siteId != null) {
         res = await AdapterApiService.instance.writeNodeMetric(
           siteId: siteId,
           nodeId: nodeId,
@@ -949,8 +1060,10 @@ class _ControlScreenState extends State<ControlScreen>
           value: value,
         );
       }
-      res ??= await ApiService.instance.writeNodeMetric(
-          nodeId: nodeId, metricTypeLibCode: metricCode, value: value);
+      if (!isRackConsoleMode) {
+        res ??= await ApiService.instance.writeNodeMetric(
+            nodeId: nodeId, metricTypeLibCode: metricCode, value: value);
+      }
 
       // Helpful diagnostics: vendor sometimes returns HTTP 200 with success=false
       // or a message indicating the device is offline/uncontrollable.
@@ -1080,6 +1193,29 @@ class _NodeMetrics {
       rows.add(_MetricRow.fromMetric(m.cast<String, dynamic>()));
     }
     return _NodeMetrics(id: id, name: name, rows: rows);
+  }
+
+  static _NodeMetrics? fromMetricList(
+    Map<String, dynamic>? res, {
+    required int fallbackNodeId,
+    String? fallbackName,
+  }) {
+    if (res == null) return null;
+    final r = res['result'];
+    if (r is! Map) return null;
+    final metrics = (r['records'] as List?) ?? const [];
+    final rows = <_MetricRow>[];
+    for (final m in metrics) {
+      if (m is! Map) continue;
+      rows.add(_MetricRow.fromMetric(m.cast<String, dynamic>()));
+    }
+    return _NodeMetrics(
+      id: fallbackNodeId,
+      name: fallbackName?.trim().isNotEmpty == true
+          ? fallbackName!.trim()
+          : 'Node $fallbackNodeId',
+      rows: rows,
+    );
   }
 }
 

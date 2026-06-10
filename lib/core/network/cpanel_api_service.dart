@@ -82,6 +82,24 @@ class CpanelApiService {
     return h;
   }
 
+  bool isTruthyFlag(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+
+    final normalized = value.toString().trim().toLowerCase();
+    return normalized == '1' || normalized == 'true' || normalized == 'yes';
+  }
+
+  bool isCurrentSiteKiosk([Map<String, dynamic>? site]) {
+    final target = site ?? currentSite;
+    return isTruthyFlag(target?['is_kiosk']);
+  }
+
+  bool isCurrentSiteRackConsole([Map<String, dynamic>? site]) {
+    return isCurrentSiteKiosk(site);
+  }
+
   Future<String?> getUsername() async {
     if (_portalUsername != null && _portalUsername!.isNotEmpty) {
       return _portalUsername;
@@ -115,23 +133,21 @@ class CpanelApiService {
         AppLog.d('[CpanelApi] Attempting login for: $username');
       }
       // ... existing code ...
-      final response = await http
-          .post(
-            Uri.parse("$baseUrl?action=login"),
-            // Use form-encoded body for maximum compatibility with PHP/cPanel
-            // backends (which often read `$_POST` rather than JSON input).
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: <String, String>{
-              "action": "login",
-              "username": username,
-              "password": password,
-              // Many PHP backends treat this as a truthy "1"/"0" string.
-              "remember_me": rememberMe ? "1" : "0",
-            },
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await http.post(
+        Uri.parse("$baseUrl?action=login"),
+        // Use form-encoded body for maximum compatibility with PHP/cPanel
+        // backends (which often read `$_POST` rather than JSON input).
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: <String, String>{
+          "action": "login",
+          "username": username,
+          "password": password,
+          // Many PHP backends treat this as a truthy "1"/"0" string.
+          "remember_me": rememberMe ? "1" : "0",
+        },
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -141,7 +157,8 @@ class CpanelApiService {
           if (token != null && token.isNotEmpty) {
             _portalAuthToken = token;
             if (kDebugMode) {
-              final prefix = token.length <= 16 ? token : token.substring(0, 16);
+              final prefix =
+                  token.length <= 16 ? token : token.substring(0, 16);
               AppLog.d(
                 '[CpanelApi] Portal token set (masked)',
                 fields: {'prefix': prefix, 'length': token.length},
@@ -184,22 +201,76 @@ class CpanelApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> verifyPin(String pin) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=verify_pin"),
+            headers: _authHeaders(extra: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            }),
+            body: jsonEncode({
+              "action": "verify_pin",
+              "pin": pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data is Map<String, dynamic> ? data : null;
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('verifyPin error', tag: 'CpanelApi', error: e);
+      }
+      return null;
+    }
+  }
+
+  Future<bool> setPin(String pin) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=set_pin"),
+            headers: _authHeaders(extra: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            }),
+            body: jsonEncode({
+              "action": "set_pin",
+              "pin": pin,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data is Map<String, dynamic> && data['status'] == 'success';
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('setPin error', tag: 'CpanelApi', error: e);
+      }
+      return false;
+    }
+  }
+
   String _friendlyConnectionError(Object error, {required String url}) {
     final msg = error.toString();
     if (msg.contains('Failed host lookup')) {
-      return 'Connection error: Failed to resolve server host. '
-          'Check DNS/VPN/Internet, or update CPANEL_BASE_URL. '
-          '(Request: $url)';
+      return 'Connection Error: Unable to resolve server hostname. Please verify your internet connection.';
     }
     if (error is SocketException) {
-      return 'Connection error: Network socket error. Check Internet/VPN/DNS. '
-          '(Request: $url)';
+      return 'Connection Error: Unable to reach the server. Please verify your network connection.';
     }
     if (msg.contains('timed out') || msg.contains('TimeoutException')) {
-      return 'Connection error: Request timed out. Check Internet/server. '
-          '(Request: $url)';
+      return 'Connection Error: The request timed out. The server might be busy or offline.';
     }
-    return 'Connection error: $error';
+    return 'Connection Error: An unexpected network error occurred.';
   }
 
   Future<List<dynamic>> fetchUserSites() async {
@@ -388,14 +459,102 @@ class CpanelApiService {
     return null;
   }
 
+  Future<Map<String, dynamic>?> fetchSiteControlPresets({
+    required int siteId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=get_site_control_presets"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "get_site_control_presets",
+              "site_id": siteId,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Fetch site control presets error',
+            tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> saveSiteControlPreset({
+    required int siteId,
+    required String presetKey,
+    required String adminPassword,
+    required List<Map<String, dynamic>> values,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=save_site_control_preset"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "save_site_control_preset",
+              "site_id": siteId,
+              "preset_key": presetKey,
+              "admin_password": adminPassword,
+              "values": values,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Save site control preset error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> setDefaultSiteControlPreset({
+    required int siteId,
+    required String presetKey,
+    required String adminPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=set_default_site_control_preset"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "set_default_site_control_preset",
+              "site_id": siteId,
+              "preset_key": presetKey,
+              "admin_password": adminPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Set default site control preset error',
+            tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
   Map<String, dynamic> mergeSiteWithAppConfig(
     Map<String, dynamic> site,
     Map<String, dynamic>? appConfigEnvelope,
   ) {
     if (appConfigEnvelope == null) return Map<String, dynamic>.from(site);
 
-    final cfgRaw =
-        appConfigEnvelope['config'] ?? appConfigEnvelope['result'] ?? appConfigEnvelope;
+    final cfgRaw = appConfigEnvelope['config'] ??
+        appConfigEnvelope['result'] ??
+        appConfigEnvelope;
     if (cfgRaw is! Map) return Map<String, dynamic>.from(site);
     final cfg = Map<String, dynamic>.from(cfgRaw);
 
@@ -426,8 +585,9 @@ class CpanelApiService {
 
     try {
       final membersRes = await fetchSiteMembers(siteId: siteId);
-      final members =
-          (membersRes?['members'] is List) ? (membersRes!['members'] as List) : null;
+      final members = (membersRes?['members'] is List)
+          ? (membersRes!['members'] as List)
+          : null;
       if (members == null || members.isEmpty) {
         return Map<String, dynamic>.from(site);
       }
@@ -466,7 +626,9 @@ class CpanelApiService {
 
       final merged = Map<String, dynamic>.from(site);
       for (final entry in matched.entries) {
-        if (entry.key == 'role' || entry.key.startsWith('can_')) {
+        if (entry.key == 'role' ||
+            entry.key == 'is_kiosk' ||
+            entry.key.startsWith('can_')) {
           merged[entry.key] = entry.value;
         }
       }
@@ -571,7 +733,6 @@ class CpanelApiService {
     required String adminUsername,
     required String adminPassword,
     required String newUsername,
-    required String newPassword,
     required String role,
     required Map<String, dynamic> permissions,
   }) async {
@@ -586,7 +747,6 @@ class CpanelApiService {
               "admin_username": adminUsername,
               "admin_password": adminPassword,
               "new_username": newUsername,
-              "new_password": newPassword,
               "role": role,
               "permissions": permissions,
             }),
@@ -598,6 +758,33 @@ class CpanelApiService {
     } catch (e) {
       if (kDebugMode) {
         AppLog.w('Create site user error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> setupFirstPassword({
+    required String username,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=setup_first_password"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "action": "setup_first_password",
+              "username": username,
+              "new_password": newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Setup first password error', tag: 'CpanelApi', error: e);
       }
     }
     return null;
@@ -717,6 +904,108 @@ class CpanelApiService {
     return false;
   }
 
+  Future<Map<String, dynamic>?> verifySiteUserPin({
+    required int siteId,
+    required String pin,
+    String actionType = 'door_unlock',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=verify_site_user_pin"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({
+              "action": "verify_site_user_pin",
+              "site_id": siteId,
+              "pin": pin,
+              "action_type": actionType,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('verifySiteUserPin error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+
+
+  Future<bool> logRemoteAccess({
+    required int siteId,
+    required int doorId,
+    int? overrideUserId,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        "action": "log_remote_access",
+        "site_id": siteId,
+        "door_id": doorId,
+      };
+      if (overrideUserId != null) {
+        body["override_user_id"] = overrideUserId;
+      }
+
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=log_remote_access"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded['status'] == 'success';
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('logRemoteAccess error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return false;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchRemoteAccessLogs({
+    required int siteId,
+    int? startTime,
+    int? endTime,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        "action": "get_remote_access_logs",
+        "site_id": siteId,
+      };
+      if (startTime != null) body["start_time"] = startTime;
+      if (endTime != null) body["end_time"] = endTime;
+
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=get_remote_access_logs"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['status'] == 'success' && decoded['logs'] is List) {
+          return List<Map<String, dynamic>>.from(decoded['logs']);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('fetchRemoteAccessLogs error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>?> uploadLogo({
     required int siteId,
     required String filePath,
@@ -736,7 +1025,7 @@ class CpanelApiService {
 
       // Add auth headers
       request.headers.addAll(_authHeaders());
-      
+
       // Add fields
       request.fields['action'] = 'upload_logo';
       request.fields['site_id'] = siteId.toString();
@@ -749,13 +1038,15 @@ class CpanelApiService {
       );
       request.files.add(file);
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (kDebugMode) {
-          AppLog.d('Upload result', tag: 'CpanelApi', fields: {'status': '$data'});
+          AppLog.d('Upload result',
+              tag: 'CpanelApi', fields: {'status': '$data'});
         }
         return data;
       }

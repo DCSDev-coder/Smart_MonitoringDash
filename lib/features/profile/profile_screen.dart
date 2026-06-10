@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
@@ -10,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass_confirm_dialog.dart';
 import '../../shared/widgets/reset_password_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
+import '../../shared/utils/app_toast.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -65,7 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final media = MediaQuery.of(context);
     final screenW = media.size.width;
     final uiScale = screenW >= 900 ? (screenW / 1150).clamp(1.0, 1.25) : 1.0;
- 
+
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
       child: Scaffold(
@@ -76,122 +75,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
               maxWidth: screenW >= 800 ? screenW * 0.5 : double.infinity,
             ),
             child: ListView(
-              padding: EdgeInsets.fromLTRB(24, AppConstants.headerClearance(context), 24, 24),
-            children: [
-              // Profile Header
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentGreen.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.accentGreen, width: 2),
+              padding: EdgeInsets.fromLTRB(
+                  24, AppConstants.headerClearance(context), 24, 24),
+              children: [
+                // Profile Header
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGreen.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                          border:
+                              Border.all(color: AppTheme.accentGreen, width: 2),
+                        ),
+                        child: const Icon(Icons.person_rounded,
+                            size: 50, color: AppTheme.accentGreen),
                       ),
-                      child: const Icon(Icons.person_rounded, size: 50, color: AppTheme.accentGreen),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _username?.toUpperCase() ?? 'ADMIN',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                        letterSpacing: 1.1,
+                      const SizedBox(height: 16),
+                      Text(
+                        _username?.toUpperCase() ?? 'ADMIN',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 1.1,
+                        ),
                       ),
-                    ),
-                    const Text(
-                      'System Specialist',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-                    ),
-                  ],
+                      const Text(
+                        'System Specialist',
+                        style: TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 48),
-    
-              // Account Section
-              _sectionLabel('ACCOUNT'),
-              const SizedBox(height: 12),
-              // Debug-only tool: opt-in via --dart-define=ENABLE_DEBUG_TOKEN_COPY=true
-              if (kDebugMode &&
-                  const bool.fromEnvironment(
-                    'ENABLE_DEBUG_TOKEN_COPY',
-                    defaultValue: false,
-                  )) ...[
-                Builder(builder: (context) {
-                  final token =
-                      CpanelApiService.instance.getAuthTokenInMemory() ?? '';
-                  if (token.isEmpty) {
-                    return _buildProfileTile(
-                      icon: Icons.vpn_key_rounded,
-                      title: 'Portal Token (Debug)',
-                      subtitle: 'Sign in first to enable copying',
-                      trailing: const Icon(Icons.info_outline_rounded,
-                          color: AppTheme.textSecondary),
-                    );
-                  }
-                  final prefix =
-                      token.length <= 16 ? token : token.substring(0, 16);
-                  return _buildProfileTile(
-                    icon: Icons.vpn_key_rounded,
-                    title: 'Portal Token (Debug)',
-                    subtitle: '$prefix… (${token.length})',
-                    trailing: TextButton(
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: token));
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Portal token copied to clipboard.'),
-                          ),
-                        );
-                      },
-                      child: const Text('Copy'),
-                    ),
-                  );
-                }),
+                const SizedBox(height: 48),
+
+                // Account Section
+                _sectionLabel('ACCOUNT'),
                 const SizedBox(height: 12),
-              ],
-              if (_canManageUsers) ...[
+                if (_canManageUsers) ...[
+                  _buildProfileTile(
+                    icon: Icons.group_add_outlined,
+                    title: 'Manage Users',
+                    subtitle: 'Create site sub-users and set permissions',
+                    onTap: () => Navigator.pushNamed(context, '/manage_users'),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _buildProfileTile(
-                  icon: Icons.group_add_outlined,
-                  title: 'Manage Users',
-                  subtitle: 'Create site sub-users and set permissions',
-                  onTap: () => Navigator.pushNamed(context, '/manage_users'),
+                  icon: Icons.password_rounded,
+                  title: 'Reset Password',
+                  subtitle: 'Change your account password',
+                  onTap: () => _handleChangePassword(context),
                 ),
                 const SizedBox(height: 12),
+                _buildProfileTile(
+                  icon: Icons.dialpad_rounded,
+                  title: 'Set Door Access PIN',
+                  subtitle: 'Update your 4-digit PIN for Smart Rack unlock',
+                  onTap: () => _handleSetPin(context),
+                ),
+                const SizedBox(height: 12),
+                _buildProfileTile(
+                  icon: Icons.logout_rounded,
+                  title: 'Sign Out',
+                  subtitle: 'Securely end your session',
+                  textColor: AppTheme.statusError,
+                  iconColor: AppTheme.statusError,
+                  onTap: () => _handleLogout(context),
+                ),
               ],
-              _buildProfileTile(
-                icon: Icons.password_rounded,
-                title: 'Reset Password',
-                subtitle: 'Change your account password',
-                onTap: () => _handleChangePassword(context),
-              ),
-              const SizedBox(height: 12),
-              _buildProfileTile(
-                icon: Icons.dialpad_rounded,
-                title: 'Set Door Access PIN',
-                subtitle: 'Update your 4-digit PIN for Smart Rack unlock',
-                onTap: () => _handleSetPin(context),
-              ),
-              const SizedBox(height: 12),
-              _buildProfileTile(
-                icon: Icons.logout_rounded,
-                title: 'Sign Out',
-                subtitle: 'Securely end your session',
-                textColor: AppTheme.statusError,
-                iconColor: AppTheme.statusError,
-                onTap: () => _handleLogout(context),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _sectionLabel(String label) {
     return Text(
@@ -219,7 +182,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: AppTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -248,7 +212,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           subtitle,
           style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
-        trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+        trailing: trailing ??
+            const Icon(Icons.chevron_right_rounded,
+                color: AppTheme.textSecondary),
       ),
     );
   }
@@ -276,9 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleChangePassword(BuildContext context) async {
     final username = _username;
     if (username == null || username.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User profile is not loaded yet.')),
-      );
+      AppToast.show(context, 'User profile is not loaded yet.');
       return;
     }
 
@@ -307,11 +271,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (pin != null && pin.length >= 4 && context.mounted) {
       final success = await AdapterApiService.instance.setPin(pin);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? 'Door Access PIN updated securely' : 'Failed to set PIN'),
-          ),
-        );
+        AppToast.showError(context,
+            success ? 'Door Access PIN updated securely' : 'Failed to set PIN');
       }
     }
   }
@@ -344,18 +305,22 @@ class _SetPinDialogState extends State<_SetPinDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isLight ? AppTheme.textSecondary : Colors.white70)),
+          child: Text('Cancel',
+              style: TextStyle(
+                  color: isLight ? AppTheme.textSecondary : Colors.white70)),
         ),
         ElevatedButton(
           onPressed: () {
             final pin = _pinCtrl.text.trim();
             if (pin.length < 4) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN must be at least 4 digits')));
+              AppToast.showError(context, 'PIN must be at least 4 digits');
               return;
             }
             Navigator.pop(context, pin);
           },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, foregroundColor: Colors.white),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentGreen,
+              foregroundColor: Colors.white),
           child: const Text('Save PIN'),
         ),
       ],

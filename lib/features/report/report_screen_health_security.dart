@@ -76,6 +76,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       ],
     );
   }
+
   Widget _buildReportAlarmItem(dynamic alarm) {
     return ExpandableHistoricalAlarmCard(alarm: alarm);
   }
@@ -172,16 +173,16 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
                         color: isOverdue ? Colors.redAccent : Colors.white,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    if (_lastMaintenance != null)
-                      Text(
-                        '( $days Days Ago )',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    // const SizedBox(width: 8),
+                    // if (_lastMaintenance != null)
+                    //   Text(
+                    //     '( $days Days Ago )',
+                    //     style: TextStyle(
+                    //       color: Colors.white.withValues(alpha: 0.92),
+                    //       fontSize: 14,
+                    //       fontWeight: FontWeight.w600,
+                    //     ),
+                    //   ),
                   ],
                 ),
               ],
@@ -213,11 +214,15 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       builder: (context, child) {
+        final theme = Theme.of(context);
+        final isLight = theme.brightness == Brightness.light;
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
               primary: AppTheme.accentBlue,
+              surface: isLight ? Colors.white : const Color(0xFF0B0F14),
             ),
+            dialogBackgroundColor: isLight ? Colors.white : const Color(0xFF0B0F14),
           ),
           child: child!,
         );
@@ -232,15 +237,9 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       if (mounted) {
         if (success) {
           _applyMaintenanceDate(picked, dateStr);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Maintenance date updated successfully'),
-            ),
-          );
+          AppToast.showSuccess(context, 'Maintenance date updated successfully');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to update maintenance date')),
-          );
+          AppToast.showError(context, 'Failed to update maintenance date');
         }
       }
     }
@@ -319,7 +318,8 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
                       boxShadow: isOnline && !isLight
                           ? [
                               BoxShadow(
-                                color: AppTheme.accentGreen.withValues(alpha: 0.35),
+                                color: AppTheme.accentGreen
+                                    .withValues(alpha: 0.35),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
                               )
@@ -411,7 +411,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       final timeStr = log['opTime']?.toString() ?? '';
       final dt = DateTime.tryParse(timeStr);
       String category = 'Unknown Date';
-      
+
       if (dt != null) {
         if (_eventLogRange == 'Monthly') {
           category = DateFormat('MMMM dd, yyyy').format(dt);
@@ -421,7 +421,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
           category = DateFormat('MMMM dd, yyyy').format(dt);
         }
       }
-      
+
       groupedLogs.putIfAbsent(category, () => []).add(log);
     }
 
@@ -465,11 +465,13 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
 
     final int status = int.tryParse(log['op']?.toString() ?? '') ?? -1;
     final String timeStr = log['opTime']?.toString() ?? '';
-    final String user = log['opUser']?.toString() ?? 'System';
+    
+    String user = (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'])?.toString() ?? '';
 
-    DateTime? dt = DateTime.tryParse(timeStr);
     String timeLabel = '--:--';
     String dateLabel = '--/--';
+    
+    DateTime? dt = DateTime.tryParse(timeStr);
     if (dt != null) {
       timeLabel = DateFormat('hh:mm a').format(dt);
       dateLabel = DateFormat('MMM dd, yyyy').format(dt);
@@ -528,16 +530,18 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'User: $user',
-                  style: TextStyle(
-                    color: isLight
-                        ? AppTheme.lightTextSecondary.withValues(alpha: 0.85)
-                        : AppTheme.textSecondary,
-                    fontSize: 12,
+                if (user.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'User: $user',
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary.withValues(alpha: 0.85)
+                          : AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -577,10 +581,12 @@ class ExpandableHistoricalAlarmCard extends StatefulWidget {
   const ExpandableHistoricalAlarmCard({super.key, required this.alarm});
 
   @override
-  State<ExpandableHistoricalAlarmCard> createState() => _ExpandableHistoricalAlarmCardState();
+  State<ExpandableHistoricalAlarmCard> createState() =>
+      _ExpandableHistoricalAlarmCardState();
 }
 
-class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlarmCard> {
+class _ExpandableHistoricalAlarmCardState
+    extends State<ExpandableHistoricalAlarmCard> {
   bool _isExpanded = false;
 
   @override
@@ -590,31 +596,33 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
     final target = GlobalEventBus.targetHistoricalAlarm.value;
     if (target != null &&
         target['occurrenceTime'] == widget.alarm['occurrenceTime'] &&
-        target['collectControlNodeName'] == widget.alarm['collectControlNodeName']) {
+        target['collectControlNodeName'] ==
+            widget.alarm['collectControlNodeName']) {
       _isExpanded = true;
-      // We don't clear the value immediately in case the list re-renders, 
+      // We don't clear the value immediately in case the list re-renders,
       // but you can choose to clear it if you only want it to happen once.
-      // GlobalEventBus.targetHistoricalAlarm.value = null; 
+      // GlobalEventBus.targetHistoricalAlarm.value = null;
     }
   }
 
   String _formatTime(dynamic rawTime) {
     if (rawTime == null) return '--';
     if (rawTime is String && rawTime.isEmpty) return '--';
-    
+
     DateTime? dt;
     if (rawTime is int) {
-      dt = rawTime > 2000000000 
-          ? DateTime.fromMillisecondsSinceEpoch(rawTime) 
+      dt = rawTime > 2000000000
+          ? DateTime.fromMillisecondsSinceEpoch(rawTime)
           : DateTime.fromMillisecondsSinceEpoch(rawTime * 1000);
     } else if (rawTime is num) {
       final v = rawTime.toInt();
-      dt = v > 2000000000 
-          ? DateTime.fromMillisecondsSinceEpoch(v) 
+      dt = v > 2000000000
+          ? DateTime.fromMillisecondsSinceEpoch(v)
           : DateTime.fromMillisecondsSinceEpoch(v * 1000);
     } else {
       final s = rawTime.toString().trim();
-      final normalized = s.contains(' ') && !s.contains('T') ? s.replaceFirst(' ', 'T') : s;
+      final normalized =
+          s.contains(' ') && !s.contains('T') ? s.replaceFirst(' ', 'T') : s;
       dt = DateTime.tryParse(normalized) ?? DateTime.tryParse(s);
     }
 
@@ -622,7 +630,8 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
     return DateFormat('yyyy-MM-dd HH:mm:ss').format(dt);
   }
 
-  Widget _buildTimelineNode(String title, String time, {bool isFirst = false, bool isLast = false, String? subtitle}) {
+  Widget _buildTimelineNode(String title, String time,
+      {bool isFirst = false, bool isLast = false, String? subtitle}) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return IntrinsicHeight(
       child: Row(
@@ -635,21 +644,27 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                 Container(
                   width: 2,
                   height: 8,
-                  color: isFirst ? Colors.transparent : (isLight ? Colors.white70 : const Color(0xFFEAA61E)),
+                  color: isFirst
+                      ? Colors.transparent
+                      : (isLight ? Colors.black26 : const Color(0xFFEAA61E)),
                 ),
                 Container(
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: isLight ? Colors.white : Colors.white,
+                    color: isLight ? Colors.black54 : Colors.white,
                     shape: BoxShape.circle,
-                    border: Border.all(color: isLight ? Colors.white : const Color(0xFFEAA61E), width: 3),
+                    border: Border.all(
+                        color: isLight ? Colors.black54 : const Color(0xFFEAA61E),
+                        width: 3),
                   ),
                 ),
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: isLast ? Colors.transparent : (isLight ? Colors.white70 : const Color(0xFFEAA61E)),
+                    color: isLast
+                        ? Colors.transparent
+                        : (isLight ? Colors.black26 : const Color(0xFFEAA61E)),
                   ),
                 ),
               ],
@@ -669,7 +684,9 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                         Text(
                           title,
                           style: TextStyle(
-                            color: isLight ? Colors.white : const Color(0xFFEAA61E),
+                            color: isLight
+                                ? Colors.black87
+                                : const Color(0xFFEAA61E),
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -678,7 +695,10 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                           const SizedBox(height: 4),
                           Text(
                             subtitle,
-                            style: TextStyle(color: isLight ? Colors.white70 : Colors.white70, fontSize: 12),
+                            style: TextStyle(
+                                color:
+                                    isLight ? Colors.black54 : Colors.white70,
+                                fontSize: 12),
                           ),
                         ],
                       ],
@@ -686,11 +706,13 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                   ),
                   Row(
                     children: [
-                      const Icon(Icons.access_time_rounded, color: Color(0xFF4C8FE1), size: 14),
+                      Icon(Icons.access_time_rounded,
+                          color: isLight ? Colors.black45 : const Color(0xFF4C8FE1), size: 14),
                       const SizedBox(width: 6),
                       Text(
                         time,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style:
+                            TextStyle(color: isLight ? Colors.black87 : Colors.white, fontSize: 12),
                       ),
                     ],
                   ),
@@ -706,12 +728,48 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
   @override
   Widget build(BuildContext context) {
     final alarm = widget.alarm;
-    final bool resolved = alarm['recoveryTime'] != null || alarm['recoverTime'] != null;
-    final String title =
-        (alarm['alarmTypeName'] ?? alarm['content'] ?? 'Alert')
+    final bool resolved =
+        alarm['recoveryTime'] != null || alarm['recoverTime'] != null;
+
+    // Dahua often packs everything into a comma-separated 'content' string
+    // e.g. "Alarm Item: Electric heating protection alarm,Alarm Value: Fault, Alarm Type: Device Reporting, Alarm Level: Major"
+    final String rawContent = (alarm['content'] ?? '').toString();
+
+    String extractFromContent(String key) {
+      if (rawContent.isEmpty) return '';
+      final parts = rawContent.split(',');
+      for (final p in parts) {
+        final pt = p.trim();
+        if (pt.startsWith(key + ':')) {
+          return pt.substring(pt.indexOf(':') + 1).trim();
+        }
+      }
+      return '';
+    }
+
+    final String extractedItem = extractFromContent('Alarm Item');
+    final String extractedValue = extractFromContent('Alarm Value');
+    final String extractedType = extractFromContent('Alarm Type');
+
+    final String title = extractedItem.isNotEmpty
+        ? extractedItem
+        : (alarm['alarmName'] ??
+                alarm['alarmItemName'] ??
+                alarm['content'] ??
+                alarm['alarmTypeName'] ??
+                'Alert')
             .toString();
 
+    final String cabinet = (alarm['deviceCabinetName'] ?? alarm['locationName'] ?? '').toString().trim();
+    final String device = (alarm['deviceCabinetItemName'] ?? alarm['name'] ?? alarm['collectControlNodeName'] ?? '').toString().trim();
+    
+    String subtitle = '';
+    if (cabinet.isNotEmpty && device.isNotEmpty) subtitle = '$cabinet / $device';
+    else if (cabinet.isNotEmpty) subtitle = cabinet;
+    else if (device.isNotEmpty) subtitle = device;
+
     String alarmValue() {
+      if (extractedValue.isNotEmpty) return extractedValue;
       final dynamic v = alarm['alarmValueValue'] ??
           alarm['alarmValue'] ??
           alarm['value'] ??
@@ -732,12 +790,10 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
           upper.contains('W')) {
         return v;
       }
-      final content = (alarm['content'] ??
-              alarm['alarmMsg'] ??
-              alarm['message'] ??
-              '')
-          .toString()
-          .toUpperCase();
+      final content =
+          (alarm['content'] ?? alarm['alarmMsg'] ?? alarm['message'] ?? '')
+              .toString()
+              .toUpperCase();
       if (content.contains('TEMP')) return '$v C';
       if (content.contains('HUM')) return '$v %';
       return v;
@@ -772,30 +828,26 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
     }
 
     final String valueStr = valueWithUnit();
-    final String typeStr = (alarm['alarmTypeType'] ??
-                alarm['alarmTypeName'] ??
-                alarm['alarmType'] ??
-                alarm['type'] ??
-                title)
-            .toString()
-            .trim()
-            .isEmpty
-        ? title
-        : (alarm['alarmTypeType'] ??
-                alarm['alarmTypeName'] ??
-                alarm['alarmType'] ??
-                alarm['type'] ??
-                title)
-            .toString()
-            .trim();
+    
+    String getRawTypeStr() {
+      if (extractedType.isNotEmpty) return extractedType;
+      return (alarm['alarmTypeType'] ??
+              alarm['alarmTypeName'] ??
+              alarm['alarmType'] ??
+              alarm['type'] ??
+              title)
+          .toString()
+          .trim();
+    }
+    
+    final String rawType = getRawTypeStr();
+    final String typeStr = rawType.isEmpty ? title : rawType;
     final String levelStr = alarmLevelName();
 
     Color baseLevelColor() {
       if (resolved) return const Color(0xFF2D8CFF);
       final l = levelStr.toLowerCase();
-      if (l.contains('critical') ||
-          l.contains('orange') ||
-          l.contains('red')) {
+      if (l.contains('critical') || l.contains('orange') || l.contains('red')) {
         return const Color(0xFFFF5A5F);
       }
       final raw = alarm['alarmLevelColor'];
@@ -820,18 +872,18 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
     final levelColor = baseLevelColor();
     final isLight = Theme.of(context).brightness == Brightness.light;
     final fill = isLight
-        ? AppTheme.accentBlue
+        ? Color.lerp(levelColor, Colors.white, 0.25)!
         : Color.lerp(levelColor, Colors.black, 0.82)!;
-    final titleColor = Colors.white;
-    final detailColor = isLight
-        ? Colors.white.withValues(alpha: 0.92)
-        : Colors.white70;
+    final titleColor = isLight ? Colors.black87 : Colors.white;
+    final detailColor =
+        isLight ? Colors.black54 : Colors.white70;
 
     // Timeline parsing
-    final occurTime = _formatTime(alarm['occurrenceTime'] ?? alarm['createTime'] ?? alarm['timestamp']);
-    final recoverTime = _formatTime(alarm['recoverTime'] ?? alarm['recoveryTime']);
+    final occurTime = _formatTime(
+        alarm['occurrenceTime'] ?? alarm['createTime'] ?? alarm['timestamp']);
+    final recoverTime =
+        _formatTime(alarm['recoverTime'] ?? alarm['recoveryTime']);
     final clearTime = _formatTime(alarm['clearTime'] ?? alarm['endTime']);
-    final confirmUser = alarm['confirmUser'] ?? alarm['ackUser'] ?? 'Unknown User';
 
     return GestureDetector(
       onTap: () {
@@ -846,13 +898,15 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
           color: fill,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isLight ? Colors.transparent : levelColor.withValues(alpha: 0.85),
+            color: isLight
+                ? Colors.transparent
+                : levelColor.withValues(alpha: 0.85),
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: isLight 
-                  ? AppTheme.accentBlue.withValues(alpha: 0.35) 
+              color: isLight
+                  ? AppTheme.accentBlue.withValues(alpha: 0.35)
                   : levelColor.withValues(alpha: 0.40),
               blurRadius: isLight ? 18 : 20,
               offset: Offset(0, isLight ? 10 : 12),
@@ -868,21 +922,39 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                   width: 9,
                   height: 9,
                   decoration: BoxDecoration(
-                    color: isLight ? Colors.white : levelColor,
+                    color: isLight ? Color.lerp(levelColor, Colors.black, 0.4)! : levelColor,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: titleColor,
-                      fontWeight: FontWeight.w800,
-                      fontSize: resolved ? 15 : 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: titleColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: resolved ? 15 : 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: detailColor,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 Icon(
@@ -923,12 +995,21 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Status: ${alarm['statusTxt'] ?? (resolved ? "Resolved" : "Unconfirmed")}',
+                    style: TextStyle(
+                      color: detailColor,
+                      fontSize: resolved ? 12 : 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   if (resolved && !_isExpanded) ...[
                     const SizedBox(height: 6),
                     Text(
                       'Resolved: ${alarm['recoveryTime'] ?? alarm['recoverTime'] ?? '--'}',
                       style: TextStyle(
-                        color: isLight ? Colors.white : const Color(0xFF2D8CFF),
+                        color: isLight ? Colors.black87 : const Color(0xFF2D8CFF),
                         fontSize: resolved ? 12 : 11,
                         fontWeight: FontWeight.w800,
                       ),
@@ -937,19 +1018,21 @@ class _ExpandableHistoricalAlarmCardState extends State<ExpandableHistoricalAlar
                 ],
               ),
             ),
-            
+
             // Expanded Timeline Content
             if (_isExpanded) ...[
               const SizedBox(height: 24),
-              const Divider(color: Colors.white24, height: 1),
+              Divider(color: isLight ? Colors.black12 : Colors.white24, height: 1),
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.only(left: 19),
                 child: Column(
                   children: [
-                    _buildTimelineNode('Alarm Occurrence', occurTime, isFirst: true),
+                    _buildTimelineNode('Alarm Occurrence', occurTime,
+                        isFirst: true),
                     _buildTimelineNode('Alarm Recovery', recoverTime),
-                    _buildTimelineNode('Alarm Clear', clearTime, isLast: true, subtitle: 'Confirmed By: $confirmUser'),
+                    _buildTimelineNode('Alarm Clear', clearTime,
+                        isLast: true),
                   ],
                 ),
               ),

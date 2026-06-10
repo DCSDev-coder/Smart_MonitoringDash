@@ -25,6 +25,8 @@ class ApiService {
   final Map<String, String> _pueRegionIdByCabinetId = {};
 
   static const String _keyBaseUrl = 'server_ip';
+  static const String _keyLockoutUntil = 'login_lockout_until';
+  static const String _keyFailedAttempts = 'login_failed_attempts';
 
   String? get token => _storage[AppConstants.keyAccessToken];
   String? get baseUrl => _baseUrl;
@@ -36,6 +38,21 @@ class ApiService {
   }
 
   Future<bool> login(String username, String password, {String? ip}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lockoutMs = prefs.getInt(_keyLockoutUntil);
+    if (lockoutMs != null) {
+      final lockoutTime = DateTime.fromMillisecondsSinceEpoch(lockoutMs);
+      final now = DateTime.now();
+      if (now.isBefore(lockoutTime)) {
+        final minutesLeft = lockoutTime.difference(now).inMinutes;
+        final secondsLeft = (lockoutTime.difference(now).inSeconds % 60);
+        throw 'Dahua login is temporarily locked. Please wait ${minutesLeft}m ${secondsLeft}s and try again.';
+      } else {
+        await prefs.remove(_keyLockoutUntil);
+        await prefs.remove(_keyFailedAttempts);
+      }
+    }
+
     // If an IP is provided (from the UI), update and persist it.
     if (ip != null && ip.isNotEmpty) {
       await updateBaseUrl(ip);
@@ -82,7 +99,30 @@ class ApiService {
           if (token != null) {
             _storage[AppConstants.keyAccessToken] = token;
             _storage[AppConstants.keyUsername] = username;
+            
+            await prefs.remove(_keyLockoutUntil);
+            await prefs.remove(_keyFailedAttempts);
             return true;
+          }
+        } else {
+          final code = body['code'];
+          final message = body['message']?.toString() ?? '';
+          
+          if (code == 50061 || message.contains('验证码无效')) {
+            final lockoutTime = DateTime.now().add(const Duration(minutes: 30));
+            await prefs.setInt(_keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
+            throw 'Dahua server requires CAPTCHA. You are locked out for 30 minutes.';
+          } else {
+            int failedCount = (prefs.getInt(_keyFailedAttempts) ?? 0) + 1;
+            if (failedCount >= 3) {
+              final lockoutTime = DateTime.now().add(const Duration(minutes: 30));
+              await prefs.setInt(_keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
+              await prefs.setInt(_keyFailedAttempts, failedCount);
+              throw 'Too many failed Dahua login attempts. You are locked out for 30 minutes.';
+            } else {
+              await prefs.setInt(_keyFailedAttempts, failedCount);
+              throw 'Rack unit login failed (target: $cleanIp). Invalid credentials. Attempts remaining: ${3 - failedCount}';
+            }
           }
         }
       }
@@ -101,6 +141,7 @@ class ApiService {
         'host': cleanIp,
         'path': AppConstants.loginPath,
       });
+      if (e is String) rethrow;
       return false;
     }
   }

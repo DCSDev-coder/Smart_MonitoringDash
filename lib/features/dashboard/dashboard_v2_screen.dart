@@ -7,10 +7,9 @@ import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/config/site_runtime_config.dart';
-import '../report/report_screen.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/controllers/smart_polling_settings.dart';
-import '../../shared/widgets/secure_action_guard.dart';
+import '../../core/security/secure_action_session.dart';
 import '../../core/navigation/app_navigator.dart';
 
 // New Modular Widgets
@@ -21,6 +20,7 @@ import 'widgets/door_control_section.dart';
 import 'widgets/device_health_section.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../shared/utils/app_toast.dart';
 
 /// Dashboard V2 (dark-only) matching `DashboardV2_Page.png`.
 ///
@@ -239,6 +239,15 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     return ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
   }
 
+  Future<Map<String, dynamic>?> _fetchTempHumTopNWithFallback({
+    required int? siteId,
+  }) async {
+    if (AdapterApiService.instance.isConfigured && siteId != null) {
+      return AdapterApiService.instance.fetchTempHumTopN(siteId: siteId);
+    }
+    return ApiService.instance.fetchTempHumTopN();
+  }
+
   Future<void> _fetchAll({bool isInitial = false}) async {
     final now = DateTime.now();
 
@@ -251,18 +260,18 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
     final fetchTempHum = isInitial ||
         _lastTempHumFetch == null ||
-        now.difference(_lastTempHumFetch!) >= mediumInterval;
-    final fetchDoors = isInitial ||
-        _lastDoorsFetch == null ||
-        now.difference(_lastDoorsFetch!) >= mediumInterval;
+        now.difference(_lastTempHumFetch!) >= lowInterval;
     final fetchPowerMonth = isInitial ||
         _lastPowerMonthFetch == null ||
         now.difference(_lastPowerMonthFetch!) >= lowInterval;
     final fetchPue = isInitial ||
         _lastPueFetch == null ||
         now.difference(_lastPueFetch!) >= lowInterval;
+    final fetchDoors = isInitial ||
+        _lastDoorsFetch == null ||
+        now.difference(_lastDoorsFetch!) >= lowInterval;
 
-    if (!fetchTempHum && !fetchDoors && !fetchPowerMonth && !fetchPue) return;
+    if (!fetchTempHum && !fetchPowerMonth && !fetchPue && !fetchDoors) return;
 
     final site = CpanelApiService.instance.currentSite;
     final siteId = SiteRuntimeConfig.siteId(site);
@@ -271,7 +280,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
     final results = await Future.wait([
       fetchTempHum
-          ? ApiService.instance.fetchTempHumTopN()
+          ? _fetchTempHumTopNWithFallback(siteId: siteId)
           : Future.value(null),
       fetchPowerMonth
           ? _fetchPowerMonthWithFallback(siteId: siteId, cabinetId: cabinetId)
@@ -397,18 +406,23 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
-          _consecutiveBadPueSamples += 1;
-          final recentGood = _lastGoodPueAt != null &&
-              now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
-          if (recentGood &&
-              _lastGoodPue != null &&
-              _consecutiveBadPueSamples < 3) {
-            _pue = _lastGoodPue!;
+          if (_lastGoodPueAt == now) {
+            _consecutiveBadPueSamples = 0;
             _pueStatus = 'ok';
           } else {
-            // Keep the last visible number (if any) instead of snapping to 0.0.
-            // This avoids a brief "DOWN" flicker on single bad samples.
-            _pueStatus = status;
+            _consecutiveBadPueSamples += 1;
+            final recentGood = _lastGoodPueAt != null &&
+                now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
+            if (recentGood &&
+                _lastGoodPue != null &&
+                _consecutiveBadPueSamples < 3) {
+              _pue = _lastGoodPue!;
+              _pueStatus = 'ok';
+            } else {
+              // Keep the last visible number (if any) instead of snapping to 0.0.
+              // This avoids a brief "DOWN" flicker on single bad samples.
+              _pueStatus = status;
+            }
           }
         }
       } else if (pueRes != null &&
@@ -456,6 +470,30 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
+          if (_lastGoodPueAt == now) {
+            _consecutiveBadPueSamples = 0;
+            _pueStatus = 'ok';
+          } else {
+            _consecutiveBadPueSamples += 1;
+            final recentGood = _lastGoodPueAt != null &&
+                now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
+            if (recentGood &&
+                _lastGoodPue != null &&
+                _consecutiveBadPueSamples < 3) {
+              _pue = _lastGoodPue!;
+              _pueStatus = 'ok';
+            } else {
+              // Keep the last visible number (if any) instead of snapping to 0.0.
+              _pueStatus = 'unavailable';
+            }
+          }
+        }
+      } else {
+        if (_lastGoodPueAt == now) {
+          // Successfully derived PUE from Power just now, don't mark as disconnected
+          _consecutiveBadPueSamples = 0;
+          _pueStatus = 'ok';
+        } else {
           _consecutiveBadPueSamples += 1;
           final recentGood = _lastGoodPueAt != null &&
               now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
@@ -466,22 +504,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
             _pueStatus = 'ok';
           } else {
             // Keep the last visible number (if any) instead of snapping to 0.0.
-            _pueStatus = 'unavailable';
+            // We still mark status as down so the UI can tint appropriately.
+            _pueStatus = 'down';
           }
-        }
-      } else {
-        _consecutiveBadPueSamples += 1;
-        final recentGood = _lastGoodPueAt != null &&
-            now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
-        if (recentGood &&
-            _lastGoodPue != null &&
-            _consecutiveBadPueSamples < 3) {
-          _pue = _lastGoodPue!;
-          _pueStatus = 'ok';
-        } else {
-          // Keep the last visible number (if any) instead of snapping to 0.0.
-          // We still mark status as down so the UI can tint appropriately.
-          _pueStatus = 'down';
         }
       }
 
@@ -583,6 +608,10 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
         _doors = loadedDoors;
       }
     });
+
+    if (mounted) {
+      AppToast.setReconnecting(context, _showAdapterDegraded);
+    }
   }
 
   @override
@@ -595,12 +624,10 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     // Keep the web/tablet dashboard feeling "grid-like": top cards taller,
     // bottom cards shorter (per WebDashboard.png).
     final wideTopHeight = wideLayout
-        ? (media.size.height * 0.40).clamp(320.0, 460.0) * uiScale
-        : null;
-    final wideBottomHeight = wideLayout
-        ? (media.size.height * 0.24).clamp(200.0, 280.0) * uiScale
+        ? (media.size.height * 0.40).clamp(360.0, 500.0) * uiScale
         : null;
     final envGaugeHeight = wideLayout ? (wideTopHeight! - 80) : null;
+    final wideBottomHeight = wideLayout ? envGaugeHeight : null;
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -627,35 +654,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                       AppSpacing.pageBottom(context),
                     ),
                     children: [
-                      if (_showAdapterDegraded) ...[
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isLight 
-                                  ? const Color(0xFFFF9800) // Vibrant orange/yellow in light mode
-                                  : const Color(0xFFFFB020).withValues(alpha: 0.20),
-                              borderRadius: BorderRadius.circular(999),
-                              border: isLight 
-                                  ? null 
-                                  : Border.all(
-                                      color: const Color(0xFFFFB020).withValues(alpha: 0.55),
-                                    ),
-                            ),
-                            child: Text(
-                              'Data source reconnecting...',
-                              style: TextStyle(
-                                color: isLight ? Colors.white : const Color(0xFFFFD479),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+
                       Align(
                         alignment: Alignment.topCenter,
                         child: ConstrainedBox(
@@ -665,40 +664,75 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                           ),
                           child: Column(
                             children: [
-                              if (wideLayout) ...[
+                              if (wideLayout)
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // LEFT COLUMN
                                     Expanded(
                                       flex: 1,
-                                      child: SizedBox(
-                                        height: wideTopHeight,
-                                        child: PueHeroCard(
-                                          pue: _pue,
-                                          pueStatus: _pueStatus,
-                                          totalEnergyKwh: _powerMonth['Total'] ?? _powerMonth['TOTAL'] ?? _powerMonth['total_power'] ?? _powerMonth['totalPower'],
-                                          itEnergyKwh: _powerMonth['IT Device'] ?? _powerMonth['IT DEVICE'] ?? _powerMonth['IT'] ?? _powerMonth['it_power'] ?? _powerMonth['itPower'] ?? _powerMonth['IT_DEVICE'],
-                                          loading: _loading || _refreshing,
-                                        ),
+                                      child: Column(
+                                        children: [
+                                          SizedBox(
+                                            height: wideTopHeight,
+                                            child: PueHeroCard(
+                                              pue: _pue,
+                                              pueStatus: _pueStatus,
+                                              totalEnergyKwh: _powerMonth['Total'] ?? _powerMonth['TOTAL'] ?? _powerMonth['total_power'] ?? _powerMonth['totalPower'],
+                                              itEnergyKwh: _powerMonth['IT Device'] ?? _powerMonth['IT DEVICE'] ?? _powerMonth['IT'] ?? _powerMonth['it_power'] ?? _powerMonth['itPower'] ?? _powerMonth['IT_DEVICE'],
+                                              loading: _loading || _refreshing,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          DoorControlSection(
+                                            doors: _doors ?? const [],
+                                            loading: _doors == null && _loading,
+                                            canUnlock: _canControlDoors,
+                                            onUnlock: _handleDoorUnlock,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ServiceNoticeCard(
+                                            lastService: _lastMaintenance,
+                                            cycleDays: 90,
+                                            onTap: () {
+                                              GlobalEventBus.targetMaintenancePage.value = true;
+                                              widget.onNavigateToReport?.call();
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     const SizedBox(width: 16),
+                                    // RIGHT COLUMN
                                     Expanded(
                                       flex: 1,
-                                      child: SizedBox(
-                                        height: wideTopHeight,
-                                        child: EnvironmentRow(
-                                          temperatures: _temperatures,
-                                          humidities: _humidities,
-                                          alarms: _poller.recentAlarms,
-                                          gaugeHeight: envGaugeHeight ?? 260,
-                                          loading: _loading || _refreshing,
-                                        ),
+                                      child: Column(
+                                        children: [
+                                          SizedBox(
+                                            height: wideTopHeight,
+                                            child: EnvironmentRow(
+                                              temperatures: _temperatures,
+                                              humidities: _humidities,
+                                              alarms: _poller.recentAlarms,
+                                              gaugeHeight: envGaugeHeight ?? 260,
+                                              loading: _loading || _refreshing,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          DeviceHealthSection(
+                                            smokeStatus: _smokeStatus,
+                                            floodStatus: _floodStatus,
+                                            alarms: _poller.recentAlarms,
+                                            devices: _devices,
+                                            temperatures: _temperatures,
+                                            humidities: _humidities,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
-                                ),
-                              ] else ...[
+                                )
+                              else ...[
                                 PueHeroCard(
                                   pue: _pue,
                                   pueStatus: _pueStatus,
@@ -713,40 +747,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                   alarms: _poller.recentAlarms,
                                   loading: _loading || _refreshing,
                                 ),
-                              ],
-                              const SizedBox(height: 16),
-                              if (wideLayout) ...[
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: wideBottomHeight,
-                                        child: DoorControlSection(
-                                          doors: _doors ?? const [],
-                                          loading: _doors == null && _loading,
-                                          canUnlock: _canControlDoors,
-                                          onUnlock: _handleDoorUnlock,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: wideBottomHeight,
-                                        child: ServiceNoticeCard(
-                                          lastService: _lastMaintenance,
-                                          cycleDays: 90,
-                                          onTap: () {
-                                            GlobalEventBus.targetMaintenancePage.value = true;
-                                            widget.onNavigateToReport?.call();
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ] else ...[
+                                const SizedBox(height: 16),
                                 DoorControlSection(
                                   doors: _doors ?? const [],
                                   loading: _doors == null && _loading,
@@ -762,16 +763,16 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                     widget.onNavigateToReport?.call();
                                   },
                                 ),
+                                const SizedBox(height: 16),
+                                DeviceHealthSection(
+                                  smokeStatus: _smokeStatus,
+                                  floodStatus: _floodStatus,
+                                  alarms: _poller.recentAlarms,
+                                  devices: _devices,
+                                  temperatures: _temperatures,
+                                  humidities: _humidities,
+                                ),
                               ],
-                              const SizedBox(height: 16),
-                              DeviceHealthSection(
-                                smokeStatus: _smokeStatus,
-                                floodStatus: _floodStatus,
-                                alarms: _poller.recentAlarms,
-                                devices: _devices,
-                                temperatures: _temperatures,
-                                humidities: _humidities,
-                              ),
                             ],
                           ),
                         ),
@@ -789,57 +790,57 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   Future<bool> _handleDoorUnlock(int id, String name) async {
     if (!_canControlDoors) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You do not have permission to unlock doors.'),
-        ),
-      );
+      AppToast.show(context, 'You do not have permission to unlock doors.');
       return false;
     }
 
-    final authorized = await SecureActionGuard.ensureAuthorized(
-      context,
-      reason: 'Confirm to unlock $name',
-      ttl: const Duration(seconds: 30),
-    );
-    if (!authorized) return false;
+    final hasSession = SecureActionSession.instance.isValid;
+    if (hasSession) {
+      try {
+        final site = CpanelApiService.instance.currentSite;
+        final siteId = SiteRuntimeConfig.siteId(site);
 
-    try {
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = SiteRuntimeConfig.siteId(site);
+        Map<String, dynamic>? res;
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          res = await AdapterApiService.instance.openCloseDoor(
+            siteId: siteId,
+            accessId: id,
+            status: 1,
+            accessType: '1',
+          );
+        } else {
+          res = await ApiService.instance.openCloseDoor(id, 1);
+        }
 
-      Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
-        res = await AdapterApiService.instance.openCloseDoor(
-          siteId: siteId,
-          accessId: id,
-          status: 1,
-          accessType: '1',
-        );
-      } else {
-        res = await ApiService.instance.openCloseDoor(id, 1);
-      }
-
-      if (!mounted) return false;
-      final okSuccess = res != null && res['success'] == true;
-      if (okSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name unlocked!')),
-        );
-        return true;
-      } else {
-        final msg = res?['message']?.toString() ??
-            'Unlock failed. If your session expired, please login again.';
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(msg)));
+        if (!mounted) return false;
+        final okSuccess = res != null && res['success'] == true;
+        if (okSuccess) {
+          AppToast.showSuccess(context, '$name unlocked!');
+          return true;
+        } else {
+          final msg = res?['message']?.toString() ??
+              'Unlock failed. If your session expired, please login again.';
+          AppToast.show(context, msg);
+          return false;
+        }
+      } catch (_) {
+        if (!mounted) return false;
+        AppToast.showError(context, 'Unlock failed. Try again.');
         return false;
       }
-    } catch (_) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unlock failed. Try again.')),
-      );
-      return false;
     }
+
+    final authorized = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
+    );
+
+    if (authorized == true) {
+      SecureActionSession.instance.grant(ttl: const Duration(seconds: 30));
+      return true;
+    }
+    return false;
   }
 }

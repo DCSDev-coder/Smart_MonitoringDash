@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../shared/widgets/dashboard_glass.dart';
 import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
+import 'device_history_sheet.dart';
 
 class DeviceHealthSection extends StatelessWidget {
   final List<dynamic> devices;
@@ -291,8 +292,8 @@ class DeviceHealthSection extends StatelessWidget {
       final List<Map<String, dynamic>> deviceList = [];
       List<_BoxState> boxStates = [];
 
-      // 1. Add Site-level sensor if provided
-      if (siteStatus != null && siteStatus != -1) {
+      // 1. Add Site-level sensor if provided and no specific devices exist
+      if (items.isEmpty && siteStatus != null && siteStatus != -1) {
         total++;
         if (siteStatus == 0) {
           normal++;
@@ -420,56 +421,39 @@ class DeviceHealthSection extends StatelessWidget {
       // Derive "normal" from totals so it stays consistent with alarm/offline splits.
       normal = (total - alarm - offline).clamp(0, total);
 
-      // Build stable display names and map states to the right device slots.
+      // Build display names from actual device data
       final displayNames = <String>[];
-      if (type == 'T&H') {
-        // Preferred fixed mapping for 4 sensors.
-        if (total >= 4) {
-          displayNames.addAll(const [
-            'Cabinet 1 Front',
-            'Cabinet 1 Back',
-            'Cabinet 2 Front',
-            'Cabinet 2 Back',
-          ]);
-          // If there are more than 4, append generics.
-          for (var i = 4; i < total; i++) {
-            displayNames.add('Cabinet ${i + 1} Sensor');
+      final nodeIds = <int?>[]; // Store actual nodeIds for interaction
+      final metricCodes = <String?>[];
+
+      for (var i = 0; i < deviceList.length; i++) {
+        final d = deviceList[i];
+        String name = (d['nodeName'] ?? d['name'] ?? '').toString().trim();
+        if (name.isEmpty) name = '$label ${i + 1}';
+        
+        final tc = d['totalCount'] as int? ?? 1;
+        final nId = int.tryParse(d['id']?.toString() ?? d['collectControlNodeId']?.toString() ?? d['nodeId']?.toString() ?? '');
+        final mCode = d['metricCode']?.toString();
+
+        if (tc > 1) {
+          for (var j = 0; j < tc; j++) {
+            displayNames.add('$name ${j + 1}');
+            nodeIds.add(nId);
+            metricCodes.add(mCode);
           }
         } else {
-          for (var i = 0; i < total; i++) {
-            displayNames.add('Cabinet ${i + 1} Sensor');
-          }
-        }
-      } else if (type == 'PDU') {
-        for (var i = 0; i < total; i++) {
-          displayNames.add('PDU ${i + 1}');
-        }
-      } else if (type == 'UPS') {
-        for (var i = 0; i < total; i++) {
-          displayNames.add(total == 1 ? 'UPS' : 'UPS ${i + 1}');
-        }
-      } else if (type == 'SMOKE') {
-        for (var i = 0; i < total; i++) {
-          displayNames.add(total == 1 ? 'Smoke' : 'Smoke ${i + 1}');
-        }
-      } else if (type == 'WLD') {
-        for (var i = 0; i < total; i++) {
-          displayNames.add(total == 1 ? 'WLD' : 'WLD ${i + 1}');
-        }
-      } else if (type == 'POWER') {
-        for (var i = 0; i < total; i++) {
-          displayNames.add(total == 1 ? 'Power' : 'Power ${i + 1}');
-        }
-      } else if (type == 'AC') {
-        for (var i = 0; i < total; i++) {
-          displayNames.add(total == 1 ? 'AC' : 'AC ${i + 1}');
-        }
-      } else {
-        for (var i = 0; i < total; i++) {
-          displayNames.add('$label ${i + 1}');
+          displayNames.add(name);
+          nodeIds.add(nId);
+          metricCodes.add(mCode);
         }
       }
-
+      
+      // Fallback padding if total > deviceList bounds
+      while (displayNames.length < total) {
+        displayNames.add('$label ${displayNames.length + 1}');
+        nodeIds.add(null);
+        metricCodes.add(null);
+      }
       // Rebuild boxStates in display order:
       // - default normal (orange)
       // - apply offline count as grey (unknown identity -> mark from the end)
@@ -516,6 +500,8 @@ class DeviceHealthSection extends StatelessWidget {
         devices: deviceList,
         boxStates: boxStates,
         displayNames: displayNames,
+        nodeIds: nodeIds,
+        metricCodes: metricCodes,
       );
     }
 
@@ -645,6 +631,8 @@ class _DeviceHealthItem {
   final List<Map<String, dynamic>> devices;
   final List<_BoxState> boxStates;
   final List<String> displayNames;
+  final List<int?> nodeIds;
+  final List<String?> metricCodes;
 
   _DeviceHealthItem({
     required this.type,
@@ -657,7 +645,22 @@ class _DeviceHealthItem {
     required this.devices,
     required this.boxStates,
     required this.displayNames,
+    required this.nodeIds,
+    required this.metricCodes,
   });
+
+  Color get iconBgColor {
+    switch (type) {
+      case 'AC': return const Color(0xFF00C7BE); // Cyan
+      case 'T&H': return const Color(0xFFFF9500); // Orange
+      case 'POWER': return const Color(0xFF5856D6); // Purple
+      case 'UPS': return const Color(0xFF4CD964); // Green
+      case 'SMOKE': return const Color(0xFFFF3B30); // Red
+      case 'WLD': return const Color(0xFF34A853); // Teal
+      case 'PDU': return const Color(0xFF007AFF); // Blue
+      default: return const Color(0xFF8E8E93); // Grey
+    }
+  }
 
   bool get isOk => total > 0 && (alarm + offline) == 0 && normal >= total;
 }
@@ -672,34 +675,66 @@ class _DeviceHealthRow extends StatelessWidget {
   });
 
   void _showDetails(BuildContext context) {
-    showDialog(
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final isLight = theme.brightness == Brightness.light;
+
+    showGeneralDialog(
       context: context,
-      builder: (ctx) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: DashboardGlass(
-            radius: 24,
-            padding: const EdgeInsets.all(24),
-            tint: Theme.of(context).brightness == Brightness.light ? Colors.white : const Color(0xFF0B0F14).withValues(alpha: 0.92),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierDismissible: true,
+      barrierLabel: 'Hardware Info',
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (ctx, anim1, anim2) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                decoration: BoxDecoration(
+                  color: isLight ? Colors.white : const Color(0xFF0E141B),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: isLight
+                        ? Colors.black.withValues(alpha: 0.05)
+                        : Colors.white.withValues(alpha: 0.08),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      spreadRadius: 8,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                 Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: (Theme.of(context).brightness == Brightness.light ? Colors.black : Colors.white).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        color: item.iconBgColor,
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Center(
                         child: SvgPicture.asset(
                           item.iconAsset,
-                          width: 20,
-                          height: 20,
-                          colorFilter: ColorFilter.mode(Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white, BlendMode.srcIn),
+                          width: 24,
+                          height: 24,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
                         ),
                       ),
                     ),
@@ -728,9 +763,17 @@ class _DeviceHealthRow extends StatelessWidget {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white70),
-                      onPressed: () => Navigator.pop(ctx),
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: onSurface.withValues(alpha: 0.05),
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.close_rounded, color: onSurface, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
                     ),
                   ],
                 ),
@@ -822,25 +865,37 @@ class _DeviceHealthRow extends StatelessWidget {
                             state: i < item.boxStates.length
                                 ? item.boxStates[i]
                                 : _BoxState.normal,
+                            nodeId: i < item.nodeIds.length ? item.nodeIds[i] : null,
+                            metricCode: i < item.metricCodes.length ? item.metricCodes[i] : null,
+                            deviceType: item.type,
+                            iconAsset: item.iconAsset,
+                            iconBgColor: item.iconBgColor,
                           ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                  Text(
-                    'Combined Real-time Environment & IT Device Monitoring',
-                    style: TextStyle(
-                      color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white).withValues(alpha: 0.3),
-                      fontSize: 10,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
               ],
             ),
           ),
         ),
       ),
+    ),
+  );
+},
+transitionBuilder: (ctx, anim1, anim2, child) {
+        final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * curve.value),
+            child: FadeTransition(
+              opacity: anim1,
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -857,19 +912,7 @@ class _DeviceHealthRow extends StatelessWidget {
             ? const Color(0xFFFF3B30).withValues(alpha: 0.10)
             : const Color(0xFFFF3B30).withValues(alpha: 0.08));
 
-    Color getIconColor(String type) {
-      switch (type) {
-        case 'AC': return const Color(0xFF5AC8FA); // Light blue
-        case 'T&H': return const Color(0xFFFF9500); // Orange
-        case 'POWER': return const Color(0xFF5856D6); // Purple
-        case 'UPS': return const Color(0xFF4CD964); // Green
-        case 'SMOKE': return const Color(0xFFFF3B30); // Red
-        case 'WLD': return const Color(0xFF34A853); // Teal
-        case 'PDU': return const Color(0xFF007AFF); // Blue
-        default: return const Color(0xFF8E8E93); // Grey
-      }
-    }
-    final iconBgColor = getIconColor(item.type);
+    final iconBgColor = item.iconBgColor;
       
     return Material(
       color: Colors.transparent,
@@ -1028,10 +1071,20 @@ class _BreathingOutlineGlowState extends State<_BreathingOutlineGlow>
 class _DeviceDetailRow extends StatelessWidget {
   final String name;
   final _BoxState state;
+  final int? nodeId;
+  final String? metricCode;
+  final String deviceType;
+  final String? iconAsset;
+  final Color? iconBgColor;
 
   const _DeviceDetailRow({
     required this.name,
     required this.state,
+    this.nodeId,
+    this.metricCode,
+    this.deviceType = '',
+    this.iconAsset,
+    this.iconBgColor,
   });
 
   @override
@@ -1058,49 +1111,79 @@ class _DeviceDetailRow extends StatelessWidget {
         break;
     }
 
+    Widget child = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.transparent),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+          if (nodeId != null) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: isLight ? Colors.black38 : Colors.white38, size: 18),
+          ],
+        ],
+      ),
+    );
+
+    if (nodeId != null) {
+      child = Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) => DeviceHistorySheet(
+                nodeId: nodeId!,
+                deviceName: name,
+                deviceType: deviceType,
+                metricCode: metricCode,
+                iconAsset: iconAsset,
+                iconBgColor: iconBgColor,
+              ),
+            );
+          },
+          child: child,
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color:
-              (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.transparent),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: child,
     );
   }
 }

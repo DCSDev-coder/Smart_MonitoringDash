@@ -1,9 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../network/cpanel_api_service.dart';
+import '../network/adapter_api_service.dart';
 import '../navigation/app_navigator.dart';
 import '../utils/app_log.dart';
 
@@ -43,14 +45,21 @@ class PushNotificationService {
     AppLog.d('Init start', tag: 'Push');
 
     // Web push requires extra setup (service worker, VAPID key, permissions).
-    // Until configured, skip to avoid noisy runtime exceptions on Flutter Web.
     if (kIsWeb) {
-      AppLog.d('Web: push init skipped', tag: 'Push');
-      _initialized = true;
-      return;
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyAnoPlaPA9kUOX5YIChT5M0_odKJQoD2us",
+          authDomain: "smartrack-f737a.firebaseapp.com",
+          projectId: "smartrack-f737a",
+          storageBucket: "smartrack-f737a.firebasestorage.app",
+          messagingSenderId: "1042621674847",
+          appId: "1:1042621674847:web:94c69b851c89a26f25f2ea",
+          measurementId: "G-XS3Z60L630",
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
     }
-
-    await Firebase.initializeApp();
     AppLog.d('Firebase initialized', tag: 'Push');
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
@@ -133,7 +142,9 @@ class PushNotificationService {
   }
 
   Future<void> _logCurrentToken() async {
-    final token = await FirebaseMessaging.instance.getToken();
+    final token = await FirebaseMessaging.instance.getToken(
+      vapidKey: kIsWeb ? 'BGTU7jNSIgdc7NbBwemHlRvs6D-3HnytuCaoNYkjO917LboOG0yuQ3VL5G6x_AGhRoA6UcUuhsomLpo2-upTpXA' : null,
+    );
     AppLog.d('FCM token resolved', tag: 'Push');
     if (token == null || token.isEmpty) {
       AppLog.w('FCM token is empty', tag: 'Push');
@@ -143,7 +154,6 @@ class PushNotificationService {
   }
 
   Future<void> syncTokenWithBackendIfPossible({String? token}) async {
-    if (kIsWeb) return;
     try {
       final site = CpanelApiService.instance.currentSite;
       final authToken = CpanelApiService.instance.getAuthTokenInMemory();
@@ -160,7 +170,9 @@ class PushNotificationService {
         return;
       }
 
-      final resolvedToken = token ?? await FirebaseMessaging.instance.getToken();
+      final resolvedToken = token ?? await FirebaseMessaging.instance.getToken(
+        vapidKey: kIsWeb ? 'BGTU7jNSIgdc7NbBwemHlRvs6D-3HnytuCaoNYkjO917LboOG0yuQ3VL5G6x_AGhRoA6UcUuhsomLpo2-upTpXA' : null,
+      );
       if (resolvedToken == null || resolvedToken.isEmpty) {
         AppLog.d('Token sync skipped: device token missing', tag: 'Push');
         return;
@@ -176,18 +188,18 @@ class PushNotificationService {
         return;
       }
 
-      final res = await CpanelApiService.instance.registerPushToken(
+      final success = await AdapterApiService.instance.registerPushToken(
         siteId: siteId,
         deviceToken: resolvedToken,
+        platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
       );
-      if (res?['status'] == 'success') {
+      if (success) {
         _lastSyncedToken = resolvedToken;
         _lastSyncedSiteId = siteId;
-        AppLog.i('Token registered', tag: 'Push', fields: {'siteId': siteId});
+        AppLog.i('Token registered to adapter', tag: 'Push', fields: {'siteId': siteId});
       } else {
-        AppLog.w('Token register failed', tag: 'Push', fields: {
+        AppLog.w('Token register to adapter failed', tag: 'Push', fields: {
           'siteId': siteId,
-          'message': (res?['message'] ?? '').toString(),
         });
       }
     } catch (e) {
@@ -196,7 +208,6 @@ class PushNotificationService {
   }
 
   Future<void> deactivateCurrentTokenIfPossible() async {
-    if (kIsWeb) return;
     try {
       final site = CpanelApiService.instance.currentSite;
       final authToken = CpanelApiService.instance.getAuthTokenInMemory();
@@ -241,25 +252,29 @@ class PushNotificationService {
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
-    final notification = message.notification;
-    if (notification == null) return;
+    final title = message.notification?.title ?? message.data['title']?.toString() ?? 'Smart Rack Alert';
+    final body = message.notification?.body ?? message.data['body']?.toString() ?? 'A new alert has arrived.';
 
-    await _localNotifications.show(
-      notification.hashCode,
-      notification.title ?? 'Smart Rack Alert',
-      notification.body ?? 'A new rack alert has been received.',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+    try {
+      await _localNotifications.show(
+        message.hashCode,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
         ),
-      ),
-      payload: 'home',
-    );
+        payload: message.data['screen']?.toString() ?? 'home',
+      );
+    } catch (e) {
+      AppLog.w('Local notification failed', tag: 'Push', error: e);
+    }
   }
 
   void _handleRemoteMessage(RemoteMessage message) {
