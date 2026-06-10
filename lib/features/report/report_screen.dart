@@ -1148,27 +1148,6 @@ class _ReportScreenState extends State<ReportScreen>
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        floatingActionButtonLocation: _ShiftedFloatingActionButtonLocation(
-            offset:
-                screenWidth >= 600 ? const Offset(0, 0) : const Offset(0, -95)),
-        floatingActionButton: _canViewReport
-            ? FloatingActionButton(
-                onPressed: _isExporting ? null : _generatePdf,
-                backgroundColor: AppTheme.accentBlue,
-                child: _isExporting
-                    ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? AppTheme.lightTextPrimary
-                                    : Colors.white,
-                            strokeWidth: 2),
-                      )
-                    : const Icon(Icons.picture_as_pdf, color: Colors.white),
-              )
-            : null,
         body: RefreshIndicator(
           edgeOffset: AppConstants.headerClearance(context),
           onRefresh: _onRefresh,
@@ -2477,18 +2456,5 @@ class _ReportSkeletonCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _ShiftedFloatingActionButtonLocation
-    extends FloatingActionButtonLocation {
-  final Offset offset;
-  const _ShiftedFloatingActionButtonLocation({required this.offset});
-
-  @override
-  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
-    final Offset standardOffset =
-        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
-    return Offset(standardOffset.dx + offset.dx, standardOffset.dy + offset.dy);
   }
 }

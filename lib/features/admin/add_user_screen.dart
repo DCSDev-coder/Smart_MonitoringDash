@@ -98,6 +98,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
       _isRackConsole = value;
       if (value) {
         _canManageUsers = false;
+        _canViewDashboard = true;
+        _canControlDoors = true;
+        _canViewReport = true;
+        _canViewRack = true;
+        _canViewControl = true;
+        _canChangeSettings = true;
       }
     });
   }
@@ -175,33 +181,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         ),
                         const SizedBox(height: 36),
                         Text(
-                          'PERMISSIONS',
-                          style: TextStyle(
-                            color: isLight
-                                ? AppTheme.lightTextPrimary.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.5),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildPermToggle('Dashboard', _canViewDashboard,
-                            (v) => setState(() => _canViewDashboard = v)),
-                        _buildPermToggle('Reports + PDF', _canViewReport,
-                            (v) => setState(() => _canViewReport = v)),
-                        _buildPermToggle('View Power', _canViewRack,
-                            (v) => setState(() => _canViewRack = v)),
-                        _buildPermToggle('Control Panel', _canViewControl,
-                            (v) => setState(() => _canViewControl = v)),
-                        _buildPermToggle('Door Access', _canControlDoors,
-                            (v) => setState(() => _canControlDoors = v)),
-                        _buildPermToggle('Settings', _canChangeSettings,
-                            (v) => setState(() => _canChangeSettings = v)),
-                        _buildPermToggle(
-                            'Manage Users', _canManageUsers, _setManageUsers),
-                        const SizedBox(height: 36),
-                        Text(
                           'ACCOUNT MODE',
                           style: TextStyle(
                             color: isLight
@@ -215,6 +194,36 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         const SizedBox(height: 12),
                         _buildPermToggle('Rack Console Mode', _isRackConsole,
                             _setRackConsoleMode),
+                            
+                        if (!_isRackConsole) ...[
+                          const SizedBox(height: 36),
+                          Text(
+                            'PERMISSIONS',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary.withOpacity(0.5)
+                                  : Colors.white.withOpacity(0.5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildPermToggle('Dashboard', _canViewDashboard,
+                              (v) => setState(() => _canViewDashboard = v)),
+                          _buildPermToggle('Reports + PDF', _canViewReport,
+                              (v) => setState(() => _canViewReport = v)),
+                          _buildPermToggle('View Power', _canViewRack,
+                              (v) => setState(() => _canViewRack = v)),
+                          _buildPermToggle('Control Panel', _canViewControl,
+                              (v) => setState(() => _canViewControl = v)),
+                          _buildPermToggle('Door Access', _canControlDoors,
+                              (v) => setState(() => _canControlDoors = v)),
+                          _buildPermToggle('Settings', _canChangeSettings,
+                              (v) => setState(() => _canChangeSettings = v)),
+                          _buildPermToggle(
+                              'Manage Users', _canManageUsers, _setManageUsers),
+                        ],
                         const SizedBox(height: 120), // bottom padding
                       ],
                     ),

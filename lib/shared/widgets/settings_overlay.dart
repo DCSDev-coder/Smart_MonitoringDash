@@ -8,6 +8,7 @@ import '../../core/controllers/app_theme_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
 import '../../features/settings/control_presets_screen.dart';
+import '../../features/settings/export_pdf_screen.dart';
 import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
 import 'safe_network_image.dart';
@@ -602,6 +603,31 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                 onTap: _openControlPresets,
                               ),
                             ],
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(left: 72, right: 16),
+                              child: Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: isLight
+                                    ? Colors.black.withValues(alpha: 0.05)
+                                    : Colors.white.withValues(alpha: 0.05),
+                              ),
+                            ),
+                            _SettingsTile(
+                              title: 'Export PDF Report',
+                              icon: Icons.picture_as_pdf_rounded,
+                              iconColor: const Color(0xFFFF3B30),
+                              onTap: () async {
+                                Navigator.pop(context); // Close settings overlay
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ExportPdfScreen(),
+                                  ),
+                                );
+                              },
+                            ),
                             Padding(
                               padding:
                                   const EdgeInsets.only(left: 72, right: 16),
