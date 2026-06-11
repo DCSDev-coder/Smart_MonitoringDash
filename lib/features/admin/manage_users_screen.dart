@@ -561,7 +561,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: isLight
-                            ? AppTheme.accentGreen
+                            ? Theme.of(context).colorScheme.primary
                             : const Color(0xFF0A8F2A),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
@@ -759,7 +759,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: (role.toLowerCase() == 'admin'
-                            ? AppTheme.accentGreen
+                            ? Theme.of(context).colorScheme.primary
                             : const Color(0xFF2D7DFF))
                         .withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(99),
@@ -768,7 +768,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     isOwner ? 'OWNER' : (isSelf ? 'YOU' : role.toUpperCase()),
                     style: TextStyle(
                       color: role.toLowerCase() == 'admin'
-                          ? AppTheme.accentGreen
+                          ? Theme.of(context).colorScheme.primary
                           : const Color(0xFF2D7DFF),
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
@@ -820,7 +820,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: enabled
-            ? AppTheme.accentGreen.withValues(alpha: isLight ? 0.18 : 0.16)
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: isLight ? 0.18 : 0.16)
             : isLight
                 ? const Color(0xFFD9DEE6)
                 : Colors.white.withValues(alpha: 0.10),
@@ -833,7 +833,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         label,
         style: TextStyle(
           color: enabled
-              ? AppTheme.accentGreen
+              ? Theme.of(context).colorScheme.primary
               : isLight
                   ? const Color(0xFF606A78)
                   : Colors.white54,
@@ -986,8 +986,8 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: AppTheme.accentGreen,
+                          borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.primary,
                             width: 1.4,
                           ),
                         ),
@@ -1049,7 +1049,7 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
                                 _ctrl.text.trim(),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentGreen,
+                                backgroundColor: Theme.of(context).colorScheme.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(

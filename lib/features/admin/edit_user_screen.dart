@@ -291,7 +291,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   height: 52,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.accentGreen,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -345,7 +345,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
             value: value,
             onChanged: _submitting ? null : onChanged,
             activeThumbColor: Colors.white,
-            activeTrackColor: AppTheme.accentGreen,
+            activeTrackColor: Theme.of(context).colorScheme.primary,
             inactiveThumbColor: isLight
                 ? const Color(0xFFEDEDED)
                 : Colors.white.withOpacity(0.85),

@@ -487,7 +487,7 @@ class _TypewriterTextState extends State<TypewriterText>
               height: widget.cursorHeight,
               child: ColoredBox(
                 color:
-                    cursorVisible ? AppTheme.accentGreen : Colors.transparent,
+                    cursorVisible ? Theme.of(context).colorScheme.primary : Colors.transparent,
               ),
             ),
           ],

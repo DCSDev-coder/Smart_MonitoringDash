@@ -121,7 +121,7 @@ class PueHeroCard extends StatelessWidget {
                             style: bitcount(
                               context,
                               fontSize: 18,
-                              color: AppTheme.accentGreen,
+                              color: Theme.of(context).colorScheme.primary,
                               letterSpacing: 2.5,
                             ),
                           ),
@@ -156,7 +156,7 @@ class PueHeroCard extends StatelessWidget {
                                   '1.0',
                                   'IDEAL',
                                   'Perfect efficiency. All power goes to IT.',
-                                  AppTheme.accentGreen),
+                                  Theme.of(context).colorScheme.primary),
                               const SizedBox(height: 20),
                               _infoRow(
                                   context,
@@ -175,19 +175,19 @@ class PueHeroCard extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.accentGreen.withValues(alpha: 0.1),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(Icons.info_outline_rounded, color: AppTheme.accentGreen, size: 22),
+                                    Icon(Icons.info_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 22),
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Text(
                                         'Your gauge is FULL when PUE is near 1.0, showing maximum green efficiency.',
                                         style: TextStyle(
-                                          color: AppTheme.accentGreen,
+                                          color: Theme.of(context).colorScheme.primary,
                                           fontSize: 13,
                                           fontStyle: FontStyle.italic,
                                           height: 1.4,

@@ -165,12 +165,12 @@ class _BootGateState extends State<BootGate> {
               ),
               const SizedBox(height: 18),
               if (_working)
-                const SizedBox(
+                SizedBox(
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.2,
-                    color: AppTheme.accentGreen,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
             ],

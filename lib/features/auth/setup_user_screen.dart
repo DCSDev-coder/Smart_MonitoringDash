@@ -381,10 +381,10 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
       child: ElevatedButton(
         onPressed: _submitting ? null : _submit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.accentGreen,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           elevation: 4,
-          shadowColor: AppTheme.accentGreen.withValues(alpha: 0.5),
+          shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),

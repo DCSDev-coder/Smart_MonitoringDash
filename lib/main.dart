@@ -30,7 +30,6 @@ import 'features/auth/boot_gate.dart';
 import 'features/report/report_screen.dart';
 import 'features/control/control_screen.dart';
 import 'shared/widgets/floating_nav_bar.dart';
-import 'shared/widgets/background_layer.dart';
 import 'shared/widgets/notifications_overlay.dart';
 import 'shared/widgets/sticky_header_bar.dart';
 import 'shared/widgets/dashboard_header.dart';
@@ -39,6 +38,12 @@ import 'shared/widgets/safe_network_image.dart';
 import 'features/dashboard/widgets/critical_alert_banner.dart';
 import 'features/rack_view/rack_view_screen.dart';
 import 'shared/utils/app_toast.dart';
+import 'shared/widgets/set_pin_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/network/adapter_api_service.dart';
+
+const Duration _sidebarMotionDuration = Duration(milliseconds: 360);
+const Curve _sidebarMotionCurve = Curves.easeInOutCubic;
 
 bool _canManageUsersFromCurrentSite({required int? portalUserId}) {
   final site = CpanelApiService.instance.currentSite;
@@ -133,10 +138,10 @@ class _ManageUsersGate extends StatelessWidget {
       future: uid,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF060B11),
+          return Scaffold(
+            backgroundColor: const Color(0xFF060B11),
             body: Center(
-              child: CircularProgressIndicator(color: AppTheme.accentGreen),
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
             ),
           );
         }
@@ -267,11 +272,11 @@ class CigApp extends StatelessWidget {
                 future: uid,
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) {
-                    return const Scaffold(
+                    return Scaffold(
                       backgroundColor: AppTheme.bgColor,
                       body: Center(
                         child: CircularProgressIndicator(
-                            color: AppTheme.accentGreen),
+                            color: Theme.of(context).colorScheme.primary),
                       ),
                     );
                   }
@@ -299,8 +304,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell>
-    with SingleTickerProviderStateMixin {
+class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
 
@@ -308,6 +312,7 @@ class _MainShellState extends State<MainShell>
   final GlobalKey _mobileSettingsKey = GlobalKey();
   final GlobalKey _desktopSettingsKey = GlobalKey();
   late AnimationController _headerController;
+  late AnimationController _sidebarController;
   bool _isHeaderVisible = true;
   bool _sidebarHovered = false;
   bool _sidebarSwiped = false;
@@ -331,25 +336,102 @@ class _MainShellState extends State<MainShell>
     return '${CpanelApiService.baseAssetUrl}$logo';
   }
 
+  int _getTotalNotifications() {
+    int count = _poller.hasAnyIssue ? 1 : 0;
+    if (_hasPinNotification()) count += 1;
+    return count;
+  }
+
+  bool _hasPinNotification() {
+    final api = CpanelApiService.instance;
+    return !api.isCurrentSiteRackConsole() && !api.hasPin;
+  }
+
+  Future<void> _checkPinSetup() async {
+    final api = CpanelApiService.instance;
+    if (api.isCurrentSiteRackConsole() || api.hasPin) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('never_show_pin_prompt') == true) return;
+
+    if (!mounted) return;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const SetPinDialog(showSkipOptions: true),
+    );
+
+    if (result != null &&
+        result != 'skipped' &&
+        result.length >= 4 &&
+        mounted) {
+      final success = await AdapterApiService.instance.setPin(result);
+      if (mounted) {
+        AppToast.show(context,
+            success ? 'PIN setup successfully.' : 'Failed to set PIN.');
+        if (success) {
+          api.currentUser ??= {};
+          api.currentUser!['has_pin'] = 1;
+          setState(() {});
+        }
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _headerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       value: 1.0,
     );
+    _sidebarController = AnimationController(
+      vsync: this,
+      duration: _sidebarMotionDuration,
+      reverseDuration: const Duration(milliseconds: 150),
+      value: 0.0,
+    )..addListener(() {
+        if (mounted) setState(() {});
+      });
 
     _tabs = _computeTabs();
     _selectedIndex = _selectedIndex.clamp(0, _tabs.length - 1);
     _poller.start();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPinSetup();
+    });
   }
 
   @override
   void dispose() {
     _poller.stop();
     _headerController.dispose();
+    _sidebarController.dispose();
     super.dispose();
+  }
+
+  void _syncSidebarAnimation() {
+    final shouldExpand = _sidebarHovered || _sidebarSwiped;
+    if (shouldExpand) {
+      _sidebarController.forward();
+    } else {
+      _sidebarController.reverse();
+    }
+  }
+
+  void _setSidebarHovered(bool value) {
+    if (_sidebarHovered == value) return;
+    setState(() => _sidebarHovered = value);
+    _syncSidebarAnimation();
+  }
+
+  void _setSidebarSwiped(bool value) {
+    if (_sidebarSwiped == value) return;
+    setState(() => _sidebarSwiped = value);
+    _syncSidebarAnimation();
   }
 
   void _onNavTapped(int index) {
@@ -376,7 +458,8 @@ class _MainShellState extends State<MainShell>
     // Senior Logic: Determine if we are on a Wide Screen (Tablet/Monitor)
     final double width = MediaQuery.of(context).size.width;
     final bool isWide = width >= 600;
-    final bool sidebarExpanded = _sidebarHovered || _sidebarSwiped;
+    final double sidebarProgress = _sidebarController.value;
+    final bool sidebarExpanded = sidebarProgress > 0.001;
 
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.light
@@ -385,6 +468,12 @@ class _MainShellState extends State<MainShell>
       extendBody: true,
       body: Stack(
         children: [
+          if (Theme.of(context).brightness == Brightness.dark)
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: _MissionBackdrop(),
+              ),
+            ),
           // ── MAIN CONTENT AREA ────────────────────────────
           Positioned.fill(
             left: isWide ? 80.0 : 0.0,
@@ -411,7 +500,7 @@ class _MainShellState extends State<MainShell>
                               _showNotificationsOverlay(context),
                           onMenuTap: null,
                           onNavigateToReport: () => _onNavTapped(3),
-                          notificationCount: _poller.hasAnyIssue ? 1 : 0,
+                          notificationCount: _getTotalNotifications(),
                           notificationCriticalGlow: _poller.hasAnyIssue,
                         );
                       }
@@ -440,7 +529,7 @@ class _MainShellState extends State<MainShell>
                       animation: _poller,
                       builder: (context, _) {
                         final alerts = _getAlertStrings();
-                        final totalNotifications = _poller.hasAnyIssue ? 1 : 0;
+                        final totalNotifications = _getTotalNotifications();
                         final criticalGlow = _poller.hasAnyIssue;
                         final top = alerts.isNotEmpty ? 60.0 : 0.0;
 
@@ -540,12 +629,21 @@ class _MainShellState extends State<MainShell>
           ),
 
           // ── SIDEBAR OVERLAY BARRIER ──────────────────────
-          if (isWide && sidebarExpanded)
+          if (isWide)
             Positioned.fill(
               left: 80.0,
-              child: GestureDetector(
-                onTap: () => setState(() => _sidebarSwiped = false),
-                child: Container(color: Colors.black.withValues(alpha: 0.5)),
+              child: IgnorePointer(
+                ignoring: !sidebarExpanded,
+                child: GestureDetector(
+                  onTap: () => _setSidebarSwiped(false),
+                  child: AnimatedContainer(
+                    duration: _sidebarMotionDuration,
+                    curve: _sidebarMotionCurve,
+                    color: sidebarExpanded 
+                        ? Colors.black.withValues(alpha: 0.15) 
+                        : Colors.transparent,
+                  ),
+                ),
               ),
             ),
 
@@ -556,37 +654,39 @@ class _MainShellState extends State<MainShell>
               bottom: 0,
               left: 0,
               child: MouseRegion(
-                onEnter: (_) => setState(() => _sidebarHovered = true),
-                onExit: (_) => setState(() => _sidebarHovered = false),
+                onEnter: (_) => _setSidebarHovered(true),
+                onExit: (_) => _setSidebarHovered(false),
                 child: GestureDetector(
                   onHorizontalDragUpdate: (details) {
                     if (details.primaryDelta! > 5) {
-                      setState(() => _sidebarSwiped = true);
+                      _setSidebarSwiped(true);
                     } else if (details.primaryDelta! < -5) {
-                      setState(() => _sidebarSwiped = false);
+                      _setSidebarSwiped(false);
                     }
                   },
                   child: AnimatedBuilder(
-                    animation: _poller,
+                    animation: Listenable.merge([_poller, _sidebarController]),
                     builder: (context, _) {
                       // Keep "Alerts" consistent across the app:
-                      final totalNotifications = _poller.hasAnyIssue ? 1 : 0;
+                      final totalNotifications = _getTotalNotifications();
                       final criticalGlow = _poller.hasAnyIssue;
                       return _MainSidebar(
-                        expanded: sidebarExpanded,
+                        progress: sidebarProgress,
                         selectedIndex: _selectedIndex,
                         tabs: _tabs,
                         logoUrl: _companyLogoUrl(),
                         hasNotifications: totalNotifications > 0,
                         criticalGlow: criticalGlow,
                         onSelectTab: (i) {
-                          setState(() => _sidebarSwiped = false);
+                          _setSidebarSwiped(false);
                           _onNavTapped(i);
                         },
-                        onTapNotifications: () => _showNotificationsOverlay(context),
+                        onTapNotifications: () =>
+                            _showNotificationsOverlay(context),
                         onTapSettings: () => SettingsOverlay.show(
                           context,
-                          originRect: SettingsOverlay.rectFromKey(_desktopSettingsKey),
+                          originRect:
+                              SettingsOverlay.rectFromKey(_desktopSettingsKey),
                           onUploadLogo: _handleLogoUpload,
                           onGoHome: () => _onNavTapped(0),
                         ),
@@ -710,7 +810,8 @@ class _MainShellState extends State<MainShell>
     final siteIdStr = site['site_id']?.toString() ?? '';
     final siteId = int.tryParse(siteIdStr);
     if (siteId == null) {
-      AppLog.w('siteId is null', tag: 'LogoUpload', fields: {'siteIdStr': siteIdStr});
+      AppLog.w('siteId is null',
+          tag: 'LogoUpload', fields: {'siteIdStr': siteIdStr});
       return;
     }
 
@@ -752,15 +853,15 @@ class _MainShellState extends State<MainShell>
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: const Color(0xFF0B0F14),
-            title: const Text('Success',
-                style: TextStyle(color: AppTheme.accentGreen)),
+            title: Text('Success',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary)),
             content: const Text('Logo uploaded successfully!',
                 style: TextStyle(color: Colors.white)),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK',
-                      style: TextStyle(color: AppTheme.accentGreen))),
+                  child: Text('OK',
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary))),
             ],
           ),
         );
@@ -806,9 +907,20 @@ class _MainShellState extends State<MainShell>
   }
 
   void _showNotificationsOverlay(BuildContext context) {
+    final List<dynamic> combined = [];
+    if (_hasPinNotification()) {
+      combined.add({
+        'isPinSetupPrompt': true,
+        'alarmItem': 'Security Action Required',
+        'content': 'Please set up your Rack Access PIN.',
+        'alarmLevel': 'Warning',
+      });
+    }
+    combined.addAll(_poller.recentAlarms);
+
     NotificationsOverlay.show(
       context,
-      alarms: _poller.recentAlarms,
+      alarms: combined,
       onNavigateToReport: () => _onNavTapped(3),
     );
   }
@@ -832,7 +944,8 @@ class _MainShellState extends State<MainShell>
     }).toList();
 
     if (filtered.isEmpty) {
-      AppToast.show(context, 'No ${level ?? ''} alarms ${filter != null ? 'matching "$filter"' : ''}');
+      AppToast.show(context,
+          'No ${level ?? ''} alarms ${filter != null ? 'matching "$filter"' : ''}');
       return;
     }
 
@@ -876,7 +989,7 @@ class _NoAccessScreen extends StatelessWidget {
 }
 
 class _MainSidebar extends StatelessWidget {
-  final bool expanded;
+  final double progress;
   final int selectedIndex;
   final List<_NavTab> tabs;
   final String? logoUrl;
@@ -888,7 +1001,7 @@ class _MainSidebar extends StatelessWidget {
   final GlobalKey settingsKey;
 
   const _MainSidebar({
-    required this.expanded,
+    required this.progress,
     required this.selectedIndex,
     required this.tabs,
     this.logoUrl,
@@ -902,49 +1015,68 @@ class _MainSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final easedProgress = _sidebarMotionCurve.transform(progress);
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final sidebarBg =
-        isLight ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFF0E141B);
+    final sidebarBg = isLight
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFF0E141B);
     final sidebarBorder =
         isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
+    final sidebarShadow = isLight
+        ? Colors.black.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.28);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOutCubic,
-      width: expanded ? 240 : 80,
+    return Container(
+      width: lerpDouble(80, 240, easedProgress)!,
       decoration: BoxDecoration(
         color: sidebarBg,
         border: Border(right: BorderSide(color: sidebarBorder)),
+        boxShadow: progress > 0.01
+            ? [
+                BoxShadow(
+                  color:
+                      sidebarShadow.withValues(alpha: 0.15 + (0.85 * progress)),
+                  blurRadius: lerpDouble(10, 34, easedProgress)!,
+                  spreadRadius: lerpDouble(0, 1, easedProgress)!,
+                  offset: const Offset(6, 0),
+                ),
+              ]
+            : null,
       ),
       child: ClipRect(
-        child: Column(
-        children: [
-          const SizedBox(height: 50),
-          _buildLogo(context),
-          const SizedBox(height: 40),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: tabs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final t = tabs[i];
-                final active = selectedIndex == i;
-                return _SidebarItem(
-                  key: ValueKey(t.label),
-                  icon: t.icon,
-                  label: t.label,
-                  active: active,
-                  expanded: expanded,
-                  onTap: () => onSelectTab(i),
-                );
-              },
-            ),
+        child: OverflowBox(
+          minWidth: 240,
+          maxWidth: 240,
+          alignment: Alignment.centerLeft,
+          child: Column(
+            children: [
+              const SizedBox(height: 50),
+              _buildLogo(context),
+              const SizedBox(height: 40),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: tabs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
+                    final t = tabs[i];
+                    final active = selectedIndex == i;
+                    return _SidebarItem(
+                      key: ValueKey(t.label),
+                      icon: t.icon,
+                      label: t.label,
+                      active: active,
+                      progress: progress,
+                      onTap: () => onSelectTab(i),
+                    );
+                  },
+                ),
+              ),
+              _buildBottomActions(),
+              const SizedBox(height: 20),
+            ],
           ),
-          _buildBottomActions(),
-          const SizedBox(height: 20),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -966,23 +1098,20 @@ class _MainSidebar extends StatelessWidget {
               child: Center(
                 child: logoUrl != null
                     ? SafeNetworkImage(logoUrl!, width: 32, height: 32)
-                    : const Icon(Icons.blur_on_rounded, color: AppTheme.accentGreen, size: 32),
+                    : Icon(Icons.blur_on_rounded,
+                        color: Theme.of(context).colorScheme.primary, size: 32),
               ),
             ),
             Expanded(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 400),
-                curve: expanded 
-                    ? const Interval(0.4, 1.0, curve: Curves.easeOut) 
-                    : const Interval(0.0, 0.3, curve: Curves.easeOut),
-                opacity: expanded ? 1.0 : 0.0,
+              child: Transform.translate(
+                offset: Offset((1 - progress) * -20, 0),
                 child: Padding(
                   padding: const EdgeInsets.only(left: 12.0),
-                  child: Text(
-                    'DCS SMART',
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.fade,
+                  child: _SidebarRevealText(
+                    progress: progress,
+                    start: 0.12,
+                    end: 0.62,
+                    text: 'DCS SMART',
                     style: TextStyle(
                       color: isLight ? AppTheme.lightTextPrimary : Colors.white,
                       fontWeight: FontWeight.w900,
@@ -1008,7 +1137,7 @@ class _MainSidebar extends StatelessWidget {
             icon: Icons.notifications_none_rounded,
             label: 'Alerts',
             active: false,
-            expanded: expanded,
+            progress: progress,
             onTap: onTapNotifications,
             hasDot: hasNotifications,
             critical: criticalGlow,
@@ -1019,7 +1148,7 @@ class _MainSidebar extends StatelessWidget {
             icon: Icons.settings_outlined,
             label: 'Settings',
             active: false,
-            expanded: expanded,
+            progress: progress,
             onTap: onTapSettings,
           ),
         ],
@@ -1032,7 +1161,7 @@ class _SidebarItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool active;
-  final bool expanded;
+  final double progress;
   final VoidCallback onTap;
   final bool hasDot;
   final bool critical;
@@ -1042,7 +1171,7 @@ class _SidebarItem extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.active,
-    required this.expanded,
+    required this.progress,
     required this.onTap,
     this.hasDot = false,
     this.critical = false,
@@ -1058,14 +1187,15 @@ class _SidebarItemState extends State<_SidebarItem> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final activeColor = isLight ? const Color(0xFF164E87) : Theme.of(context).colorScheme.primary;
     final c = widget.active
-        ? AppTheme.accentGreen
+        ? activeColor
         : (isLight
             ? AppTheme.lightTextSecondary.withValues(alpha: 0.90)
             : Colors.white.withValues(alpha: 0.7));
-            
-    final hoverColor = isLight 
-        ? Colors.black.withValues(alpha: 0.04) 
+
+    final hoverColor = isLight
+        ? Colors.black.withValues(alpha: 0.04)
         : Colors.white.withValues(alpha: 0.06);
 
     return MouseRegion(
@@ -1080,14 +1210,12 @@ class _SidebarItemState extends State<_SidebarItem> {
           height: 48,
           decoration: BoxDecoration(
             color: widget.active
-                ? (isLight
-                    ? AppTheme.accentGreen.withValues(alpha: 0.14)
-                    : AppTheme.accentGreen.withValues(alpha: 0.1))
+                ? activeColor.withValues(alpha: isLight ? 0.12 : 0.10)
                 : (_isHovered ? hoverColor : Colors.transparent),
             borderRadius: BorderRadius.circular(12),
             border: isLight && widget.active
                 ? Border.all(
-                    color: AppTheme.accentGreen.withValues(alpha: 0.20),
+                    color: activeColor.withValues(alpha: 0.25),
                   )
                 : null,
           ),
@@ -1113,10 +1241,14 @@ class _SidebarItemState extends State<_SidebarItem> {
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: widget.critical ? AppTheme.statusError : AppTheme.accentGreen,
+                                color: widget.critical
+                                    ? AppTheme.statusError
+                                    : Theme.of(context).colorScheme.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: isLight ? const Color(0xFFF7FBFF) : const Color(0xFF0E141B),
+                                  color: isLight
+                                      ? const Color(0xFFF7FBFF)
+                                      : const Color(0xFF0E141B),
                                   width: 1.5,
                                 ),
                               ),
@@ -1127,20 +1259,17 @@ class _SidebarItemState extends State<_SidebarItem> {
                   ),
                 ),
                 Expanded(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 400),
-                    curve: widget.expanded 
-                        ? const Interval(0.4, 1.0, curve: Curves.easeOut) 
-                        : const Interval(0.0, 0.3, curve: Curves.easeOut),
-                    opacity: widget.expanded ? 1.0 : 0.0,
-                    child: Text(
-                      widget.label,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.fade,
+                  child: Transform.translate(
+                    offset: Offset((1 - widget.progress) * -22, 0),
+                    child: _SidebarRevealText(
+                      progress: widget.progress,
+                      start: 0.16,
+                      end: 0.66,
+                      text: widget.label,
                       style: TextStyle(
                         color: c,
-                        fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            widget.active ? FontWeight.w700 : FontWeight.w500,
                         fontSize: 14,
                       ),
                     ),
@@ -1150,6 +1279,144 @@ class _SidebarItemState extends State<_SidebarItem> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SidebarRevealText extends StatelessWidget {
+  final double progress;
+  final double start;
+  final double end;
+  final String text;
+  final TextStyle style;
+
+  const _SidebarRevealText({
+    required this.progress,
+    required this.start,
+    required this.end,
+    required this.text,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = ((progress - start) / (end - start)).clamp(0.0, 1.0);
+    final reveal = Curves.easeOutCubic.transform(normalized);
+    final opacity = const Interval(
+      0.0,
+      0.82,
+      curve: Curves.easeOutCubic,
+    ).transform(normalized);
+
+    return Opacity(
+      opacity: opacity,
+      child: Transform.translate(
+        offset: Offset((1 - reveal) * -8, 0),
+        child: ClipRect(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: style,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MissionBackdrop extends StatelessWidget {
+  const _MissionBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF05080D),
+            Color(0xFF091018),
+            Color(0xFF0D141D),
+            Color(0xFF111A24),
+          ],
+          stops: [0.0, 0.28, 0.68, 1.0],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Align(
+            alignment: const Alignment(-0.72, -0.84),
+            child: Container(
+              width: 420,
+              height: 420,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.11),
+                    AppTheme.auraCyan.withValues(alpha: 0.05),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.42, 1.0],
+                ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: const Alignment(0.92, -0.18),
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.035),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 1.0],
+                ),
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.08),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.22),
+                ],
+                stops: const [0.0, 0.36, 1.0],
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-0.12, -0.08),
+                radius: 1.18,
+                colors: [
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.14),
+                  Colors.black.withValues(alpha: 0.34),
+                ],
+                stops: const [0.0, 0.58, 0.82, 1.0],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

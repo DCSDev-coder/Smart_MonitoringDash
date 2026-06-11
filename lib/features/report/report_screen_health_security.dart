@@ -275,7 +275,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       tint: isLight
           ? Colors.white
           : const Color(0xFF0E141B).withValues(alpha: 0.92),
-      borderColor: isLight ? AppTheme.lightStroke : Colors.transparent,
+      borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

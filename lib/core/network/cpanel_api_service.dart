@@ -18,6 +18,7 @@ class CpanelApiService {
 
   Map<String, dynamic>? currentSite;
   Map<String, dynamic>? currentAppConfig;
+  Map<String, dynamic>? currentUser;
 
   String? _portalUsername;
   int? _portalUserId;
@@ -100,6 +101,19 @@ class CpanelApiService {
     return isCurrentSiteKiosk(site);
   }
 
+  bool get hasPin {
+    if (currentUser == null) return true; // Default true to avoid false positives
+    final hasPinFlag = currentUser!['has_pin'];
+    final pinSetupFlag = currentUser!['pin_setup'];
+    final pinValue = currentUser!['pin'];
+    
+    if (hasPinFlag != null) return isTruthyFlag(hasPinFlag);
+    if (pinSetupFlag != null) return isTruthyFlag(pinSetupFlag);
+    if (pinValue != null && pinValue.toString().trim().isNotEmpty) return true;
+    
+    return false;
+  }
+
   Future<String?> getUsername() async {
     if (_portalUsername != null && _portalUsername!.isNotEmpty) {
       return _portalUsername;
@@ -166,6 +180,9 @@ class CpanelApiService {
             }
           }
           final user = data['user'];
+          if (user is Map<String, dynamic>) {
+            currentUser = user;
+          }
           final portalUsername = (user is Map<String, dynamic>)
               ? (user['username']?.toString() ?? username)
               : username;
@@ -406,6 +423,9 @@ class CpanelApiService {
       if (decoded is Map<String, dynamic> && decoded['status'] == 'success') {
         _portalAuthToken = token.trim();
         final user = decoded['user'];
+        if (user is Map<String, dynamic>) {
+          currentUser = user;
+        }
         final portalUsername = (user is Map<String, dynamic>)
             ? (user['username']?.toString())
             : null;

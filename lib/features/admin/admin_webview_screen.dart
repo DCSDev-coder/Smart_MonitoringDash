@@ -57,7 +57,7 @@ class _AdminWebviewScreenState extends State<AdminWebviewScreen> {
         children: [
           WebViewWidget(controller: _controller),
           if (_loading)
-            const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen)),
+            Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
         ],
       ),
     );

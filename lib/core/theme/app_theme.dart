@@ -131,6 +131,29 @@ class AppTheme {
                 const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           ),
         ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: ButtonStyle(
+            foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return textSecondary.withValues(alpha: 0.5);
+              }
+              return accentGreen;
+            }),
+            side: WidgetStateProperty.resolveWith<BorderSide>((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return BorderSide(color: dividerColor.withValues(alpha: 0.5), width: 1);
+              }
+              return const BorderSide(color: accentGreen, width: 1.5);
+            }),
+            minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            textStyle: WidgetStateProperty.all(
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+          ),
+        ),
         dividerTheme: const DividerThemeData(color: dividerColor, thickness: 1),
         dialogTheme: const DialogThemeData(
           backgroundColor: surfaceColor,
@@ -149,7 +172,7 @@ class AppTheme {
         brightness: Brightness.light,
         scaffoldBackgroundColor: lightBg,
         colorScheme: const ColorScheme.light(
-          primary: accentGreen,
+          primary: Color(0xFF164E87),
           secondary: accentBlue,
           surface: lightSurface,
           error: alarmUrgent,
@@ -177,7 +200,7 @@ class AppTheme {
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: lightSurface,
-          selectedItemColor: accentGreen,
+          selectedItemColor: Color(0xFF164E87),
           unselectedItemColor: Color(0xFF4A4A4A),
           type: BottomNavigationBarType.fixed,
           elevation: 6,
@@ -222,20 +245,43 @@ class AppTheme {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: accentGreen, width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF164E87), width: 1.5),
           ),
           labelStyle: const TextStyle(color: lightTextSecondary),
           hintStyle: const TextStyle(color: lightTextSecondary),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: accentGreen,
+            backgroundColor: const Color(0xFF164E87),
             foregroundColor: Colors.white,
             minimumSize: const Size.fromHeight(48),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             textStyle:
                 const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: ButtonStyle(
+            foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return lightTextSecondary.withValues(alpha: 0.5);
+              }
+              return const Color(0xFF164E87);
+            }),
+            side: WidgetStateProperty.resolveWith<BorderSide>((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return BorderSide(color: lightStroke.withValues(alpha: 0.5), width: 1);
+              }
+              return const BorderSide(color: Color(0xFF164E87), width: 1.5);
+            }),
+            minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            textStyle: WidgetStateProperty.all(
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
           ),
         ),
         dividerTheme: const DividerThemeData(color: lightStroke, thickness: 1),

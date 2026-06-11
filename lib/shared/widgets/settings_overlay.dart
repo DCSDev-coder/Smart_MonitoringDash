@@ -263,13 +263,13 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppTheme.accentGreen
+                  ? Theme.of(context).colorScheme.primary
                   : (isLight
                       ? const Color(0xFFF0F0F0)
                       : const Color(0xFF1E242B)),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? AppTheme.accentGreen : Colors.transparent,
+                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
                 width: 1,
               ),
             ),
@@ -417,6 +417,65 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     );
   }
 
+  Widget _buildGroup(String title, List<Widget> children, bool isLight) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    final List<Widget> groupedChildren = [];
+    for (int i = 0; i < children.length; i++) {
+      groupedChildren.add(children[i]);
+      if (i < children.length - 1) {
+        groupedChildren.add(
+          Padding(
+            padding: const EdgeInsets.only(left: 72, right: 16),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: isLight
+                  ? Colors.black.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.05),
+            ),
+          ),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8, top: 16),
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isLight ? Colors.black54 : Colors.white54,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : null,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: groupedChildren),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
@@ -523,122 +582,53 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isLight
-                              ? Colors.white
-                              : Theme.of(context).cardTheme.color,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: isLight
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.03),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ]
-                              : null,
+                      _buildGroup('Account & Security', [
+                        if (_canManageUsers)
+                          _SettingsTile(
+                            title: 'Manage Users',
+                            icon: Icons.manage_accounts_outlined,
+                            iconColor: const Color(0xFF007AFF),
+                            onTap: widget.onManageUsers,
+                          ),
+                        _SettingsTile(
+                          title: 'Reset Password',
+                          icon: Icons.lock_reset_rounded,
+                          iconColor: const Color(0xFFFF9500),
+                          onTap: _handleChangePassword,
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
+                        _SettingsTile(
+                          title: 'Set Door Access PIN',
+                          icon: Icons.dialpad_rounded,
+                          iconColor: const Color(0xFF34C759),
+                          onTap: _handleSetPin,
+                        ),
+                      ], isLight),
+                      _buildGroup('Rack Management', [
+                        if (_canUseControlPresets)
+                          _SettingsTile(
+                            title: 'AC Control Presets',
+                            icon: Icons.tune_rounded,
+                            iconColor: const Color(0xFF00B8D9),
+                            onTap: _openControlPresets,
+                          ),
+                        _SettingsTile(
+                          title: 'Export PDF Report',
+                          icon: Icons.picture_as_pdf_rounded,
+                          iconColor: const Color(0xFFFF3B30),
+                          onTap: () async {
+                            Navigator.pop(context); // Close settings overlay
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ExportPdfScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ], isLight),
+                      _buildGroup('Preferences', [
+                        Column(
                           children: [
-                            if (_canManageUsers) ...[
-                              _SettingsTile(
-                                title: 'Manage Users',
-                                icon: Icons.manage_accounts_outlined,
-                                iconColor: const Color(0xFF007AFF),
-                                onTap: widget.onManageUsers,
-                              ),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 72, right: 16),
-                                child: Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: isLight
-                                      ? Colors.black.withValues(alpha: 0.05)
-                                      : Colors.white.withValues(alpha: 0.05),
-                                ),
-                              ),
-                            ],
-                            _SettingsTile(
-                              title: 'Reset Password',
-                              icon: Icons.lock_reset_rounded,
-                              iconColor: const Color(0xFFFF9500),
-                              onTap: _handleChangePassword,
-                            ),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(left: 72, right: 16),
-                              child: Divider(
-                                height: 1,
-                                thickness: 1,
-                                color: isLight
-                                    ? Colors.black.withValues(alpha: 0.05)
-                                    : Colors.white.withValues(alpha: 0.05),
-                              ),
-                            ),
-                            _SettingsTile(
-                              title: 'Set Door Access PIN',
-                              icon: Icons.dialpad_rounded,
-                              iconColor: const Color(0xFF34C759),
-                              onTap: _handleSetPin,
-                            ),
-                            if (_canUseControlPresets) ...[
-                              Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 72, right: 16),
-                                child: Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: isLight
-                                      ? Colors.black.withValues(alpha: 0.05)
-                                      : Colors.white.withValues(alpha: 0.05),
-                                ),
-                              ),
-                              _SettingsTile(
-                                title: 'AC Control Presets',
-                                icon: Icons.tune_rounded,
-                                iconColor: const Color(0xFF00B8D9),
-                                onTap: _openControlPresets,
-                              ),
-                            ],
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(left: 72, right: 16),
-                              child: Divider(
-                                height: 1,
-                                thickness: 1,
-                                color: isLight
-                                    ? Colors.black.withValues(alpha: 0.05)
-                                    : Colors.white.withValues(alpha: 0.05),
-                              ),
-                            ),
-                            _SettingsTile(
-                              title: 'Export PDF Report',
-                              icon: Icons.picture_as_pdf_rounded,
-                              iconColor: const Color(0xFFFF3B30),
-                              onTap: () async {
-                                Navigator.pop(context); // Close settings overlay
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const ExportPdfScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(left: 72, right: 16),
-                              child: Divider(
-                                height: 1,
-                                thickness: 1,
-                                color: isLight
-                                    ? Colors.black.withValues(alpha: 0.05)
-                                    : Colors.white.withValues(alpha: 0.05),
-                              ),
-                            ),
                             _SettingsTile(
                               title: 'Appearance',
                               icon: Icons.palette_outlined,
@@ -653,8 +643,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               ),
                               onTap: () {
                                 setState(() {
-                                  _isAppearanceExpanded =
-                                      !_isAppearanceExpanded;
+                                  _isAppearanceExpanded = !_isAppearanceExpanded;
                                 });
                               },
                             ),
@@ -665,7 +654,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                             ),
                           ],
                         ),
-                      ),
+                      ], isLight),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -818,7 +807,7 @@ class _SetPinDialogState extends State<_SetPinDialog> {
             Navigator.pop(context, pin);
           },
           style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white),
           child: const Text('Save PIN'),
         ),

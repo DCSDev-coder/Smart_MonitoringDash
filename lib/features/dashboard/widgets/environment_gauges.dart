@@ -129,7 +129,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
         children: [
           SizedBox(
             height: widget.gaugeHeight,
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.zero,
               child: Row(
                 children: [

@@ -2114,7 +2114,7 @@ class _MiniRingState extends State<_MiniRing>
                 stroke: stroke,
                 trackColor: widget.trackColor,
                 glow: true,
-                gradientColors: _gradientFor(widget.color),
+                gradientColors: _gradientFor(context, widget.color),
                 gradientRotation: _c.value * math.pi * 2,
               ),
             ),
@@ -2125,7 +2125,7 @@ class _MiniRingState extends State<_MiniRing>
     );
   }
 
-  static List<Color> _gradientFor(Color base) {
+  static List<Color> _gradientFor(BuildContext context, Color base) {
     // Match the dashboard gauge feel: bright -> deep -> bright sweep.
     if (base.toARGB32() == const Color(0xFF3271D7).toARGB32()) {
       return const [
@@ -2137,10 +2137,10 @@ class _MiniRingState extends State<_MiniRing>
       ];
     }
     // greens (Avg PUE / good)
-    return const [
+    return [
       AppTheme.accentGreen,
-      Color(0xFF05A100),
-      Color(0xFF0B6B0A),
+      const Color(0xFF05A100),
+      const Color(0xFF0B6B0A),
       AppTheme.accentGreen,
       AppTheme.accentGreen,
     ];

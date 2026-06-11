@@ -238,11 +238,13 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
         return StatefulBuilder(
           builder: (context, setLocalState) => Dialog(
             backgroundColor: Colors.transparent,
-            child: DashboardGlass(
-              radius: 18,
-              padding: const EdgeInsets.all(16),
-              tint: isLight ? Colors.white : const Color(0xFF0E141B),
-              borderColor: isLight ? AppTheme.lightStroke : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: DashboardGlass(
+                radius: 18,
+                padding: const EdgeInsets.all(16),
+                tint: isLight ? Colors.white : const Color(0xFF0E141B),
+                borderColor: Colors.transparent,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,13 +270,24 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
                     controller: ctrl,
                     autofocus: true,
                     obscureText: obscure,
+                    style: TextStyle(color: isLight ? Colors.black : Colors.white),
                     decoration: InputDecoration(
                       labelText: 'Password',
+                      labelStyle: TextStyle(color: isLight ? Colors.black54 : Colors.white54),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: isLight ? Colors.black12 : Colors.white24,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      ),
                       suffixIcon: IconButton(
                         onPressed: () =>
                             setLocalState(() => obscure = !obscure),
                         icon: Icon(
                           obscure ? Icons.visibility : Icons.visibility_off,
+                          color: isLight ? Colors.black54 : Colors.white54,
                         ),
                       ),
                     ),
@@ -300,6 +313,7 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
                   ),
                 ],
               ),
+            ),
             ),
           ),
         );
@@ -503,7 +517,8 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
           ? const Color.fromARGB(255, 247, 251, 255)
           : const Color(0xFF060B11),
       appBar: AppBar(
-        title: const Text('AC Control Presets'),
+        title: Text('AC Control Presets', style: TextStyle(color: textPrimary)),
+        iconTheme: IconThemeData(color: textPrimary),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -516,7 +531,7 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
               radius: 20,
               padding: const EdgeInsets.all(16),
               tint: isLight ? Colors.white : const Color(0xFF10161D),
-              borderColor: isLight ? AppTheme.lightStroke : null,
+              borderColor: Colors.transparent,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -586,9 +601,20 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
               )
             else
               ..._presetKeys.map((key) => Padding(
+                    key: ValueKey(key),
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: _buildPresetCard(
-                        _presets[key]!, textPrimary, textSecondary),
+                    child: _PresetCardWidget(
+                      key: ValueKey('card_$key'),
+                      preset: _presets[key]!,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      isDefault: _defaultPresetKey == key,
+                      isActive: _live != null && _doesPresetMatchLive(_presets[key]!, _live!),
+                      isSaving: _saving,
+                      onApply: () => _applyPreset(key),
+                      onSaveCurrent: () => _saveCurrentToPreset(key),
+                      onSetDefault: () => _setDefaultPreset(key),
+                    ),
                   )),
           ],
         ),
@@ -596,21 +622,70 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
     );
   }
 
-  Widget _buildPresetCard(
-    _ControlPreset preset,
-    Color textPrimary,
-    Color textSecondary,
-  ) {
-    final isDefault = _defaultPresetKey == preset.presetKey;
-    final isActive = _live != null && _doesPresetMatchLive(preset, _live!);
-    final hasValues = preset.values.isNotEmpty;
+  Widget _badge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetCardWidget extends StatefulWidget {
+  final _ControlPreset preset;
+  final Color textPrimary;
+  final Color textSecondary;
+  final bool isDefault;
+  final bool isActive;
+  final bool isSaving;
+  final VoidCallback onApply;
+  final VoidCallback onSaveCurrent;
+  final VoidCallback onSetDefault;
+
+  const _PresetCardWidget({
+    super.key,
+    required this.preset,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.isDefault,
+    required this.isActive,
+    required this.isSaving,
+    required this.onApply,
+    required this.onSaveCurrent,
+    required this.onSetDefault,
+  });
+
+  @override
+  State<_PresetCardWidget> createState() => _PresetCardWidgetState();
+}
+
+class _PresetCardWidgetState extends State<_PresetCardWidget> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValues = widget.preset.values.isNotEmpty;
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final visibleValues = _isExpanded
+        ? widget.preset.values
+        : widget.preset.values.take(3).toList();
 
     return DashboardGlass(
       radius: 18,
       padding: const EdgeInsets.all(16),
       tint: isLight ? Colors.white : const Color(0xFF10161D),
-      borderColor: isLight ? AppTheme.lightStroke : null,
+      borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -618,38 +693,76 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  preset.displayName,
+                  widget.preset.displayName,
                   style: TextStyle(
-                    color: textPrimary,
+                    color: widget.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
                   ),
                 ),
               ),
-              if (isDefault) _badge('Default', const Color(0xFF007AFF)),
-              if (isActive) ...[
+              if (widget.isDefault)
+                _badge('Default', const Color(0xFF007AFF)),
+              if (widget.isActive) ...[
                 const SizedBox(width: 8),
-                _badge('Current', AppTheme.accentGreen),
+                _badge('Current', Theme.of(context).colorScheme.primary),
               ],
             ],
           ),
           const SizedBox(height: 8),
           Text(
             hasValues
-                ? '${preset.values.length} control values saved'
+                ? '${widget.preset.values.length} control values saved'
                 : 'No saved values yet',
-            style: TextStyle(color: textSecondary),
+            style: TextStyle(color: widget.textSecondary),
           ),
           if (hasValues) ...[
             const SizedBox(height: 10),
-            for (final value in preset.values.take(4))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '${value.name.isNotEmpty ? value.name : value.metricCode}: ${value.value}${value.unit.isNotEmpty ? ' ${value.unit}' : ''}',
-                  style: TextStyle(color: textSecondary, fontSize: 13),
-                ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final value in visibleValues)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '${value.name.isNotEmpty ? value.name : value.metricCode}: ${value.value}${value.unit.isNotEmpty ? ' ${value.unit}' : ''}',
+                        style: TextStyle(color: widget.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                  if (widget.preset.values.length > 3)
+                    InkWell(
+                      onTap: () => setState(() => _isExpanded = !_isExpanded),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _isExpanded ? 'Show Less' : 'View All Details (${widget.preset.values.length})',
+                              style: TextStyle(
+                                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              size: 16,
+                              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
           const SizedBox(height: 14),
           Wrap(
@@ -657,21 +770,17 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
             runSpacing: 10,
             children: [
               FilledButton(
-                onPressed: _saving || !hasValues
-                    ? null
-                    : () => _applyPreset(preset.presetKey),
+                onPressed: widget.isSaving || !hasValues ? null : widget.onApply,
                 child: const Text('Apply'),
               ),
               OutlinedButton(
-                onPressed: _saving
-                    ? null
-                    : () => _saveCurrentToPreset(preset.presetKey),
+                onPressed: widget.isSaving ? null : widget.onSaveCurrent,
                 child: const Text('Save Current'),
               ),
               OutlinedButton(
-                onPressed: _saving || !hasValues || isDefault
+                onPressed: widget.isSaving || !hasValues || widget.isDefault
                     ? null
-                    : () => _setDefaultPreset(preset.presetKey),
+                    : widget.onSetDefault,
                 child: const Text('Set Default'),
               ),
             ],

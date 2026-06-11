@@ -178,7 +178,7 @@ class _RackConsoleUserPinSheetBodyState
               child: FilledButton(
                 onPressed: _submitting ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.accentGreen,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),

@@ -363,7 +363,7 @@ class CctvScreenState extends State<CctvScreen> {
                               ? Icons.volume_off_rounded
                               : Icons.volume_up_rounded,
                           color: (_soundDetected[chNum] ?? false)
-                              ? AppTheme.accentGreen
+                              ? Theme.of(context).colorScheme.primary
                               : Colors.white,
                           size: 20 * uiScale,
                         ),

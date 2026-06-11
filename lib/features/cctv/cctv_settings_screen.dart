@@ -474,10 +474,10 @@ class _CctvSettingsScreenState extends State<CctvSettingsScreen> {
                 ),
               ),
               value: _muteAll,
-              activeThumbColor: AppTheme.accentGreen,
+              activeThumbColor: Theme.of(context).colorScheme.primary,
               inactiveThumbColor: Colors.white.withValues(alpha: 0.7),
               inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-              activeTrackColor: AppTheme.accentGreen.withValues(alpha: 0.35),
+              activeTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
               visualDensity: VisualDensity.compact,
               contentPadding: EdgeInsets.zero,
               onChanged: (bool value) {
@@ -520,7 +520,7 @@ class _CctvSettingsScreenState extends State<CctvSettingsScreen> {
                               color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white.withValues(alpha: 0.55),
                             )),
                         value: isChecked,
-                        activeColor: AppTheme.accentGreen,
+                        activeColor: Theme.of(context).colorScheme.primary,
                         checkColor: Colors.white,
                         side: BorderSide(
                           color: Colors.white.withValues(alpha: 0.22),
@@ -556,7 +556,7 @@ class _CctvSettingsScreenState extends State<CctvSettingsScreen> {
               });
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               elevation: 0,

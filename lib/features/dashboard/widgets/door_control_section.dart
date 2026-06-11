@@ -34,12 +34,12 @@ class DoorControlSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.4,
-                  color: AppTheme.accentGreen,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 10),
@@ -411,7 +411,7 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
                           spreadRadius: 1,
                         ),
                         BoxShadow(
-                          color: AppTheme.accentGreen.withValues(alpha: 0.10),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
                           blurRadius: 28,
                           spreadRadius: 6,
                         ),
@@ -426,11 +426,11 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
                       child: AnimatedGradientFill(
                         t: _c,
                         borderRadius: BorderRadius.circular(radius),
-                        colors: const [
-                          Color(0xFF00A3FF),
-                          Color(0xFF0FA4A8),
-                          AppTheme.accentGreen,
-                          Color(0xFF00A3FF),
+                        colors: [
+                          const Color(0xFF00A3FF),
+                          const Color(0xFF0FA4A8),
+                          Theme.of(context).colorScheme.primary,
+                          const Color(0xFF00A3FF),
                         ],
                       ),
                     ),
@@ -816,7 +816,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                   ),
                   onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.accentGreen,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     side: BorderSide(
                       color: isLight
                           ? AppTheme.lightStroke
@@ -850,7 +850,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                       child: Text(
                         _usePin ? 'Use Password' : 'Use PIN',
                         style: TextStyle(
-                          color: isLight ? AppTheme.accentGreen : Colors.white,
+                          color: isLight ? Theme.of(context).colorScheme.primary : Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -902,8 +902,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                        color: AppTheme.accentGreen, width: 1.4),
+                    borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary, width: 1.4),
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -918,11 +918,11 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               ),
               const SizedBox(height: 18),
               if (_isAuthenticating)
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child:
-                        CircularProgressIndicator(color: AppTheme.accentGreen),
+                        CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
                   ),
                 )
               else
@@ -933,7 +933,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                     label: const Text('Unlock Door'),
                     onPressed: _runPasswordUnlock,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentGreen,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -967,7 +967,7 @@ class _DoorLockIcon extends StatelessWidget {
         key: ValueKey(isUnlocked),
         size: size,
         color: isUnlocked
-            ? AppTheme.accentGreen
+            ? Theme.of(context).colorScheme.primary
             : (isLight ? AppTheme.lightTextSecondary : Colors.white54),
       ),
     );

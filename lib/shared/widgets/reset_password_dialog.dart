@@ -380,7 +380,7 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
                 height: 56,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

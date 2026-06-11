@@ -332,12 +332,38 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      AppToast.showError(context, e.toString());
+      _showErrorDialog(e.toString());
       if (isAuto) {
         // Auto-login failed; don't keep retrying in a loop.
         await rememberMeStore.clear();
       }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E242B),
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Sign In Failed', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK', style: TextStyle(color: Color(0xFF00BD10))),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openRequestAccess() async {

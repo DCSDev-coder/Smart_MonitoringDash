@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/navigation/app_navigator.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
+import '../../core/network/cpanel_api_service.dart';
+import '../../core/network/adapter_api_service.dart';
+import 'set_pin_dialog.dart';
+import '../utils/app_toast.dart';
 
 class NotificationsOverlay {
   static Future<void> show(
@@ -289,13 +293,33 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     final color = _levelColor(level);
     final icon = _alarmIcon(title);
     final isResolved = level.trim().toLowerCase().contains('resolved');
+    final isPinSetup = a['isPinSetupPrompt'] == true;
     final isLight = Theme.of(context).brightness == Brightness.light;
     
     // We treat active issues as unread (red dot), resolved as read
     final unread = !isResolved;
 
     return InkWell(
-      onTap: () {
+      onTap: () async {
+        if (isPinSetup) {
+           Navigator.of(context).pop();
+           final result = await showDialog<String>(
+             context: context,
+             builder: (_) => const SetPinDialog(showSkipOptions: false),
+           );
+           if (result != null && result != 'skipped' && result.length >= 4) {
+             final success = await AdapterApiService.instance.setPin(result);
+             if (context.mounted) {
+               AppToast.show(context, success ? 'PIN setup successfully.' : 'Failed to set PIN.');
+               if (success) {
+                 CpanelApiService.instance.currentUser ??= {};
+                 CpanelApiService.instance.currentUser!['has_pin'] = 1;
+               }
+             }
+           }
+           return;
+        }
+
         GlobalEventBus.targetHistoricalAlarm.value = a;
         Navigator.of(context).pop();
         if (widget.onNavigateToReport != null) {

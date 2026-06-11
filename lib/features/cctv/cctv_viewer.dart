@@ -200,7 +200,7 @@ class _CctvFullScreenViewerState extends State<CctvFullScreenViewer> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentGreen.withValues(alpha: 0.8),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
