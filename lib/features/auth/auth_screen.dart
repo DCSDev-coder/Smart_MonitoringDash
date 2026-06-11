@@ -8,6 +8,7 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/auth/remember_me_store.dart';
 import '../../core/utils/app_log.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/fade_in_slide.dart';
@@ -125,6 +126,7 @@ class _AuthScreenState extends State<AuthScreen> {
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
       final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
+      final dbLocalIp = CpanelApiService.instance.currentSite?['local_ip']?.toString();
       final siteUser =
           CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
       final sitePass =
@@ -148,6 +150,10 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       bool ok = false;
+      final prefs = await SharedPreferences.getInstance();
+      final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
+      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty) ? dbLocalIp : manualFallbackIp;
+
       if (AdapterApiService.instance.isConfigured) {
         ok = true;
         // Attempt direct login in the background for local features (like cameras) if on Wi-Fi
@@ -158,6 +164,15 @@ class _AuthScreenState extends State<AuthScreen> {
           sitePass,
           ip: targetIp,
         );
+
+        if (!ok && fallbackIp.isNotEmpty) {
+          AppLog.i('Public IP failed, trying local fallback IP', tag: 'Auth');
+          ok = await ApiService.instance.login(
+            siteUser,
+            sitePass,
+            ip: fallbackIp,
+          );
+        }
       }
 
       if (!mounted) return;
@@ -247,6 +262,7 @@ class _AuthScreenState extends State<AuthScreen> {
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
       final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
+      final dbLocalIp = CpanelApiService.instance.currentSite?['local_ip']?.toString();
       final siteUser =
           CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
       final sitePass =
@@ -267,6 +283,10 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       bool ok = false;
+      final prefs = await SharedPreferences.getInstance();
+      final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
+      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty) ? dbLocalIp : manualFallbackIp;
+
       if (AdapterApiService.instance.isConfigured) {
         ok = true;
         // Attempt direct login in the background for local features (like cameras) if on Wi-Fi
@@ -277,6 +297,15 @@ class _AuthScreenState extends State<AuthScreen> {
           sitePass,
           ip: targetIp,
         );
+
+        if (!ok && fallbackIp.isNotEmpty) {
+          AppLog.i('Public IP failed, trying local fallback IP', tag: 'Auth');
+          ok = await ApiService.instance.login(
+            siteUser,
+            sitePass,
+            ip: fallbackIp,
+          );
+        }
       }
 
       if (!mounted) {
