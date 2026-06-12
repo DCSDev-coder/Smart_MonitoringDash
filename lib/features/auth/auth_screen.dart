@@ -408,10 +408,6 @@ class _AuthScreenState extends State<AuthScreen> {
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
       child: PopScope(
         canPop: false,
-        onPopInvokedWithResult: (didPop, result) {
-          if (didPop) return;
-          _goToIntro();
-        },
         child: Scaffold(
           backgroundColor: const Color(0xFF060B11),
           body: TickerMode(

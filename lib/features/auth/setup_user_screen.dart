@@ -125,10 +125,6 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     final bg = GlobalVideoBackground.auth;
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _goToIntro();
-      },
       child: Scaffold(
         backgroundColor: const Color(0xFF060B11),
         body: TickerMode(

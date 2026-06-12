@@ -60,6 +60,9 @@ class AnimatedDcsLogo extends StatelessWidget {
               // 3. S (Static)
               Image.asset('assets/DCS_Logo/S.png'),
 
+              // Registered Trademark (Static)
+              Image.asset('assets/DCS_Logo/R-01 (1).png'),
+
               // 4. THE SPINNING "C" GROUP
               Transform.translate(
                 offset: off,

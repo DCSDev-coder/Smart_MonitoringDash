@@ -461,7 +461,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     final double sidebarProgress = _sidebarController.value;
     final bool sidebarExpanded = sidebarProgress > 0.001;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.light
           ? Theme.of(context).scaffoldBackgroundColor
           : const Color(0xFF060B11),
@@ -703,7 +705,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             ),
         ],
       ),
-    );
+    ));
   }
 
   List<_NavTab> _computeTabs() {
