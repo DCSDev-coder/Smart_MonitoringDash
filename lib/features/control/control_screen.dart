@@ -814,6 +814,7 @@ class _ControlScreenState extends State<ControlScreen>
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true, // Bypass 50% max-height limit
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Padding(
@@ -833,7 +834,8 @@ class _ControlScreenState extends State<ControlScreen>
                 : Colors.transparent,
             child: SafeArea(
               top: false,
-              child: Column(
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -896,7 +898,8 @@ class _ControlScreenState extends State<ControlScreen>
                   const SizedBox(height: 60), // Pushes the options higher
                 ],
               ),
-            ),
+             ), // Closes SingleChildScrollView
+            ), // Closes SafeArea
           ),
         );
       },

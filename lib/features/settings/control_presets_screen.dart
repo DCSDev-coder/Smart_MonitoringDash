@@ -516,18 +516,27 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       backgroundColor: isLight
           ? const Color.fromARGB(255, 247, 251, 255)
           : const Color(0xFF060B11),
-      appBar: AppBar(
-        title: Text('AC Control Presets', style: TextStyle(color: textPrimary)),
-        iconTheme: IconThemeData(color: textPrimary),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _reload,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            DashboardGlass(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: RefreshIndicator(
+              onRefresh: _reload,
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 70, 16, 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 24),
+                    child: Text(
+                      'AC Control Presets',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: textPrimary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  DashboardGlass(
               radius: 20,
               padding: const EdgeInsets.all(16),
               tint: isLight ? Colors.white : const Color(0xFF10161D),
@@ -619,7 +628,21 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
           ],
         ),
       ),
-    );
+    ),
+    Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 16,
+      child: IconButton(
+        icon: Icon(
+          Icons.arrow_back,
+          color: textPrimary,
+        ),
+        onPressed: () => Navigator.pop(context),
+      ),
+    ),
+  ],
+),
+);
   }
 
   Widget _badge(String label, Color color) {

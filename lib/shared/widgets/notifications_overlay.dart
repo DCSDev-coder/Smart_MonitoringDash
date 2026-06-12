@@ -116,7 +116,11 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     if (t.contains('FLOOD') || t.contains('LEAK') || t.contains('WATER')) return Icons.water_damage_rounded;
     if (t.contains('UPS') || t.contains('BAT')) return Icons.battery_alert_rounded;
     if (t.contains('PDU') || t.contains('POWER')) return Icons.bolt_rounded;
-    if (t.contains('AC')) return Icons.ac_unit_rounded;
+    if (t.contains('SECURITY') || t.contains('DOOR') || t.contains('ACCESS')) return Icons.security_rounded;
+    
+    // Use regex to match "AC" as a standalone word, so words like "ACTION" don't trigger it
+    if (RegExp(r'\bAC\b').hasMatch(t)) return Icons.ac_unit_rounded;
+    
     return Icons.notifications_rounded;
   }
 
@@ -166,11 +170,11 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
 
     // Background colors matching the setting page approach
     final bgColor = isLight
-        ? const Color(0xFFF9F7F1)
+        ? const Color.fromARGB(255, 247, 251, 255)
         : const Color(0xFF060B11);
     
     final sectionHeaderColor = isLight ? const Color(0xFF757575) : Colors.white54;
-    final itemBgColor = isLight ? const Color(0xFFF3EFE6) : const Color(0xFF131922);
+    final itemBgColor = isLight ? Colors.white : const Color(0xFF131922);
     final textColor = isLight ? Colors.black87 : Colors.white;
     final dividerColor = isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05);
 

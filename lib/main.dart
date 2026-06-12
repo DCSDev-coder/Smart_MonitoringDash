@@ -670,27 +670,31 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                       // Keep "Alerts" consistent across the app:
                       final totalNotifications = _getTotalNotifications();
                       final criticalGlow = _poller.hasAnyIssue;
-                      return _MainSidebar(
-                        progress: sidebarProgress,
-                        selectedIndex: _selectedIndex,
-                        tabs: _tabs,
-                        logoUrl: _companyLogoUrl(),
-                        hasNotifications: totalNotifications > 0,
-                        criticalGlow: criticalGlow,
-                        onSelectTab: (i) {
-                          _setSidebarSwiped(false);
-                          _onNavTapped(i);
-                        },
-                        onTapNotifications: () =>
-                            _showNotificationsOverlay(context),
-                        onTapSettings: () => SettingsOverlay.show(
-                          context,
-                          originRect:
-                              SettingsOverlay.rectFromKey(_desktopSettingsKey),
-                          onUploadLogo: _handleLogoUpload,
-                          onGoHome: () => _onNavTapped(0),
+                      return Container(
+                        color: Colors.transparent, // Ensures the entire padded area catches gestures
+                        padding: const EdgeInsets.only(right: 40.0), // The expanded gesture area
+                        child: _MainSidebar(
+                          progress: sidebarProgress,
+                          selectedIndex: _selectedIndex,
+                          tabs: _tabs,
+                          logoUrl: _companyLogoUrl(),
+                          hasNotifications: totalNotifications > 0,
+                          criticalGlow: criticalGlow,
+                          onSelectTab: (i) {
+                            _setSidebarSwiped(false);
+                            _onNavTapped(i);
+                          },
+                          onTapNotifications: () =>
+                              _showNotificationsOverlay(context),
+                          onTapSettings: () => SettingsOverlay.show(
+                            context,
+                            originRect:
+                                SettingsOverlay.rectFromKey(_desktopSettingsKey),
+                            onUploadLogo: _handleLogoUpload,
+                            onGoHome: () => _onNavTapped(0),
+                          ),
+                          settingsKey: _desktopSettingsKey,
                         ),
-                        settingsKey: _desktopSettingsKey,
                       );
                     },
                   ),
@@ -1022,9 +1026,7 @@ class _MainSidebar extends StatelessWidget {
         : const Color(0xFF0E141B);
     final sidebarBorder =
         isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
-    final sidebarShadow = isLight
-        ? Colors.black.withValues(alpha: 0.08)
-        : Colors.black.withValues(alpha: 0.28);
+    final sidebarMaxAlpha = isLight ? 0.05 : 0.28;
 
     return Container(
       width: lerpDouble(80, 240, easedProgress)!,
@@ -1034,8 +1036,8 @@ class _MainSidebar extends StatelessWidget {
         boxShadow: progress > 0.01
             ? [
                 BoxShadow(
-                  color:
-                      sidebarShadow.withValues(alpha: 0.15 + (0.85 * progress)),
+                  color: Colors.black.withValues(
+                      alpha: sidebarMaxAlpha * (0.15 + (0.85 * progress))),
                   blurRadius: lerpDouble(10, 34, easedProgress)!,
                   spreadRadius: lerpDouble(0, 1, easedProgress)!,
                   offset: const Offset(6, 0),
@@ -1054,26 +1056,35 @@ class _MainSidebar extends StatelessWidget {
               _buildLogo(context),
               const SizedBox(height: 40),
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: tabs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final t = tabs[i];
-                    final active = selectedIndex == i;
-                    return _SidebarItem(
-                      key: ValueKey(t.label),
-                      icon: t.icon,
-                      label: t.label,
-                      active: active,
-                      progress: progress,
-                      onTap: () => onSelectTab(i),
-                    );
-                  },
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: tabs.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final t = tabs[i];
+                          final active = selectedIndex == i;
+                          return _SidebarItem(
+                            key: ValueKey(t.label),
+                            icon: t.icon,
+                            label: t.label,
+                            active: active,
+                            progress: progress,
+                            onTap: () => onSelectTab(i),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8), // Match the separatorBuilder spacing
+                      _buildBottomActions(),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
-              _buildBottomActions(),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -1085,44 +1096,29 @@ class _MainSidebar extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      height: 40,
+      height: 80, // Fixed height so the logo's vertical center never shifts
       child: OverflowBox(
         minWidth: 0,
         maxWidth: 240,
+        minHeight: 0,
+        maxHeight: double.infinity,
         alignment: Alignment.centerLeft,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 48, // 80 - 32 padding
-              child: Center(
-                child: logoUrl != null
-                    ? SafeNetworkImage(logoUrl!, width: 32, height: 32)
-                    : Icon(Icons.blur_on_rounded,
-                        color: Theme.of(context).colorScheme.primary, size: 32),
-              ),
-            ),
-            Expanded(
-              child: Transform.translate(
-                offset: Offset((1 - progress) * -20, 0),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12.0),
-                  child: _SidebarRevealText(
-                    progress: progress,
-                    start: 0.12,
-                    end: 0.62,
-                    text: 'DCS SMART',
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      letterSpacing: 1.0,
-                    ),
+        child: SizedBox(
+          width: 56 + (150 * progress),
+          child: Center(
+            child: logoUrl != null
+                ? SafeNetworkImage(
+                    logoUrl!,
+                    width: 44 + (80 * progress),
+                    height: 44 + (44 * progress),
+                    fit: BoxFit.contain,
+                  )
+                : Icon(
+                    Icons.business_rounded,
+                    color: Theme.of(context).colorScheme.primary, 
+                    size: 44 + (44 * progress),
                   ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

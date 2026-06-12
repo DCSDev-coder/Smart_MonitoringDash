@@ -508,24 +508,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     staticForApp: true,
                   ),
                 ),
+
               Positioned.fill(
                 child: ListView(
-                  padding: EdgeInsets.fromLTRB(16, topPad + 18, 16, 96),
+                  padding: EdgeInsets.fromLTRB(16, topPad + 70, 16, 96),
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            Icons.arrow_back,
-                            color: isLight
-                                ? AppTheme.lightTextPrimary
-                                : Colors.white,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
                     Text(
                       'Manage Users',
                       style: TextStyle(
@@ -580,6 +567,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     ),
                   ),
                 ),
+              Positioned(
+                top: topPad + 10,
+                left: 16,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
             ],
           ),
         ),

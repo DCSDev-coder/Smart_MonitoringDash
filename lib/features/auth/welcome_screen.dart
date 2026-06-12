@@ -99,10 +99,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           SafeArea(
             child: LayoutBuilder(builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 768;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
+              return CustomScrollView(
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
                     // Keep the logo in a fixed \"band\" so the Hero doesn't jump
                     // when transitioning to AuthScreen.
                     const SizedBox(height: 40),
@@ -320,8 +324,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ),
                       ),
                     ),
-                  ],
-                ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               );
             }),
           ),

@@ -136,7 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 12),
                 _buildProfileTile(
                   icon: Icons.dialpad_rounded,
-                  title: 'Set Door Access PIN',
+                  title: 'Set Door PIN',
                   subtitle: 'Update your 4-digit PIN for Smart Rack unlock',
                   onTap: () => _handleSetPin(context),
                 ),

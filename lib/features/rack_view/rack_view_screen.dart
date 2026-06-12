@@ -1154,6 +1154,7 @@ class _RackViewScreenState extends State<RackViewScreen>
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true, // Allows the sheet to take up more than 50% of screen height
       backgroundColor: Colors.transparent,
       builder: (context) {
         final isLight = Theme.of(context).brightness == Brightness.light;
@@ -1215,7 +1216,8 @@ class _RackViewScreenState extends State<RackViewScreen>
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           tint: sheetTint.withValues(alpha: isLight ? 0.98 : 0.96),
           borderColor: sheetBorder,
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1301,8 +1303,9 @@ class _RackViewScreenState extends State<RackViewScreen>
                 ),
             ],
           ),
-        ),
-        );
+         ), // Closes SingleChildScrollView
+        ), // Closes DashboardGlass
+        ); // Closes Padding
       },
     );
   }

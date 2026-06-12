@@ -13,6 +13,7 @@ import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
 import 'safe_network_image.dart';
 import 'secure_action_guard.dart';
+import 'set_pin_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../utils/app_toast.dart';
 
@@ -385,18 +386,18 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   }
 
   Future<void> _handleSetPin() async {
-    final pin = await showDialog<String>(
+    final result = await showDialog<String>(
       context: context,
-      builder: (_) => const _SetPinDialog(),
+      builder: (_) => const SetPinDialog(),
     );
-    if (pin != null && pin.length >= 4 && mounted) {
+    if (result != null && result.length >= 4 && mounted) {
       bool success = false;
       if (AdapterApiService.instance.isConfigured) {
-        success = await AdapterApiService.instance.setPin(pin);
+        success = await AdapterApiService.instance.setPin(result);
       }
       
       if (!success) {
-        success = await CpanelApiService.instance.setPin(pin);
+        success = await CpanelApiService.instance.setPin(result);
       }
       
       if (mounted) {
@@ -494,94 +495,86 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Redesigned Header Section: Centered Profile
-              Stack(
-                children: [
-                  // Center the profile info
-                  Align(
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(24),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () async {
-                              if (widget.onUploadLogo != null) {
-                                await widget.onUploadLogo!();
-                                _loadUserInfo();
-                              }
-                            },
-                            child: SizedBox(
-                              width: 140,
-                              height: 140,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  if (_logoUrl != null)
-                                    Positioned.fill(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(23),
-                                        child: SafeNetworkImage(
-                                          _logoUrl!,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    const Icon(Icons.business_rounded,
-                                        color: Colors.white24, size: 48),
-                                  if (_logoUrl == null) ...[
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.4),
-                                        borderRadius: BorderRadius.circular(23),
-                                      ),
-                                    ),
-                                    Icon(Icons.camera_alt_rounded,
-                                        color:
-                                            Colors.white.withValues(alpha: 0.7),
-                                        size: 32),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _loadingUser ? '...' : (_username ?? 'ADMIN'),
-                          textAlign: TextAlign.center,
-                          style: bitcount(
-                            context,
-                            fontSize: 22,
-                            color: headerTextColor,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Top left back button
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back, color: headerTextColor),
-                      onPressed: widget.onClose,
-                    ),
-                  ),
-                ],
+              // Top left back button (Pinned at the top)
+              IconButton(
+                icon: Icon(Icons.arrow_back, color: headerTextColor),
+                onPressed: widget.onClose,
               ),
-              const SizedBox(height: 32),
-
+              
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
+                      // Centered Profile Info (Now scrolls with content)
+                      Align(
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(24),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () async {
+                                  if (widget.onUploadLogo != null) {
+                                    await widget.onUploadLogo!();
+                                    _loadUserInfo();
+                                  }
+                                },
+                                child: SizedBox(
+                                  width: 140,
+                                  height: 140,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      if (_logoUrl != null)
+                                        Positioned.fill(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(23),
+                                            child: SafeNetworkImage(
+                                              _logoUrl!,
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        const Icon(Icons.business_rounded,
+                                            color: Colors.white24, size: 48),
+                                      if (_logoUrl == null) ...[
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withValues(alpha: 0.4),
+                                            borderRadius: BorderRadius.circular(23),
+                                          ),
+                                        ),
+                                        Icon(Icons.camera_alt_rounded,
+                                            color:
+                                                Colors.white.withValues(alpha: 0.7),
+                                            size: 32),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _loadingUser ? '...' : (_username ?? 'ADMIN'),
+                              textAlign: TextAlign.center,
+                              style: bitcount(
+                                context,
+                                fontSize: 22,
+                                color: headerTextColor,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      
                       _buildGroup('Account & Security', [
                         if (_canManageUsers)
                           _SettingsTile(
@@ -597,7 +590,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                           onTap: _handleChangePassword,
                         ),
                         _SettingsTile(
-                          title: 'Set Door Access PIN',
+                          title: 'Set Door PIN',
                           icon: Icons.dialpad_rounded,
                           iconColor: const Color(0xFF34C759),
                           onTap: _handleSetPin,
@@ -616,7 +609,6 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                           icon: Icons.picture_as_pdf_rounded,
                           iconColor: const Color(0xFFFF3B30),
                           onTap: () async {
-                            Navigator.pop(context); // Close settings overlay
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -766,52 +758,4 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-class _SetPinDialog extends StatefulWidget {
-  const _SetPinDialog();
-  @override
-  State<_SetPinDialog> createState() => _SetPinDialogState();
-}
 
-class _SetPinDialogState extends State<_SetPinDialog> {
-  final _pinCtrl = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return AlertDialog(
-      title: const Text('Set Door Access PIN'),
-      content: TextField(
-        controller: _pinCtrl,
-        keyboardType: TextInputType.number,
-        obscureText: true,
-        autofocus: true,
-        maxLength: 6,
-        decoration: const InputDecoration(
-          hintText: 'Enter 4-6 digit PIN',
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel',
-              style: TextStyle(
-                  color: isLight ? AppTheme.textSecondary : Colors.white70)),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final pin = _pinCtrl.text.trim();
-            if (pin.length < 4) {
-              AppToast.showError(context, 'PIN must be at least 4 digits');
-              return;
-            }
-            Navigator.pop(context, pin);
-          },
-          style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white),
-          child: const Text('Save PIN'),
-        ),
-      ],
-    );
-  }
-}

@@ -319,97 +319,90 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_rounded,
-            color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-          ),
-          onPressed: () => Navigator.pop(context, false),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Reset Password',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 40),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _passwordField(
-                        controller: _currentCtrl,
-                        hint: 'Current Password',
-                        obscure: _obscureCurrent,
-                        onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                      ),
-                      const SizedBox(height: 24),
-                      _passwordField(
-                        controller: _newCtrl,
-                        hint: 'New Password',
-                        obscure: _obscureNew,
-                        onToggle: () => setState(() => _obscureNew = !_obscureNew),
-                      ),
-                      const SizedBox(height: 24),
-                      _passwordField(
-                        controller: _confirmCtrl,
-                        hint: 'Confirm New Password',
-                        obscure: _obscureConfirm,
-                        onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                      ),
-                      const SizedBox(height: 40),
-                    ],
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 70, 24, 24),
+              children: [
+                Text(
+                  'Reset Password',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 40),
+                _passwordField(
+                  controller: _currentCtrl,
+                  hint: 'Current Password',
+                  obscure: _obscureCurrent,
+                  onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                ),
+                const SizedBox(height: 24),
+                _passwordField(
+                  controller: _newCtrl,
+                  hint: 'New Password',
+                  obscure: _obscureNew,
+                  onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                ),
+                const SizedBox(height: 24),
+                _passwordField(
+                  controller: _confirmCtrl,
+                  hint: 'Confirm New Password',
+                  obscure: _obscureConfirm,
+                  onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'UPDATE PASSWORD',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
                   ),
-                  onPressed: _isSubmitting ? null : _submit,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'UPDATE PASSWORD',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
-        ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 16,
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back,
+                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+              ),
+              onPressed: () => Navigator.pop(context, false),
+            ),
+          ),
+        ],
       ),
     );
   }

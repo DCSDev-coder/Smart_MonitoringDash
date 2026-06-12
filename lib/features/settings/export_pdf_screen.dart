@@ -125,25 +125,12 @@ class _ExportPdfScreenState extends State<ExportPdfScreen> {
               ),
             ),
           Positioned.fill(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: ListView(
+              padding: EdgeInsets.only(
+                top: topPad + 70,
+                bottom: media.padding.bottom + 32,
+              ),
               children: [
-                SizedBox(height: topPad + 18),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.arrow_back,
-                          color: textColor,
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Text(
@@ -168,9 +155,10 @@ class _ExportPdfScreenState extends State<ExportPdfScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildSectionHeader('DATE RANGE', isLight),
                       const SizedBox(height: 12),
@@ -232,7 +220,45 @@ class _ExportPdfScreenState extends State<ExportPdfScreen> {
                         (v) => setState(() => _includeDoorLogs = v),
                         isLight,
                       ),
-                      const SizedBox(height: 120),
+                      const SizedBox(height: 48), // Spacing before the button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.accentBlue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: _isGenerating ? null : _generatePdf,
+                          child: _isGenerating
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.download_rounded, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Generate & Download PDF',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -240,65 +266,14 @@ class _ExportPdfScreenState extends State<ExportPdfScreen> {
             ),
           ),
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding:
-                  EdgeInsets.fromLTRB(24, 16, 24, media.padding.bottom + 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    isLight
-                        ? const Color(0xFFF7FBFF).withValues(alpha: 0.0)
-                        : const Color(0xFF060B11).withValues(alpha: 0.0),
-                    isLight
-                        ? const Color(0xFFF7FBFF)
-                        : const Color(0xFF060B11),
-                  ],
-                  stops: const [0.0, 0.4],
-                ),
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 16,
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back,
+                color: Theme.of(context).brightness == Brightness.light ? const Color(0xFF1C222B) : Colors.white,
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.accentBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: _isGenerating ? null : _generatePdf,
-                  child: _isGenerating
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.download_rounded, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Generate & Download PDF',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
         ],
