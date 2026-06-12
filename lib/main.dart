@@ -1350,24 +1350,7 @@ class _MissionBackdrop extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Align(
-            alignment: const Alignment(-0.72, -0.84),
-            child: Container(
-              width: 420,
-              height: 420,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.11),
-                    AppTheme.auraCyan.withValues(alpha: 0.05),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.42, 1.0],
-                ),
-              ),
-            ),
-          ),
+
           Align(
             alignment: const Alignment(0.92, -0.18),
             child: Container(
