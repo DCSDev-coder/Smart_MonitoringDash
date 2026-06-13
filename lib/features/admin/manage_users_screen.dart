@@ -599,15 +599,46 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           .toString(),
     );
 
-    // Hide OWNER/admin row and the currently logged-in admin from the list view.
+    // Show all members, including the currently logged-in admin.
+    // The _memberRow widget handles hiding the edit/delete buttons for self/owner.
     final visibleMembers = _members.where((m) {
       if (m is! Map) return false;
-      final uid = int.tryParse(m['user_id']?.toString() ?? '');
-      if (uid == null) return true;
-      if (ownerId != null && uid == ownerId) return false;
-      if (_portalUserId != null && uid == _portalUserId) return false;
       return true;
     }).toList();
+
+    // Sort priority: Owner (0) > Admin (1) > Rack Console (2) > User (3)
+    visibleMembers.sort((a, b) {
+      int getWeight(dynamic m) {
+        if (m is! Map) return 99;
+        final uid = int.tryParse(m['user_id']?.toString() ?? '');
+        if (ownerId != null && uid == ownerId) return 0;
+        
+        final role = m['role']?.toString().toLowerCase() ?? 'user';
+        if (role == 'admin') return 1;
+        
+        final v = m['is_kiosk'];
+        bool isKiosk = false;
+        if (v is bool) {
+          isKiosk = v;
+        } else if (v is num) {
+          isKiosk = v != 0;
+        } else if (v != null) {
+          final s = v.toString().trim().toLowerCase();
+          isKiosk = s == '1' || s == 'true' || s == 'yes';
+        }
+        
+        if (isKiosk) return 2;
+        return 3;
+      }
+      
+      final wA = getWeight(a);
+      final wB = getWeight(b);
+      if (wA != wB) return wA.compareTo(wB);
+      
+      final nameA = (a is Map ? a['username']?.toString() ?? a['member_username']?.toString() ?? '' : '').toLowerCase();
+      final nameB = (b is Map ? b['username']?.toString() ?? b['member_username']?.toString() ?? '' : '').toLowerCase();
+      return nameA.compareTo(nameB);
+    });
 
     if (visibleMembers.isEmpty) {
       return Container(
@@ -647,31 +678,79 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       );
     }
 
-    return DashboardGlass(
-      radius: 18,
-      padding: const EdgeInsets.all(16),
-      tint: isLight
-          ? const Color(0xFFFFFFFF)
-          : Colors.white.withValues(alpha: 0.06),
-      borderColor: isLight ? AppTheme.lightStroke : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'SITE MEMBERS',
-            style: TextStyle(
-              color: isLight
-                  ? AppTheme.lightTextSecondary
-                  : Colors.white.withValues(alpha: 0.65),
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.4,
-            ),
+    final adminsList = <dynamic>[];
+    final kiosksList = <dynamic>[];
+    final usersList = <dynamic>[];
+
+    for (var m in visibleMembers) {
+      if (m is! Map) continue;
+      final uid = int.tryParse(m['user_id']?.toString() ?? '');
+      if (ownerId != null && uid == ownerId) {
+        adminsList.add(m);
+        continue;
+      }
+      final role = m['role']?.toString().toLowerCase() ?? 'user';
+      if (role == 'admin') {
+        adminsList.add(m);
+        continue;
+      }
+      
+      final v = m['is_kiosk'];
+      bool isKiosk = false;
+      if (v is bool) isKiosk = v;
+      else if (v is num) isKiosk = v != 0;
+      else if (v != null) {
+        final s = v.toString().trim().toLowerCase();
+        isKiosk = s == '1' || s == 'true' || s == 'yes';
+      }
+      
+      if (isKiosk) {
+        kiosksList.add(m);
+      } else {
+        usersList.add(m);
+      }
+    }
+
+    Widget buildSection(String title, List<dynamic> list) {
+      if (list.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: DashboardGlass(
+          radius: 18,
+          padding: const EdgeInsets.all(16),
+          tint: isLight
+              ? const Color(0xFFFFFFFF)
+              : Colors.white.withValues(alpha: 0.06),
+          borderColor: isLight ? AppTheme.lightStroke : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.65),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...list.map((m) => _memberRow(m)),
+            ],
           ),
-          const SizedBox(height: 12),
-          ...visibleMembers.map((m) => _memberRow(m)),
-        ],
-      ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        buildSection('Owner & Admins', adminsList),
+        buildSection('Rack Consoles', kiosksList),
+        buildSection('Users', usersList),
+      ],
     );
   }
 
@@ -719,15 +798,29 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       _permChip('USERS', flag('can_manage_users')),
     ];
 
+    final isKiosk = flag('is_kiosk');
+
+    Color getTint() {
+      if (isOwner) return isLight ? const Color(0xFFFFF8E1) : const Color(0xFF1E1A0F);
+      if (isAdminRole) return isLight ? const Color(0xFFE3F2FD) : const Color(0xFF0C1929);
+      if (isKiosk) return isLight ? const Color(0xFFF3E5F5) : const Color(0xFF1A1224);
+      return isLight ? const Color(0xFFF7F7F7) : Colors.white.withValues(alpha: 0.05);
+    }
+
+    Color? getBorder() {
+      if (isOwner) return isLight ? const Color(0xFFFFE082) : const Color(0xFFFFC107).withValues(alpha: 0.3);
+      if (isAdminRole) return isLight ? const Color(0xFF90CAF9) : const Color(0xFF2196F3).withValues(alpha: 0.3);
+      if (isKiosk) return isLight ? const Color(0xFFCE93D8) : const Color(0xFFAB47BC).withValues(alpha: 0.3);
+      return isLight ? AppTheme.lightStroke : null;
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DashboardGlass(
         radius: 16,
         padding: const EdgeInsets.all(14),
-        tint: isLight
-            ? const Color(0xFFF7F7F7)
-            : Colors.white.withValues(alpha: 0.05),
-        borderColor: isLight ? AppTheme.lightStroke : null,
+        tint: getTint(),
+        borderColor: getBorder(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
