@@ -787,18 +787,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       return s == '1' || s == 'true' || s == 'yes';
     }
 
-    final chips = <Widget>[
-      _permChip('HOME', flag('can_view_dashboard')),
-      _permChip('REPORT', flag('can_view_report')),
-      _permChip('POWER', flag('can_view_rack')),
-      _permChip('CONTROL', flag('can_view_control')),
-      _permChip('DOORS', flag('can_control_doors')),
-      _permChip('SETTINGS', flag('can_change_settings')),
-      _permChip('RACK CONSOLE', flag('is_kiosk')),
-      _permChip('USERS', flag('can_manage_users')),
-    ];
-
     final isKiosk = flag('is_kiosk');
+
+    final chips = isKiosk
+        ? <Widget>[
+            _permChip('RACK CONSOLE', true),
+          ]
+        : <Widget>[
+            _permChip('HOME', flag('can_view_dashboard')),
+            _permChip('REPORT', flag('can_view_report')),
+            _permChip('POWER', flag('can_view_rack')),
+            _permChip('CONTROL', flag('can_view_control')),
+            _permChip('DOORS', flag('can_control_doors')),
+            _permChip('SETTINGS', flag('can_change_settings')),
+            _permChip('USERS', flag('can_manage_users')),
+          ];
 
     Color getTint() {
       if (isOwner) return isLight ? const Color(0xFFFFF8E1) : const Color(0xFF1E1A0F);
