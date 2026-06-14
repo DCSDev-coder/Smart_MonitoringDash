@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -34,6 +35,18 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _autoLoginTried = false;
   bool _suppressLogoHero = false;
 
+  DateTime? _lockoutEndTime;
+  Timer? _lockoutTimer;
+
+  String get _signInLabel {
+    if (_lockoutEndTime == null) return 'SIGN IN';
+    final diff = _lockoutEndTime!.difference(DateTime.now());
+    if (diff.isNegative) return 'SIGN IN';
+    final min = diff.inMinutes;
+    final sec = diff.inSeconds % 60;
+    return 'TRY AGAIN IN $min:${sec.toString().padLeft(2, '0')}';
+  }
+
   TextStyle get _authFieldLabelStyle => GoogleFonts.manrope(
         color: Colors.white70,
         fontSize: 16,
@@ -59,6 +72,27 @@ class _AuthScreenState extends State<AuthScreen> {
     super.initState();
     GlobalVideoBackground.auth.player?.play();
     _tryAutoLogin();
+    _startLockoutChecker();
+  }
+
+  void _startLockoutChecker() {
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final lockoutMs = prefs.getInt('login_lockout_until');
+      if (lockoutMs != null) {
+        final lockoutTime = DateTime.fromMillisecondsSinceEpoch(lockoutMs);
+        if (DateTime.now().isBefore(lockoutTime)) {
+          if (mounted) setState(() => _lockoutEndTime = lockoutTime);
+          return;
+        } else {
+          await prefs.remove('login_lockout_until');
+          await prefs.remove('login_failed_attempts');
+        }
+      }
+      if (_lockoutEndTime != null && mounted) {
+        setState(() => _lockoutEndTime = null);
+      }
+    });
   }
 
   Future<void> _tryAutoLogin() async {
@@ -179,6 +213,7 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _loading = false);
 
       if (ok) {
+        AppToast.showSuccess(context, 'Login successful!');
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         throw 'Connection to Rack failed.';
@@ -325,6 +360,7 @@ class _AuthScreenState extends State<AuthScreen> {
           await rememberMeStore.clear();
         }
         if (!mounted) return;
+        AppToast.showSuccess(context, 'Login successful!');
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         throw 'Connection to Rack failed. Verify your phone is on the Office Wi-Fi and that the Rack login matches.';
@@ -341,6 +377,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _showErrorDialog(String message) {
+    final safeMsg = AppToast.sanitizeErrorMessage(message);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -353,7 +390,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ],
         ),
         content: Text(
-          message,
+          safeMsg,
           style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
         actions: [
@@ -390,6 +427,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _userCtrl.dispose();
     _passCtrl.dispose();
     _userFocus.dispose();
@@ -627,10 +665,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                                 children: [
                                                   Expanded(
                                                     child: _buildButton(
-                                                      label: 'SIGN IN',
+                                                      label: _signInLabel,
                                                       color: const Color(
                                                           0xFF5588AA),
-                                                      onPressed: _signIn,
+                                                      onPressed: _lockoutEndTime != null ? null : _signIn,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 16),
@@ -648,10 +686,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                             : Column(
                                                 children: [
                                                   _buildButton(
-                                                    label: 'SIGN IN',
+                                                    label: _signInLabel,
                                                     color:
                                                         const Color(0xFF5588AA),
-                                                    onPressed: _signIn,
+                                                    onPressed: _lockoutEndTime != null ? null : _signIn,
                                                   ),
                                                   const SizedBox(height: 16),
                                                   _buildButton(
@@ -684,7 +722,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _buildButton({
     required String label,
     required Color color,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return ElevatedButton(
       onPressed: onPressed,

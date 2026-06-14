@@ -59,13 +59,16 @@ class AppToast {
     return show(context, message, type: ToastType.success, duration: duration);
   }
 
-  static String _sanitizeError(String error) {
+  static String sanitizeErrorMessage(String error) {
     final lower = error.toLowerCase();
     if (lower.contains('invalid credentials') || lower.contains('incorrect password')) {
       return 'Incorrect Password';
     }
-    if (lower.contains('failed to fetch') || lower.contains('socketexception') || lower.contains('connection refused')) {
-      return 'Connection Error. Please check your network.';
+    if (lower.contains('failed to fetch') || lower.contains('socketexception') || lower.contains('connection refused') || lower.contains('os error')) {
+      return 'Connection Error. Please check your network connection.';
+    }
+    if (lower.contains('timeoutexception') || lower.contains('timed out')) {
+      return 'The request timed out.';
     }
     if (lower.contains('failed to unlock door via api') || lower.contains('token has expired') || lower.contains('unauthorized') || lower.contains('not authorized')) {
       return 'Access Denied';
@@ -74,12 +77,15 @@ class AppToast {
       return 'Session Expired. Please sign in again.';
     }
     
+    // Scrub any raw IPv4 addresses + ports that leak in standard exceptions
+    var safeError = error.replaceAll(RegExp(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:\:[0-9]{1,5})?\b'), '[REDACTED_IP]');
+    
     // Clean up generic exceptions
-    return error.replaceAll('Exception: ', '').replaceAll('ClientException: ', '').trim();
+    return safeError.replaceAll('Exception: ', '').replaceAll('ClientException: ', '').trim();
   }
 
   static String showError(BuildContext context, String message, {Duration? duration = const Duration(seconds: 3)}) {
-    return show(context, _sanitizeError(message), type: ToastType.error, duration: duration);
+    return show(context, sanitizeErrorMessage(message), type: ToastType.error, duration: duration);
   }
 }
 

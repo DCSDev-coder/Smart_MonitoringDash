@@ -46,7 +46,7 @@ class ApiService {
       if (now.isBefore(lockoutTime)) {
         final minutesLeft = lockoutTime.difference(now).inMinutes;
         final secondsLeft = (lockoutTime.difference(now).inSeconds % 60);
-        throw 'Dahua login is temporarily locked. Please wait ${minutesLeft}m ${secondsLeft}s and try again.';
+        throw 'Login is temporarily locked. Please wait ${minutesLeft}m ${secondsLeft}s and try again.';
       } else {
         await prefs.remove(_keyLockoutUntil);
         await prefs.remove(_keyFailedAttempts);
@@ -109,19 +109,19 @@ class ApiService {
           final message = body['message']?.toString() ?? '';
           
           if (code == 50061 || message.contains('验证码无效')) {
-            final lockoutTime = DateTime.now().add(const Duration(minutes: 30));
+            final lockoutTime = DateTime.now().add(const Duration(minutes: 5));
             await prefs.setInt(_keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
-            throw 'Dahua server requires CAPTCHA. You are locked out for 30 minutes.';
+            throw 'Server requires CAPTCHA. You are locked out for 5 minutes.';
           } else {
             int failedCount = (prefs.getInt(_keyFailedAttempts) ?? 0) + 1;
             if (failedCount >= 3) {
-              final lockoutTime = DateTime.now().add(const Duration(minutes: 30));
+              final lockoutTime = DateTime.now().add(const Duration(minutes: 5));
               await prefs.setInt(_keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
               await prefs.setInt(_keyFailedAttempts, failedCount);
-              throw 'Too many failed Dahua login attempts. You are locked out for 30 minutes.';
+              throw 'Too many attempt. Your are locked out for 5 minutes.';
             } else {
               await prefs.setInt(_keyFailedAttempts, failedCount);
-              throw 'Rack unit login failed (target: $cleanIp). Invalid credentials. Attempts remaining: ${3 - failedCount}';
+              throw 'Invalid credential. Attempts remaining: ${3 - failedCount}';
             }
           }
         }
