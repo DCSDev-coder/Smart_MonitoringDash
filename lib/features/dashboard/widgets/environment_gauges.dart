@@ -224,23 +224,37 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                       (a is Map ? a['msg'] : null)?.toString().toLowerCase() ??
                           a.toString().toLowerCase();
 
-                  if (rName.isNotEmpty && msg.contains(rName)) return true;
-                  if (!msg.contains(cabLower)) continue;
-
-                  if (wantFront && !msg.contains('front')) continue;
-                  if (wantBack &&
-                      !(msg.contains('back') || msg.contains('rear'))) {
-                    continue;
+                  bool matchesSource = false;
+                  
+                  // Check if alarm specifically names this sensor
+                  if (rName.isNotEmpty && msg.contains(rName)) {
+                    matchesSource = true;
+                  } else if (msg.contains(cabLower)) {
+                    // Or if it matches the cabinet, verify front/back constraints
+                    bool frontBackMatch = true;
+                    if (wantFront && !msg.contains('front')) frontBackMatch = false;
+                    if (wantBack && !(msg.contains('back') || msg.contains('rear'))) {
+                      frontBackMatch = false;
+                    }
+                    if (frontBackMatch) matchesSource = true;
                   }
 
+                  if (!matchesSource) continue; // Alarm is for a different rack/sensor
+
+                  // Now check if the alarm is specifically about Temp or Hum
+                  bool hasHumKeyword = msg.contains('hum') || msg.contains('humid') || msg.contains('humd');
+                  bool hasTempKeyword = msg.contains('temp');
+
                   if (isHumidity) {
-                    if (msg.contains('hum') ||
-                        msg.contains('humid') ||
-                        msg.contains('humd')) {
+                    // Turn red if explicitly humidity, OR if it's a generic sensor failure (no temp/hum keywords)
+                    if (hasHumKeyword || (!hasHumKeyword && !hasTempKeyword)) {
                       return true;
                     }
                   } else {
-                    if (msg.contains('temp')) return true;
+                    // Turn red if explicitly temperature, OR if it's a generic sensor failure
+                    if (hasTempKeyword || (!hasHumKeyword && !hasTempKeyword)) {
+                      return true;
+                    }
                   }
                 }
 
