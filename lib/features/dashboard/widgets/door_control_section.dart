@@ -587,6 +587,12 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
+        if (siteId != null) {
+          CpanelApiService.instance.logRemoteAccess(
+            siteId: siteId,
+            doorId: widget.doorId,
+          );
+        }
         Navigator.pop(context, true);
         AppToast.showSuccess(context, '${widget.doorName} unlocked!');
       } else {

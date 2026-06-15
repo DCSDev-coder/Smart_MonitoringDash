@@ -2,7 +2,7 @@ name: smart_rack_dashboard
 description: Custom Infrastructure Gateway for the Dahua eCTRL-IS Smart Rack Dashboard.
 publish_to: 'none'
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
