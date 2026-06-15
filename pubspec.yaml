@@ -2,7 +2,7 @@ name: smart_rack_dashboard
 description: Custom Infrastructure Gateway for the Dahua eCTRL-IS Smart Rack Dashboard.
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+3
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -85,7 +85,8 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/DCS_Logo/Logo_Icon.png"
+  image_path_android: "assets/DCS_Logo/Logo_Icon.png"
+  image_path_ios: "assets/DCS_Logo/Logo_Icon1.png"
   min_sdk_android: 21
   adaptive_icon_background: "#060B11"
   adaptive_icon_foreground: "assets/DCS_Logo/Logo_Icon.png"

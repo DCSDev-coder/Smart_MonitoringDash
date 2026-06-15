@@ -599,11 +599,24 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           .toString(),
     );
 
-    // Show all members, including the currently logged-in admin.
+    // Show all members unless they are explicitly marked as hidden by the superadmin backend.
     // The _memberRow widget handles hiding the edit/delete buttons for self/owner.
     final visibleMembers = _members.where((m) {
       if (m is! Map) return false;
-      return true;
+      
+      // Dynamically read the 'is_hidden' flag from the backend payload.
+      final isHiddenVal = m['is_hidden'] ?? m['is_invisible'];
+      bool hidden = false;
+      if (isHiddenVal is bool) {
+        hidden = isHiddenVal;
+      } else if (isHiddenVal is num) {
+        hidden = isHiddenVal != 0;
+      } else if (isHiddenVal != null) {
+        final str = isHiddenVal.toString().trim().toLowerCase();
+        hidden = (str == '1' || str == 'true' || str == 'yes');
+      }
+
+      return !hidden;
     }).toList();
 
     // Sort priority: Owner (0) > Admin (1) > Rack Console (2) > User (3)
