@@ -34,6 +34,9 @@ migrate_working_dir/
 # Local Environment / Sensitive
 .env
 .env.*
+/android/
+/assets/
+/ios/
 
 # OS files
 .DS_Store
