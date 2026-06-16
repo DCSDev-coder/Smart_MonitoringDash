@@ -27,6 +27,7 @@ migrate_working_dir/
 /android/app/*.jks
 /android/app/dcs_smartrack.jks
 /android/app/google-services.json
+/google-services.json
 
 # iOS Firebase
 /ios/Runner/GoogleService-Info.plist
