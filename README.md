@@ -1,43 +1,13 @@
-# Smart Rack Dashboard
+# DCS Smart Rack Dashboard
 
-Flutter dashboard app for monitoring and managing the Dahua eCTRL-IS Smart Rack (PUE/temperature trends, device health).
+A modern, cross-platform Flutter application designed for monitoring, managing, and controlling the **Smart Rack** infrastructure gateways.
 
-## Quick Start
+---
 
-```bash
-flutter pub get
-flutter run
-```
+## 🚀 Key Features
 
-## Backend URL (Portal API)
-
-By default the app talks to the production portal:
-
-- `https://dcstack.my/api/index.php` (API)
-- `https://dcstack.my/` (assets)
-
-Override at build/run time using `--dart-define`:
-
-```bash
-flutter run \
-  --dart-define=CPANEL_BASE_URL="https://YOUR_DOMAIN/api/index.php" \
-  --dart-define=CPANEL_ASSET_BASE_URL="https://YOUR_DOMAIN/"
-```
-
-PowerShell:
-
-```powershell
-flutter run `
-  --dart-define=CPANEL_BASE_URL="https://YOUR_DOMAIN/api/index.php" `
-  --dart-define=CPANEL_ASSET_BASE_URL="https://YOUR_DOMAIN/"
-```
-
-## Build
-
-```bash
-flutter build apk --release
-flutter build appbundle --release
-```
-
-
-
+* **Real-time Analytics:** Interactive trend graphs for **PUE (Power Usage Effectiveness)**, power consumption, temperature, and humidity metrics.
+* **Rack Visualization:** Visual status layouts displaying active sensor telemetry and smart rack components.
+* **Smart Access & Control:** Remote door unlocking capabilities backed by biometric (Face ID/Fingerprint) and secure PIN entry.
+* **Alerts & Alarms:** High-priority push notifications and local alert alarms for critical rack events.
+* **Access Logs & Reports:** Historical access logs, diagnostic reports, and system telemetry auditing.
