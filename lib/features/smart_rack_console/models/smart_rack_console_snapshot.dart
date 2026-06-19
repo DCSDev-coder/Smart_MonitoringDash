@@ -45,20 +45,22 @@ class SmartRackConsoleSnapshot {
       site?['company_name']?.toString(),
     ], fallback: 'Smart Rack');
 
-    final temperatureC = _extractDouble(
-      poller.sysInfo,
+    final sysData = poller.sysInfo?['result'] as Map<String, dynamic>? ?? poller.sysInfo;
+
+    final temperatureC = poller.temperatureC ?? _extractDouble(
+      sysData,
       const ['temperature', 'temp', 'ambientTemperature', 'ambient_temp'],
     );
-    final humidityPct = _extractDouble(
-      poller.sysInfo,
+    final humidityPct = poller.humidityPct ?? _extractDouble(
+      sysData,
       const ['humidity', 'rh', 'relativeHumidity'],
     );
-    final capacityUsedPct = _extractDouble(
-      poller.sysInfo,
+    final capacityUsedPct = poller.capacityUsedPct ?? _extractDouble(
+      sysData,
       const ['capacityUsedPct', 'capacity_used_pct', 'usedRate', 'spaceUsedPct'],
     );
-    final memoryUsedPct = _extractDouble(
-      poller.sysInfo,
+    final memoryUsedPct = poller.memoryUsedPct ?? _extractDouble(
+      sysData,
       const ['memoryUsedPct', 'memory_used_pct', 'memoryUsage', 'memory'],
     );
 
@@ -76,12 +78,12 @@ class SmartRackConsoleSnapshot {
       temperatureC: temperatureC,
       humidityPct: humidityPct,
       lastUpdatedUtc: poller.lastUpdatedUtc,
-      maintenanceDaysLeft: _extractInt(
-        poller.sysInfo,
+      maintenanceDaysLeft: poller.maintenanceDaysLeft ?? _extractInt(
+        sysData,
         const ['maintenanceDaysLeft', 'maintenance_days_left', 'daysLeft'],
       ),
-      systemUptimeDays: _extractInt(
-        poller.sysInfo,
+      systemUptimeDays: poller.systemUptimeDays ?? _extractInt(
+        sysData,
         const ['systemUptimeDays', 'system_uptime_days', 'uptimeDays'],
       ),
       capacityUsedPct: capacityUsedPct,

@@ -37,9 +37,19 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   List<dynamic> recentAlarms = const [];
   Map<String, dynamic>? sysInfo;
 
+  // Cached telemetry/metrics for Rack Console
+  double? temperatureC;
+  double? humidityPct;
+  double? capacityUsedPct;
+  double? memoryUsedPct;
+  int? maintenanceDaysLeft;
+  int? systemUptimeDays;
+  double? pue;
+
   DateTime? lastUpdatedUtc;
 
   bool get running => _enabled;
+
 
   bool get hasSmokeAlert => smokeStatus != 0 && smokeStatus != -1;
   bool get hasFloodAlert => floodStatus != 0 && floodStatus != -1;
@@ -169,6 +179,28 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  double? _extractDouble(Map<String, dynamic>? data, List<String> keys) {
+    if (data == null) return null;
+    for (final key in keys) {
+      final value = data[key];
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  int? _extractInt(Map<String, dynamic>? data, List<String> keys) {
+    if (data == null) return null;
+    for (final key in keys) {
+      final value = data[key];
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
   Future<void> fetchNow() async {
     if (_inFlight) return;
     _inFlight = true;
@@ -215,17 +247,64 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         return ApiService.instance.fetchRecentAlarms();
       }
 
+      Future<Map<String, dynamic>?> tempHumWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter =
+              await AdapterApiService.instance.fetchTempHumTopN(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        return ApiService.instance.fetchTempHumTopN();
+      }
+
+      Future<Map<String, dynamic>?> pueWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter =
+              await AdapterApiService.instance.fetchPue(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        final cabinetId = site?['cabinet_id']?.toString() ?? '1';
+        return ApiService.instance.fetchPue(id: cabinetId);
+      }
+
+      Future<Map<String, dynamic>?> powerMonthWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter =
+              await AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        final cabinetId = site?['cabinet_id']?.toString() ?? '1';
+        return ApiService.instance.fetchPowerMonth(id: cabinetId);
+      }
+
+      Future<Map<String, dynamic>?> cabinetStatsWithFallback() async {
+        return ApiService.instance.fetchCabinetStats();
+      }
+
+      Future<Map<String, dynamic>?> redisMemoryWithFallback() async {
+        return ApiService.instance.fetchRedisMemory();
+      }
+
       final results = await Future.wait([
         environmentWithFallback(),
         deviceStatusWithFallback(),
         sysInfoWithFallback(),
         recentAlarmsWithFallback(),
+        tempHumWithFallback(),
+        pueWithFallback(),
+        powerMonthWithFallback(),
+        cabinetStatsWithFallback(),
+        redisMemoryWithFallback(),
       ]);
 
       final env = results[0];
       final ds = results[1];
       final si = results[2];
       final ra = results[3];
+      final th = results[4];
+      final pu = results[5];
+      final pm = results[6];
+      final cs = results[7];
+      final rm = results[8];
 
       // Update cached values (best-effort; keep last good values on nulls).
       if (env != null && (env['result'] as List?)?.isNotEmpty == true) {
@@ -243,10 +322,118 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
       if (si != null) {
         sysInfo = (si as Map).cast<String, dynamic>();
+        final sysData = sysInfo?['result'] as Map<String, dynamic>? ?? sysInfo;
+        systemUptimeDays = _extractInt(sysData, const ['systemUptimeDays', 'system_uptime_days', 'uptimeDays']) ?? systemUptimeDays;
       }
 
       if (ra != null && ra['result'] != null) {
         recentAlarms = (ra['result'] as List?)?.toList() ?? recentAlarms;
+      }
+
+      if (th != null && th['result'] != null) {
+        final List? temps = th['result']['temperature'] as List?;
+        final List? hums = th['result']['humidity'] as List?;
+
+        if (temps != null && temps.isNotEmpty) {
+          double sum = 0;
+          int count = 0;
+          for (final item in temps) {
+            final val = double.tryParse(item['value']?.toString() ?? '');
+            if (val != null) {
+              sum += val;
+              count++;
+            }
+          }
+          if (count > 0) {
+            temperatureC = sum / count;
+          }
+        }
+
+        if (hums != null && hums.isNotEmpty) {
+          double sum = 0;
+          int count = 0;
+          for (final item in hums) {
+            final val = double.tryParse(item['value']?.toString() ?? '');
+            if (val != null) {
+              sum += val;
+              count++;
+            }
+          }
+          if (count > 0) {
+            humidityPct = sum / count;
+          }
+        }
+      }
+
+      if (pu != null) {
+        double? parsedPue;
+        if (pu.containsKey('pue')) {
+          parsedPue = double.tryParse(pu['pue']?.toString() ?? '');
+        }
+        if (parsedPue == null && pu['result'] != null) {
+          final res = pu['result'];
+          if (res is num) {
+            parsedPue = res.toDouble();
+          } else if (res is Map) {
+            final v = res['pue'] ?? res['pueValue'] ?? res['axisY'] ?? res['pue_value'];
+            parsedPue = double.tryParse(v?.toString() ?? '');
+          }
+        }
+        if (parsedPue != null && parsedPue > 0) {
+          pue = parsedPue;
+        }
+      }
+
+      if (pue == null && pm != null && pm['result'] is Map) {
+        final powerBreakdown = (pm['result'] as Map).map(
+          (k, v) => MapEntry(k.toString(), (v as num?)?.toDouble() ?? 0.0),
+        );
+        final totalE = powerBreakdown['Total'] ??
+            powerBreakdown['TOTAL'] ??
+            powerBreakdown['total_power'] ??
+            powerBreakdown['totalPower'] ??
+            0.0;
+        final itE = powerBreakdown['IT Device'] ??
+            powerBreakdown['IT DEVICE'] ??
+            powerBreakdown['IT'] ??
+            powerBreakdown['it_power'] ??
+            powerBreakdown['itPower'] ??
+            powerBreakdown['IT_DEVICE'] ??
+            0.0;
+        if (itE > 0) {
+          final derived = totalE / itE;
+          if (derived.isFinite && derived > 0) {
+            pue = derived;
+          }
+        }
+      }
+
+      if (cs != null && cs['result'] != null) {
+        final statsData = cs['result'] as Map<String, dynamic>? ?? cs;
+        capacityUsedPct = _extractDouble(statsData, const ['capacityUsedPct', 'capacity_used_pct', 'usedRate', 'spaceUsedPct']) ?? capacityUsedPct;
+      }
+
+      if (rm != null) {
+        final res = rm['result'] ?? rm;
+        if (res is Map) {
+          final usage = res['used_memory'] ?? res['usedMemory'] ?? res['memoryUsage'] ?? res['memory'];
+          final total = res['total_memory'] ?? res['totalMemory'] ?? 34359738368;
+          final usageNum = double.tryParse(usage?.toString() ?? '');
+          final totalNum = double.tryParse(total?.toString() ?? '');
+          if (usageNum != null && totalNum != null && totalNum > 0) {
+            memoryUsedPct = (usageNum / totalNum) * 100.0;
+          }
+        }
+      }
+
+      if (site != null) {
+        if (site['last_maintenance'] != null) {
+          final lastM = DateTime.tryParse(site['last_maintenance']);
+          if (lastM != null) {
+            final diff = DateTime.now().difference(lastM).inDays;
+            maintenanceDaysLeft = (90 - diff).clamp(0, 90);
+          }
+        }
       }
 
       lastUpdatedUtc = DateTime.now().toUtc();
@@ -263,4 +450,5 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       _inFlight = false;
     }
   }
+
 }

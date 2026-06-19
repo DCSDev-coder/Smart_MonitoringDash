@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
+import '../theme/console_theme.dart';
 
 class ConsoleSectionCard extends StatelessWidget {
   const ConsoleSectionCard({
@@ -18,15 +18,19 @@ class ConsoleSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: AppTheme.surfaceColor,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+    final cardBorder = ConsoleTheme.cardBorder(context);
+    final textPrimary = ConsoleTheme.textPrimary(context);
+    final textSecondary = ConsoleTheme.textSecondary(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: ConsoleTheme.cardBgGradient(context),
+        borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),
+        border: Border.all(color: cardBorder),
+        boxShadow: ConsoleTheme.glowShadow(context),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20.0), // 20px - 24px padding matching design guidelines
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -38,19 +42,21 @@ class ConsoleSectionCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        style: TextStyle(
+                          color: textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
+                          style: TextStyle(
+                            color: textSecondary,
                             fontSize: 12,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],

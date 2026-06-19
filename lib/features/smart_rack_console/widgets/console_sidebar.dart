@@ -1,108 +1,149 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../models/smart_rack_device_profile.dart';
+import '../theme/console_theme.dart';
 
 class ConsoleSidebar extends StatelessWidget {
   const ConsoleSidebar({
     super.key,
     required this.profile,
+    required this.selectedIndex,
+    required this.onItemSelected,
   });
 
   final SmartRackDeviceProfile profile;
+  final int selectedIndex;
+  final ValueChanged<int> onItemSelected;
 
   static const _items = <_ConsoleNavItem>[
     _ConsoleNavItem(Icons.home_rounded, 'Home'),
     _ConsoleNavItem(Icons.ac_unit_rounded, 'AC'),
-    _ConsoleNavItem(Icons.battery_full_rounded, 'UPS'),
-    _ConsoleNavItem(Icons.flash_on_rounded, 'Power'),
+    _ConsoleNavItem(Icons.battery_charging_full_rounded, 'UPS'),
+    _ConsoleNavItem(Icons.bolt_rounded, 'Power'),
+    _ConsoleNavItem(Icons.power_rounded, 'PDU'),
     _ConsoleNavItem(Icons.computer_rounded, 'IT Device'),
-    _ConsoleNavItem(Icons.meeting_room_rounded, 'Door'),
+    _ConsoleNavItem(Icons.door_sliding_rounded, 'Door'),
     _ConsoleNavItem(Icons.insights_rounded, 'PUE'),
-    _ConsoleNavItem(Icons.notifications_active_rounded, 'Alarm'),
     _ConsoleNavItem(Icons.settings_rounded, 'Settings'),
+    _ConsoleNavItem(Icons.notifications_active_rounded, 'Alarm'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final dividerColor = ConsoleTheme.divider(context);
+    final textSecondary = ConsoleTheme.textSecondary(context);
+    final textPrimary = ConsoleTheme.textPrimary(context);
+
     return Container(
-      width: 160,
-      margin: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-      padding: const EdgeInsets.symmetric(vertical: 18),
+      width: ConsoleTheme.sidebarWidth,
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: ConsoleTheme.panelBg(context),
+        border: Border(
+          right: BorderSide(
+            color: dividerColor,
+            width: 1.0,
+          ),
+        ),
       ),
       child: Column(
         children: [
+          // Sidebar top section: Profile Indicator
           Padding(
-            padding: const EdgeInsets.only(bottom: 18),
+            padding: const EdgeInsets.symmetric(
+              vertical: ConsoleTheme.lg,
+              horizontal: ConsoleTheme.sm,
+            ),
             child: Column(
               children: [
-                const Icon(Icons.corporate_fare_rounded,
-                    color: AppTheme.accentBlue, size: 30),
+                Icon(
+                  Icons.monitor_rounded,
+                  color: ConsoleTheme.primaryBlue(context),
+                  size: 28,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   profile.label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 12,
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(color: AppTheme.dividerColor, height: 1),
-          const SizedBox(height: 12),
+          Divider(color: dividerColor, height: 1),
+          const SizedBox(height: ConsoleTheme.md),
+
+          // Navigation List
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemBuilder: (_, index) {
+              padding: const EdgeInsets.symmetric(
+                horizontal: ConsoleTheme.md,
+                vertical: ConsoleTheme.sm,
+              ),
+              itemBuilder: (context, index) {
                 final item = _items[index];
-                final selected = index == 0;
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppTheme.accentBlue.withValues(alpha: 0.18)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: selected
-                          ? AppTheme.accentBlue.withValues(alpha: 0.35)
-                          : Colors.transparent,
+                final selected = index == selectedIndex;
+
+                return InkWell(
+                  onTap: () => onItemSelected(index),
+                  borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: ConsoleTheme.md,
+                      vertical: 12.0,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(item.icon,
+                    decoration: BoxDecoration(
+                      gradient: selected
+                          ? ConsoleTheme.activeAccentGradient(context)
+                          : null,
+                      color: selected
+                          ? null
+                          : Colors.transparent,
+                      borderRadius:
+                          BorderRadius.circular(ConsoleTheme.innerRadius),
+                      boxShadow: selected
+                          ? ConsoleTheme.glowShadow(context,
+                              color: ConsoleTheme.primaryBlue(context))
+                          : null,
+                      border: Border.all(
+                        color: selected ? Colors.transparent : Colors.transparent,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          item.icon,
                           color: selected
-                              ? AppTheme.accentBlue
-                              : AppTheme.textSecondary,
-                          size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          item.label,
-                          style: TextStyle(
-                            color: selected
-                                ? AppTheme.textPrimary
-                                : AppTheme.textSecondary,
-                            fontSize: 13,
-                            fontWeight:
-                                selected ? FontWeight.w700 : FontWeight.w500,
+                              ? Colors.white
+                              : textSecondary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: ConsoleTheme.md),
+                        Expanded(
+                          child: Text(
+                            item.label,
+                            style: TextStyle(
+                              color: selected
+                                  ? Colors.white
+                                  : textSecondary,
+                              fontSize: 13,
+                              fontWeight:
+                                  selected ? FontWeight.w700 : FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: ConsoleTheme.sm),
               itemCount: _items.length,
             ),
           ),
