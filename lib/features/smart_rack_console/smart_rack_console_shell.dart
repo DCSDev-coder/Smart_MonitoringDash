@@ -30,8 +30,25 @@ class SmartRackConsoleShell extends StatefulWidget {
 class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   int _selectedIndex = 0;
   bool _isSidebarCollapsed = false;
+  double? _lastWidth;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final width = MediaQuery.of(context).size.width;
+    const double breakpoint = 1024.0;
+    
+    if (_lastWidth == null) {
+      _isSidebarCollapsed = width < breakpoint;
+    } else if (width < breakpoint && _lastWidth! >= breakpoint) {
+      _isSidebarCollapsed = true;
+    } else if (width >= breakpoint && _lastWidth! < breakpoint) {
+      _isSidebarCollapsed = false;
+    }
+    _lastWidth = width;
+  }
 
   bool _hasPinNotification() {
     final api = CpanelApiService.instance;

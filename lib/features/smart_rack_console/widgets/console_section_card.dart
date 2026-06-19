@@ -9,12 +9,14 @@ class ConsoleSectionCard extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.trailing,
+    this.minHeight,
   });
 
   final String title;
   final String? subtitle;
   final Widget child;
   final Widget? trailing;
+  final double? minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +25,7 @@ class ConsoleSectionCard extends StatelessWidget {
     final textSecondary = ConsoleTheme.textSecondary(context);
 
     return Container(
+      constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
       decoration: BoxDecoration(
         gradient: ConsoleTheme.cardBgGradient(context),
         borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),

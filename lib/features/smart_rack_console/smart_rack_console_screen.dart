@@ -141,23 +141,57 @@ class _MainGrid extends StatelessWidget {
           middle,
           const SizedBox(height: ConsoleTheme.lg),
           right,
+          const SizedBox(height: ConsoleTheme.lg),
+          _buildPlaceholderCard('Card 4'),
+          const SizedBox(height: ConsoleTheme.lg),
+          _buildPlaceholderCard('Card 5'),
+          const SizedBox(height: ConsoleTheme.lg),
+          _buildPlaceholderCard('Card 6'),
         ],
       );
     }
 
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: left),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(child: middle),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(child: right),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: middle),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: right),
+            ],
+          ),
+        ),
+        const SizedBox(height: ConsoleTheme.lg),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildPlaceholderCard('Card 4')),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: _buildPlaceholderCard('Card 5')),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: _buildPlaceholderCard('Card 6')),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPlaceholderCard(String title) {
+    return ConsoleSectionCard(
+      title: title,
+      minHeight: 200,
+      child: const Center(
+        child: Text(
+          'Coming Soon',
+          style: TextStyle(color: Colors.white54, fontSize: 16),
+        ),
+      ),
     );
   }
 
@@ -169,75 +203,147 @@ class _MainGrid extends StatelessWidget {
         : ConsoleTheme.success(context);
     final statusText = snapshot.issueCount > 0 ? 'Attention Needed' : 'Normal';
 
+    final isSuperWide = MediaQuery.of(context).size.width >= 1100;
+
     return ConsoleSectionCard(
       title: 'Rack Overview',
+      minHeight: 200,
       child: Padding(
         padding: const EdgeInsets.only(top: 8.0),
-        child: SizedBox(
-          width: double.infinity,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/images/smart_rack_containment_logo.png',
-                height: 180,
-                fit: BoxFit.contain,
+        child: isSuperWide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/smart_rack_containment_logo.png',
+                          height: 180,
+                          fit: BoxFit.contain,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _VerticalStatItem(
+                          label: 'Maintenance\nDays Left',
+                          value: '${snapshot.maintenanceDaysLeft ?? '--'}',
+                          subValue: 'Days Left',
+                          valueColor: ConsoleTheme.primaryBlue(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : SizedBox(
+                width: double.infinity,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/images/smart_rack_containment_logo.png',
+                      height: 180,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 24),
+                    _VerticalStatItem(
+                      label: 'Maintenance\nDays Left',
+                      value: '${snapshot.maintenanceDaysLeft ?? '--'}',
+                      subValue: 'Days Left',
+                      valueColor: ConsoleTheme.primaryBlue(context),
+                      centered: true,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-              _VerticalStatItem(
-                label: 'Maintenance\nDays Left',
-                value: '${snapshot.maintenanceDaysLeft ?? '--'}',
-                subValue: 'Days Left',
-                valueColor: ConsoleTheme.primaryBlue(context),
-                centered: true,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildEnvironmentPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+    final isSuperWide = MediaQuery.of(context).size.width >= 1100;
+
     return ConsoleSectionCard(
       title: 'Temperature & Humidity',
       subtitle: 'Live environmental readings',
+      minHeight: 200,
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 130,
-                  child: _buildRadialGauge(
-                    context: context,
-                    min: 0,
-                    max: 60,
-                    value: snapshot.temperatureC ?? 0,
-                    unit: '°C',
-                    label: 'Temp',
-                    accentColor: ConsoleTheme.primaryBlue(context),
-                  ),
+          isSuperWide
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 130,
+                        child: _buildRadialGauge(
+                          context: context,
+                          min: 0,
+                          max: 60,
+                          value: snapshot.temperatureC ?? 0,
+                          unit: '°C',
+                          label: 'Temp',
+                          accentColor: ConsoleTheme.primaryBlue(context),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 130,
+                        child: _buildRadialGauge(
+                          context: context,
+                          min: 0,
+                          max: 100,
+                          value: snapshot.humidityPct ?? 0,
+                          unit: '%',
+                          label: 'Humidity',
+                          accentColor: ConsoleTheme.cyan(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    SizedBox(
+                      height: 130,
+                      child: _buildRadialGauge(
+                        context: context,
+                        min: 0,
+                        max: 60,
+                        value: snapshot.temperatureC ?? 0,
+                        unit: '°C',
+                        label: 'Temp',
+                        accentColor: ConsoleTheme.primaryBlue(context),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 130,
+                      child: _buildRadialGauge(
+                        context: context,
+                        min: 0,
+                        max: 100,
+                        value: snapshot.humidityPct ?? 0,
+                        unit: '%',
+                        label: 'Humidity',
+                        accentColor: ConsoleTheme.cyan(context),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 130,
-                  child: _buildRadialGauge(
-                    context: context,
-                    min: 0,
-                    max: 100,
-                    value: snapshot.humidityPct ?? 0,
-                    unit: '%',
-                    label: 'Humidity',
-                    accentColor: ConsoleTheme.cyan(context),
-                  ),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 16),
           _StatusLine(
             label: 'System Status',
@@ -255,6 +361,7 @@ class _MainGrid extends StatelessWidget {
     return ConsoleSectionCard(
       title: 'Smoke & Water Sensors',
       subtitle: 'Cabinet safety monitors',
+      minHeight: 200,
       child: Column(
         children: [
           _SensorRow(
@@ -537,63 +644,118 @@ class _SensorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSuperWide = MediaQuery.of(context).size.width >= 1100;
+
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       decoration: BoxDecoration(
         color: ConsoleTheme.innerSurface(context),
         borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
         border: Border.all(color: ConsoleTheme.divider(context)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.12),
-              border: Border.all(
-                color: color.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: ConsoleTheme.textPrimary(context),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+      child: isSuperWide
+          ? Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(icon, color: color, size: 16),
                 ),
-              ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: ConsoleTheme.textPrimary(context),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(icon, color: color, size: 16),
+                ),
+                const SizedBox(height: 8),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: color.withValues(alpha: 0.25),
-              ),
-            ),
-            child: Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
