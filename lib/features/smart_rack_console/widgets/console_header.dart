@@ -48,14 +48,8 @@ class ConsoleHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(
             horizontal: ConsoleTheme.xl,
           ),
-          decoration: BoxDecoration(
-            color: ConsoleTheme.panelBg(context),
-            border: Border(
-              bottom: BorderSide(
-                color: ConsoleTheme.divider(context),
-                width: 1.0,
-              ),
-            ),
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -71,24 +65,24 @@ class ConsoleHeader extends StatelessWidget {
                         alignment: Alignment.centerLeft, // Pushes it left
                         padding: const EdgeInsets.only(top: 7.0, left: 40), // 'top' moves it down. 'left' pushes it right.
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             if (leading != null) ...[
                               leading!,
                               const SizedBox(width: ConsoleTheme.sm),
                             ],
-                            // Profile/Company Picture
-                            logoUrl != null && logoUrl.isNotEmpty
-                                ? SizedBox(
-                                    height: 85, // Enlarged logo even more
-                                    child: SafeNetworkImage(
-                                      logoUrl,
-                                      fit: BoxFit.contain, // Fit and not stretch
-                                      errorBuilder: (context) =>
-                                          _buildDefaultProfileIcon(context),
-                                    ),
-                                  )
-                                : _buildDefaultProfileIcon(context),
+                            Expanded(
+                              child: logoUrl != null && logoUrl.isNotEmpty
+                                  ? SizedBox(
+                                      height: 85, // Enlarged logo even more
+                                      child: SafeNetworkImage(
+                                        logoUrl,
+                                        fit: BoxFit.contain, // Fit and not stretch
+                                        errorBuilder: (context) =>
+                                            _buildDefaultProfileIcon(context),
+                                      ),
+                                    )
+                                  : _buildDefaultProfileIcon(context),
+                            ),
                           ],
                         ),
                       ),

@@ -44,7 +44,7 @@ class ConsoleSectionCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           color: textPrimary,
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
@@ -55,7 +55,7 @@ class ConsoleSectionCard extends StatelessWidget {
                           subtitle!,
                           style: TextStyle(
                             color: textSecondary,
-                            fontSize: 12,
+                            fontSize: 10,
                             fontWeight: FontWeight.w400,
                           ),
                         ),

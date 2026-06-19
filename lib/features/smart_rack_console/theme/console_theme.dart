@@ -135,9 +135,9 @@ class ConsoleTheme {
     if (isDark(context)) {
       return [
         BoxShadow(
-          color: (color ?? const Color(0xFF26D7FF)).withValues(alpha: 0.18),
-          blurRadius: 18,
-          spreadRadius: 0,
+          color: Colors.black.withValues(alpha: 0.2),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
       ];
     } else {

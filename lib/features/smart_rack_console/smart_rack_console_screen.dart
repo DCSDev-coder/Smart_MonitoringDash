@@ -32,12 +32,10 @@ class SmartRackConsoleScreen extends StatelessWidget {
             gradient: ConsoleTheme.pageBgGradient(context),
           ),
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(compact ? ConsoleTheme.lg : ConsoleTheme.xl),
+            padding: EdgeInsets.all(compact ? ConsoleTheme.md : ConsoleTheme.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MetricGrid(snapshot: snapshot, compact: compact),
-                const SizedBox(height: ConsoleTheme.lg),
                 _MainGrid(snapshot: snapshot, compact: compact),
               ],
             ),
@@ -129,14 +127,11 @@ class _MainGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.of(context).size.width;
-    final isNarrow = compact || width < 1100;
+    final isNarrow = compact || width < 400;
 
     final left = _buildRackOverview(context, snapshot);
     final middle = _buildEnvironmentPanel(context, snapshot);
     final right = _buildSensorPanel(context, snapshot);
-    final bottomLeft = _buildMonitoringStats(context, snapshot);
-    final bottomMiddle = _buildCapacityPanel(context, snapshot);
-    final bottomRight = _buildResourcePanel(context, snapshot);
 
     if (isNarrow) {
       return Column(
@@ -146,12 +141,6 @@ class _MainGrid extends StatelessWidget {
           middle,
           const SizedBox(height: ConsoleTheme.lg),
           right,
-          const SizedBox(height: ConsoleTheme.lg),
-          bottomLeft,
-          const SizedBox(height: ConsoleTheme.lg),
-          bottomMiddle,
-          const SizedBox(height: ConsoleTheme.lg),
-          bottomRight,
         ],
       );
     }
@@ -161,175 +150,51 @@ class _MainGrid extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 4, child: left),
+            Expanded(child: left),
             const SizedBox(width: ConsoleTheme.lg),
-            Expanded(flex: 5, child: middle),
+            Expanded(child: middle),
             const SizedBox(width: ConsoleTheme.lg),
-            Expanded(flex: 4, child: right),
-          ],
-        ),
-        const SizedBox(height: ConsoleTheme.lg),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 4, child: bottomLeft),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(flex: 4, child: bottomMiddle),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(flex: 4, child: bottomRight),
+            Expanded(child: right),
           ],
         ),
       ],
     );
   }
 
+
   Widget _buildRackOverview(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+    final textSecondary = ConsoleTheme.textSecondary(context);
+    final statusColor = snapshot.issueCount > 0
+        ? ConsoleTheme.danger(context)
+        : ConsoleTheme.success(context);
+    final statusText = snapshot.issueCount > 0 ? 'Attention Needed' : 'Normal';
+
     return ConsoleSectionCard(
       title: 'Rack Overview',
-      subtitle: 'Cabinet health & servers',
-      child: Column(
-        children: [
-          // Custom vertical rack cabinet rendering
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
-              color: ConsoleTheme.innerSurface(context),
-              border: Border.all(color: ConsoleTheme.cardBorder(context)),
-            ),
-            padding: const EdgeInsets.all(ConsoleTheme.sm),
-            child: Row(
-              children: [
-                // Cabinet frame left rail
-                Container(
-                  width: 6,
-                  decoration: BoxDecoration(
-                    color: ConsoleTheme.textMuted(context).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: ConsoleTheme.sm),
-                // Server slots U1 to U6
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(6, (index) {
-                      final uNumber = 6 - index;
-                      final isOccupied = index % 2 == 0;
-                      final hasAlert = index == 2 && snapshot.issueCount > 0;
-                      final serverColor = hasAlert
-                          ? ConsoleTheme.danger(context)
-                          : isOccupied
-                              ? ConsoleTheme.primaryBlue(context)
-                              : ConsoleTheme.textMuted(context).withValues(alpha: 0.1);
-
-                      return Container(
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: isOccupied
-                              ? serverColor.withValues(alpha: 0.12)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: isOccupied
-                                ? serverColor.withValues(alpha: 0.4)
-                                : serverColor.withValues(alpha: 0.2),
-                            width: 1.0,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'U$uNumber',
-                              style: TextStyle(
-                                color: isOccupied
-                                    ? ConsoleTheme.textPrimary(context)
-                                    : ConsoleTheme.textMuted(context),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (isOccupied)
-                              Row(
-                                children: [
-                                  // glowing light indicator
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: serverColor,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: serverColor.withValues(alpha: 0.5),
-                                          blurRadius: 4,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    hasAlert ? 'ALERT' : 'ACTIVE',
-                                    style: TextStyle(
-                                      color: serverColor,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              Text(
-                                'EMPTY',
-                                style: TextStyle(
-                                  color: ConsoleTheme.textMuted(context),
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-                const SizedBox(width: ConsoleTheme.sm),
-                // Cabinet frame right rail
-                Container(
-                  width: 6,
-                  decoration: BoxDecoration(
-                    color: ConsoleTheme.textMuted(context).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: _MiniStat(
-                  label: 'Uptime',
-                  value: '${snapshot.systemUptimeDays ?? '--'} days',
-                ),
+              Image.asset(
+                'assets/images/smart_rack_containment_logo.png',
+                height: 180,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MiniStat(
-                  label: 'Water Leak',
-                  value: snapshot.waterLeakLabel,
-                  valueColor: snapshot.waterLeakLabel == 'Normal'
-                      ? ConsoleTheme.success(context)
-                      : ConsoleTheme.danger(context),
-                ),
+              const SizedBox(height: 24),
+              _VerticalStatItem(
+                label: 'Maintenance\nDays Left',
+                value: '${snapshot.maintenanceDaysLeft ?? '--'}',
+                subValue: 'Days Left',
+                valueColor: ConsoleTheme.primaryBlue(context),
+                centered: true,
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -673,7 +538,7 @@ class _SensorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
       decoration: BoxDecoration(
         color: ConsoleTheme.innerSurface(context),
         borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
@@ -682,8 +547,8 @@ class _SensorRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: color.withValues(alpha: 0.12),
@@ -692,21 +557,25 @@ class _SensorRow extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: ConsoleTheme.textPrimary(context),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: ConsoleTheme.textPrimary(context),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
@@ -805,6 +674,71 @@ class _TabChip extends StatelessWidget {
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
+    );
+  }
+}
+
+class _VerticalStatItem extends StatelessWidget {
+  const _VerticalStatItem({
+    required this.label,
+    required this.value,
+    required this.subValue,
+    required this.valueColor,
+    this.centered = false,
+  });
+
+  final String label;
+  final String value;
+  final String subValue;
+  final Color valueColor;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: centered ? Alignment.center : Alignment.centerLeft,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: ConsoleTheme.textPrimary(context),
+              fontSize: 13,
+              height: 1.3,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: centered ? Alignment.center : Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 42,
+              height: 1.0,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: centered ? Alignment.center : Alignment.centerLeft,
+          child: Text(
+            subValue,
+            style: TextStyle(
+              color: ConsoleTheme.textSecondary(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -29,6 +29,7 @@ class SmartRackConsoleShell extends StatefulWidget {
 
 class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   int _selectedIndex = 0;
+  bool _isSidebarCollapsed = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
 
@@ -237,7 +238,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.of(context).size.width;
-    final bool isWide = width >= 980;
+    final bool isWide = width >= 750;
 
     if (isWide) {
       return Scaffold(
@@ -264,17 +265,47 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
               Expanded(
                 child: Row(
                   children: [
-                    ConsoleSidebar(
-                      profile: widget.profile,
-                      selectedIndex: _selectedIndex,
-                      onItemSelected: (index) {
-                        setState(() {
-                          _selectedIndex = index;
-                        });
+                    GestureDetector(
+                      onHorizontalDragEnd: (details) {
+                        if (details.primaryVelocity != null) {
+                          if (details.primaryVelocity! < -300) {
+                            // Swipe Left -> Collapse
+                            if (!_isSidebarCollapsed) {
+                              setState(() => _isSidebarCollapsed = true);
+                            }
+                          } else if (details.primaryVelocity! > 300) {
+                            // Swipe Right -> Expand
+                            if (_isSidebarCollapsed) {
+                              setState(() => _isSidebarCollapsed = false);
+                            }
+                          }
+                        }
                       },
+                      child: ConsoleSidebar(
+                        profile: widget.profile,
+                        selectedIndex: _selectedIndex,
+                        isCollapsed: _isSidebarCollapsed,
+                        onItemSelected: (index) {
+                          setState(() {
+                            _selectedIndex = index;
+                          });
+                        },
+                      ),
                     ),
                     Expanded(
-                      child: _buildMainContent(_selectedIndex, false),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: ConsoleTheme.lg, bottom: ConsoleTheme.lg),
+                        decoration: BoxDecoration(
+                          color: ConsoleTheme.panelBg(context).withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),
+                          border: Border.all(
+                            color: ConsoleTheme.divider(context),
+                            width: 1.0,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _buildMainContent(_selectedIndex, false),
+                      ),
                     ),
                   ],
                 ),
@@ -331,7 +362,19 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
               onNotificationTap: () => _showNotificationsOverlay(context),
             ),
             Expanded(
-              child: _buildMainContent(_selectedIndex, true),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(ConsoleTheme.xl, 0, ConsoleTheme.xl, ConsoleTheme.xl),
+                decoration: BoxDecoration(
+                  color: ConsoleTheme.panelBg(context).withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),
+                  border: Border.all(
+                    color: ConsoleTheme.divider(context),
+                    width: 1.0,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _buildMainContent(_selectedIndex, true),
+              ),
             ),
           ],
         ),
