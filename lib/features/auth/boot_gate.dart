@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/remember_me_store.dart';
+import '../../core/config/app_config.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
@@ -75,6 +76,17 @@ class _BootGateState extends State<BootGate> {
       CpanelApiService.instance.currentSite = site;
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
+      final isRackConsoleAccount =
+          CpanelApiService.instance.isCurrentSiteRackConsole(site);
+      final buildIsRackConsole = AppConfig.isRackConsoleBuild;
+      if (buildIsRackConsole != isRackConsoleAccount) {
+        await CpanelApiService.instance.clearSession();
+        await ApiService.instance.logout();
+        await rememberMeStore.clear();
+        _goWelcome();
+        return;
+      }
+
       final targetIp = site['open_ip'];
       final siteUser = (site['site_user'] ?? 'admin').toString();
       final sitePass = (site['site_pass'] ?? '').toString();
@@ -124,7 +136,8 @@ class _BootGateState extends State<BootGate> {
 
     if (siteId != null) {
       if (AdapterApiService.instance.isConfigured) {
-        cfgEnvelope = await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
+        cfgEnvelope =
+            await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
       }
       cfgEnvelope ??=
           await CpanelApiService.instance.fetchAppConfig(siteId: siteId);

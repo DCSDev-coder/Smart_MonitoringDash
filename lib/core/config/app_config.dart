@@ -1,6 +1,17 @@
 class AppConfig {
   AppConfig._();
 
+  static const String appVariant = String.fromEnvironment(
+    'APP_VARIANT',
+    defaultValue: 'main',
+  );
+
+  static bool get isRackConsoleBuild =>
+      appVariant.trim().toLowerCase() == 'rack_console';
+
+  static String get appTitle =>
+      isRackConsoleBuild ? 'DCS Rack Console' : 'DCS Dashboard';
+
   // Override via:
   // flutter run --dart-define=CPANEL_BASE_URL="https://example.com/api/index.php"
   // flutter run --dart-define=CPANEL_ASSET_BASE_URL="https://example.com/"

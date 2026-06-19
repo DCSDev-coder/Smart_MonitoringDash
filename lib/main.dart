@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'core/theme/app_theme.dart';
 import 'core/network/api_service.dart';
 import 'core/network/cpanel_api_service.dart';
+import 'core/config/app_config.dart';
 import 'core/constants/app_constants.dart';
 import 'core/controllers/app_theme_controller.dart';
 import 'core/controllers/global_status_poller.dart';
@@ -18,6 +19,7 @@ import 'core/notifications/push_notification_service.dart';
 import 'core/utils/app_log.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/dashboard/dashboard_v2_screen.dart';
+import 'features/smart_rack_console/smart_rack_console_shell.dart';
 import 'features/admin/admin_webview_screen.dart';
 import 'features/admin/manage_users_screen.dart';
 // import 'features/cctv/cctv_screen.dart';
@@ -141,7 +143,8 @@ class _ManageUsersGate extends StatelessWidget {
           return Scaffold(
             backgroundColor: const Color(0xFF060B11),
             body: Center(
-              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+              child: CircularProgressIndicator(
+                  color: Theme.of(context).colorScheme.primary),
             ),
           );
         }
@@ -237,7 +240,7 @@ class CigApp extends StatelessWidget {
       builder: (context, _) {
         return MaterialApp(
           navigatorKey: appNavigatorKey,
-          title: 'DCS Dashboard',
+          title: AppConfig.appTitle,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
@@ -264,7 +267,18 @@ class CigApp extends StatelessWidget {
             '/welcome': (_) => const WelcomeScreen(),
             '/register': (_) => const SetupUserScreen(),
             '/auth': (_) => const AuthScreen(),
-            '/home': (_) => const MainShell(),
+            '/home': (_) => AppConfig.isRackConsoleBuild
+                ? const SmartRackConsoleShell()
+                : const MainShell(),
+            '/smart_rack_console': (_) {
+              if (!AppConfig.isRackConsoleBuild) {
+                return const _PermissionDeniedScreen(
+                  message:
+                      'Rack Console access is not available in the main Smart Monitoring app.',
+                );
+              }
+              return const SmartRackConsoleShell();
+            },
             '/profile': (_) => const ProfileScreen(),
             '/admin_panel': (_) {
               final uid = CpanelApiService.instance.getUserId();
@@ -462,250 +476,259 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     final bool sidebarExpanded = sidebarProgress > 0.001;
 
     return PopScope(
-      canPop: false,
-      child: Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.light
-          ? Theme.of(context).scaffoldBackgroundColor
-          : const Color(0xFF060B11),
-      extendBody: true,
-      body: Stack(
-        children: [
-          if (Theme.of(context).brightness == Brightness.dark)
-            const Positioned.fill(
-              child: IgnorePointer(
-                child: _MissionBackdrop(),
-              ),
-            ),
-          // ── MAIN CONTENT AREA ────────────────────────────
-          Positioned.fill(
-            left: isWide ? 80.0 : 0.0,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleScrollNotification,
-              child: Stack(
-                children: [
-                  // Global Video Background Layer
-                  IndexedStack(
-                    index: _selectedIndex,
-                    children: _tabs.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final t = entry.value;
-                      final active = _selectedIndex == i;
-
-                      if (t.id == _TabId.dashboard) {
-                        // Keep the dashboard's State alive, but pause its polling
-                        // when the tab isn't visible. Global emergencies still
-                        // update via GlobalStatusPoller.
-                        return DashboardV2Screen(
-                          key: _dashboardKey,
-                          isActive: active,
-                          onNotificationTap: () =>
-                              _showNotificationsOverlay(context),
-                          onMenuTap: null,
-                          onNavigateToReport: () => _onNavTapped(3),
-                          notificationCount: _getTotalNotifications(),
-                          notificationCriticalGlow: _poller.hasAnyIssue,
-                        );
-                      }
-
-                      if (t.id == _TabId.rackView) {
-                        return RackViewScreen(isActive: active);
-                      }
-
-                      if (t.id == _TabId.control) {
-                        return ControlScreen(isActive: active);
-                      }
-
-                      if (t.id == _TabId.report) {
-                        return ReportScreen(isActive: active);
-                      }
-
-                      return t.screen;
-                    }).toList(),
+        canPop: false,
+        child: Scaffold(
+          backgroundColor: Theme.of(context).brightness == Brightness.light
+              ? Theme.of(context).scaffoldBackgroundColor
+              : const Color(0xFF060B11),
+          extendBody: true,
+          body: Stack(
+            children: [
+              if (Theme.of(context).brightness == Brightness.dark)
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: _MissionBackdrop(),
                   ),
+                ),
+              // ── MAIN CONTENT AREA ────────────────────────────
+              Positioned.fill(
+                left: isWide ? 80.0 : 0.0,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _handleScrollNotification,
+                  child: Stack(
+                    children: [
+                      // Global Video Background Layer
+                      IndexedStack(
+                        index: _selectedIndex,
+                        children: _tabs.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final t = entry.value;
+                          final active = _selectedIndex == i;
 
-                  // Floating Adaptive Header (phones/tablet-narrow only). Wide
-                  // screens use the sidebar as the header (logo/alert/settings).
-                  if (!isWide) ...[
-                    // The Critical Alert Banner (Highest Priority)
-                    AnimatedBuilder(
-                      animation: _poller,
-                      builder: (context, _) {
-                        final alerts = _getAlertStrings();
-                        final totalNotifications = _getTotalNotifications();
-                        final criticalGlow = _poller.hasAnyIssue;
-                        final top = alerts.isNotEmpty ? 60.0 : 0.0;
+                          if (t.id == _TabId.dashboard) {
+                            // Keep the dashboard's State alive, but pause its polling
+                            // when the tab isn't visible. Global emergencies still
+                            // update via GlobalStatusPoller.
+                            return DashboardV2Screen(
+                              key: _dashboardKey,
+                              isActive: active,
+                              onNotificationTap: () =>
+                                  _showNotificationsOverlay(context),
+                              onMenuTap: null,
+                              onNavigateToReport: () => _onNavTapped(3),
+                              notificationCount: _getTotalNotifications(),
+                              notificationCriticalGlow: _poller.hasAnyIssue,
+                            );
+                          }
 
-                        return Stack(
-                          children: [
-                            if (alerts.isNotEmpty)
-                              Positioned(
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                child: CriticalAlertBanner(alerts: alerts),
-                              ),
-                            Positioned(
-                              top: top,
-                              left: 0,
-                              right: 0,
-                              child: SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0, -1.2),
-                                  end: Offset.zero,
-                                ).animate(CurvedAnimation(
-                                  parent: _headerController,
-                                  curve: Curves.easeInOut,
-                                )),
-                                child: StickyHeaderBar(
-                                  glass: true,
-                                  height: AppConstants.headerHeight(context) +
-                                      MediaQuery.of(context).padding.top,
-                                  topPad: MediaQuery.of(context).padding.top,
-                                  contentHeight:
-                                      AppConstants.headerContentHeight,
-                                  topPadding: 10,
-                                  bottomPadding: 10,
-                                  child: DashboardHeader(
-                                    logoUrl: _companyLogoUrl(),
-                                    onNotificationTap: () =>
-                                        _showNotificationsOverlay(context),
-                                    onLogoTap: () => _onNavTapped(0),
-                                    onMenuTap: () => SettingsOverlay.show(
-                                      context,
-                                      originRect: SettingsOverlay.rectFromKey(
-                                          _mobileSettingsKey),
-                                      // onCctvConfig: _handleCctvSettings,
-                                      onUploadLogo: _handleLogoUpload,
-                                      onGoHome: () => _onNavTapped(0),
+                          if (t.id == _TabId.rackView) {
+                            return RackViewScreen(isActive: active);
+                          }
+
+                          if (t.id == _TabId.control) {
+                            return ControlScreen(isActive: active);
+                          }
+
+                          if (t.id == _TabId.report) {
+                            return ReportScreen(isActive: active);
+                          }
+
+                          return t.screen;
+                        }).toList(),
+                      ),
+
+                      // Floating Adaptive Header (phones/tablet-narrow only). Wide
+                      // screens use the sidebar as the header (logo/alert/settings).
+                      if (!isWide) ...[
+                        // The Critical Alert Banner (Highest Priority)
+                        AnimatedBuilder(
+                          animation: _poller,
+                          builder: (context, _) {
+                            final alerts = _getAlertStrings();
+                            final totalNotifications = _getTotalNotifications();
+                            final criticalGlow = _poller.hasAnyIssue;
+                            final top = alerts.isNotEmpty ? 60.0 : 0.0;
+
+                            return Stack(
+                              children: [
+                                if (alerts.isNotEmpty)
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: CriticalAlertBanner(alerts: alerts),
+                                  ),
+                                Positioned(
+                                  top: top,
+                                  left: 0,
+                                  right: 0,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, -1.2),
+                                      end: Offset.zero,
+                                    ).animate(CurvedAnimation(
+                                      parent: _headerController,
+                                      curve: Curves.easeInOut,
+                                    )),
+                                    child: StickyHeaderBar(
+                                      glass: true,
+                                      height:
+                                          AppConstants.headerHeight(context) +
+                                              MediaQuery.of(context)
+                                                  .padding
+                                                  .top,
+                                      topPad:
+                                          MediaQuery.of(context).padding.top,
+                                      contentHeight:
+                                          AppConstants.headerContentHeight,
+                                      topPadding: 10,
+                                      bottomPadding: 10,
+                                      child: DashboardHeader(
+                                        logoUrl: _companyLogoUrl(),
+                                        onNotificationTap: () =>
+                                            _showNotificationsOverlay(context),
+                                        onLogoTap: () => _onNavTapped(0),
+                                        onMenuTap: () => SettingsOverlay.show(
+                                          context,
+                                          originRect:
+                                              SettingsOverlay.rectFromKey(
+                                                  _mobileSettingsKey),
+                                          // onCctvConfig: _handleCctvSettings,
+                                          onUploadLogo: _handleLogoUpload,
+                                          onGoHome: () => _onNavTapped(0),
+                                        ),
+                                        settingsIconKey: _mobileSettingsKey,
+                                        notificationCount: totalNotifications,
+                                        notificationCriticalGlow: criticalGlow,
+                                      ),
                                     ),
-                                    settingsIconKey: _mobileSettingsKey,
-                                    notificationCount: totalNotifications,
-                                    notificationCriticalGlow: criticalGlow,
                                   ),
                                 ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                      // Floating bottom navigation (phones).
+                      // Keeping this inside the content stack avoids the "cutout" effect where
+                      // Scaffold's background shows around the pill on dark pages (Dashboard V2).
+                      if (!isWide)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: SafeArea(
+                            minimum: const EdgeInsets.only(bottom: 18),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal:
+                                    (MediaQuery.sizeOf(context).width * 0.06)
+                                        .clamp(8.0, 24.0),
                               ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                  // Floating bottom navigation (phones).
-                  // Keeping this inside the content stack avoids the "cutout" effect where
-                  // Scaffold's background shows around the pill on dark pages (Dashboard V2).
-                  if (!isWide)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: SafeArea(
-                        minimum: const EdgeInsets.only(bottom: 18),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal:
-                                (MediaQuery.sizeOf(context).width * 0.06)
-                                    .clamp(8.0, 24.0),
-                          ),
-                          child: FloatingNavBar(
-                            selectedIndex: _selectedIndex,
-                            icons: _tabs.map((t) => t.icon).toList(),
-                            labels: _tabs.map((t) => t.label).toList(),
-                            onTap: _onNavTapped,
-                            activeColor: const Color(0xFF00A3FF),
-                            // Use full white for light mode, dark for mission control mode
-                            barColor:
-                                Theme.of(context).brightness == Brightness.light
+                              child: FloatingNavBar(
+                                selectedIndex: _selectedIndex,
+                                icons: _tabs.map((t) => t.icon).toList(),
+                                labels: _tabs.map((t) => t.label).toList(),
+                                onTap: _onNavTapped,
+                                activeColor: const Color(0xFF00A3FF),
+                                // Use full white for light mode, dark for mission control mode
+                                barColor: Theme.of(context).brightness ==
+                                        Brightness.light
                                     ? Colors.white
                                     : Colors.transparent,
-                            inactiveIconColor:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? const Color(0xFF8E8E93)
-                                    : Colors.white.withValues(alpha: 0.65),
+                                inactiveIconColor:
+                                    Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? const Color(0xFF8E8E93)
+                                        : Colors.white.withValues(alpha: 0.65),
+                              ),
+                            ),
                           ),
                         ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── SIDEBAR OVERLAY BARRIER ──────────────────────
+              if (isWide)
+                Positioned.fill(
+                  left: 80.0,
+                  child: IgnorePointer(
+                    ignoring: !sidebarExpanded,
+                    child: GestureDetector(
+                      onTap: () => _setSidebarSwiped(false),
+                      child: AnimatedContainer(
+                        duration: _sidebarMotionDuration,
+                        curve: _sidebarMotionCurve,
+                        color: sidebarExpanded
+                            ? Colors.black.withValues(alpha: 0.15)
+                            : Colors.transparent,
                       ),
                     ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+
+              // ── NAVIGATION RAIL (Wide Screen Tablet/TV) ───────
+              if (isWide)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  child: MouseRegion(
+                    onEnter: (_) => _setSidebarHovered(true),
+                    onExit: (_) => _setSidebarHovered(false),
+                    child: GestureDetector(
+                      onHorizontalDragUpdate: (details) {
+                        if (details.primaryDelta! > 5) {
+                          _setSidebarSwiped(true);
+                        } else if (details.primaryDelta! < -5) {
+                          _setSidebarSwiped(false);
+                        }
+                      },
+                      child: AnimatedBuilder(
+                        animation:
+                            Listenable.merge([_poller, _sidebarController]),
+                        builder: (context, _) {
+                          // Keep "Alerts" consistent across the app:
+                          final totalNotifications = _getTotalNotifications();
+                          final criticalGlow = _poller.hasAnyIssue;
+                          return Container(
+                            color: Colors
+                                .transparent, // Ensures the entire padded area catches gestures
+                            padding: const EdgeInsets.only(
+                                right: 40.0), // The expanded gesture area
+                            child: _MainSidebar(
+                              progress: sidebarProgress,
+                              selectedIndex: _selectedIndex,
+                              tabs: _tabs,
+                              logoUrl: _companyLogoUrl(),
+                              hasNotifications: totalNotifications > 0,
+                              criticalGlow: criticalGlow,
+                              onSelectTab: (i) {
+                                _setSidebarSwiped(false);
+                                _onNavTapped(i);
+                              },
+                              onTapNotifications: () =>
+                                  _showNotificationsOverlay(context),
+                              onTapSettings: () => SettingsOverlay.show(
+                                context,
+                                originRect: SettingsOverlay.rectFromKey(
+                                    _desktopSettingsKey),
+                                onUploadLogo: _handleLogoUpload,
+                                onGoHome: () => _onNavTapped(0),
+                              ),
+                              settingsKey: _desktopSettingsKey,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-
-          // ── SIDEBAR OVERLAY BARRIER ──────────────────────
-          if (isWide)
-            Positioned.fill(
-              left: 80.0,
-              child: IgnorePointer(
-                ignoring: !sidebarExpanded,
-                child: GestureDetector(
-                  onTap: () => _setSidebarSwiped(false),
-                  child: AnimatedContainer(
-                    duration: _sidebarMotionDuration,
-                    curve: _sidebarMotionCurve,
-                    color: sidebarExpanded 
-                        ? Colors.black.withValues(alpha: 0.15) 
-                        : Colors.transparent,
-                  ),
-                ),
-              ),
-            ),
-
-          // ── NAVIGATION RAIL (Wide Screen Tablet/TV) ───────
-          if (isWide)
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: 0,
-              child: MouseRegion(
-                onEnter: (_) => _setSidebarHovered(true),
-                onExit: (_) => _setSidebarHovered(false),
-                child: GestureDetector(
-                  onHorizontalDragUpdate: (details) {
-                    if (details.primaryDelta! > 5) {
-                      _setSidebarSwiped(true);
-                    } else if (details.primaryDelta! < -5) {
-                      _setSidebarSwiped(false);
-                    }
-                  },
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([_poller, _sidebarController]),
-                    builder: (context, _) {
-                      // Keep "Alerts" consistent across the app:
-                      final totalNotifications = _getTotalNotifications();
-                      final criticalGlow = _poller.hasAnyIssue;
-                      return Container(
-                        color: Colors.transparent, // Ensures the entire padded area catches gestures
-                        padding: const EdgeInsets.only(right: 40.0), // The expanded gesture area
-                        child: _MainSidebar(
-                          progress: sidebarProgress,
-                          selectedIndex: _selectedIndex,
-                          tabs: _tabs,
-                          logoUrl: _companyLogoUrl(),
-                          hasNotifications: totalNotifications > 0,
-                          criticalGlow: criticalGlow,
-                          onSelectTab: (i) {
-                            _setSidebarSwiped(false);
-                            _onNavTapped(i);
-                          },
-                          onTapNotifications: () =>
-                              _showNotificationsOverlay(context),
-                          onTapSettings: () => SettingsOverlay.show(
-                            context,
-                            originRect:
-                                SettingsOverlay.rectFromKey(_desktopSettingsKey),
-                            onUploadLogo: _handleLogoUpload,
-                            onGoHome: () => _onNavTapped(0),
-                          ),
-                          settingsKey: _desktopSettingsKey,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    ));
+        ));
   }
 
   List<_NavTab> _computeTabs() {
@@ -867,7 +890,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: Text('OK',
-                      style: TextStyle(color: Theme.of(context).colorScheme.primary))),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary))),
             ],
           ),
         );
@@ -1080,7 +1104,8 @@ class _MainSidebar extends StatelessWidget {
                           );
                         },
                       ),
-                      const SizedBox(height: 8), // Match the separatorBuilder spacing
+                      const SizedBox(
+                          height: 8), // Match the separatorBuilder spacing
                       _buildBottomActions(),
                       const SizedBox(height: 20),
                     ],
@@ -1117,7 +1142,7 @@ class _MainSidebar extends StatelessWidget {
                   )
                 : Icon(
                     Icons.business_rounded,
-                    color: Theme.of(context).colorScheme.primary, 
+                    color: Theme.of(context).colorScheme.primary,
                     size: 44 + (44 * progress),
                   ),
           ),
@@ -1185,7 +1210,9 @@ class _SidebarItemState extends State<_SidebarItem> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final activeColor = isLight ? const Color(0xFF164E87) : Theme.of(context).colorScheme.primary;
+    final activeColor = isLight
+        ? const Color(0xFF164E87)
+        : Theme.of(context).colorScheme.primary;
     final c = widget.active
         ? activeColor
         : (isLight
@@ -1350,7 +1377,6 @@ class _MissionBackdrop extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-
           Align(
             alignment: const Alignment(0.92, -0.18),
             child: Container(

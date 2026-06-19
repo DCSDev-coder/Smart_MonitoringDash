@@ -6,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
+import '../../core/config/app_config.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../../core/auth/remember_me_store.dart';
 import '../../core/utils/app_log.dart';
@@ -52,6 +53,28 @@ class _AuthScreenState extends State<AuthScreen> {
         fontSize: 16,
         letterSpacing: 0.4,
       );
+
+  bool get _isRackConsoleBuild => AppConfig.isRackConsoleBuild;
+
+  bool _canEnterCurrentApp(Map<String, dynamic> site) {
+    final isRackConsoleAccount =
+        CpanelApiService.instance.isCurrentSiteRackConsole(site);
+    return _isRackConsoleBuild ? isRackConsoleAccount : !isRackConsoleAccount;
+  }
+
+  Future<void> _rejectWrongAppMode({
+    required String message,
+    required bool clearRememberMe,
+  }) async {
+    await CpanelApiService.instance.clearSession();
+    if (clearRememberMe) {
+      await rememberMeStore.clear();
+    }
+    await ApiService.instance.logout();
+    if (!mounted) return;
+    setState(() => _loading = false);
+    AppToast.showError(context, message);
+  }
 
   void _goToIntro() {
     var found = false;
@@ -159,8 +182,26 @@ class _AuthScreenState extends State<AuthScreen> {
           await _mergeSiteWithRemoteConfig(mergedSite);
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
+      if (!_canEnterCurrentApp(CpanelApiService.instance.currentSite!)) {
+        final isRackConsoleAccount =
+            CpanelApiService.instance.isCurrentSiteRackConsole();
+        final message = _isRackConsoleBuild
+            ? 'This Rack Console build only accepts rack console accounts.'
+            : 'This account is reserved for the Rack Console app. Please use the Rack Console installation.';
+        await _rejectWrongAppMode(
+          message: message,
+          clearRememberMe: true,
+        );
+        if (!mounted) return;
+        if (isRackConsoleAccount) {
+          Navigator.of(context).pushReplacementNamed('/welcome');
+        }
+        return;
+      }
+
       final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
-      final dbLocalIp = CpanelApiService.instance.currentSite?['local_ip']?.toString();
+      final dbLocalIp =
+          CpanelApiService.instance.currentSite?['local_ip']?.toString();
       final siteUser =
           CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
       final sitePass =
@@ -186,7 +227,9 @@ class _AuthScreenState extends State<AuthScreen> {
       bool ok = false;
       final prefs = await SharedPreferences.getInstance();
       final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
-      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty) ? dbLocalIp : manualFallbackIp;
+      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty)
+          ? dbLocalIp
+          : manualFallbackIp;
 
       if (AdapterApiService.instance.isConfigured) {
         ok = true;
@@ -297,7 +340,8 @@ class _AuthScreenState extends State<AuthScreen> {
       await PushNotificationService.instance.syncTokenWithBackendIfPossible();
 
       final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
-      final dbLocalIp = CpanelApiService.instance.currentSite?['local_ip']?.toString();
+      final dbLocalIp =
+          CpanelApiService.instance.currentSite?['local_ip']?.toString();
       final siteUser =
           CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
       final sitePass =
@@ -320,7 +364,9 @@ class _AuthScreenState extends State<AuthScreen> {
       bool ok = false;
       final prefs = await SharedPreferences.getInstance();
       final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
-      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty) ? dbLocalIp : manualFallbackIp;
+      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty)
+          ? dbLocalIp
+          : manualFallbackIp;
 
       if (AdapterApiService.instance.isConfigured) {
         ok = true;
@@ -668,7 +714,11 @@ class _AuthScreenState extends State<AuthScreen> {
                                                       label: _signInLabel,
                                                       color: const Color(
                                                           0xFF5588AA),
-                                                      onPressed: _lockoutEndTime != null ? null : _signIn,
+                                                      onPressed:
+                                                          _lockoutEndTime !=
+                                                                  null
+                                                              ? null
+                                                              : _signIn,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 16),
@@ -689,7 +739,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                                     label: _signInLabel,
                                                     color:
                                                         const Color(0xFF5588AA),
-                                                    onPressed: _lockoutEndTime != null ? null : _signIn,
+                                                    onPressed:
+                                                        _lockoutEndTime != null
+                                                            ? null
+                                                            : _signIn,
                                                   ),
                                                   const SizedBox(height: 16),
                                                   _buildButton(

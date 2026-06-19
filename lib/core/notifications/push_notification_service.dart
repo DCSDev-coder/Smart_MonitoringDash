@@ -7,10 +7,14 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../network/cpanel_api_service.dart';
 import '../network/adapter_api_service.dart';
 import '../navigation/app_navigator.dart';
+import '../config/app_config.dart';
 import '../utils/app_log.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (AppConfig.isRackConsoleBuild) {
+    return;
+  }
   try {
     await Firebase.initializeApp();
   } catch (_) {
@@ -41,6 +45,11 @@ class PushNotificationService {
 
   Future<void> init() async {
     if (_initialized) return;
+    if (AppConfig.isRackConsoleBuild) {
+      AppLog.d('Push init skipped for rack console build', tag: 'Push');
+      _initialized = true;
+      return;
+    }
 
     AppLog.d('Init start', tag: 'Push');
 
@@ -154,6 +163,9 @@ class PushNotificationService {
   }
 
   Future<void> syncTokenWithBackendIfPossible({String? token}) async {
+    if (AppConfig.isRackConsoleBuild) {
+      return;
+    }
     try {
       final site = CpanelApiService.instance.currentSite;
       final authToken = CpanelApiService.instance.getAuthTokenInMemory();
@@ -208,6 +220,9 @@ class PushNotificationService {
   }
 
   Future<void> deactivateCurrentTokenIfPossible() async {
+    if (AppConfig.isRackConsoleBuild) {
+      return;
+    }
     try {
       final site = CpanelApiService.instance.currentSite;
       final authToken = CpanelApiService.instance.getAuthTokenInMemory();

@@ -44,14 +44,15 @@ dependencies:
   google_fonts: ^8.0.2
   local_auth: ^2.2.0
   image_picker: ^1.1.2
-  screen_brightness_android: ^2.1.5
 
 dependency_overrides:
   # Workaround for AGP 8.x JNI merge failures on Windows release builds:
   # repack upstream MPV JARs to `jni/<abi>/...` in a local fork.
   media_kit_libs_android_video:
     path: third_party/media_kit_libs_android_video
-  screen_brightness_android: any
+  screen_brightness_android:
+    path: third_party/screen_brightness_android
+  screen_brightness_platform_interface: 2.1.2
 
 dev_dependencies:
   flutter_test:

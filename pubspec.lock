@@ -888,21 +888,20 @@ packages:
     source: hosted
     version: "2.0.3"
   screen_brightness_android:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
-      name: screen_brightness_android
-      sha256: "0e4b0a07d5f730b91a8780d8436f3a92be8a8cc2066032ed88b93c8fa153fadf"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.5"
+      path: "third_party/screen_brightness_android"
+      relative: true
+    source: path
+    version: "2.1.6"
   screen_brightness_platform_interface:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: screen_brightness_platform_interface
-      sha256: "59d50850d6735d677780fc7359c8e997d0ff6df91c8465161c9e617a7b0a11d8"
+      sha256: "2de60c0ba569b898950029cc1f7e9dd72bda44a22beb5054aac331cb6fce2ff2"
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.1"
+    version: "2.1.2"
   shared_preferences:
     dependency: "direct main"
     description:
