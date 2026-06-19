@@ -16,6 +16,7 @@ import 'secure_action_guard.dart';
 import 'set_pin_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../utils/app_toast.dart';
+import '../../features/smart_rack_console/theme/console_theme.dart';
 
 class SettingsOverlay {
   static Rect? rectFromKey(GlobalKey key) {
@@ -103,16 +104,12 @@ class _SettingsOverlayRoute extends PopupRoute<void> {
     Widget child,
   ) {
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-
-    // Slide from the right (1.0 to 0.0)
-    final slide = Tween<Offset>(
-      begin: const Offset(1.0, 0.0),
-      end: Offset.zero,
-    ).animate(curved);
-
-    return SlideTransition(
-      position: slide,
-      child: child,
+    return FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+        child: child,
+      ),
     );
   }
 }
@@ -132,20 +129,39 @@ class _SettingsOverlayPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return Material(
-      type: MaterialType.transparency,
-      child: SizedBox(
-        width: size.width,
-        height: double.infinity,
-        child: _SettingsPanel(
-          onClose: () => Navigator.of(context).pop(),
-          onManageUsers: onManageUsers,
-          onCctvConfig: onCctvConfig,
-          onUploadLogo: onUploadLogo,
-          onGoHome: onGoHome,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            behavior: HitTestBehavior.opaque,
+            child: const SizedBox.expand(),
+          ),
         ),
-      ),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 76, right: 24, bottom: 24),
+              child: Material(
+                elevation: 16,
+                borderRadius: BorderRadius.circular(20),
+                clipBehavior: Clip.antiAlias,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 380, maxHeight: 650),
+                  child: _SettingsPanel(
+                    onClose: () => Navigator.of(context).pop(),
+                    onManageUsers: onManageUsers,
+                    onCctvConfig: onCctvConfig,
+                    onUploadLogo: onUploadLogo,
+                    onGoHome: onGoHome,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -421,6 +437,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   Widget _buildGroup(String title, List<Widget> children, bool isLight) {
     if (children.isEmpty) return const SizedBox.shrink();
 
+    final isRackConsole = CpanelApiService.instance.isCurrentSiteRackConsole();
     final List<Widget> groupedChildren = [];
     for (int i = 0; i < children.length; i++) {
       groupedChildren.add(children[i]);
@@ -431,9 +448,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             child: Divider(
               height: 1,
               thickness: 1,
-              color: isLight
+              color: isRackConsole ? ConsoleTheme.divider(context) : (isLight
                   ? Colors.black.withValues(alpha: 0.05)
-                  : Colors.white.withValues(alpha: 0.05),
+                  : Colors.white.withValues(alpha: 0.05)),
             ),
           ),
         );
@@ -450,14 +467,14 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isLight ? Colors.black54 : Colors.white54,
+              color: isRackConsole ? ConsoleTheme.textSecondary(context) : (isLight ? Colors.black54 : Colors.white54),
               letterSpacing: 1.2,
             ),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
+            color: isRackConsole ? ConsoleTheme.cardBg(context) : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
             borderRadius: BorderRadius.circular(24),
             boxShadow: isLight
                 ? [
@@ -479,26 +496,32 @@ class _SettingsPanelState extends State<_SettingsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final isRackConsole = CpanelApiService.instance.isCurrentSiteRackConsole();
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final headerTextColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
-    final trailingTextColor = isLight
-        ? AppTheme.lightTextSecondary
-        : Colors.white.withValues(alpha: 0.75);
+    final headerTextColor = isRackConsole ? ConsoleTheme.textPrimary(context) : (isLight ? AppTheme.lightTextPrimary : Colors.white);
+    final trailingTextColor = isRackConsole
+        ? ConsoleTheme.textSecondary(context)
+        : (isLight
+            ? AppTheme.lightTextSecondary
+            : Colors.white.withValues(alpha: 0.75));
     return Container(
       // Match the dashboard background per theme.
-      color: isLight
+      color: isRackConsole ? ConsoleTheme.panelBg(context) : (isLight
           ? Theme.of(context).scaffoldBackgroundColor
-          : const Color(0xFF060B11),
+          : const Color(0xFF060B11)),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top left back button (Pinned at the top)
-              IconButton(
-                icon: Icon(Icons.arrow_back, color: headerTextColor),
-                onPressed: widget.onClose,
+              // Top right close button
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: Icon(Icons.close_rounded, color: headerTextColor),
+                  onPressed: widget.onClose,
+                ),
               ),
               
               Expanded(
@@ -575,27 +598,28 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                       ),
                       const SizedBox(height: 32),
                       
-                      _buildGroup('Account & Security', [
-                        if (_canManageUsers)
+                      if (!isRackConsole)
+                        _buildGroup('Account & Security', [
+                          if (_canManageUsers)
+                            _SettingsTile(
+                              title: 'Manage Users',
+                              icon: Icons.manage_accounts_outlined,
+                              iconColor: const Color(0xFF007AFF),
+                              onTap: widget.onManageUsers,
+                            ),
                           _SettingsTile(
-                            title: 'Manage Users',
-                            icon: Icons.manage_accounts_outlined,
-                            iconColor: const Color(0xFF007AFF),
-                            onTap: widget.onManageUsers,
+                            title: 'Reset Password',
+                            icon: Icons.lock_reset_rounded,
+                            iconColor: const Color(0xFFFF9500),
+                            onTap: _handleChangePassword,
                           ),
-                        _SettingsTile(
-                          title: 'Reset Password',
-                          icon: Icons.lock_reset_rounded,
-                          iconColor: const Color(0xFFFF9500),
-                          onTap: _handleChangePassword,
-                        ),
-                        _SettingsTile(
-                          title: 'Set Door PIN',
-                          icon: Icons.dialpad_rounded,
-                          iconColor: const Color(0xFF34C759),
-                          onTap: _handleSetPin,
-                        ),
-                      ], isLight),
+                          _SettingsTile(
+                            title: 'Set Door PIN',
+                            icon: Icons.dialpad_rounded,
+                            iconColor: const Color(0xFF34C759),
+                            onTap: _handleSetPin,
+                          ),
+                        ], isLight),
                       _buildGroup('Rack Management', [
                         if (_canUseControlPresets)
                           _SettingsTile(

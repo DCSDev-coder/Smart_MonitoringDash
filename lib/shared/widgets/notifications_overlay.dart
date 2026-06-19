@@ -6,6 +6,7 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import 'set_pin_dialog.dart';
 import '../utils/app_toast.dart';
+import '../../features/smart_rack_console/theme/console_theme.dart';
 
 class NotificationsOverlay {
   static Future<void> show(
@@ -54,14 +55,12 @@ class _NotificationsOverlayRoute extends PopupRoute<void> {
     Widget child,
   ) {
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-    final slide = Tween<Offset>(
-      begin: const Offset(1.0, 0.0),
-      end: Offset.zero,
-    ).animate(curved);
-
-    return SlideTransition(
-      position: slide,
-      child: child,
+    return FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+        child: child,
+      ),
     );
   }
 }
@@ -74,14 +73,33 @@ class _NotificationsOverlayPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return Material(
-      type: MaterialType.transparency,
-      child: SizedBox(
-        width: size.width,
-        height: double.infinity,
-        child: _NotificationsPanel(alarms: alarms, onNavigateToReport: onNavigateToReport),
-      ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            behavior: HitTestBehavior.opaque,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 76, right: 64, bottom: 24),
+              child: Material(
+                elevation: 16,
+                borderRadius: BorderRadius.circular(20),
+                clipBehavior: Clip.antiAlias,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 380, maxHeight: 600),
+                  child: _NotificationsPanel(alarms: alarms, onNavigateToReport: onNavigateToReport),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -162,21 +180,20 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final isRackConsole = CpanelApiService.instance.isCurrentSiteRackConsole();
     final isLight = Theme.of(context).brightness == Brightness.light;
     
     var alarms = widget.alarms.whereType<Map>().toList();
 
-
-
     // Background colors matching the setting page approach
-    final bgColor = isLight
+    final bgColor = isRackConsole ? ConsoleTheme.panelBg(context) : (isLight
         ? const Color.fromARGB(255, 247, 251, 255)
-        : const Color(0xFF060B11);
+        : const Color(0xFF060B11));
     
-    final sectionHeaderColor = isLight ? const Color(0xFF757575) : Colors.white54;
-    final itemBgColor = isLight ? Colors.white : const Color(0xFF131922);
-    final textColor = isLight ? Colors.black87 : Colors.white;
-    final dividerColor = isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05);
+    final sectionHeaderColor = isRackConsole ? ConsoleTheme.textSecondary(context) : (isLight ? const Color(0xFF757575) : Colors.white54);
+    final itemBgColor = isRackConsole ? ConsoleTheme.cardBg(context) : (isLight ? Colors.white : const Color(0xFF131922));
+    final textColor = isRackConsole ? ConsoleTheme.textPrimary(context) : (isLight ? Colors.black87 : Colors.white);
+    final dividerColor = isRackConsole ? ConsoleTheme.divider(context) : (isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05));
 
     return Container(
       color: bgColor,
@@ -190,11 +207,6 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.only(left: 12),
                     child: Row(
@@ -228,6 +240,11 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
                             ),
                           ),
                         ],
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, color: textColor),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
                       ],
                     ),
                   ),
