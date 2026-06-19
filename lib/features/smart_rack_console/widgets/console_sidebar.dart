@@ -47,35 +47,8 @@ class ConsoleSidebar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Sidebar top section: Profile Indicator
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: ConsoleTheme.lg,
-              horizontal: ConsoleTheme.sm,
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.monitor_rounded,
-                  color: ConsoleTheme.primaryBlue(context),
-                  size: 28,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  profile.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(color: dividerColor, height: 1),
-          const SizedBox(height: ConsoleTheme.md),
+          // Navigation List starts below a bit of padding
+          const SizedBox(height: ConsoleTheme.lg),
 
           // Navigation List
           Expanded(
@@ -106,10 +79,7 @@ class ConsoleSidebar extends StatelessWidget {
                           : Colors.transparent,
                       borderRadius:
                           BorderRadius.circular(ConsoleTheme.innerRadius),
-                      boxShadow: selected
-                          ? ConsoleTheme.glowShadow(context,
-                              color: ConsoleTheme.primaryBlue(context))
-                          : null,
+                      boxShadow: null,
                       border: Border.all(
                         color: selected ? Colors.transparent : Colors.transparent,
                       ),
@@ -119,7 +89,7 @@ class ConsoleSidebar extends StatelessWidget {
                         Icon(
                           item.icon,
                           color: selected
-                              ? Colors.white
+                              ? ConsoleTheme.tealGlow(context)
                               : textSecondary,
                           size: 20,
                         ),

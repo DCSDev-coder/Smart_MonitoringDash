@@ -17,7 +17,7 @@ class ConsoleTheme {
 
   // ─── Dimensions ────────────────────────────────────────────────────────────
   static const double headerHeight = 76.0;
-  static const double sidebarWidth = 200.0;
+  static const double sidebarWidth = 140.0;
   static const double cardRadius = 18.0;
   static const double innerRadius = 14.0;
 
@@ -122,17 +122,12 @@ class ConsoleTheme {
   }
 
   static Gradient activeAccentGradient(BuildContext context) {
-    return isDark(context)
-        ? const LinearGradient(
-            colors: [Color(0xFF1E90FF), Color(0xFF26D7FF)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          )
-        : const LinearGradient(
-            colors: [Color(0xFF2F80FF), Color(0xFF22C7F2)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          );
+    final glow = tealGlow(context);
+    return LinearGradient(
+      colors: [glow.withValues(alpha: 0.35), glow.withValues(alpha: 0.0)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    );
   }
 
   // ─── Glow & Shadows ────────────────────────────────────────────────────────
