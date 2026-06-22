@@ -29,6 +29,8 @@ class SmartRackConsoleSnapshot {
     this.smokeStatus = -1,
     this.floodStatus = -1,
     this.networkInterfaces = const [],
+    this.doors = const [],
+    this.recentDoorLogs = const [],
   });
 
   final String siteName;
@@ -54,6 +56,8 @@ class SmartRackConsoleSnapshot {
   final int smokeStatus;
   final int floodStatus;
   final List<Map<String, dynamic>> networkInterfaces;
+  final List<Map<String, dynamic>> doors;
+  final List<Map<String, dynamic>> recentDoorLogs;
 
   factory SmartRackConsoleSnapshot.fromPoller(GlobalStatusPoller poller) {
     final site = CpanelApiService.instance.currentSite;
@@ -123,6 +127,8 @@ class SmartRackConsoleSnapshot {
       smokeStatus: poller.smokeStatus,
       floodStatus: poller.floodStatus,
       networkInterfaces: poller.networkInterfaces,
+      doors: poller.doors,
+      recentDoorLogs: poller.recentDoorLogs,
     );
   }
 

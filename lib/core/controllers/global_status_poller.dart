@@ -48,6 +48,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   double? itMemoryUsage;
   double? itDiskUsage;
   List<Map<String, dynamic>> networkInterfaces = const [];
+  List<Map<String, dynamic>> doors = const [];
+  List<Map<String, dynamic>> recentDoorLogs = const [];
   int? maintenanceDaysLeft;
   int? systemUptimeDays;
   double? pue;
@@ -306,6 +308,15 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         return ApiService.instance.fetchItDeviceTopMetrics();
       }
 
+      Future<Map<String, dynamic>?> doorsWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter =
+              await AdapterApiService.instance.fetchDoors(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        return ApiService.instance.fetchCabinetDoors(cabinetId: 1);
+      }
+
       final results = await Future.wait([
         environmentWithFallback(),
         deviceStatusWithFallback(),
@@ -318,6 +329,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         redisMemoryWithFallback(),
         itDeviceInterfacesWithFallback(),
         itDeviceTopMetricsWithFallback(),
+        doorsWithFallback(),
+        ApiService.instance.fetchDoorAccessLogs(pageSize: 5),
       ]);
 
       final env = results[0];
@@ -331,6 +344,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       final rm = results[8];
       final itInterfaces = results[9];
       final itTopMetrics = results[10];
+      final doorsRes = results[11];
+      final doorLogsRes = results[12];
 
       // Update cached values (best-effort; keep last good values on nulls).
       if (env != null && (env['result'] as List?)?.isNotEmpty == true) {
@@ -475,6 +490,23 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
             final diff = DateTime.now().difference(lastM).inDays;
             maintenanceDaysLeft = (90 - diff).clamp(0, 90);
           }
+        }
+      }
+
+      if (doorsRes != null && doorsRes['result'] != null) {
+        final rawDoors = doorsRes['result'];
+        if (rawDoors is List) {
+           doors = List<Map<String, dynamic>>.from(rawDoors.whereType<Map<String, dynamic>>());
+        } else if (rawDoors is Map) {
+           final details = (rawDoors['detailList'] as List?) ?? (rawDoors['detail_list'] as List?) ?? (rawDoors['accessList'] as List?) ?? (rawDoors['doorList'] as List?) ?? const [];
+           doors = List<Map<String, dynamic>>.from(details.whereType<Map<String, dynamic>>());
+        }
+      }
+
+      if (doorLogsRes != null && doorLogsRes['result'] != null) {
+        final records = doorLogsRes['result']['records'];
+        if (records is List) {
+          recentDoorLogs = List<Map<String, dynamic>>.from(records.whereType<Map<String, dynamic>>());
         }
       }
 

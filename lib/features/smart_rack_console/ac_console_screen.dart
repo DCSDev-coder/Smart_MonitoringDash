@@ -48,60 +48,59 @@ class AcConsoleScreen extends StatelessWidget {
             flex: 5,
             child: Padding(
               padding: const EdgeInsets.only(left: ConsoleTheme.lg, right: ConsoleTheme.md),
-              child: _buildSchematicPanel(context, snapshot),
+              child: _buildSchematicPanel(context, snapshot, true),
             ),
           ),
           Expanded(
             flex: 4,
             child: Padding(
               padding: const EdgeInsets.only(left: ConsoleTheme.md, right: ConsoleTheme.lg),
-              child: _buildControlsAndTelemetry(context, snapshot),
+              child: _buildControlsAndTelemetry(context, snapshot, true),
             ),
           ),
         ],
       );
     }
 
-    return Column(
-      children: [
-        Expanded(
-          flex: 1,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: ConsoleTheme.md),
-            child: _buildSchematicPanel(context, snapshot),
-          ),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: ConsoleTheme.md),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 400,
+              child: _buildSchematicPanel(context, snapshot, false),
+            ),
+            const SizedBox(height: ConsoleTheme.lg),
+            SizedBox(
+              height: 500,
+              child: _buildControlsAndTelemetry(context, snapshot, false),
+            ),
+          ],
         ),
-        const SizedBox(height: ConsoleTheme.lg),
-        Expanded(
-          flex: 1,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: ConsoleTheme.md),
-            child: _buildControlsAndTelemetry(context, snapshot),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildSchematicPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+  Widget _buildSchematicPanel(BuildContext context, SmartRackConsoleSnapshot snapshot, bool expand) {
+    final schematicCard = ConsoleSectionCard(
+      title: 'System Schematic',
+      expand: expand,
+      trailing: IconButton(
+        icon: const Icon(Icons.info_outline, color: Colors.white70),
+        tooltip: 'View Full Diagram',
+        onPressed: () => _showFullscreenSchematic(context, snapshot),
+      ),
+      child: AcSchematicWidget(
+        snapshot: snapshot,
+        showLabels: false, // Hidden by default in card
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: ConsoleSectionCard(
-            title: 'System Schematic',
-            expand: true,
-            trailing: IconButton(
-              icon: const Icon(Icons.info_outline, color: Colors.white70),
-              tooltip: 'View Full Diagram',
-              onPressed: () => _showFullscreenSchematic(context, snapshot),
-            ),
-            child: AcSchematicWidget(
-              snapshot: snapshot,
-              showLabels: false, // Hidden by default in card
-            ),
-          ),
-        ),
+        expand ? Expanded(child: schematicCard) : schematicCard,
         const SizedBox(height: ConsoleTheme.lg),
         Row(
           children: [
@@ -128,71 +127,71 @@ class AcConsoleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildControlsAndTelemetry(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+  Widget _buildControlsAndTelemetry(BuildContext context, SmartRackConsoleSnapshot snapshot, bool expand) {
+    final settingCard = ConsoleSectionCard(
+      title: 'Air Conditioning Setting',
+      expand: expand,
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(2),
+            1: FlexColumnWidth(1),
+          },
+          border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
+              children: [
+                _buildTableHeader('Parameter Item'),
+                _buildTableHeader('Set Value'),
+              ],
+            ),
+            _buildSettingTableRow(context, 'Reset', 'OFF'),
+            _buildSettingTableRow(context, 'Power on/off', 'on'),
+            _buildSettingTableRow(context, 'Temperature Setpoint', '24.0 °C'),
+            _buildSettingTableRow(context, 'Humidity Setpoint', '45.0 %RH'),
+            _buildSettingTableRow(context, 'Supply Air High Humd Alarm', '80 %RH'),
+          ],
+        ),
+      ),
+    );
+
+    final statusCard = ConsoleSectionCard(
+      title: 'Air Conditioning Status',
+      expand: expand,
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(1),
+            1: FlexColumnWidth(1),
+          },
+          border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
+              children: [
+                _buildTableHeader('Status Item'),
+                _buildTableHeader('Status'),
+              ],
+            ),
+            _buildStatusTableRow(context, 'Electric Heater Status', 'Stopped', false),
+            _buildStatusTableRow(context, 'Electric Heater', 'Stopped', false),
+            _buildStatusTableRow(context, 'Current operating state', 'Cooling', true),
+            _buildStatusTableRow(context, 'Compressor Status', 'Running', true),
+            _buildStatusTableRow(context, 'Water pump', 'Stopped', false),
+            _buildStatusTableRow(context, 'Temp control', 'Return air', true),
+          ],
+        ),
+      ),
+    );
+
     return Column(
       children: [
-        Expanded(
-          child: ConsoleSectionCard(
-            title: 'Air Conditioning Setting',
-            expand: true,
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(2),
-                  1: FlexColumnWidth(1),
-                },
-                border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
-                    children: [
-                      _buildTableHeader('Parameter Item'),
-                      _buildTableHeader('Set Value'),
-                    ],
-                  ),
-                  _buildSettingTableRow(context, 'Reset', 'OFF'),
-                  _buildSettingTableRow(context, 'Power on/off', 'on'),
-                  _buildSettingTableRow(context, 'Temperature Setpoint', '24.0 °C'),
-                  _buildSettingTableRow(context, 'Humidity Setpoint', '45.0 %RH'),
-                  _buildSettingTableRow(context, 'Supply Air High Humd Alarm', '80 %RH'),
-                ],
-              ),
-            ),
-          ),
-        ),
+        expand ? Expanded(child: settingCard) : settingCard,
         const SizedBox(height: ConsoleTheme.lg),
-        Expanded(
-          child: ConsoleSectionCard(
-            title: 'Air Conditioning Status',
-            expand: true,
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(1),
-                },
-                border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
-                    children: [
-                      _buildTableHeader('Status Item'),
-                      _buildTableHeader('Status'),
-                    ],
-                  ),
-                  _buildStatusTableRow(context, 'Electric Heater Status', 'Stopped', false),
-                  _buildStatusTableRow(context, 'Electric Heater', 'Stopped', false),
-                  _buildStatusTableRow(context, 'Current operating state', 'Cooling', true),
-                  _buildStatusTableRow(context, 'Compressor Status', 'Running', true),
-                  _buildStatusTableRow(context, 'Water pump', 'Stopped', false),
-                  _buildStatusTableRow(context, 'Temp control', 'Return air', true),
-                ],
-              ),
-            ),
-          ),
-        ),
+        expand ? Expanded(child: statusCard) : statusCard,
       ],
     );
   }

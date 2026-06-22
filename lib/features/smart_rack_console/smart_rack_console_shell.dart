@@ -20,6 +20,7 @@ import 'ac_console_screen.dart';
 import 'power_console_screen.dart';
 import 'pdu_console_screen.dart';
 import 'it_device_console_screen.dart';
+import 'door_console_screen.dart';
 
 class SmartRackConsoleShell extends StatefulWidget {
   const SmartRackConsoleShell({
@@ -276,6 +277,11 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
     } else if (index == 5) {
       final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
       return ItDeviceConsoleScreen(
+        snapshot: snapshot,
+      );
+    } else if (index == 6) {
+      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      return DoorConsoleScreen(
         snapshot: snapshot,
       );
     }

@@ -95,7 +95,7 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
               const SizedBox(height: 8),
               buildItem('IP Addr.', '127.0.0.1', isHidden: _isIpHidden, onToggleHide: () async {
                 if (_isIpHidden) {
-                  final bool? ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
+                  final ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
                   if (ok == true) {
                     setState(() => _isIpHidden = false);
                   }
@@ -128,7 +128,7 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
                 Expanded(
                   child: buildItem('IP Addr.', '127.0.0.1', isHidden: _isIpHidden, onToggleHide: () async {
                     if (_isIpHidden) {
-                      final bool? ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
+                      final ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
                       if (ok == true) {
                         setState(() => _isIpHidden = false);
                       }
