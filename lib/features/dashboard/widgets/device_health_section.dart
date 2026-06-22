@@ -13,6 +13,7 @@ class DeviceHealthSection extends StatelessWidget {
   final List<Map<String, dynamic>> humidities;
   final int smokeStatus;
   final int floodStatus;
+  final bool minimalist;
 
   const DeviceHealthSection({
     super.key,
@@ -22,6 +23,7 @@ class DeviceHealthSection extends StatelessWidget {
     this.humidities = const [],
     this.smokeStatus = -1,
     this.floodStatus = -1,
+    this.minimalist = false,
   });
 
   @override
@@ -517,14 +519,14 @@ class DeviceHealthSection extends StatelessWidget {
 
     const meta = <String, Map<String, String>>{
       'AC': {'label': 'AC', 'icon': 'assets/icons/thermometer.svg'},
-      'T&H': {'label': 'Temp / Humd', 'icon': 'assets/icons/thermometer.svg'},
+      'T&H': {'label': 'T.H', 'icon': 'assets/icons/thermometer.svg'},
       'POWER': {'label': 'Power', 'icon': 'assets/icons/plug.svg'},
       'UPS': {'label': 'UPS', 'icon': 'assets/icons/ups.svg'},
       'SMOKE': {
-        'label': 'Smoke Detector',
+        'label': 'Smoke',
         'icon': 'assets/icons/fire-extinguisher.svg'
       },
-      'WLD': {'label': 'Leak Detector', 'icon': 'assets/icons/droplet.svg'},
+      'WLD': {'label': 'Leak', 'icon': 'assets/icons/droplet.svg'},
       'PDU': {'label': 'PDU', 'icon': 'assets/icons/pdu.svg'},
     };
 
@@ -573,9 +575,9 @@ class DeviceHealthSection extends StatelessWidget {
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
+          color: minimalist ? Colors.transparent : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
           borderRadius: BorderRadius.circular(24),
-          boxShadow: isLight
+          boxShadow: (isLight && !minimalist)
               ? [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.03),
@@ -593,10 +595,10 @@ class DeviceHealthSection extends StatelessWidget {
             final isLast = i == groupItems.length - 1;
             return Column(
               children: [
-                _DeviceHealthRow(item: item, alarms: alarms),
+                _DeviceHealthRow(item: item, alarms: alarms, minimalist: minimalist),
                 if (!isLast)
                   Padding(
-                    padding: const EdgeInsets.only(left: 72, right: 16),
+                    padding: EdgeInsets.only(left: minimalist ? 52 : 72, right: minimalist ? 0 : 16),
                     child: Divider(
                       height: 1,
                       thickness: 1,
@@ -668,10 +670,12 @@ class _DeviceHealthItem {
 class _DeviceHealthRow extends StatelessWidget {
   final _DeviceHealthItem item;
   final List<dynamic>? alarms;
+  final bool minimalist;
 
   const _DeviceHealthRow({
     required this.item,
     this.alarms,
+    this.minimalist = false,
   });
 
   void _showDetails(BuildContext context) {
@@ -927,7 +931,7 @@ transitionBuilder: (ctx, anim1, anim2, child) {
                 color: alertTint ?? Colors.transparent,
                 borderRadius: BorderRadius.circular(18),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: EdgeInsets.symmetric(horizontal: minimalist ? 0 : 14, vertical: minimalist ? 12 : 14),
               child: Row(
                 children: [
                   Container(
@@ -957,31 +961,32 @@ transitionBuilder: (ctx, anim1, anim2, child) {
                       children: [
                         Text(
                           item.label,
-                          style: bitcount(
-                            context,
-                            color: isLight ? Colors.black : Colors.white,
-                            fontSize: 16,
+                          style: TextStyle(
+                            color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                            fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isOk ? 'Secure' : 'Requires attention',
-                          style: TextStyle(
-                            color: isOk
-                                ? (isLight
-                                    ? AppTheme.lightTextSecondary
-                                    : Colors.white70)
-                                : statusColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
+                        if (!minimalist) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            isOk ? 'Secure' : 'Requires attention',
+                            style: TextStyle(
+                              color: isOk
+                                  ? (isLight
+                                      ? AppTheme.lightTextSecondary
+                                      : Colors.white70)
+                                  : statusColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _HealthBoxesFromStates(states: item.boxStates),
+                  _HealthBoxesFromStates(states: item.boxStates, minimalist: minimalist),
                 ],
               ),
             ),
@@ -1132,7 +1137,7 @@ class _DeviceDetailRow extends StatelessWidget {
                   style: TextStyle(
                     color: isLight ? AppTheme.lightTextPrimary : Colors.white,
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -1192,7 +1197,8 @@ enum _BoxState { normal, alarm, offline }
 
 class _HealthBoxesFromStates extends StatelessWidget {
   final List<_BoxState> states;
-  const _HealthBoxesFromStates({required this.states});
+  final bool minimalist;
+  const _HealthBoxesFromStates({required this.states, this.minimalist = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1204,7 +1210,7 @@ class _HealthBoxesFromStates extends StatelessWidget {
 
     return Row(
       children: [
-        for (var i = 0; i < visible; i++) _SingleHealthBox(state: states[i]),
+        for (var i = 0; i < visible; i++) _SingleHealthBox(state: states[i], minimalist: minimalist),
         if (extra > 0)
           Padding(
             padding: const EdgeInsets.only(left: 8),
@@ -1226,7 +1232,8 @@ class _HealthBoxesFromStates extends StatelessWidget {
 
 class _SingleHealthBox extends StatelessWidget {
   final _BoxState state;
-  const _SingleHealthBox({required this.state});
+  final bool minimalist;
+  const _SingleHealthBox({required this.state, this.minimalist = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1238,7 +1245,7 @@ class _SingleHealthBox extends StatelessWidget {
     };
 
     return Container(
-      width: 14,
+      width: minimalist ? 8 : 14,
       height: 34,
       margin: const EdgeInsets.only(left: 6),
       decoration: BoxDecoration(

@@ -50,6 +50,9 @@ class ConsoleTheme {
   static Color electricBlue(BuildContext context) =>
       isDark(context) ? const Color(0xFF4BB8FF) : const Color(0xFF5DA9FF);
 
+  static Color purple(BuildContext context) =>
+      isDark(context) ? const Color(0xFFC77DFF) : const Color(0xFF9C27B0);
+
   // ─── Status Colors ─────────────────────────────────────────────────────────
   static Color success(BuildContext context) =>
       isDark(context) ? const Color(0xFF21E38A) : const Color(0xFF14B86A);

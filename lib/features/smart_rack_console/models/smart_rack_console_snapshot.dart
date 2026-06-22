@@ -20,6 +20,14 @@ class SmartRackConsoleSnapshot {
     required this.systemUptimeDays,
     required this.capacityUsedPct,
     required this.memoryUsedPct,
+    required this.cpuUsedPct,
+    required this.diskUsedPct,
+    this.temperatures = const [],
+    this.humidities = const [],
+    this.alarms = const [],
+    this.devices = const [],
+    this.smokeStatus = -1,
+    this.floodStatus = -1,
   });
 
   final String siteName;
@@ -36,6 +44,14 @@ class SmartRackConsoleSnapshot {
   final int? systemUptimeDays;
   final double? capacityUsedPct;
   final double? memoryUsedPct;
+  final double? cpuUsedPct;
+  final double? diskUsedPct;
+  final List<Map<String, dynamic>> temperatures;
+  final List<Map<String, dynamic>> humidities;
+  final List<dynamic> alarms;
+  final List<Map<String, dynamic>> devices;
+  final int smokeStatus;
+  final int floodStatus;
 
   factory SmartRackConsoleSnapshot.fromPoller(GlobalStatusPoller poller) {
     final site = CpanelApiService.instance.currentSite;
@@ -63,6 +79,14 @@ class SmartRackConsoleSnapshot {
       sysData,
       const ['memoryUsedPct', 'memory_used_pct', 'memoryUsage', 'memory'],
     );
+    final cpuUsedPct = _extractDouble(
+      sysData,
+      const ['cpuUsedPct', 'cpu_used_pct', 'cpuUsage', 'cpu'],
+    );
+    final diskUsedPct = _extractDouble(
+      sysData,
+      const ['diskUsedPct', 'disk_used_pct', 'diskUsage', 'disk'],
+    );
 
     return SmartRackConsoleSnapshot(
       siteName: siteName,
@@ -88,6 +112,14 @@ class SmartRackConsoleSnapshot {
       ),
       capacityUsedPct: capacityUsedPct,
       memoryUsedPct: memoryUsedPct,
+      cpuUsedPct: cpuUsedPct,
+      diskUsedPct: diskUsedPct,
+      temperatures: poller.rawTemperatures,
+      humidities: poller.rawHumidities,
+      alarms: poller.recentAlarms,
+      devices: poller.devices,
+      smokeStatus: poller.smokeStatus,
+      floodStatus: poller.floodStatus,
     );
   }
 

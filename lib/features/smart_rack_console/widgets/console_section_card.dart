@@ -10,6 +10,7 @@ class ConsoleSectionCard extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.minHeight,
+    this.padding,
   });
 
   final String title;
@@ -17,6 +18,7 @@ class ConsoleSectionCard extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
   final double? minHeight;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +35,7 @@ class ConsoleSectionCard extends StatelessWidget {
         boxShadow: ConsoleTheme.glowShadow(context),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0), // 20px - 24px padding matching design guidelines
+        padding: padding ?? const EdgeInsets.all(20.0), // 20px - 24px padding matching design guidelines
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

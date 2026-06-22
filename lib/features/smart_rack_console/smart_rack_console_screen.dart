@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 
 import '../../core/controllers/global_status_poller.dart';
+import '../dashboard/widgets/device_health_section.dart';
+import '../dashboard/widgets/environment_gauges.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'models/smart_rack_device_profile.dart';
 import 'services/smart_rack_console_repository.dart';
@@ -32,7 +34,7 @@ class SmartRackConsoleScreen extends StatelessWidget {
             gradient: ConsoleTheme.pageBgGradient(context),
           ),
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(compact ? ConsoleTheme.md : ConsoleTheme.lg),
+            padding: const EdgeInsets.all(ConsoleTheme.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -170,11 +172,11 @@ class _MainGrid extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _buildPlaceholderCard('Card 4')),
+              Expanded(child: _buildMonitoringStatisticsPanel(context, snapshot)),
               const SizedBox(width: ConsoleTheme.lg),
-              Expanded(child: _buildPlaceholderCard('Card 5')),
+              Expanded(child: _buildCapacityPanel(context, snapshot)),
               const SizedBox(width: ConsoleTheme.lg),
-              Expanded(child: _buildPlaceholderCard('Card 6')),
+              Expanded(child: _buildResourcePanel(context, snapshot)),
             ],
           ),
         ),
@@ -277,82 +279,18 @@ class _MainGrid extends StatelessWidget {
 
     return ConsoleSectionCard(
       title: 'Temperature & Humidity',
-      subtitle: 'Live environmental readings',
       minHeight: 200,
-      child: Column(
-        children: [
-          isSuperWide
-              ? Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 130,
-                        child: _buildRadialGauge(
-                          context: context,
-                          min: 0,
-                          max: 60,
-                          value: snapshot.temperatureC ?? 0,
-                          unit: '°C',
-                          label: 'Temp',
-                          accentColor: ConsoleTheme.primaryBlue(context),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 130,
-                        child: _buildRadialGauge(
-                          context: context,
-                          min: 0,
-                          max: 100,
-                          value: snapshot.humidityPct ?? 0,
-                          unit: '%',
-                          label: 'Humidity',
-                          accentColor: ConsoleTheme.cyan(context),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Column(
-                  children: [
-                    SizedBox(
-                      height: 130,
-                      child: _buildRadialGauge(
-                        context: context,
-                        min: 0,
-                        max: 60,
-                        value: snapshot.temperatureC ?? 0,
-                        unit: '°C',
-                        label: 'Temp',
-                        accentColor: ConsoleTheme.primaryBlue(context),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 130,
-                      child: _buildRadialGauge(
-                        context: context,
-                        min: 0,
-                        max: 100,
-                        value: snapshot.humidityPct ?? 0,
-                        unit: '%',
-                        label: 'Humidity',
-                        accentColor: ConsoleTheme.cyan(context),
-                      ),
-                    ),
-                  ],
-                ),
-          const SizedBox(height: 16),
-          _StatusLine(
-            label: 'System Status',
-            value: snapshot.issueCount > 0 ? 'Attention Needed' : 'Normal',
-            valueColor: snapshot.issueCount > 0
-                ? ConsoleTheme.danger(context)
-                : ConsoleTheme.success(context),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: EnvironmentRow(
+          temperatures: snapshot.temperatures,
+          humidities: snapshot.humidities,
+          alarms: snapshot.alarms,
+          initialStyle: EnvironmentGaugeStyle.meter,
+          minimalist: true,
+          isVertical: !isSuperWide,
+          gaugeHeight: isSuperWide ? 160 : 240,
+        ),
       ),
     );
   }
@@ -360,7 +298,6 @@ class _MainGrid extends StatelessWidget {
   Widget _buildSensorPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     return ConsoleSectionCard(
       title: 'Smoke & Water Sensors',
-      subtitle: 'Cabinet safety monitors',
       minHeight: 200,
       child: Column(
         children: [
@@ -415,16 +352,53 @@ class _MainGrid extends StatelessWidget {
     );
   }
 
+  Widget _buildMonitoringStatisticsPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+    return ConsoleSectionCard(
+      title: 'Monitoring Statistics',
+      minHeight: 200,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'PE Monitoring',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: DeviceHealthSection(
+              devices: snapshot.devices,
+              alarms: snapshot.alarms,
+              temperatures: snapshot.temperatures,
+              humidities: snapshot.humidities,
+              smokeStatus: snapshot.smokeStatus,
+              floodStatus: snapshot.floodStatus,
+              minimalist: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCapacityPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     final usedRate = snapshot.capacityUsedPct ?? 29.76;
 
     return ConsoleSectionCard(
       title: 'Space Capacity',
-      subtitle: 'Used cabinet capacity',
-      child: Column(
-        children: [
-          SizedBox(
-            height: 120,
+      minHeight: 200,
+      child: Builder(
+        builder: (context) {
+          final isWide = MediaQuery.of(context).size.width > 1200;
+          final chartSize = isWide ? 160.0 : 120.0;
+          
+          final chart = SizedBox(
+            height: chartSize,
+            width: chartSize,
             child: _buildRadialGauge(
               context: context,
               min: 0,
@@ -434,39 +408,79 @@ class _MainGrid extends StatelessWidget {
               label: 'Used Rate',
               accentColor: ConsoleTheme.primaryBlue(context),
             ),
-          ),
-          const SizedBox(height: 12),
-          const _StatusLine(label: 'Cabinet Item 1', value: '45.24%'),
-          const SizedBox(height: 8),
-          const _StatusLine(label: 'Cabinet Item 2', value: '14.29%'),
-        ],
+          );
+
+          final legend = Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SensorRow(
+                icon: Icons.dns_rounded,
+                label: 'Cabinet Item 1',
+                value: '45%',
+                color: ConsoleTheme.primaryBlue(context),
+              ),
+              const SizedBox(height: 8),
+              _buildResourceProgressBar(context, 45.0),
+              const SizedBox(height: 16),
+              _SensorRow(
+                icon: Icons.dns_rounded,
+                label: 'Cabinet Item 2',
+                value: '14%',
+                color: ConsoleTheme.primaryBlue(context),
+              ),
+              const SizedBox(height: 8),
+              _buildResourceProgressBar(context, 14.0),
+            ],
+          );
+
+          return Column(
+            children: [
+              chart,
+              const SizedBox(height: 16),
+              legend,
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildResourcePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     final memoryPct = snapshot.memoryUsedPct ?? 63.2;
+    final cpuPct = snapshot.cpuUsedPct ?? 18.5;
+    final diskPct = snapshot.diskUsedPct ?? 45.0;
 
     return ConsoleSectionCard(
       title: 'Resource',
-      subtitle: 'Memory, CPU and disk',
-      trailing: const _TabChip(label: 'Memory', selected: true),
+      minHeight: 200,
       child: Column(
         children: [
           _SensorRow(
             icon: Icons.memory_rounded,
             label: 'Memory Usage',
-            value: '${memoryPct.toStringAsFixed(1)}%',
+            value: '${memoryPct.toInt()}%',
             color: ConsoleTheme.primaryBlue(context),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _buildResourceProgressBar(context, memoryPct),
-          const SizedBox(height: 14),
-          const _StatusLine(label: 'Total Memory', value: '32 GB'),
-          const SizedBox(height: 6),
-          const _StatusLine(label: 'Used Memory', value: '20.2 GB'),
-          const SizedBox(height: 6),
-          const _StatusLine(label: 'Free Memory', value: '11.8 GB'),
+          const SizedBox(height: 16),
+          _SensorRow(
+            icon: Icons.developer_board_rounded,
+            label: 'CPU Usage',
+            value: '${cpuPct.toInt()}%',
+            color: ConsoleTheme.cyan(context),
+          ),
+          const SizedBox(height: 8),
+          _buildResourceProgressBar(context, cpuPct, color: ConsoleTheme.cyan(context)),
+          const SizedBox(height: 16),
+          _SensorRow(
+            icon: Icons.storage_rounded,
+            label: 'Disk Usage',
+            value: '${diskPct.toInt()}%',
+            color: ConsoleTheme.purple(context),
+          ),
+          const SizedBox(height: 8),
+          _buildResourceProgressBar(context, diskPct, color: ConsoleTheme.purple(context)),
         ],
       ),
     );
@@ -486,60 +500,43 @@ class _MainGrid extends StatelessWidget {
     final valueTextColor = ConsoleTheme.textPrimary(context);
     final labelTextColor = ConsoleTheme.textSecondary(context);
     final trackColor = isDark
-        ? const Color(0xFF0E284D) // Dark blue-navy track
-        : const Color(0xFFEAF1FA); // Soft gray-blue track
+        ? const Color(0xFF3A3A3A) // Darker grey track to make it more distinct but subtle
+        : const Color(0xFFC0D3EB); // Darker gray-blue track for light mode
 
-    return SfRadialGauge(
-      axes: <RadialAxis>[
-        RadialAxis(
-          minimum: min,
-          maximum: max,
-          showLabels: false,
-          showTicks: false,
-          axisLineStyle: AxisLineStyle(
-            thickness: 10,
-            color: trackColor,
-            thicknessUnit: GaugeSizeUnit.logicalPixel,
-          ),
-          pointers: <GaugePointer>[
-            RangePointer(
-              value: value.clamp(min, max),
-              width: 10,
-              pointerOffset: 0,
-              sizeUnit: GaugeSizeUnit.logicalPixel,
-              gradient: SweepGradient(
-                colors: isDark
-                    ? [accentColor, ConsoleTheme.cyan(context)]
-                    : [accentColor, ConsoleTheme.cyan(context)],
-                stops: const <double>[0.0, 1.0],
+    final isSuperWide = MediaQuery.of(context).size.width >= 1100;
+    final strokeWidth = isSuperWide ? 16.0 : 12.0;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        ArcGauge(
+          progress: (value - min) / (max - min),
+          glowColor: accentColor,
+          baseColor: trackColor,
+          strokeWidth: strokeWidth,
+          sweepDegrees: 210,
+          startDegrees: 195,
+          glowIntensity: 1.0,
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16), // Push text slightly down to center inside the arc
+            Text(
+              '${value.toInt()}$unit',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: valueTextColor,
               ),
             ),
-          ],
-          annotations: <GaugeAnnotation>[
-            GaugeAnnotation(
-              angle: 90,
-              positionFactor: 0.1,
-              widget: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${value.toStringAsFixed(1)}$unit',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: valueTextColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: labelTextColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: labelTextColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -549,11 +546,13 @@ class _MainGrid extends StatelessWidget {
   }
 
   // Custom linear progress bar for resource usage
-  Widget _buildResourceProgressBar(BuildContext context, double percentage) {
+  Widget _buildResourceProgressBar(BuildContext context, double percentage, {Color? color}) {
     final isDark = ConsoleTheme.isDark(context);
     final trackColor = isDark
         ? const Color(0xFF091A35)
         : const Color(0xFFEAF3FF);
+        
+    final accent = color ?? ConsoleTheme.primaryBlue(context);
 
     return Container(
       height: 8,
@@ -572,7 +571,7 @@ class _MainGrid extends StatelessWidget {
           widthFactor: (percentage / 100).clamp(0.0, 1.0),
           child: Container(
             decoration: BoxDecoration(
-              gradient: ConsoleTheme.activeAccentGradient(context),
+              color: accent,
             ),
           ),
         ),
@@ -644,118 +643,57 @@ class _SensorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSuperWide = MediaQuery.of(context).size.width >= 1100;
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-      decoration: BoxDecoration(
-        color: ConsoleTheme.innerSurface(context),
-        borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
-        border: Border.all(color: ConsoleTheme.divider(context)),
-      ),
-      child: isSuperWide
-          ? Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color.withValues(alpha: 0.12),
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(icon, color: color, size: 16),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: ConsoleTheme.textPrimary(context),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color.withValues(alpha: 0.12),
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(icon, color: color, size: 16),
-                ),
-                const SizedBox(height: 8),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.center,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: ConsoleTheme.textPrimary(context),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
             ),
+            child: Center(
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: ConsoleTheme.textPrimary(context),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

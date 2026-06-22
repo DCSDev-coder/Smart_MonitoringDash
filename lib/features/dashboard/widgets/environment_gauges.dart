@@ -33,6 +33,8 @@ class EnvironmentRow extends StatefulWidget {
   final EnvironmentGaugeStyle initialStyle;
   final double gaugeHeight;
   final bool loading;
+  final bool minimalist;
+  final bool isVertical;
 
   const EnvironmentRow({
     super.key,
@@ -42,6 +44,8 @@ class EnvironmentRow extends StatefulWidget {
     this.initialStyle = EnvironmentGaugeStyle.arc,
     this.gaugeHeight = 210,
     this.loading = false,
+    this.minimalist = false,
+    this.isVertical = false,
   });
 
   @override
@@ -131,19 +135,25 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
             height: widget.gaugeHeight,
             child: Padding(
               padding: EdgeInsets.zero,
-              child: Row(
+              child: Flex(
+                direction: widget.isVertical ? Axis.vertical : Axis.horizontal,
                 children: [
                   Expanded(
                     child: _MiniGaugeCard.placeholder(
                       title: 'TEMPERATURE',
                       accent: AppTheme.accentGreen,
+                      minimalist: widget.minimalist,
                     ),
                   ),
-                  SizedBox(width: 12),
+                  SizedBox(
+                    width: widget.isVertical ? 0 : 12,
+                    height: widget.isVertical ? 12 : 0,
+                  ),
                   Expanded(
                     child: _MiniGaugeCard.placeholder(
                       title: 'HUMIDITY',
                       accent: Color(0xFF00A3FF),
+                      minimalist: widget.minimalist,
                     ),
                   ),
                 ],
@@ -320,7 +330,8 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                 // Add breathing room so when the user swipes between cabinets,
                 // the adjacent pages don't visually "stick" together.
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
+                child: Flex(
+                  direction: widget.isVertical ? Axis.vertical : Axis.horizontal,
                   children: [
                     Expanded(
                       child: _MiniGaugeCard(
@@ -333,9 +344,13 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                         warnHigh: tempWarnHigh,
                         maxScale: 50,
                         style: _style,
+                        minimalist: widget.minimalist,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: widget.isVertical ? 0 : 12,
+                      height: widget.isVertical ? 12 : 0,
+                    ),
                     Expanded(
                       child: _MiniGaugeCard(
                         title: 'HUMIDITY',
@@ -353,6 +368,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                         warnHigh: humWarnHigh,
                         maxScale: 100,
                         style: _style,
+                        minimalist: widget.minimalist,
                       ),
                     ),
                   ],
@@ -466,6 +482,7 @@ class _MiniGaugeCard extends StatelessWidget {
   final double maxScale;
   final bool placeholder;
   final EnvironmentGaugeStyle style;
+  final bool minimalist;
 
   const _MiniGaugeCard({
     required this.title,
@@ -477,11 +494,13 @@ class _MiniGaugeCard extends StatelessWidget {
     this.warnHigh,
     required this.maxScale,
     required this.style,
+    this.minimalist = false,
   }) : placeholder = false;
 
   const _MiniGaugeCard.placeholder({
     required this.title,
     required this.accent,
+    this.minimalist = false,
   })  : iconAsset = '',
         valueText = '--',
         progress = 0,
@@ -510,36 +529,40 @@ class _MiniGaugeCard extends StatelessWidget {
         : null;
 
     return Card(
-      color: bgTint,
+      color: minimalist ? Colors.transparent : bgTint,
+      elevation: minimalist ? 0 : null,
+      margin: minimalist ? EdgeInsets.zero : null,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        padding: minimalist ? const EdgeInsets.all(10) : const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: isLight ? Colors.white : onSurface,
-                    fontSize: _kMiniGaugeTitleFontSize,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
+          if (!minimalist) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: isLight ? Colors.white : onSurface,
+                      fontSize: _kMiniGaugeTitleFontSize,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
                   ),
                 ),
-              ),
-              if (!placeholder)
-                SvgPicture.asset(
-                  iconAsset,
-                  width: 22,
-                  height: 22,
-                  colorFilter: ColorFilter.mode(
-                      isLight ? Colors.white : accent, BlendMode.srcIn),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
+                if (!placeholder)
+                  SvgPicture.asset(
+                    iconAsset,
+                    width: 22,
+                    height: 22,
+                    colorFilter: ColorFilter.mode(
+                        isLight ? Colors.white : accent, BlendMode.srcIn),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           Expanded(
             child: Center(
               child: AspectRatio(
@@ -576,7 +599,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                 builder: (context, v, _) => _DialMeterGauge(
                                   progress: v,
                                   glowColor: accent,
-                                  glowIntensity: 1.0,
+                                  glowIntensity: minimalist ? 0.4 : 1.0,
                                   warningStops: [
                                     if (warnLow != null)
                                       (warnLow! / maxScale).clamp(0.0, 1.0),
@@ -593,14 +616,14 @@ class _MiniGaugeCard extends StatelessWidget {
                                 ),
                                 duration: const Duration(milliseconds: 1600),
                                 curve: Curves.easeOutCubic,
-                                builder: (context, v, _) => _ArcGauge(
+                                builder: (context, v, _) => ArcGauge(
                                   progress: v,
                                   glowColor: accent,
                                   baseColor: const Color(0xFF5A5A5A),
                                   strokeWidth: isWide ? 22 : 18,
                                   sweepDegrees: 210,
                                   startDegrees: 195,
-                                  glowIntensity: 1.0,
+                                  glowIntensity: minimalist ? 0.4 : 1.0,
                                   warningStops: [
                                     if (warnLow != null)
                                       (warnLow! / maxScale).clamp(0.0, 1.0),
@@ -611,12 +634,18 @@ class _MiniGaugeCard extends StatelessWidget {
                               ),
                       ),
                     ),
-                    Text(
-                      valueText,
-                      style: bitcount(
-                        context,
-                        fontSize: 36,
-                        color: Colors.white,
+                    FractionallySizedBox(
+                      widthFactor: 0.6,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          valueText,
+                          style: bitcount(
+                            context,
+                            fontSize: 36,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -769,7 +798,7 @@ class _PagerArrow extends StatelessWidget {
   }
 }
 
-class _ArcGauge extends StatelessWidget {
+class ArcGauge extends StatelessWidget {
   final double progress;
   final Color glowColor;
   final Color baseColor;
@@ -779,7 +808,7 @@ class _ArcGauge extends StatelessWidget {
   final double glowIntensity;
   final List<double> warningStops;
 
-  const _ArcGauge({
+  const ArcGauge({
     required this.progress,
     required this.glowColor,
     required this.baseColor,

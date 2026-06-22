@@ -40,6 +40,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   // Cached telemetry/metrics for Rack Console
   double? temperatureC;
   double? humidityPct;
+  List<Map<String, dynamic>> rawTemperatures = const [];
+  List<Map<String, dynamic>> rawHumidities = const [];
   double? capacityUsedPct;
   double? memoryUsedPct;
   int? maintenanceDaysLeft;
@@ -335,6 +337,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         final List? hums = th['result']['humidity'] as List?;
 
         if (temps != null && temps.isNotEmpty) {
+          rawTemperatures = temps.map((e) => (e as Map).cast<String, dynamic>()).toList();
           double sum = 0;
           int count = 0;
           for (final item in temps) {
@@ -350,6 +353,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         }
 
         if (hums != null && hums.isNotEmpty) {
+          rawHumidities = hums.map((e) => (e as Map).cast<String, dynamic>()).toList();
           double sum = 0;
           int count = 0;
           for (final item in hums) {
@@ -414,16 +418,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (rm != null) {
-        final res = rm['result'] ?? rm;
-        if (res is Map) {
-          final usage = res['used_memory'] ?? res['usedMemory'] ?? res['memoryUsage'] ?? res['memory'];
-          final total = res['total_memory'] ?? res['totalMemory'] ?? 34359738368;
-          final usageNum = double.tryParse(usage?.toString() ?? '');
-          final totalNum = double.tryParse(total?.toString() ?? '');
-          if (usageNum != null && totalNum != null && totalNum > 0) {
-            memoryUsedPct = (usageNum / totalNum) * 100.0;
-          }
-        }
+        // Redis memory is specifically for the Redis cache, NOT the system's actual hardware memory usage.
+        // We do NOT override the global memoryUsedPct with Redis memory here so that the UI can properly extract system memory from sysInfo.
       }
 
       if (site != null) {
