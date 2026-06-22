@@ -18,6 +18,8 @@ import 'widgets/console_header.dart';
 import 'widgets/console_sidebar.dart';
 import 'ac_console_screen.dart';
 import 'power_console_screen.dart';
+import 'pdu_console_screen.dart';
+import 'it_device_console_screen.dart';
 
 class SmartRackConsoleShell extends StatefulWidget {
   const SmartRackConsoleShell({
@@ -266,6 +268,16 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
       return PowerConsoleScreen(
         snapshot: snapshot,
       );
+    } else if (index == 4) {
+      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      return PduConsoleScreen(
+        snapshot: snapshot,
+      );
+    } else if (index == 5) {
+      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      return ItDeviceConsoleScreen(
+        snapshot: snapshot,
+      );
     }
     return ComingSoonPanel(title: _pageTitle(index));
   }
@@ -339,7 +351,10 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
                           ),
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: _buildMainContent(_selectedIndex, false),
+                        child: ListenableBuilder(
+                          listenable: _poller,
+                          builder: (context, _) => _buildMainContent(_selectedIndex, false),
+                        ),
                       ),
                     ),
                   ],
@@ -408,7 +423,10 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: _buildMainContent(_selectedIndex, true),
+                child: ListenableBuilder(
+                  listenable: _poller,
+                  builder: (context, _) => _buildMainContent(_selectedIndex, true),
+                ),
               ),
             ),
           ],

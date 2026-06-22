@@ -285,6 +285,64 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchItDeviceInterfaces({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/it-device-interfaces-last-for-part');
+    try {
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchItDeviceInterfaces non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchItDeviceInterfaces error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchItDeviceTopMetrics({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/it-device-top-metrics-last');
+    try {
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchItDeviceTopMetrics non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchItDeviceTopMetrics error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> fetchDashboardBundle(
       {required int siteId}) async {
     if (!isConfigured) return null;

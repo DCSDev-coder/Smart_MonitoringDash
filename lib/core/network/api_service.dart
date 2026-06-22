@@ -455,6 +455,15 @@ class ApiService {
       _get(AppConstants.redisInfoPath);
   Future<Map<String, dynamic>?> fetchRedisMemory() =>
       _get(AppConstants.redisMemoryPath);
+  Future<Map<String, dynamic>?> fetchItDeviceInterfaces({int nodeId = 10}) =>
+      _get('/itom/server/dataTest/lastForPart', query: {
+        'collectControlNodeId': nodeId.toString(),
+        'partTypeCode': 'interface',
+      });
+  Future<Map<String, dynamic>?> fetchItDeviceTopMetrics({int nodeId = 10}) =>
+      _get('/itom/server/dataTest/last', query: {
+        'collectControlNodeId': nodeId.toString(),
+      });
   Future<Map<String, dynamic>?> fetchGates() => _get(AppConstants.gateListPath,
       query: {'locationId': '1', 'locationType': '1'});
   Future<Map<String, dynamic>?> fetchMonitorData({int cabinetId = 1}) =>

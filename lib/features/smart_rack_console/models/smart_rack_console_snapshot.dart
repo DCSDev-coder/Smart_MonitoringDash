@@ -28,6 +28,7 @@ class SmartRackConsoleSnapshot {
     this.devices = const [],
     this.smokeStatus = -1,
     this.floodStatus = -1,
+    this.networkInterfaces = const [],
   });
 
   final String siteName;
@@ -52,6 +53,7 @@ class SmartRackConsoleSnapshot {
   final List<Map<String, dynamic>> devices;
   final int smokeStatus;
   final int floodStatus;
+  final List<Map<String, dynamic>> networkInterfaces;
 
   factory SmartRackConsoleSnapshot.fromPoller(GlobalStatusPoller poller) {
     final site = CpanelApiService.instance.currentSite;
@@ -75,15 +77,15 @@ class SmartRackConsoleSnapshot {
       sysData,
       const ['capacityUsedPct', 'capacity_used_pct', 'usedRate', 'spaceUsedPct'],
     );
-    final memoryUsedPct = poller.memoryUsedPct ?? _extractDouble(
+    final memoryUsedPct = poller.itMemoryUsage ?? poller.memoryUsedPct ?? _extractDouble(
       sysData,
       const ['memoryUsedPct', 'memory_used_pct', 'memoryUsage', 'memory'],
     );
-    final cpuUsedPct = _extractDouble(
+    final cpuUsedPct = poller.itCpuUsage ?? _extractDouble(
       sysData,
       const ['cpuUsedPct', 'cpu_used_pct', 'cpuUsage', 'cpu'],
     );
-    final diskUsedPct = _extractDouble(
+    final diskUsedPct = poller.itDiskUsage ?? _extractDouble(
       sysData,
       const ['diskUsedPct', 'disk_used_pct', 'diskUsage', 'disk'],
     );
@@ -120,6 +122,7 @@ class SmartRackConsoleSnapshot {
       devices: poller.devices,
       smokeStatus: poller.smokeStatus,
       floodStatus: poller.floodStatus,
+      networkInterfaces: poller.networkInterfaces,
     );
   }
 

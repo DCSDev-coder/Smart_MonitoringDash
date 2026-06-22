@@ -44,6 +44,10 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> rawHumidities = const [];
   double? capacityUsedPct;
   double? memoryUsedPct;
+  double? itCpuUsage;
+  double? itMemoryUsage;
+  double? itDiskUsage;
+  List<Map<String, dynamic>> networkInterfaces = const [];
   int? maintenanceDaysLeft;
   int? systemUptimeDays;
   double? pue;
@@ -286,6 +290,22 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         return ApiService.instance.fetchRedisMemory();
       }
 
+      Future<Map<String, dynamic>?> itDeviceInterfacesWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter = await AdapterApiService.instance.fetchItDeviceInterfaces(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        return ApiService.instance.fetchItDeviceInterfaces();
+      }
+
+      Future<Map<String, dynamic>?> itDeviceTopMetricsWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter = await AdapterApiService.instance.fetchItDeviceTopMetrics(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+        }
+        return ApiService.instance.fetchItDeviceTopMetrics();
+      }
+
       final results = await Future.wait([
         environmentWithFallback(),
         deviceStatusWithFallback(),
@@ -296,6 +316,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         powerMonthWithFallback(),
         cabinetStatsWithFallback(),
         redisMemoryWithFallback(),
+        itDeviceInterfacesWithFallback(),
+        itDeviceTopMetricsWithFallback(),
       ]);
 
       final env = results[0];
@@ -307,6 +329,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       final pm = results[6];
       final cs = results[7];
       final rm = results[8];
+      final itInterfaces = results[9];
+      final itTopMetrics = results[10];
 
       // Update cached values (best-effort; keep last good values on nulls).
       if (env != null && (env['result'] as List?)?.isNotEmpty == true) {
@@ -420,6 +444,28 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       if (rm != null) {
         // Redis memory is specifically for the Redis cache, NOT the system's actual hardware memory usage.
         // We do NOT override the global memoryUsedPct with Redis memory here so that the UI can properly extract system memory from sysInfo.
+      }
+
+      if (itInterfaces != null && itInterfaces['result'] != null) {
+        final list = itInterfaces['result'] as List?;
+        if (list != null) {
+          networkInterfaces = list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+        }
+      }
+
+      if (itTopMetrics != null && itTopMetrics['result'] != null) {
+        final list = itTopMetrics['result'] as List?;
+        if (list != null) {
+          for (final item in list) {
+            if (item is Map) {
+              final code = item['metricTypeLibCode']?.toString();
+              final val = double.tryParse(item['value']?.toString() ?? '');
+              if (code == 'cpu_usage') itCpuUsage = val;
+              if (code == 'mem_usage') itMemoryUsage = val;
+              if (code == 'host_disk_usage') itDiskUsage = val;
+            }
+          }
+        }
       }
 
       if (site != null) {
