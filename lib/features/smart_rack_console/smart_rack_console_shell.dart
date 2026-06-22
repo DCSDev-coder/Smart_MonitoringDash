@@ -17,6 +17,7 @@ import 'widgets/coming_soon_panel.dart';
 import 'widgets/console_header.dart';
 import 'widgets/console_sidebar.dart';
 import 'ac_console_screen.dart';
+import 'power_console_screen.dart';
 
 class SmartRackConsoleShell extends StatefulWidget {
   const SmartRackConsoleShell({
@@ -258,6 +259,11 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
     } else if (index == 2) {
       final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
       return UpsConsoleScreen(
+        snapshot: snapshot,
+      );
+    } else if (index == 3) {
+      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      return PowerConsoleScreen(
         snapshot: snapshot,
       );
     }
