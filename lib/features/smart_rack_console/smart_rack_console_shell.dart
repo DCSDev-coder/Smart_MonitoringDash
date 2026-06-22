@@ -9,8 +9,10 @@ import '../../shared/utils/app_toast.dart';
 import '../../shared/widgets/settings_overlay.dart';
 import '../../shared/widgets/notifications_overlay.dart';
 import 'models/smart_rack_device_profile.dart';
+import 'models/smart_rack_console_snapshot.dart';
 import 'smart_rack_console_screen.dart';
 import 'theme/console_theme.dart';
+import 'ups_console_screen.dart';
 import 'widgets/coming_soon_panel.dart';
 import 'widgets/console_header.dart';
 import 'widgets/console_sidebar.dart';
@@ -252,6 +254,11 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
     } else if (index == 1) {
       return AcConsoleScreen(
         compact: compact,
+      );
+    } else if (index == 2) {
+      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      return UpsConsoleScreen(
+        snapshot: snapshot,
       );
     }
     return ComingSoonPanel(title: _pageTitle(index));

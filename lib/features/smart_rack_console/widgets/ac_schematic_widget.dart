@@ -19,20 +19,32 @@ class AcSchematicWidget extends StatefulWidget {
 }
 
 class _AcSchematicWidgetState extends State<AcSchematicWidget>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
+  final AcPathCache _pathCache = AcPathCache();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4), // Loop animation speed
+      duration: const Duration(seconds: 2), // Fan rotation & airflow speed
     )..repeat();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _controller.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      _controller.repeat();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
@@ -50,6 +62,7 @@ class _AcSchematicWidgetState extends State<AcSchematicWidget>
                 animationValue: _controller.value,
                 snapshot: widget.snapshot,
                 showLabels: widget.showLabels,
+                pathCache: _pathCache,
               ),
             );
           },
@@ -59,19 +72,73 @@ class _AcSchematicWidgetState extends State<AcSchematicWidget>
   }
 }
 
+class AcPathCache {
+  Size? _lastSize;
+
+  late Path highPath;
+  late Path lowPath;
+  ui.PathMetric? fullPathMetric;
+
+  void update(Size size) {
+    if (_lastSize == size) return;
+    _lastSize = size;
+
+    final double w = size.width;
+    final double h = size.height;
+    final Rect rect = Rect.fromLTRB(w * 0.15, h * 0.15, w * 0.85, h * 0.85);
+
+    final double cornerRadius = 20.0;
+    
+    highPath = Path();
+    highPath.moveTo(rect.center.dx, rect.top);
+    highPath.lineTo(rect.right - cornerRadius, rect.top);
+    highPath.quadraticBezierTo(rect.right, rect.top, rect.right, rect.top + cornerRadius);
+    highPath.lineTo(rect.right, rect.bottom - cornerRadius);
+    highPath.quadraticBezierTo(rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
+    highPath.lineTo(rect.center.dx, rect.bottom);
+
+    lowPath = Path();
+    lowPath.moveTo(rect.center.dx, rect.bottom);
+    lowPath.lineTo(rect.left + cornerRadius, rect.bottom);
+    lowPath.quadraticBezierTo(rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
+    lowPath.lineTo(rect.left, rect.top + cornerRadius);
+    lowPath.quadraticBezierTo(rect.left, rect.top, rect.left + cornerRadius, rect.top);
+    lowPath.lineTo(rect.center.dx, rect.top);
+
+    final Path fullPath = Path();
+    fullPath.moveTo(rect.center.dx, rect.top); // Start at top center
+    fullPath.lineTo(rect.right - cornerRadius, rect.top);
+    fullPath.quadraticBezierTo(rect.right, rect.top, rect.right, rect.top + cornerRadius);
+    fullPath.lineTo(rect.right, rect.bottom - cornerRadius);
+    fullPath.quadraticBezierTo(rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
+    fullPath.lineTo(rect.left + cornerRadius, rect.bottom);
+    fullPath.quadraticBezierTo(rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
+    fullPath.lineTo(rect.left, rect.top + cornerRadius);
+    fullPath.quadraticBezierTo(rect.left, rect.top, rect.left + cornerRadius, rect.top);
+    fullPath.close();
+
+    final ui.PathMetrics metrics = fullPath.computeMetrics();
+    fullPathMetric = metrics.iterator.moveNext() ? metrics.iterator.current : null;
+  }
+}
+
 class RefrigerationCyclePainter extends CustomPainter {
   RefrigerationCyclePainter({
     required this.animationValue,
     required this.snapshot,
     required this.showLabels,
+    required this.pathCache,
   });
 
   final double animationValue;
   final SmartRackConsoleSnapshot snapshot;
   final bool showLabels;
+  final AcPathCache pathCache;
 
   @override
   void paint(Canvas canvas, Size size) {
+    pathCache.update(size);
+
     final double w = size.width;
     final double h = size.height;
 
@@ -110,26 +177,6 @@ class RefrigerationCyclePainter extends CustomPainter {
   }
 
   void _drawPipes(Canvas canvas, Rect rect) {
-    final double cornerRadius = 20.0;
-    
-    // High Pressure Pipe (Red/Orange): Top-Center -> Right -> Bottom-Center
-    final Path highPath = Path();
-    highPath.moveTo(rect.center.dx, rect.top);
-    highPath.lineTo(rect.right - cornerRadius, rect.top);
-    highPath.quadraticBezierTo(rect.right, rect.top, rect.right, rect.top + cornerRadius);
-    highPath.lineTo(rect.right, rect.bottom - cornerRadius);
-    highPath.quadraticBezierTo(rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
-    highPath.lineTo(rect.center.dx, rect.bottom);
-
-    // Low Pressure Pipe (Cyan): Bottom-Center -> Left -> Top-Center
-    final Path lowPath = Path();
-    lowPath.moveTo(rect.center.dx, rect.bottom);
-    lowPath.lineTo(rect.left + cornerRadius, rect.bottom);
-    lowPath.quadraticBezierTo(rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
-    lowPath.lineTo(rect.left, rect.top + cornerRadius);
-    lowPath.quadraticBezierTo(rect.left, rect.top, rect.left + cornerRadius, rect.top);
-    lowPath.lineTo(rect.center.dx, rect.top);
-
     // Glowing stroke effect
     final Paint highGlow = Paint()
       ..color = const Color(0xFFEF4444).withValues(alpha: 0.4) // Red glow
@@ -155,33 +202,17 @@ class RefrigerationCyclePainter extends CustomPainter {
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawPath(highPath, highGlow);
-    canvas.drawPath(highPath, highCore);
+    canvas.drawPath(pathCache.highPath, highGlow);
+    canvas.drawPath(pathCache.highPath, highCore);
 
-    canvas.drawPath(lowPath, lowGlow);
-    canvas.drawPath(lowPath, lowCore);
+    canvas.drawPath(pathCache.lowPath, lowGlow);
+    canvas.drawPath(pathCache.lowPath, lowCore);
   }
 
   void _drawFlowArrows(Canvas canvas, Rect rect) {
-    // We create a continuous closed path for the arrows to travel clockwise
-    final double cornerRadius = 20.0;
-    final Path fullPath = Path();
-    fullPath.moveTo(rect.center.dx, rect.top); // Start at top center
-    fullPath.lineTo(rect.right - cornerRadius, rect.top);
-    fullPath.quadraticBezierTo(rect.right, rect.top, rect.right, rect.top + cornerRadius);
-    fullPath.lineTo(rect.right, rect.bottom - cornerRadius);
-    fullPath.quadraticBezierTo(rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
-    fullPath.lineTo(rect.left + cornerRadius, rect.bottom);
-    fullPath.quadraticBezierTo(rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
-    fullPath.lineTo(rect.left, rect.top + cornerRadius);
-    fullPath.quadraticBezierTo(rect.left, rect.top, rect.left + cornerRadius, rect.top);
-    fullPath.close();
-
-    final ui.PathMetrics metrics = fullPath.computeMetrics();
-    final iterator = metrics.iterator;
-    if (!iterator.moveNext()) return;
+    final ui.PathMetric? metric = pathCache.fullPathMetric;
+    if (metric == null) return;
     
-    final ui.PathMetric metric = iterator.current;
     final double pathLength = metric.length;
     
     // Number of arrows
