@@ -11,6 +11,7 @@ class ConsoleSectionCard extends StatelessWidget {
     this.trailing,
     this.minHeight,
     this.padding,
+    this.expand = false,
   });
 
   final String title;
@@ -19,6 +20,7 @@ class ConsoleSectionCard extends StatelessWidget {
   final Widget? trailing;
   final double? minHeight;
   final EdgeInsetsGeometry? padding;
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
@@ -71,8 +73,8 @@ class ConsoleSectionCard extends StatelessWidget {
                 if (trailing != null) trailing!,
               ],
             ),
-            const SizedBox(height: 16),
-            child,
+            const SizedBox(height: ConsoleTheme.lg),
+            expand ? Expanded(child: child) : child,
           ],
         ),
       ),

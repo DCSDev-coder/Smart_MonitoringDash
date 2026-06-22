@@ -14,6 +14,7 @@ import 'theme/console_theme.dart';
 import 'widgets/coming_soon_panel.dart';
 import 'widgets/console_header.dart';
 import 'widgets/console_sidebar.dart';
+import 'ac_console_screen.dart';
 
 class SmartRackConsoleShell extends StatefulWidget {
   const SmartRackConsoleShell({
@@ -246,6 +247,10 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
     if (index == 0) {
       return SmartRackConsoleScreen(
         profile: widget.profile,
+        compact: compact,
+      );
+    } else if (index == 1) {
+      return AcConsoleScreen(
         compact: compact,
       );
     }
