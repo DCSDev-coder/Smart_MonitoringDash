@@ -61,8 +61,24 @@ class AppToast {
 
   static String sanitizeErrorMessage(String error) {
     final lower = error.toLowerCase();
+    if (error.contains('操作失败') || error.contains('操作') || error.contains('失败')) {
+      return 'Operation failed. Please try again.';
+    }
     if (lower.contains('invalid credentials') || lower.contains('incorrect password')) {
       return 'Incorrect Password';
+    }
+    if (lower.contains('wrong account')) {
+      return 'Wrong account';
+    }
+    if (lower.contains('rack_console_account_required') ||
+        lower.contains('rack console account')) {
+      return 'Wrong account';
+    }
+    if (lower.contains('invalid pin')) {
+      return 'Invalid PIN or Access Denied';
+    }
+    if (lower.contains('user is not allowed to unlock doors')) {
+      return 'Invalid PIN or Access Denied';
     }
     if (lower.contains('failed to fetch') || lower.contains('socketexception') || lower.contains('connection refused') || lower.contains('os error')) {
       return 'Connection Error. Please check your network connection.';

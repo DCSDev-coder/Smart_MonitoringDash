@@ -65,7 +65,6 @@ class _ReportScreenState extends State<ReportScreen>
   List<dynamic> _devices = [];
   List<dynamic> _reportAlarms = [];
   List<dynamic> _doorLogs = [];
-  List<dynamic> _cpanelAccessLogs = [];
   bool _fetchingHistoricalEvents = false;
   bool _fetchingDoorLogs = false;
   String _eventLogRange = 'Recent'; // Recent, Weekly, Monthly, All
@@ -264,18 +263,6 @@ class _ReportScreenState extends State<ReportScreen>
               _lastMaintenance = DateTime.tryParse(site['last_maintenance']);
             }
           }
-
-          if (results.length > 5 && results[5] != null) {
-            final Map<String, dynamic> accessData = results[5] as Map<String, dynamic>;
-            if (accessData['data'] is List) {
-              _doorLogs = List.from(accessData['data']);
-            }
-          }
-
-          if (results.length > 6 && results[6] != null) {
-            _cpanelAccessLogs = results[6] as List<dynamic>;
-          }
-
           if (showSkeleton) _loading = false;
         });
       }
@@ -364,7 +351,25 @@ class _ReportScreenState extends State<ReportScreen>
               final dt = DateTime.tryParse(timeStr);
               if (dt == null) return true;
               final ms = dt.millisecondsSinceEpoch;
-              return ms >= startTime && ms <= endTime;
+              if (ms < startTime || ms > endTime) return false;
+
+              final u = (log['opUser'] ??
+                          log['openUser'] ??
+                          log['userName'] ??
+                          log['username'])
+                      ?.toString()
+                      .toLowerCase() ??
+                  '';
+              final bool isResolvedIdentity =
+                  log['is_intercepted'] == true ||
+                  log['matched_event_id'] != null ||
+                  log['matched_user_id'] != null ||
+                  (log['event_source']?.toString().trim().isNotEmpty ?? false);
+              if (!isResolvedIdentity &&
+                  (u == 'superadmin' || u == 'admin' || u == 'remote open')) {
+                return false;
+              }
+              return true;
             }).toList();
 
             _fetchingHistoricalEvents = false;
@@ -547,22 +552,26 @@ class _ReportScreenState extends State<ReportScreen>
         );
       }
 
-      if (siteId != null) {
+      if (!_shouldUseAdapter(siteId) && siteId != null) {
         cpanelLogs = await CpanelApiService.instance.fetchRemoteAccessLogs(
           siteId: siteId,
-          startTime: startTime, // We still pass these, but the backend now ignores them safely
+          startTime:
+              startTime, // We still pass these, but the backend now ignores them safely
           endTime: endTime,
         );
       }
-      
+
       Map<String, dynamic>? doorsRes;
       try {
         if (_shouldUseAdapter(siteId)) {
-          doorsRes = await AdapterApiService.instance.fetchDoors(siteId: siteId!);
+          doorsRes =
+              await AdapterApiService.instance.fetchDoors(siteId: siteId!);
         } else {
-          final cabinetId = SiteRuntimeConfig.cabinetId(CpanelApiService.instance.currentSite);
+          final cabinetId = SiteRuntimeConfig.cabinetId(
+              CpanelApiService.instance.currentSite);
           final parsed = int.tryParse(cabinetId ?? '');
-          doorsRes = await ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
+          doorsRes = await ApiService.instance
+              .fetchCabinetDoors(cabinetId: parsed ?? 1);
         }
       } catch (_) {}
 
@@ -588,10 +597,22 @@ class _ReportScreenState extends State<ReportScreen>
             if (dt == null) return true; // keep if invalid format
             final ms = dt.millisecondsSinceEpoch;
             if (ms < startTime || ms > endTime) return false;
-            
-            final u = (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'])?.toString().toLowerCase() ?? '';
-            if (u == 'superadmin' || u == 'admin' || u == 'remote open') {
-               return false; // Remove Dahua's generic remote unlock logs completely
+
+            final u = (log['opUser'] ??
+                        log['openUser'] ??
+                        log['userName'] ??
+                        log['username'])
+                    ?.toString()
+                    .toLowerCase() ??
+                '';
+            final bool isResolvedIdentity =
+                log['is_intercepted'] == true ||
+                log['matched_event_id'] != null ||
+                log['matched_user_id'] != null ||
+                (log['event_source']?.toString().trim().isNotEmpty ?? false);
+            if (!isResolvedIdentity &&
+                (u == 'superadmin' || u == 'admin' || u == 'remote open')) {
+              return false; // Remove only raw generic Dahua remote unlock logs.
             }
             return true;
           }).toList();
@@ -599,26 +620,44 @@ class _ReportScreenState extends State<ReportScreen>
           final Map<int, String> synthesizedDoorNames = {};
           if (doorsRes != null) {
             final raw = doorsRes['result'];
-            final List cabinets = raw is List ? raw : (raw is Map ? ((raw['list'] as List?) ?? (raw['data'] as List?) ?? const []) : const []);
+            final List cabinets = raw is List
+                ? raw
+                : (raw is Map
+                    ? ((raw['list'] as List?) ??
+                        (raw['data'] as List?) ??
+                        const [])
+                    : const []);
             final List<Map<String, dynamic>> tempDoors = [];
-            
+
             for (final cabinet in cabinets) {
               if (cabinet is! Map) continue;
-              final details = (cabinet['detailList'] as List?) ?? (cabinet['detail_list'] as List?) ?? (cabinet['accessList'] as List?) ?? (cabinet['doorList'] as List?) ?? const [];
-              
+              final details = (cabinet['detailList'] as List?) ??
+                  (cabinet['detail_list'] as List?) ??
+                  (cabinet['accessList'] as List?) ??
+                  (cabinet['doorList'] as List?) ??
+                  const [];
+
               for (final door in details) {
                 if (door is! Map) continue;
-                final dynamic idRaw = door['id'] ?? door['accessId'] ?? door['access_id'];
-                final int? dId = idRaw == null ? null : (idRaw is num ? idRaw.toInt() : int.tryParse(idRaw.toString()));
+                final dynamic idRaw =
+                    door['id'] ?? door['accessId'] ?? door['access_id'];
+                final int? dId = idRaw == null
+                    ? null
+                    : (idRaw is num
+                        ? idRaw.toInt()
+                        : int.tryParse(idRaw.toString()));
                 if (dId == null) continue;
-                
-                final rawDoor = (door['accessName'] ?? door['name'] ?? '').toString().trim();
-                final doorSide = rawDoor.toUpperCase().contains('FRONT') ? 'Front' : 'Back';
-                
+
+                final rawDoor = (door['accessName'] ?? door['name'] ?? '')
+                    .toString()
+                    .trim();
+                final doorSide =
+                    rawDoor.toUpperCase().contains('FRONT') ? 'Front' : 'Back';
+
                 final rawCab = cabinet['cabinetItemName']?.toString() ?? '';
                 final cabNumText = RegExp(r'\d+').firstMatch(rawCab)?.group(0);
                 final cabIndex = int.tryParse(cabNumText ?? '');
-                
+
                 tempDoors.add({
                   'id': dId,
                   'side': doorSide,
@@ -626,21 +665,23 @@ class _ReportScreenState extends State<ReportScreen>
                 });
               }
             }
-            
+
             tempDoors.sort((a, b) {
               final sideA = a['side']?.toString().toLowerCase() ?? '';
               final sideB = b['side']?.toString().toLowerCase() ?? '';
               if (sideA == 'front' && sideB == 'back') return -1;
               if (sideA == 'back' && sideB == 'front') return 1;
-              
-              final cabA = (a['cabIndex'] is int) ? (a['cabIndex'] as int) : null;
-              final cabB = (b['cabIndex'] is int) ? (b['cabIndex'] as int) : null;
+
+              final cabA =
+                  (a['cabIndex'] is int) ? (a['cabIndex'] as int) : null;
+              final cabB =
+                  (b['cabIndex'] is int) ? (b['cabIndex'] as int) : null;
               if (cabA != null && cabB != null) return cabA.compareTo(cabB);
               if (cabA != null) return -1;
               if (cabB != null) return 1;
               return (a['id'] as int).compareTo(b['id'] as int);
             });
-            
+
             int front = 0;
             int back = 0;
             for (final d in tempDoors) {
@@ -656,34 +697,35 @@ class _ReportScreenState extends State<ReportScreen>
           }
 
           for (final cLog in cpanelLogs) {
-             final dId = int.tryParse(cLog['door_id']?.toString() ?? '');
-             
-             String doorName = 'Door $dId';
-             if (dId != null) {
-               if (synthesizedDoorNames.containsKey(dId)) {
-                 doorName = synthesizedDoorNames[dId]!;
-               } else if (doorNames.containsKey(dId)) {
-                 doorName = doorNames[dId]!;
-               }
-             }
+            final dId = int.tryParse(cLog['door_id']?.toString() ?? '');
 
-             _doorLogs.add({
-                'opTime': cLog['created_at'],
-                'opUser': cLog['username'],
-                'accessName': doorName,
-                'channel': cLog['door_id'],
-                'op': 1,
-             });
+            String doorName = 'Door $dId';
+            if (dId != null) {
+              if (synthesizedDoorNames.containsKey(dId)) {
+                doorName = synthesizedDoorNames[dId]!;
+              } else if (doorNames.containsKey(dId)) {
+                doorName = doorNames[dId]!;
+              }
+            }
+
+            _doorLogs.add({
+              'opTime': cLog['created_at'],
+              'opUser': cLog['username'],
+              'accessName': doorName,
+              'channel': cLog['door_id'],
+              'op': 1,
+            });
           }
 
           _doorLogs.sort((a, b) {
-             final aTime = DateTime.tryParse(a['opTime']?.toString() ?? '')?.millisecondsSinceEpoch ?? 0;
-             final bTime = DateTime.tryParse(b['opTime']?.toString() ?? '')?.millisecondsSinceEpoch ?? 0;
-             return bTime.compareTo(aTime);
+            final aTime = DateTime.tryParse(a['opTime']?.toString() ?? '')
+                    ?.millisecondsSinceEpoch ??
+                0;
+            final bTime = DateTime.tryParse(b['opTime']?.toString() ?? '')
+                    ?.millisecondsSinceEpoch ??
+                0;
+            return bTime.compareTo(aTime);
           });
-
-          _cpanelAccessLogs = cpanelLogs;
-
           _fetchingDoorLogs = false;
         });
       }
@@ -1399,9 +1441,7 @@ class _ReportScreenState extends State<ReportScreen>
               Text(
                 'Site Health Index',
                 style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white70,
+                  color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1511,73 +1551,74 @@ class _ReportScreenState extends State<ReportScreen>
                 tint: isLight ? Colors.white : const Color(0xFF0B0F14),
                 borderColor: isLight ? AppTheme.lightStroke : null,
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'SITE HEALTH INDEX',
-                        style: bitcount(
-                          context,
-                          fontSize: 15,
-                          color: isLight
-                              ? AppTheme.lightTextPrimary
-                              : const Color(0xFF80B4FF),
-                          letterSpacing: 2,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'SITE HEALTH INDEX',
+                          style: bitcount(
+                            context,
+                            fontSize: 15,
+                            color: isLight
+                                ? AppTheme.lightTextPrimary
+                                : const Color(0xFF80B4FF),
+                            letterSpacing: 2,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: Icon(
-                          Icons.close_rounded,
-                          size: 20,
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 20,
+                            color: isLight
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white,
+                          ),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'A quick indicator of site availability based on how many discovered devices are currently reporting normally.',
+                      style: TextStyle(
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
+                          fontSize: 12,
+                          height: 1.3),
+                    ),
+                    const SizedBox(height: 10),
+                    _infoBullet(
+                      'Computed as: online devices / total discovered devices.',
+                      isLight: isLight,
+                    ),
+                    _infoBullet(
+                      'Includes infrastructure devices and on-site sensors when available.',
+                      isLight: isLight,
+                    ),
+                    _infoBullet(
+                      'If a device is offline or abnormal, the index will decrease.',
+                      isLight: isLight,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tip: If the index drops, check Notifications or the Health tab to see which devices are affected.',
+                      style: TextStyle(
                           color: isLight
                               ? AppTheme.lightTextSecondary
-                              : Colors.white,
-                        ),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'A quick indicator of site availability based on how many discovered devices are currently reporting normally.',
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
-                        fontSize: 12,
-                        height: 1.3),
-                  ),
-                  const SizedBox(height: 10),
-                  _infoBullet(
-                    'Computed as: online devices / total discovered devices.',
-                    isLight: isLight,
-                  ),
-                  _infoBullet(
-                    'Includes infrastructure devices and on-site sensors when available.',
-                    isLight: isLight,
-                  ),
-                  _infoBullet(
-                    'If a device is offline or abnormal, the index will decrease.',
-                    isLight: isLight,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tip: If the index drops, check Notifications or the Health tab to see which devices are affected.',
-                    style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.70),
-                        fontSize: 12,
-                        height: 1.35),
-                  ),
-                ],
+                              : Colors.white.withValues(alpha: 0.70),
+                          fontSize: 12,
+                          height: 1.35),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         );
@@ -1585,7 +1626,8 @@ class _ReportScreenState extends State<ReportScreen>
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
         return BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
+          filter: ui.ImageFilter.blur(
+              sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
           child: Transform.scale(
             scale: 0.8 + (0.2 * curve.value),
             child: FadeTransition(
@@ -1795,102 +1837,113 @@ class _ReportScreenState extends State<ReportScreen>
                     ),
                   )
                 : LineChart(
-              LineChartData(
-                minY: minY,
-                maxY: maxY,
-                minX: spots.isNotEmpty ? (spots.first.x == spots.last.x ? spots.first.x - 1 : spots.first.x) : 0,
-                maxX: spots.isNotEmpty ? (spots.first.x == spots.last.x ? spots.first.x + 1 : spots.last.x) : 1,
-                lineTouchData: labels != null && isWide
-                    ? LineTouchData(
-                        enabled: true,
-                        touchTooltipData: LineTouchTooltipData(
-                          getTooltipItems: (touchedSpots) {
-                            return touchedSpots.map((LineBarSpot touchedSpot) {
-                              final textStyle = TextStyle(
-                                color: chartLineColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              );
-                              return LineTooltipItem(
-                                '${touchedSpot.y.toStringAsFixed(2)} kW',
-                                textStyle,
-                              );
-                            }).toList();
-                          },
-                        ),
-                      )
-                    : const LineTouchData(enabled: false),
-                gridData: labels != null
-                    ? FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                        horizontalInterval: math.max(0.1, (maxY - minY) / 3),
-                        getDrawingHorizontalLine: (value) {
-                          return FlLine(
-                            color: chartLineColor.withValues(alpha: 0.15),
-                            strokeWidth: 1,
-                          );
-                        },
-                      )
-                    : const FlGridData(show: false),
-                titlesData: labels != null
-                    ? FlTitlesData(
-                        show: true,
-                        rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 22,
-                            interval:
-                                math.max(1, (spots.length / 5).floorToDouble()),
-                            getTitlesWidget: (value, meta) {
-                              final int idx = value.toInt();
-                              if (idx < 0 || idx >= labels.length) {
-                                return const SizedBox();
-                              }
-                              final timeStr = labels[idx];
-                              final parts = timeStr.split(' ');
-                              String timePart =
-                                  parts.length > 1 ? parts.last : timeStr;
-                              final timeTokens = timePart.split(':');
-                              if (timeTokens.length >= 2) {
-                                timePart = '${timeTokens[0]}:${timeTokens[1]}';
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  timePart,
-                                  style: TextStyle(
-                                    color: effectiveTextColor.withValues(
-                                        alpha: 0.7),
-                                    fontSize: 10,
-                                  ),
+                    LineChartData(
+                      minY: minY,
+                      maxY: maxY,
+                      minX: spots.isNotEmpty
+                          ? (spots.first.x == spots.last.x
+                              ? spots.first.x - 1
+                              : spots.first.x)
+                          : 0,
+                      maxX: spots.isNotEmpty
+                          ? (spots.first.x == spots.last.x
+                              ? spots.first.x + 1
+                              : spots.last.x)
+                          : 1,
+                      lineTouchData: labels != null && isWide
+                          ? LineTouchData(
+                              enabled: true,
+                              touchTooltipData: LineTouchTooltipData(
+                                getTooltipItems: (touchedSpots) {
+                                  return touchedSpots
+                                      .map((LineBarSpot touchedSpot) {
+                                    final textStyle = TextStyle(
+                                      color: chartLineColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    );
+                                    return LineTooltipItem(
+                                      '${touchedSpot.y.toStringAsFixed(2)} kW',
+                                      textStyle,
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                            )
+                          : const LineTouchData(enabled: false),
+                      gridData: labels != null
+                          ? FlGridData(
+                              show: true,
+                              drawVerticalLine: false,
+                              horizontalInterval:
+                                  math.max(0.1, (maxY - minY) / 3),
+                              getDrawingHorizontalLine: (value) {
+                                return FlLine(
+                                  color: chartLineColor.withValues(alpha: 0.15),
+                                  strokeWidth: 1,
+                                );
+                              },
+                            )
+                          : const FlGridData(show: false),
+                      titlesData: labels != null
+                          ? FlTitlesData(
+                              show: true,
+                              rightTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 22,
+                                  interval: math.max(
+                                      1, (spots.length / 5).floorToDouble()),
+                                  getTitlesWidget: (value, meta) {
+                                    final int idx = value.toInt();
+                                    if (idx < 0 || idx >= labels.length) {
+                                      return const SizedBox();
+                                    }
+                                    final timeStr = labels[idx];
+                                    final parts = timeStr.split(' ');
+                                    String timePart =
+                                        parts.length > 1 ? parts.last : timeStr;
+                                    final timeTokens = timePart.split(':');
+                                    if (timeTokens.length >= 2) {
+                                      timePart =
+                                          '${timeTokens[0]}:${timeTokens[1]}';
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: Text(
+                                        timePart,
+                                        style: TextStyle(
+                                          color: effectiveTextColor.withValues(
+                                              alpha: 0.7),
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                              leftTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
+                            )
+                          : const FlTitlesData(show: false),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          color: chartLineColor,
+                          barWidth: 2,
+                          isStrokeCapRound: true,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(show: false),
                         ),
-                        leftTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                      )
-                    : const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: chartLineColor,
-                    barWidth: 2,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: false),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
           ),
           const SizedBox(height: 24),
           // Divider

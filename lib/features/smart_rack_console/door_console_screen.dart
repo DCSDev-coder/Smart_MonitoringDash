@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/utils/app_log.dart';
 import '../dashboard/widgets/door_control_section.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'theme/console_theme.dart';
@@ -23,7 +25,18 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
 
   List<Map<String, dynamic>> get _doors => widget.snapshot.doors;
 
-  Map<String, dynamic>? _doorAt(int index) {
+  Map<String, dynamic>? _doorBySemanticName(List<String> keywords) {
+    for (final door in _doors) {
+      final name =
+          (door['accessName'] ?? door['name'] ?? '').toString().toLowerCase();
+      if (keywords.any(name.contains)) {
+        return door;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _doorByFallbackIndex(int index) {
     if (_doors.isEmpty) return null;
     if (index < _doors.length) return _doors[index];
     return _doors.last;
@@ -36,7 +49,37 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     return fallback;
   }
 
+  int _doorId(Map<String, dynamic>? door) {
+    if (door == null) return 0;
+    final dynamic idRaw = door['id'] ?? door['accessId'] ?? door['access_id'];
+    if (idRaw is num) return idRaw.toInt();
+    return int.tryParse(idRaw?.toString() ?? '') ?? 0;
+  }
+
+  String _formatLogDateTime(String raw) {
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    return DateFormat('yyyy-MM-dd hh:mm:ss a').format(dt);
+  }
+
+  String _formatLogDate(String raw) {
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    return DateFormat('yyyy-MM-dd').format(dt);
+  }
+
+  String _formatLogTime(String raw) {
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    return DateFormat('hh:mm:ss a').format(dt);
+  }
+
   Future<bool> _handleUnlockDoor(int id, String name) async {
+    AppLog.d(
+      'Rack Console unlock requested',
+      tag: 'RackConsoleDoor',
+      fields: {'doorId': id, 'doorName': name, 'doorCount': _doors.length},
+    );
     final authorized = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -57,7 +100,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     double bottomMargin = 16,
   }) {
     final name = _doorLabel(door, defaultLabel);
-    final id = int.tryParse(door?['id']?.toString() ?? '') ?? 0;
+    final id = _doorId(door);
     final isUnlocked = door?['isOpen'] == true;
     final enabled = id != 0;
 
@@ -135,9 +178,10 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
 
     return Table(
       columnWidths: const {
-        0: FlexColumnWidth(2.5),
+        0: FlexColumnWidth(1.7),
         1: FlexColumnWidth(1.5),
-        2: FlexColumnWidth(2),
+        2: FlexColumnWidth(1.3),
+        3: FlexColumnWidth(1.7),
       },
       children: [
         TableRow(
@@ -146,13 +190,17 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
             border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
           ),
           children: [
-            _headerCell('Date and time'),
+            _headerCell('Date'),
+            _headerCell('Time'),
             _headerCell('Door'),
             _headerCell('User'),
           ],
         ),
         ...logs.take(15).map((log) {
-          final time = log['opTime']?.toString() ?? log['time']?.toString() ?? '--';
+          final rawTime =
+              log['opTime']?.toString() ?? log['time']?.toString() ?? '--';
+          final date = rawTime == '--' ? rawTime : _formatLogDate(rawTime);
+          final time = rawTime == '--' ? rawTime : _formatLogTime(rawTime);
           
           String door = log['accessName']?.toString() ?? log['doorName']?.toString() ?? '--';
           if (door != '--') {
@@ -171,6 +219,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
               border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
             ),
             children: [
+              _dataCell(date),
               _dataCell(time),
               _dataCell(door),
               _dataCell(user),
@@ -215,8 +264,10 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final leftDoor = _doorAt(0);
-    final rightDoor = _doors.length > 1 ? _doorAt(_doors.length - 1) : leftDoor;
+    final leftDoor = _doorBySemanticName(const ['front', 'front door']) ??
+        _doorByFallbackIndex(0);
+    final rightDoor = _doorBySemanticName(const ['rear', 'back', 'rear door']) ??
+        (_doors.length > 1 ? _doorByFallbackIndex(_doors.length - 1) : leftDoor);
 
     final double width = MediaQuery.of(context).size.width;
     final isNarrow = width < 768;

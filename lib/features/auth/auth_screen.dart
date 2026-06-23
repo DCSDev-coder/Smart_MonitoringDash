@@ -186,7 +186,7 @@ class _AuthScreenState extends State<AuthScreen> {
         final isRackConsoleAccount =
             CpanelApiService.instance.isCurrentSiteRackConsole();
         final message = _isRackConsoleBuild
-            ? 'This Rack Console build only accepts rack console accounts.'
+            ? 'Wrong account'
             : 'This account is reserved for the Rack Console app. Please use the Rack Console installation.';
         await _rejectWrongAppMode(
           message: message,

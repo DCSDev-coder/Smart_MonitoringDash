@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/controllers/global_status_poller.dart';
+import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../../core/theme/app_theme.dart';
@@ -40,6 +41,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   double? _lastWidth;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
+  bool _accessGuardHandled = false;
 
   @override
   void didChangeDependencies() {
@@ -214,12 +216,35 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   void initState() {
     super.initState();
     _poller.start();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _enforceRackConsoleAccess();
+    });
   }
 
   @override
   void dispose() {
     _poller.stop();
     super.dispose();
+  }
+
+  Future<void> _enforceRackConsoleAccess() async {
+    if (_accessGuardHandled || !mounted) return;
+    _accessGuardHandled = true;
+
+    final site = CpanelApiService.instance.currentSite;
+    final allowed = site != null &&
+        CpanelApiService.instance.isCurrentSiteRackConsole(site);
+    if (allowed) return;
+
+    await CpanelApiService.instance.clearSession();
+    await ApiService.instance.logout();
+    if (!mounted) return;
+
+    AppToast.showError(
+      context,
+      'Wrong account',
+    );
+    Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
   }
 
   String _pageTitle(int index) {
@@ -292,6 +317,18 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
 
   @override
   Widget build(BuildContext context) {
+    final site = CpanelApiService.instance.currentSite;
+    final hasAccess = site != null &&
+        CpanelApiService.instance.isCurrentSiteRackConsole(site);
+    if (!hasAccess) {
+      return Scaffold(
+        backgroundColor: ConsoleTheme.appBg(context),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final double width = MediaQuery.of(context).size.width;
     final bool isWide = width >= 750;
 

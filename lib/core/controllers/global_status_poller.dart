@@ -58,7 +58,6 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get running => _enabled;
 
-
   bool get hasSmokeAlert => smokeStatus != 0 && smokeStatus != -1;
   bool get hasFloodAlert => floodStatus != 0 && floodStatus != -1;
 
@@ -67,14 +66,79 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Any issue that should light up the alerts icon (even if not critical).
   bool get hasAnyIssue =>
-      hasSmokeAlert || hasFloodAlert || devices.any(_deviceHasIssue) || recentAlarms.isNotEmpty;
+      hasSmokeAlert ||
+      hasFloodAlert ||
+      devices.any(_deviceHasIssue) ||
+      recentAlarms.isNotEmpty;
 
   /// Whether the current issues should be treated as critical (for emphasis).
   bool get hasCriticalIssue =>
-      hasSmokeAlert || hasFloodAlert || devices.any(_deviceHasIssue) || _hasCriticalRecentAlarm();
+      hasSmokeAlert ||
+      hasFloodAlert ||
+      devices.any(_deviceHasIssue) ||
+      _hasCriticalRecentAlarm();
 
   /// Whether we are currently in fast-poll mode due to an emergency/issue.
   bool get emergencyMode => _emergencyMode;
+
+  List<Map<String, dynamic>> _normalizeDoors(dynamic rawDoors) {
+    final normalized = <Map<String, dynamic>>[];
+
+    void appendDoorMaps(List items, {String? cabinetLabel}) {
+      for (final item in items) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item.cast<dynamic, dynamic>());
+        final name = (map['accessName'] ?? map['name'] ?? '').toString().trim();
+        if (name.isEmpty) continue;
+
+        final dynamic idRaw = map['id'] ?? map['accessId'] ?? map['access_id'];
+        final int? doorId = idRaw == null
+            ? null
+            : (idRaw is num ? idRaw.toInt() : int.tryParse(idRaw.toString()));
+        if (doorId == null || doorId <= 0) continue;
+
+        normalized.add({
+          ...map,
+          'id': doorId,
+          if (cabinetLabel != null && cabinetLabel.isNotEmpty)
+            'cabinetItemName': cabinetLabel,
+        });
+      }
+    }
+
+    if (rawDoors is List) {
+      for (final item in rawDoors) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item.cast<dynamic, dynamic>());
+        final details = (map['detailList'] as List?) ??
+            (map['detail_list'] as List?) ??
+            (map['accessList'] as List?) ??
+            (map['doorList'] as List?);
+
+        if (details != null) {
+          appendDoorMaps(
+            details,
+            cabinetLabel: map['cabinetItemName']?.toString(),
+          );
+        } else {
+          appendDoorMaps([map]);
+        }
+      }
+    } else if (rawDoors is Map) {
+      final map = Map<String, dynamic>.from(rawDoors.cast<dynamic, dynamic>());
+      final details = (map['detailList'] as List?) ??
+          (map['detail_list'] as List?) ??
+          (map['accessList'] as List?) ??
+          (map['doorList'] as List?) ??
+          const [];
+      appendDoorMaps(
+        details,
+        cabinetLabel: map['cabinetItemName']?.toString(),
+      );
+    }
+
+    return normalized;
+  }
 
   void start() {
     if (_enabled) return;
@@ -135,8 +199,10 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   bool _deviceHasIssue(Map<String, dynamic> d) {
     final normalRaw = d['normalCount'];
     final totalRaw = d['totalCount'];
-    final normal = normalRaw is num ? normalRaw.toInt() : int.tryParse('$normalRaw') ?? 0;
-    final total = totalRaw is num ? totalRaw.toInt() : int.tryParse('$totalRaw') ?? 0;
+    final normal =
+        normalRaw is num ? normalRaw.toInt() : int.tryParse('$normalRaw') ?? 0;
+    final total =
+        totalRaw is num ? totalRaw.toInt() : int.tryParse('$totalRaw') ?? 0;
     if (total <= 0) return false;
     return normal != total;
   }
@@ -144,7 +210,10 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   bool _hasCriticalRecentAlarm() {
     for (final a in recentAlarms) {
       if (a is! Map) continue;
-      final level = (a['alarmLevelLevel'] ?? a['alarmLevel'] ?? '').toString().toUpperCase().trim();
+      final level = (a['alarmLevelLevel'] ?? a['alarmLevel'] ?? '')
+          .toString()
+          .toUpperCase()
+          .trim();
       if (level == 'CRITICAL' || level == 'RED') return true;
     }
     return false;
@@ -163,8 +232,9 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
     // Normal: respect existing configured poll interval.
     // Emergency: poll faster for better responsiveness.
-    _currentInterval =
-        _emergencyMode ? const Duration(seconds: 5) : SmartPollingSettings.instance.normalInterval();
+    _currentInterval = _emergencyMode
+        ? const Duration(seconds: 5)
+        : SmartPollingSettings.instance.normalInterval();
 
     _restartTimerIfRunning();
   }
@@ -248,8 +318,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
       Future<Map<String, dynamic>?> recentAlarmsWithFallback() async {
         if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter =
-              await AdapterApiService.instance.fetchRecentAlarms(siteId: siteId);
+          final viaAdapter = await AdapterApiService.instance
+              .fetchRecentAlarms(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
         }
         return ApiService.instance.fetchRecentAlarms();
@@ -294,7 +364,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
       Future<Map<String, dynamic>?> itDeviceInterfacesWithFallback() async {
         if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter = await AdapterApiService.instance.fetchItDeviceInterfaces(siteId: siteId);
+          final viaAdapter = await AdapterApiService.instance
+              .fetchItDeviceInterfaces(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
         }
         return ApiService.instance.fetchItDeviceInterfaces();
@@ -302,7 +373,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
       Future<Map<String, dynamic>?> itDeviceTopMetricsWithFallback() async {
         if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter = await AdapterApiService.instance.fetchItDeviceTopMetrics(siteId: siteId);
+          final viaAdapter = await AdapterApiService.instance
+              .fetchItDeviceTopMetrics(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
         }
         return ApiService.instance.fetchItDeviceTopMetrics();
@@ -318,7 +390,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       Future<List<Map<String, dynamic>>> remoteLogsWithFallback() async {
-        if (siteId != null) {
+        if (siteId != null && !AdapterApiService.instance.isConfigured) {
           try {
             return await CpanelApiService.instance.fetchRemoteAccessLogs(
               siteId: siteId,
@@ -326,6 +398,22 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           } catch (_) {}
         }
         return [];
+      }
+
+      Future<Map<String, dynamic>?> accessLogsWithFallback() async {
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter = await AdapterApiService.instance.fetchAccessLogs(
+            siteId: siteId,
+            startTime: DateTime.now()
+                .subtract(const Duration(days: 30))
+                .millisecondsSinceEpoch,
+            endTime: DateTime.now().millisecondsSinceEpoch,
+            accessType: '1',
+            pageSize: 20,
+          );
+          if (viaAdapter != null) return viaAdapter;
+        }
+        return ApiService.instance.fetchDoorAccessLogs(pageSize: 20);
       }
 
       final results = await Future.wait([
@@ -341,7 +429,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         itDeviceInterfacesWithFallback(),
         itDeviceTopMetricsWithFallback(),
         doorsWithFallback(),
-        ApiService.instance.fetchDoorAccessLogs(pageSize: 20),
+        accessLogsWithFallback(),
         remoteLogsWithFallback(),
       ]);
 
@@ -376,7 +464,12 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       if (si != null) {
         sysInfo = (si as Map).cast<String, dynamic>();
         final sysData = sysInfo?['result'] as Map<String, dynamic>? ?? sysInfo;
-        systemUptimeDays = _extractInt(sysData, const ['systemUptimeDays', 'system_uptime_days', 'uptimeDays']) ?? systemUptimeDays;
+        systemUptimeDays = _extractInt(sysData, const [
+              'systemUptimeDays',
+              'system_uptime_days',
+              'uptimeDays'
+            ]) ??
+            systemUptimeDays;
       }
 
       if (ra != null && ra['result'] != null) {
@@ -388,7 +481,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         final List? hums = th['result']['humidity'] as List?;
 
         if (temps != null && temps.isNotEmpty) {
-          rawTemperatures = temps.map((e) => (e as Map).cast<String, dynamic>()).toList();
+          rawTemperatures =
+              temps.map((e) => (e as Map).cast<String, dynamic>()).toList();
           double sum = 0;
           int count = 0;
           for (final item in temps) {
@@ -404,7 +498,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         }
 
         if (hums != null && hums.isNotEmpty) {
-          rawHumidities = hums.map((e) => (e as Map).cast<String, dynamic>()).toList();
+          rawHumidities =
+              hums.map((e) => (e as Map).cast<String, dynamic>()).toList();
           double sum = 0;
           int count = 0;
           for (final item in hums) {
@@ -430,7 +525,10 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           if (res is num) {
             parsedPue = res.toDouble();
           } else if (res is Map) {
-            final v = res['pue'] ?? res['pueValue'] ?? res['axisY'] ?? res['pue_value'];
+            final v = res['pue'] ??
+                res['pueValue'] ??
+                res['axisY'] ??
+                res['pue_value'];
             parsedPue = double.tryParse(v?.toString() ?? '');
           }
         }
@@ -465,7 +563,13 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
       if (cs != null && cs['result'] != null) {
         final statsData = cs['result'] as Map<String, dynamic>? ?? cs;
-        capacityUsedPct = _extractDouble(statsData, const ['capacityUsedPct', 'capacity_used_pct', 'usedRate', 'spaceUsedPct']) ?? capacityUsedPct;
+        capacityUsedPct = _extractDouble(statsData, const [
+              'capacityUsedPct',
+              'capacity_used_pct',
+              'usedRate',
+              'spaceUsedPct'
+            ]) ??
+            capacityUsedPct;
       }
 
       if (rm != null) {
@@ -476,7 +580,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       if (itInterfaces != null && itInterfaces['result'] != null) {
         final list = itInterfaces['result'] as List?;
         if (list != null) {
-          networkInterfaces = list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+          networkInterfaces =
+              list.map((e) => (e as Map).cast<String, dynamic>()).toList();
         }
       }
 
@@ -506,13 +611,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (doorsRes != null && doorsRes['result'] != null) {
-        final rawDoors = doorsRes['result'];
-        if (rawDoors is List) {
-           doors = List<Map<String, dynamic>>.from(rawDoors.whereType<Map<String, dynamic>>());
-        } else if (rawDoors is Map) {
-           final details = (rawDoors['detailList'] as List?) ?? (rawDoors['detail_list'] as List?) ?? (rawDoors['accessList'] as List?) ?? (rawDoors['doorList'] as List?) ?? const [];
-           doors = List<Map<String, dynamic>>.from(details.whereType<Map<String, dynamic>>());
-        }
+        doors = _normalizeDoors(doorsRes['result']);
       }
 
       final List<Map<String, dynamic>> mergedLogs = [];
@@ -523,10 +622,24 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         if (records is List) {
           for (final record in records) {
             if (record is Map) {
-              final Map<String, dynamic> log = Map<String, dynamic>.from(record);
-              final u = (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'] ?? log['user'])?.toString().toLowerCase() ?? '';
-              if (u == 'superadmin' || u == 'admin' || u == 'remote open') {
-                 continue; // Remove Dahua's generic remote unlock logs completely
+              final Map<String, dynamic> log =
+                  Map<String, dynamic>.from(record);
+              final u = (log['opUser'] ??
+                          log['openUser'] ??
+                          log['userName'] ??
+                          log['username'] ??
+                          log['user'])
+                      ?.toString()
+                      .toLowerCase() ??
+                  '';
+              final bool isResolvedIdentity =
+                  log['is_intercepted'] == true ||
+                  log['matched_event_id'] != null ||
+                  log['matched_user_id'] != null ||
+                  (log['event_source']?.toString().trim().isNotEmpty ?? false);
+              if (!isResolvedIdentity &&
+                  (u == 'superadmin' || u == 'admin' || u == 'remote open')) {
+                continue; // Remove only raw generic Dahua remote unlock logs.
               }
               mergedLogs.add(log);
             }
@@ -534,14 +647,18 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
-      // 2. Fetch/merge cpanelLogs
-      final cpanelLogs = results.length > 13 ? (results[13] as List<Map<String, dynamic>>?) ?? const [] : const [];
-      
+      // 2. Merge cPanel logs only on non-adapter fallback paths
+      final cpanelLogs = results.length > 13
+          ? (results[13] as List<Map<String, dynamic>>?) ?? const []
+          : const [];
+
       // Build a map of doorId -> doorName from the doors list and raw Dahua logs
       final Map<int, String> doorIdToName = {};
       for (final d in doors) {
         final idRaw = d['id'] ?? d['accessId'] ?? d['access_id'];
-        final int? dId = idRaw == null ? null : (idRaw is num ? idRaw.toInt() : int.tryParse(idRaw.toString()));
+        final int? dId = idRaw == null
+            ? null
+            : (idRaw is num ? idRaw.toInt() : int.tryParse(idRaw.toString()));
         final name = (d['accessName'] ?? d['name'] ?? '').toString().trim();
         if (dId != null && name.isNotEmpty) {
           doorIdToName[dId] = name;
@@ -553,7 +670,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           for (final log in records) {
             if (log is Map) {
               final ch = int.tryParse(log['channel']?.toString() ?? '');
-              final name = log['accessName']?.toString() ?? log['doorName']?.toString();
+              final name =
+                  log['accessName']?.toString() ?? log['doorName']?.toString();
               if (ch != null && name != null && name.isNotEmpty) {
                 doorIdToName[ch] = name;
               }
@@ -603,5 +721,4 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       _inFlight = false;
     }
   }
-
 }

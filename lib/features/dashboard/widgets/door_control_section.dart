@@ -667,7 +667,10 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             res = await ApiService.instance.openCloseDoor(widget.doorId, 1);
           } else {
             setState(() => _isAuthenticating = false);
-            AppToast.showError(context, 'Invalid PIN or Access Denied');
+            AppToast.showError(
+              context,
+              verifyRes?['message']?.toString() ?? 'Invalid PIN or Access Denied',
+            );
             return;
           }
         }

@@ -946,6 +946,10 @@ class CpanelApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
     } catch (e) {
       if (kDebugMode) {
         AppLog.w('verifySiteUserPin error', tag: 'CpanelApi', error: e);

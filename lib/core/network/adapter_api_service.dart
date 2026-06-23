@@ -24,6 +24,14 @@ class AdapterApiService {
         'Accept': 'application/json',
       };
 
+  Map<String, dynamic>? _decodeErrorMap(http.Response res) {
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+    return null;
+  }
+
   Map<String, dynamic>? _decodeMap(http.Response res) {
     final decoded = jsonDecode(res.body);
     return decoded is Map<String, dynamic> ? decoded : null;
@@ -792,10 +800,15 @@ class AdapterApiService {
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
+        final errorMap = _decodeErrorMap(res);
         AppLog.w('unlockWithPin non-200', tag: 'AdapterApi', fields: {
           'status': res.statusCode,
         });
-        return null;
+        return errorMap ??
+            {
+              'success': false,
+              'message': 'Failed to unlock door.',
+            };
       }
 
       return _decodeMap(res);
@@ -836,10 +849,15 @@ class AdapterApiService {
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
+        final errorMap = _decodeErrorMap(res);
         AppLog.w('unlockWithUserPin non-200', tag: 'AdapterApi', fields: {
           'status': res.statusCode,
         });
-        return null;
+        return errorMap ??
+            {
+              'success': false,
+              'message': 'Failed to unlock door.',
+            };
       }
 
       return _decodeMap(res);
