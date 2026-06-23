@@ -317,6 +317,17 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         return ApiService.instance.fetchCabinetDoors(cabinetId: 1);
       }
 
+      Future<List<Map<String, dynamic>>> remoteLogsWithFallback() async {
+        if (siteId != null) {
+          try {
+            return await CpanelApiService.instance.fetchRemoteAccessLogs(
+              siteId: siteId,
+            );
+          } catch (_) {}
+        }
+        return [];
+      }
+
       final results = await Future.wait([
         environmentWithFallback(),
         deviceStatusWithFallback(),
@@ -330,22 +341,23 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         itDeviceInterfacesWithFallback(),
         itDeviceTopMetricsWithFallback(),
         doorsWithFallback(),
-        ApiService.instance.fetchDoorAccessLogs(pageSize: 5),
+        ApiService.instance.fetchDoorAccessLogs(pageSize: 20),
+        remoteLogsWithFallback(),
       ]);
 
-      final env = results[0];
-      final ds = results[1];
-      final si = results[2];
-      final ra = results[3];
-      final th = results[4];
-      final pu = results[5];
-      final pm = results[6];
-      final cs = results[7];
-      final rm = results[8];
-      final itInterfaces = results[9];
-      final itTopMetrics = results[10];
-      final doorsRes = results[11];
-      final doorLogsRes = results[12];
+      final env = results[0] as Map<String, dynamic>?;
+      final ds = results[1] as Map<String, dynamic>?;
+      final si = results[2] as Map<String, dynamic>?;
+      final ra = results[3] as Map<String, dynamic>?;
+      final th = results[4] as Map<String, dynamic>?;
+      final pu = results[5] as Map<String, dynamic>?;
+      final pm = results[6] as Map<String, dynamic>?;
+      final cs = results[7] as Map<String, dynamic>?;
+      final rm = results[8] as Map<String, dynamic>?;
+      final itInterfaces = results[9] as Map<String, dynamic>?;
+      final itTopMetrics = results[10] as Map<String, dynamic>?;
+      final doorsRes = results[11] as Map<String, dynamic>?;
+      final doorLogsRes = results[12] as Map<String, dynamic>?;
 
       // Update cached values (best-effort; keep last good values on nulls).
       if (env != null && (env['result'] as List?)?.isNotEmpty == true) {
@@ -503,12 +515,79 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
+      final List<Map<String, dynamic>> mergedLogs = [];
+
+      // 1. Process Dahua logs
       if (doorLogsRes != null && doorLogsRes['result'] != null) {
         final records = doorLogsRes['result']['records'];
         if (records is List) {
-          recentDoorLogs = List<Map<String, dynamic>>.from(records.whereType<Map<String, dynamic>>());
+          for (final record in records) {
+            if (record is Map) {
+              final Map<String, dynamic> log = Map<String, dynamic>.from(record);
+              final u = (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'] ?? log['user'])?.toString().toLowerCase() ?? '';
+              if (u == 'superadmin' || u == 'admin' || u == 'remote open') {
+                 continue; // Remove Dahua's generic remote unlock logs completely
+              }
+              mergedLogs.add(log);
+            }
+          }
         }
       }
+
+      // 2. Fetch/merge cpanelLogs
+      final cpanelLogs = results.length > 13 ? (results[13] as List<Map<String, dynamic>>?) ?? const [] : const [];
+      
+      // Build a map of doorId -> doorName from the doors list and raw Dahua logs
+      final Map<int, String> doorIdToName = {};
+      for (final d in doors) {
+        final idRaw = d['id'] ?? d['accessId'] ?? d['access_id'];
+        final int? dId = idRaw == null ? null : (idRaw is num ? idRaw.toInt() : int.tryParse(idRaw.toString()));
+        final name = (d['accessName'] ?? d['name'] ?? '').toString().trim();
+        if (dId != null && name.isNotEmpty) {
+          doorIdToName[dId] = name;
+        }
+      }
+      if (doorLogsRes != null && doorLogsRes['result'] != null) {
+        final records = doorLogsRes['result']['records'];
+        if (records is List) {
+          for (final log in records) {
+            if (log is Map) {
+              final ch = int.tryParse(log['channel']?.toString() ?? '');
+              final name = log['accessName']?.toString() ?? log['doorName']?.toString();
+              if (ch != null && name != null && name.isNotEmpty) {
+                doorIdToName[ch] = name;
+              }
+            }
+          }
+        }
+      }
+
+      for (final cLog in cpanelLogs) {
+        final dId = int.tryParse(cLog['door_id']?.toString() ?? '');
+        String doorName = 'Door $dId';
+        if (dId != null && doorIdToName.containsKey(dId)) {
+          doorName = doorIdToName[dId]!;
+        }
+        mergedLogs.add({
+          'opTime': cLog['created_at'],
+          'opUser': cLog['username'],
+          'accessName': doorName,
+          'channel': cLog['door_id'],
+          'op': 1,
+          'opType': 'Success', // Cpanel logs represent successful unlocks
+        });
+      }
+
+      // Sort by time descending
+      mergedLogs.sort((a, b) {
+        final aTimeStr = a['opTime']?.toString() ?? a['time']?.toString() ?? '';
+        final bTimeStr = b['opTime']?.toString() ?? b['time']?.toString() ?? '';
+        final aTime = DateTime.tryParse(aTimeStr)?.millisecondsSinceEpoch ?? 0;
+        final bTime = DateTime.tryParse(bTimeStr)?.millisecondsSinceEpoch ?? 0;
+        return bTime.compareTo(aTime);
+      });
+
+      recentDoorLogs = mergedLogs;
 
       lastUpdatedUtc = DateTime.now().toUtc();
 

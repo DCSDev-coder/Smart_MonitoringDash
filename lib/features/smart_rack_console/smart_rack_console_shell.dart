@@ -284,6 +284,8 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
       return DoorConsoleScreen(
         snapshot: snapshot,
       );
+    } else if (index == 7 || index == 8 || index == 9) {
+      return ComingSoonPanel(title: _pageTitle(index));
     }
     return ComingSoonPanel(title: _pageTitle(index));
   }

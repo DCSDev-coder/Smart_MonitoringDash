@@ -8,6 +8,7 @@ import '../../../core/network/cpanel_api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/animated_gradient_fill.dart';
 import '../../../shared/utils/app_toast.dart';
+import '../../smart_rack_console/theme/console_theme.dart';
 
 class DoorControlSection extends StatelessWidget {
   final List<Map<String, dynamic>> doors;
@@ -748,209 +749,250 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final isRack = _isRackConsoleMode;
+
+    Widget content = Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isRack
+                    ? Colors.white.withValues(alpha: 0.22)
+                    : (isLight
+                        ? Colors.black.withValues(alpha: 0.16)
+                        : Colors.white.withValues(alpha: 0.22)),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'UNLOCK DOOR',
+                style: TextStyle(
+                  color: isRack 
+                      ? ConsoleTheme.textPrimary(context) 
+                      : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close_rounded,
+                    color: isRack
+                        ? ConsoleTheme.textSecondary(context)
+                        : (isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.8))),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isRack
+                ? 'Enter the approving user PIN to unlock ${widget.doorName} from the Rack Console.'
+                : _usePin
+                    ? (_deviceAuthSupported
+                        ? 'Confirm with fingerprint/Face ID, or enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}'
+                        : 'Please enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}')
+                    : 'Please enter your account password to unlock ${widget.doorName}',
+            style: TextStyle(
+              color: isRack
+                  ? ConsoleTheme.textSecondary(context)
+                  : (isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.70)),
+              fontSize: 12,
+            ),
+          ),
+          if (!isRack && _deviceAuthSupported) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.fingerprint_rounded, size: 18),
+              label: Text(
+                _hasBiometrics
+                    ? 'Use Fingerprint / Face ID'
+                    : 'Use Phone PIN',
+              ),
+              onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side: BorderSide(
+                  color: isLight
+                      ? AppTheme.lightStroke
+                      : Colors.white.withValues(alpha: 0.22),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isRack ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
+                style: TextStyle(
+                  color: isRack
+                      ? ConsoleTheme.textPrimary(context)
+                      : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (!isRack)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _usePin = !_usePin;
+                      _pwdCtrl.clear();
+                    });
+                  },
+                  child: Text(
+                    _usePin ? 'Use Password' : 'Use PIN',
+                    style: TextStyle(
+                      color: isLight ? Theme.of(context).colorScheme.primary : Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          TextField(
+            controller: _pwdCtrl,
+            focusNode: _pwdFocus,
+            obscureText: _obscurePwd,
+            autofocus: false,
+            keyboardType:
+                _usePin ? TextInputType.number : TextInputType.text,
+            style: TextStyle(
+              color: isRack
+                  ? ConsoleTheme.textPrimary(context)
+                  : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+              fontSize: _usePin ? 24 : 16,
+              letterSpacing: _usePin ? 8.0 : null,
+            ),
+            textAlign: _usePin ? TextAlign.center : TextAlign.start,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: isRack
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : (isLight
+                      ? const Color(0xFFF3F4F7)
+                      : Colors.white.withValues(alpha: 0.08)),
+              hintText: _usePin ? '••••' : 'Password',
+              hintStyle: TextStyle(
+                color: isRack
+                    ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
+                    : (isLight
+                        ? AppTheme.lightTextSecondary
+                        : Colors.white.withValues(alpha: 0.45)),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: isRack
+                      ? ConsoleTheme.cardBorder(context)
+                      : (isLight
+                          ? const Color(0xFFD5DAE2)
+                          : Colors.white.withValues(alpha: 0.18)),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: isRack
+                      ? ConsoleTheme.cardBorder(context)
+                      : (isLight
+                          ? const Color(0xFFD5DAE2)
+                          : Colors.white.withValues(alpha: 0.18)),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                    color: isRack ? ConsoleTheme.primaryBlue(context) : Theme.of(context).colorScheme.primary, width: 1.4),
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePwd ? Icons.visibility_off : Icons.visibility,
+                  color: isRack
+                      ? ConsoleTheme.textSecondary(context)
+                      : (isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.75)),
+                ),
+                onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (_isAuthenticating)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: CircularProgressIndicator(
+                  color: isRack ? ConsoleTheme.primaryBlue(context) : Theme.of(context).colorScheme.primary
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.lock_open_rounded, size: 16),
+                label: const Text('Unlock Door'),
+                onPressed: _runPasswordUnlock,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isRack ? const Color(0xFF109B5B) : Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(isRack ? 24 : 16),
+                  ),
+                  padding: isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
         right: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom + 32,
       ),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isLight
-                        ? Colors.black.withValues(alpha: 0.16)
-                        : Colors.white.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+      child: isRack
+          ? Container(
+              decoration: BoxDecoration(
+                gradient: ConsoleTheme.cardBgGradient(context),
+                borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),
+                border: Border.all(color: ConsoleTheme.cardBorder(context)),
+                boxShadow: ConsoleTheme.glowShadow(context),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'UNLOCK DOOR',
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.8)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+              child: Material(
+                type: MaterialType.transparency,
+                child: content,
               ),
-              const SizedBox(height: 10),
-              Text(
-                _isRackConsoleMode
-                    ? 'Enter the approving user PIN to unlock ${widget.doorName} from the Rack Console.'
-                    : _usePin
-                        ? (_deviceAuthSupported
-                            ? 'Confirm with fingerprint/Face ID, or enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}'
-                            : 'Please enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}')
-                        : 'Please enter your account password to unlock ${widget.doorName}',
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.70),
-                  fontSize: 12,
-                ),
-              ),
-              if (!_isRackConsoleMode && _deviceAuthSupported) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.fingerprint_rounded, size: 18),
-                  label: Text(
-                    _hasBiometrics
-                        ? 'Use Fingerprint / Face ID'
-                        : 'Use Phone PIN',
-                  ),
-                  onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    side: BorderSide(
-                      color: isLight
-                          ? AppTheme.lightStroke
-                          : Colors.white.withValues(alpha: 0.22),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isRackConsoleMode ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (!_isRackConsoleMode)
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _usePin = !_usePin;
-                          _pwdCtrl.clear();
-                        });
-                      },
-                      child: Text(
-                        _usePin ? 'Use Password' : 'Use PIN',
-                        style: TextStyle(
-                          color: isLight ? Theme.of(context).colorScheme.primary : Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              TextField(
-                controller: _pwdCtrl,
-                focusNode: _pwdFocus,
-                obscureText: _obscurePwd,
-                autofocus: false,
-                keyboardType:
-                    _usePin ? TextInputType.number : TextInputType.text,
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontSize: _usePin ? 24 : 16,
-                  letterSpacing: _usePin ? 8.0 : null,
-                ),
-                textAlign: _usePin ? TextAlign.center : TextAlign.start,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isLight
-                      ? const Color(0xFFF3F4F7)
-                      : Colors.white.withValues(alpha: 0.08),
-                  hintText: _usePin ? '••••' : 'Password',
-                  hintStyle: TextStyle(
-                    color: isLight
-                        ? AppTheme.lightTextSecondary
-                        : Colors.white.withValues(alpha: 0.45),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: isLight
-                          ? const Color(0xFFD5DAE2)
-                          : Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: isLight
-                          ? const Color(0xFFD5DAE2)
-                          : Colors.white.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary, width: 1.4),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePwd ? Icons.visibility_off : Icons.visibility,
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.75),
-                    ),
-                    onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              if (_isAuthenticating)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child:
-                        CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.lock_open_rounded, size: 16),
-                    label: const Text('Unlock Door'),
-                    onPressed: _runPasswordUnlock,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+            )
+          : Card(
+              child: content,
+            ),
     );
   }
 }

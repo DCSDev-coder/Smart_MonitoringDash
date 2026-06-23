@@ -53,7 +53,7 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
     _ConsoleNavItem(Icons.bolt_rounded, 'Power'),
     _ConsoleNavItem(Icons.power_rounded, 'PDU'),
     _ConsoleNavItem(Icons.computer_rounded, 'IT Device'),
-    _ConsoleNavItem(Icons.door_sliding_rounded, 'Door'),
+    _ConsoleNavItem(Icons.door_front_door_rounded, 'Door'),
     _ConsoleNavItem(Icons.insights_rounded, 'PUE'),
     _ConsoleNavItem(Icons.settings_rounded, 'Settings'),
     _ConsoleNavItem(Icons.notifications_active_rounded, 'Alarm'),
@@ -63,7 +63,6 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
   Widget build(BuildContext context) {
     final dividerColor = ConsoleTheme.divider(context);
     final textSecondary = ConsoleTheme.textSecondary(context);
-    final textPrimary = ConsoleTheme.textPrimary(context);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),

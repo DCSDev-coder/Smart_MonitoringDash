@@ -38,47 +38,24 @@ class AcConsoleScreen extends StatelessWidget {
   }
 
   Widget _buildAcContent(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    final isWide = MediaQuery.of(context).size.width > 900;
-
-    if (isWide) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 5,
-            child: Padding(
-              padding: const EdgeInsets.only(left: ConsoleTheme.lg, right: ConsoleTheme.md),
-              child: _buildSchematicPanel(context, snapshot, true),
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 5,
+          child: Padding(
+            padding: const EdgeInsets.only(left: ConsoleTheme.lg, right: ConsoleTheme.md),
+            child: _buildSchematicPanel(context, snapshot, true),
           ),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.only(left: ConsoleTheme.md, right: ConsoleTheme.lg),
-              child: _buildControlsAndTelemetry(context, snapshot, true),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: ConsoleTheme.md),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 400,
-              child: _buildSchematicPanel(context, snapshot, false),
-            ),
-            const SizedBox(height: ConsoleTheme.lg),
-            SizedBox(
-              height: 500,
-              child: _buildControlsAndTelemetry(context, snapshot, false),
-            ),
-          ],
         ),
-      ),
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.only(left: ConsoleTheme.md, right: ConsoleTheme.lg),
+            child: _buildControlsAndTelemetry(context, snapshot, true),
+          ),
+        ),
+      ],
     );
   }
 

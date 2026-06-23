@@ -1,15 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../dashboard/widgets/door_control_section.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'theme/console_theme.dart';
-import '../../core/theme/app_theme.dart';
 import 'widgets/console_section_card.dart';
-import '../../shared/widgets/secure_action_guard.dart';
-import '../../core/network/api_service.dart';
-import '../../core/network/adapter_api_service.dart';
-import '../../core/network/cpanel_api_service.dart';
-import '../../shared/utils/app_toast.dart';
-import '../../core/utils/app_log.dart';
 
 class DoorConsoleScreen extends StatefulWidget {
   const DoorConsoleScreen({
@@ -24,114 +20,98 @@ class DoorConsoleScreen extends StatefulWidget {
 }
 
 class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
-  bool _isIpHidden = true;
-  bool _isActionInProgress = false;
 
-  @override
-  void initState() {
-    super.initState();
-    final oldHandler = FlutterError.onError;
-    FlutterError.onError = (FlutterErrorDetails details) {
-      AppLog.e('CAPTURED FLUTTER ERROR', error: details.exception, stackTrace: details.stack);
-      if (oldHandler != null) {
-        oldHandler(details);
-      }
-    };
+  List<Map<String, dynamic>> get _doors => widget.snapshot.doors;
+
+  Map<String, dynamic>? _doorAt(int index) {
+    if (_doors.isEmpty) return null;
+    if (index < _doors.length) return _doors[index];
+    return _doors.last;
   }
 
-  Future<void> _handleUnlockDoor(int accessId, String name) async {
-    final authorized = await SecureActionGuard.ensureAuthorized(
-      context, 
-      reason: 'Unlock $name'
+  String _doorLabel(Map<String, dynamic>? door, String fallback) {
+    if (door == null) return fallback;
+    final name = (door['accessName'] ?? door['name'] ?? '').toString().trim();
+    if (name.isNotEmpty) return name;
+    return fallback;
+  }
+
+  Future<bool> _handleUnlockDoor(int id, String name) async {
+    final authorized = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
     );
-    
-    if (authorized != true) return;
-    if (!mounted) return;
 
-    setState(() => _isActionInProgress = true);
-
-    try {
-      final site = CpanelApiService.instance.currentSite;
-      final siteIdStr = site?['site_id']?.toString() ?? '';
-      final siteId = int.tryParse(siteIdStr);
-
-      Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
-        res = await AdapterApiService.instance.openCloseDoor(
-          siteId: siteId,
-          accessId: accessId,
-          status: 1,
-        );
-      } else {
-        res = await ApiService.instance.openCloseDoor(accessId, 1);
-      }
-
-      if (!mounted) return;
-
-      if (res != null && res['success'] == true) {
-        AppToast.showSuccess(context, '$name unlocked successfully');
-      } else {
-        AppToast.showError(context, res?['message']?.toString() ?? 'Failed to unlock $name');
-      }
-    } catch (e) {
-      if (mounted) AppToast.showError(context, 'Error unlocking door: $e');
-    } finally {
-      if (mounted) setState(() => _isActionInProgress = false);
+    if (authorized == true) {
+      return true;
     }
+    return false;
   }
 
-  Widget _buildInfoItem(String title, String value, {bool isHidden = false, VoidCallback? onToggleHide}) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final bgColor = isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05);
+  Widget _buildHorizontalDoorRow(
+    BuildContext context,
+    String defaultLabel,
+    Map<String, dynamic>? door,
+  ) {
+    final name = _doorLabel(door, defaultLabel);
+    final id = int.tryParse(door?['id']?.toString() ?? '') ?? 0;
+    final isUnlocked = door?['isOpen'] == true;
+    final enabled = id != 0;
 
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: ConsoleTheme.panelBg(context).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
-          Expanded(
-            flex: 4,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              color: isLight ? Colors.black.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.08),
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: isUnlocked 
+                ? ConsoleTheme.success(context).withValues(alpha: 0.2) 
+                : Colors.white.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+              color: isUnlocked ? ConsoleTheme.success(context) : Colors.white70,
+              size: 28,
             ),
           ),
+          const SizedBox(width: 20),
           Expanded(
-            flex: 6,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      isHidden ? '*.*.*.*' : value,
-                      style: TextStyle(
-                        color: title == 'Status' ? ConsoleTheme.success(context) : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  if (onToggleHide != null)
-                    InkWell(
-                      onTap: onToggleHide,
-                      child: Icon(
-                        isHidden ? Icons.visibility_off : Icons.visibility,
-                        size: 16,
-                        color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
-                      ),
-                    ),
-                ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 140,
+            height: 48,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isUnlocked ? ConsoleTheme.success(context) : ConsoleTheme.primaryBlue(context),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              ),
+              onPressed: enabled ? () => _handleUnlockDoor(id, name) : null,
+              child: Text(
+                isUnlocked ? 'UNLOCKED' : 'UNLOCK',
+                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
               ),
             ),
           ),
@@ -140,342 +120,151 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     );
   }
 
-  Widget _buildInfoGrid(BuildContext context) {
-    return Column(
+  Widget _buildRecentLogsTable(BuildContext context) {
+    final logs = widget.snapshot.recentDoorLogs;
+    
+    if (logs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(
+          child: Text('No recent door access logs', style: TextStyle(color: Colors.white54)),
+        ),
+      );
+    }
+
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(2.5),
+        1: FlexColumnWidth(1.5),
+        2: FlexColumnWidth(2),
+      },
       children: [
-        _buildInfoItem('Name', 'Access Controller'),
-        const SizedBox(height: 8),
-        _buildInfoItem('Device Type', 'Security'),
-        const SizedBox(height: 8),
-        _buildInfoItem('IP Addr.', '127.0.0.1', isHidden: _isIpHidden, onToggleHide: () async {
-          if (_isIpHidden) {
-            final ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
-            if (ok == true) {
-              if (mounted) setState(() => _isIpHidden = false);
+        TableRow(
+          decoration: BoxDecoration(
+            color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2),
+            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+          ),
+          children: [
+            _headerCell('Date and time'),
+            _headerCell('Door'),
+            _headerCell('User'),
+          ],
+        ),
+        ...logs.take(15).map((log) {
+          final time = log['opTime']?.toString() ?? log['time']?.toString() ?? '--';
+          
+          String door = log['accessName']?.toString() ?? log['doorName']?.toString() ?? '--';
+          if (door != '--') {
+            final lower = door.toLowerCase();
+            if (lower.contains('front')) {
+              door = 'Front 1';
+            } else if (lower.contains('rear') || lower.contains('back')) {
+              door = 'Rear 1';
             }
-          } else {
-            if (mounted) setState(() => _isIpHidden = true);
           }
+          
+          final user = log['opUser']?.toString() ?? log['openUser']?.toString() ?? log['userName']?.toString() ?? log['username']?.toString() ?? log['user']?.toString() ?? '--';
+          
+          return TableRow(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+            ),
+            children: [
+              _dataCell(time),
+              _dataCell(door),
+              _dataCell(user),
+            ],
+          );
         }),
-        const SizedBox(height: 8),
-        _buildInfoItem('Status', widget.snapshot.doors.isNotEmpty ? 'Online' : 'Offline'),
-        const SizedBox(height: 8),
-        _buildInfoItem('Location', 'Default location'),
-        const SizedBox(height: 8),
-        _buildInfoItem('Cabinet', 'DCS-Cabinet Item 1'),
       ],
     );
   }
 
-  Widget _buildControlPanel(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final doors = widget.snapshot.doors;
-
-    if (doors.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            'No Doors Configured',
-            style: TextStyle(
-              color: isLight ? AppTheme.lightTextSecondary : Colors.white54,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: doors.map<Widget>((door) {
-        final rawId = door['id'] ?? door['accessId'] ?? door['access_id'];
-        final id = rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? '');
-        final name = (door['accessName'] ?? door['name'] ?? 'Unknown Door').toString();
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isLight ? Colors.black.withValues(alpha: 0.02) : Colors.white.withValues(alpha: 0.02),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _isActionInProgress || id == null ? null : () => _handleUnlockDoor(id, name),
-                  icon: const Icon(Icons.lock_open_rounded, size: 18),
-                  label: const Text('Unlock'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ConsoleTheme.primaryBlue(context),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildDoorStatusTable(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final doors = widget.snapshot.doors;
-    
-    if (doors.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            'No Data',
-            style: TextStyle(
-              color: isLight ? AppTheme.lightTextSecondary : Colors.white54,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight ? Colors.black.withValues(alpha: 0.02) : Colors.white.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(2),
-          1: FlexColumnWidth(1.5),
-          2: FlexColumnWidth(1.5),
-        },
-        children: doors.map<TableRow>((door) {
-          final name = (door['accessName'] ?? door['name'] ?? 'Unknown').toString();
-          final doorStatusRaw = door['doorStatus'] ?? door['door_status'];
-          final lockStatusRaw = door['lockStatus'] ?? door['lock_status'];
-          
-          final doorStatus = doorStatusRaw is num ? doorStatusRaw.toInt() : int.tryParse(doorStatusRaw?.toString() ?? '0') ?? 0;
-          final lockStatus = lockStatusRaw is num ? lockStatusRaw.toInt() : int.tryParse(lockStatusRaw?.toString() ?? '0') ?? 0;
-
-          final isDoorOpen = doorStatus == 1; // 1: Open, 0: Closed
-          final isLockOpen = lockStatus == 1; // 1: Unlocked, 0: Locked
-
-          return TableRow(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isDoorOpen ? Icons.door_front_door_rounded : Icons.door_front_door_outlined,
-                      color: isDoorOpen ? ConsoleTheme.danger(context) : ConsoleTheme.success(context),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        isDoorOpen ? 'Open' : 'Closed',
-                        style: TextStyle(
-                          color: isDoorOpen ? ConsoleTheme.danger(context) : ConsoleTheme.success(context),
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isLockOpen ? Icons.lock_open_rounded : Icons.lock_rounded,
-                      color: isLockOpen ? ConsoleTheme.warning(context) : ConsoleTheme.success(context),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        isLockOpen ? 'Unlocked' : 'Locked',
-                        style: TextStyle(
-                          color: isLockOpen ? ConsoleTheme.warning(context) : ConsoleTheme.success(context),
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
+  Widget _headerCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
       ),
     );
   }
 
-  Widget _buildRecentLogsTable(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final logs = widget.snapshot.recentDoorLogs;
-    
-    if (logs.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            'No Logs',
-            style: TextStyle(
-              color: isLight ? AppTheme.lightTextSecondary : Colors.white54,
-            ),
-          ),
-        ),
-      );
+  Widget _dataCell(String text, {bool isStatus = false}) {
+    Color color = Colors.white70;
+    if (isStatus) {
+      final s = text.toLowerCase();
+      if (s.contains('success') || s.contains('unlock') || s == '1' || s.contains('open')) {
+        color = Colors.greenAccent;
+        text = 'Success';
+      } else if (s.contains('fail') || s.contains('denied') || s == '0') {
+        color = Colors.redAccent;
+        text = 'Failed';
+      }
     }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight ? Colors.black.withValues(alpha: 0.02) : Colors.white.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(2),
-          1: FlexColumnWidth(2),
-          2: FlexColumnWidth(2),
-          3: FlexColumnWidth(1.5),
-        },
-        children: logs.take(5).map<TableRow>((log) {
-          final timeRaw = log['opTime']?.toString() ?? '';
-          final timeStr = timeRaw.length > 18 ? timeRaw.substring(5, 19) : timeRaw;
-          
-          final door = log['accessName']?.toString() ?? 'Door';
-          final user = log['username']?.toString() ?? 'System';
-          
-          final openType = log['openType']?.toString() ?? '';
-          String typeStr = 'Remote';
-          if (openType == '1') typeStr = 'Password';
-          if (openType == '2') typeStr = 'Fingerprint';
-          if (openType == '3') typeStr = 'Card';
-
-          return TableRow(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Text(timeStr, style: TextStyle(color: isLight ? AppTheme.lightTextPrimary : Colors.white, fontSize: 12)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Text(door, style: TextStyle(color: isLight ? AppTheme.lightTextPrimary : Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Text(user, style: TextStyle(color: isLight ? AppTheme.lightTextPrimary : Colors.white, fontSize: 13)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Text(typeStr, textAlign: TextAlign.right, style: TextStyle(color: isLight ? AppTheme.lightTextSecondary : Colors.white70, fontSize: 12)),
-              ),
-            ],
-          );
-        }).toList(),
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 13),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final leftDoor = _doorAt(0);
+    final rightDoor = _doors.length > 1 ? _doorAt(_doors.length - 1) : leftDoor;
+
+    final double width = MediaQuery.of(context).size.width;
+    final isNarrow = width < 768;
+
+    final doorAccessCard = ConsoleSectionCard(
+      title: 'Door Access',
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            _buildHorizontalDoorRow(context, 'Front Door', leftDoor),
+            _buildHorizontalDoorRow(context, 'Rear Door', rightDoor),
+          ],
+        ),
+      ),
+    );
+
+    final logsCard = ConsoleSectionCard(
+      title: 'Door Access Logs',
+      child: _buildRecentLogsTable(context),
+    );
+
+    if (isNarrow) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(ConsoleTheme.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            doorAccessCard,
+            const SizedBox(height: ConsoleTheme.lg),
+            logsCard,
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(ConsoleTheme.lg),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left Column
           Expanded(
-            flex: 4,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  ConsoleSectionCard(
-                    title: 'Device Info',
-                    expand: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: _buildInfoGrid(context),
-                    ),
-                  ),
-                  const SizedBox(height: ConsoleTheme.lg),
-                  ConsoleSectionCard(
-                    title: 'Door Controls',
-                    expand: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: _buildControlPanel(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            flex: 5,
+            child: doorAccessCard,
           ),
           const SizedBox(width: ConsoleTheme.lg),
-          // Right Column
           Expanded(
-            flex: 7,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  ConsoleSectionCard(
-                    title: 'Live Door Status',
-                    expand: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: _buildDoorStatusTable(context),
-                    ),
-                  ),
-                  const SizedBox(height: ConsoleTheme.lg),
-                  ConsoleSectionCard(
-                    title: 'Recent Access Logs',
-                    expand: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: _buildRecentLogsTable(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            flex: 6,
+            child: logsCard,
           ),
         ],
       ),
