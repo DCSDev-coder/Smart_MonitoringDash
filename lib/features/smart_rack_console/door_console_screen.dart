@@ -53,8 +53,9 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
   Widget _buildHorizontalDoorRow(
     BuildContext context,
     String defaultLabel,
-    Map<String, dynamic>? door,
-  ) {
+    Map<String, dynamic>? door, {
+    double bottomMargin = 16,
+  }) {
     final name = _doorLabel(door, defaultLabel);
     final id = int.tryParse(door?['id']?.toString() ?? '') ?? 0;
     final isUnlocked = door?['isOpen'] == true;
@@ -62,7 +63,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: bottomMargin),
       decoration: BoxDecoration(
         color: ConsoleTheme.panelBg(context).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
@@ -220,52 +221,54 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     final double width = MediaQuery.of(context).size.width;
     final isNarrow = width < 768;
 
-    final doorAccessCard = ConsoleSectionCard(
-      title: 'Door Access',
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            _buildHorizontalDoorRow(context, 'Front Door', leftDoor),
-            _buildHorizontalDoorRow(context, 'Rear Door', rightDoor),
-          ],
-        ),
-      ),
+    final frontDoorCard = ConsoleSectionCard(
+      title: 'Front Door Access',
+      child: _buildHorizontalDoorRow(context, 'Front Door', leftDoor, bottomMargin: 0),
+    );
+
+    final rearDoorCard = ConsoleSectionCard(
+      title: 'Rear Door Access',
+      child: _buildHorizontalDoorRow(context, 'Rear Door', rightDoor, bottomMargin: 0),
     );
 
     final logsCard = ConsoleSectionCard(
       title: 'Door Access Logs',
-      child: _buildRecentLogsTable(context),
+      expand: true,
+      child: SingleChildScrollView(
+        child: _buildRecentLogsTable(context),
+      ),
     );
 
     if (isNarrow) {
-      return SingleChildScrollView(
+      return Padding(
         padding: const EdgeInsets.all(ConsoleTheme.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            doorAccessCard,
+            frontDoorCard,
             const SizedBox(height: ConsoleTheme.lg),
-            logsCard,
+            rearDoorCard,
+            const SizedBox(height: ConsoleTheme.lg),
+            Expanded(child: logsCard),
           ],
         ),
       );
     }
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(ConsoleTheme.lg),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            flex: 5,
-            child: doorAccessCard,
+          Row(
+            children: [
+              Expanded(child: frontDoorCard),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: rearDoorCard),
+            ],
           ),
-          const SizedBox(width: ConsoleTheme.lg),
-          Expanded(
-            flex: 6,
-            child: logsCard,
-          ),
+          const SizedBox(height: ConsoleTheme.lg),
+          Expanded(child: logsCard),
         ],
       ),
     );

@@ -285,7 +285,8 @@ class AdapterApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchItDeviceInterfaces({required int siteId}) async {
+  Future<Map<String, dynamic>?> fetchItDeviceInterfaces(
+      {required int siteId}) async {
     if (!isConfigured) return null;
 
     final token = _tokenOrNull();
@@ -294,7 +295,8 @@ class AdapterApiService {
       return null;
     }
 
-    final url = Uri.parse('$_base/v1/sites/$siteId/it-device-interfaces-last-for-part');
+    final url =
+        Uri.parse('$_base/v1/sites/$siteId/it-device-interfaces-last-for-part');
     try {
       final res = await http
           .get(url, headers: _headers(token))
@@ -314,7 +316,8 @@ class AdapterApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchItDeviceTopMetrics({required int siteId}) async {
+  Future<Map<String, dynamic>?> fetchItDeviceTopMetrics(
+      {required int siteId}) async {
     if (!isConfigured) return null;
 
     final token = _tokenOrNull();

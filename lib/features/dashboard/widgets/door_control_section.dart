@@ -412,7 +412,10 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
                           spreadRadius: 1,
                         ),
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.10),
                           blurRadius: 28,
                           spreadRadius: 6,
                         ),
@@ -500,7 +503,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   }
 
   Future<void> _initUsername() async {
-    final portalUsername = await CpanelApiService.instance.getUsername() ?? 'admin';
+    final portalUsername =
+        await CpanelApiService.instance.getUsername() ?? 'admin';
     if (mounted) {
       setState(() {
         _userCtrl.text = portalUsername;
@@ -574,9 +578,11 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           ? null
           : (int.tryParse(site['site_id']?.toString() ?? '') ??
               int.tryParse(site['id']?.toString() ?? ''));
+      final usedAdapter =
+          AdapterApiService.instance.isConfigured && siteId != null;
 
       Map<String, dynamic>? res;
-      if (AdapterApiService.instance.isConfigured && siteId != null) {
+      if (usedAdapter) {
         res = await AdapterApiService.instance.openCloseDoor(
           siteId: siteId,
           accessId: widget.doorId,
@@ -588,7 +594,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
-        if (siteId != null) {
+        if (!usedAdapter && siteId != null) {
           CpanelApiService.instance.logRemoteAccess(
             siteId: siteId,
             doorId: widget.doorId,
@@ -621,9 +627,12 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           ? null
           : (int.tryParse(site['site_id']?.toString() ?? '') ??
               int.tryParse(site['id']?.toString() ?? ''));
+      final adapterAvailable =
+          AdapterApiService.instance.isConfigured && siteId != null;
 
       int? remoteLogOverrideUserId;
       Map<String, dynamic>? res;
+      bool usedAdapter = false;
 
       if (_isRackConsoleMode) {
         if (siteId == null) {
@@ -639,25 +648,28 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           return;
         }
 
-        final verifyRes = await CpanelApiService.instance.verifySiteUserPin(
-          siteId: siteId,
-          pin: pin,
-        );
-        if (!mounted) return;
-
-        if (verifyRes != null && verifyRes['status'] == 'success') {
-          remoteLogOverrideUserId = verifyRes['user_id'];
-          res = await AdapterApiService.instance.openCloseDoor(
+        if (adapterAvailable) {
+          usedAdapter = true;
+          res = await AdapterApiService.instance.unlockWithUserPin(
             siteId: siteId,
             accessId: widget.doorId,
-            status: 1,
-            accessType: '1',
+            pin: pin,
           );
-          res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
         } else {
-          setState(() => _isAuthenticating = false);
-          AppToast.showError(context, 'Invalid PIN or Access Denied');
-          return;
+          final verifyRes = await CpanelApiService.instance.verifySiteUserPin(
+            siteId: siteId,
+            pin: pin,
+          );
+          if (!mounted) return;
+
+          if (verifyRes != null && verifyRes['status'] == 'success') {
+            remoteLogOverrideUserId = verifyRes['user_id'];
+            res = await ApiService.instance.openCloseDoor(widget.doorId, 1);
+          } else {
+            setState(() => _isAuthenticating = false);
+            AppToast.showError(context, 'Invalid PIN or Access Denied');
+            return;
+          }
         }
       } else if (_usePin) {
         final pin = _pwdCtrl.text.trim();
@@ -667,25 +679,25 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           return;
         }
 
-        // Strictly verify PIN with our secure CPanel backend
-        final verifyRes = await CpanelApiService.instance.verifyPin(pin);
-        if (!mounted) return;
-
-        if (verifyRes != null && verifyRes['status'] == 'success') {
-          // PIN is securely verified! Now open the door.
-          if (AdapterApiService.instance.isConfigured && siteId != null) {
-            res = await AdapterApiService.instance.openCloseDoor(
-              siteId: siteId,
-              accessId: widget.doorId,
-              status: 1,
-              accessType: '1',
-            );
-          }
-          res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+        if (adapterAvailable) {
+          usedAdapter = true;
+          res = await AdapterApiService.instance.unlockWithPin(
+            siteId: siteId,
+            accessId: widget.doorId,
+            pin: pin,
+          );
         } else {
-          setState(() => _isAuthenticating = false);
-          AppToast.showError(context, 'Incorrect PIN');
-          return;
+          // Strictly verify PIN with our secure CPanel backend
+          final verifyRes = await CpanelApiService.instance.verifyPin(pin);
+          if (!mounted) return;
+
+          if (verifyRes != null && verifyRes['status'] == 'success') {
+            res = await ApiService.instance.openCloseDoor(widget.doorId, 1);
+          } else {
+            setState(() => _isAuthenticating = false);
+            AppToast.showError(context, 'Incorrect PIN');
+            return;
+          }
         }
       } else {
         // Try portal password check first
@@ -711,7 +723,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           }
         }
 
-        if (AdapterApiService.instance.isConfigured && siteId != null) {
+        if (adapterAvailable) {
+          usedAdapter = true;
           res = await AdapterApiService.instance.openCloseDoor(
             siteId: siteId,
             accessId: widget.doorId,
@@ -725,7 +738,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
-        if (siteId != null) {
+        if (!usedAdapter && siteId != null) {
           CpanelApiService.instance.logRemoteAccess(
             siteId: siteId,
             doorId: widget.doorId,
@@ -778,8 +791,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               Text(
                 'UNLOCK DOOR',
                 style: TextStyle(
-                  color: isRack 
-                      ? ConsoleTheme.textPrimary(context) 
+                  color: isRack
+                      ? ConsoleTheme.textPrimary(context)
                       : (isLight ? AppTheme.lightTextPrimary : Colors.white),
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -820,9 +833,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             OutlinedButton.icon(
               icon: const Icon(Icons.fingerprint_rounded, size: 18),
               label: Text(
-                _hasBiometrics
-                    ? 'Use Fingerprint / Face ID'
-                    : 'Use Phone PIN',
+                _hasBiometrics ? 'Use Fingerprint / Face ID' : 'Use Phone PIN',
               ),
               onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
               style: OutlinedButton.styleFrom(
@@ -862,7 +873,9 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                   child: Text(
                     _usePin ? 'Use Password' : 'Use PIN',
                     style: TextStyle(
-                      color: isLight ? Theme.of(context).colorScheme.primary : Colors.white,
+                      color: isLight
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -871,14 +884,12 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             ],
           ),
           const SizedBox(height: 8),
-
           TextField(
             controller: _pwdCtrl,
             focusNode: _pwdFocus,
             obscureText: _obscurePwd,
             autofocus: false,
-            keyboardType:
-                _usePin ? TextInputType.number : TextInputType.text,
+            keyboardType: _usePin ? TextInputType.number : TextInputType.text,
             style: TextStyle(
               color: isRack
                   ? ConsoleTheme.textPrimary(context)
@@ -925,7 +936,10 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
-                    color: isRack ? ConsoleTheme.primaryBlue(context) : Theme.of(context).colorScheme.primary, width: 1.4),
+                    color: isRack
+                        ? ConsoleTheme.primaryBlue(context)
+                        : Theme.of(context).colorScheme.primary,
+                    width: 1.4),
               ),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -946,8 +960,9 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: CircularProgressIndicator(
-                  color: isRack ? ConsoleTheme.primaryBlue(context) : Theme.of(context).colorScheme.primary
-                ),
+                    color: isRack
+                        ? ConsoleTheme.primaryBlue(context)
+                        : Theme.of(context).colorScheme.primary),
               ),
             )
           else
@@ -958,12 +973,15 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                 label: const Text('Unlock Door'),
                 onPressed: _runPasswordUnlock,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isRack ? const Color(0xFF109B5B) : Theme.of(context).colorScheme.primary,
+                  backgroundColor: isRack
+                      ? const Color(0xFF109B5B)
+                      : Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(isRack ? 24 : 16),
                   ),
-                  padding: isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
+                  padding:
+                      isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
                 ),
               ),
             ),

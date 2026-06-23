@@ -276,7 +276,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     final site = CpanelApiService.instance.currentSite;
     final siteId = SiteRuntimeConfig.siteId(site);
     final cabinetId = SiteRuntimeConfig.cabinetId(site);
-    final adapterReady = AdapterApiService.instance.isConfigured && siteId != null;
+    final adapterReady =
+        AdapterApiService.instance.isConfigured && siteId != null;
 
     final results = await Future.wait([
       fetchTempHum
@@ -616,7 +617,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   @override
   Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
     final media = MediaQuery.of(context);
     final screenW = media.size.width;
     final bool wideLayout = screenW >= 1100;
@@ -627,7 +627,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
         ? (media.size.height * 0.40).clamp(360.0, 500.0) * uiScale
         : null;
     final envGaugeHeight = wideLayout ? (wideTopHeight! - 80) : null;
-    final wideBottomHeight = wideLayout ? envGaugeHeight : null;
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -654,7 +653,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                       AppSpacing.pageBottom(context),
                     ),
                     children: [
-
                       Align(
                         alignment: Alignment.topCenter,
                         child: ConstrainedBox(
@@ -678,8 +676,18 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                             child: PueHeroCard(
                                               pue: _pue,
                                               pueStatus: _pueStatus,
-                                              totalEnergyKwh: _powerMonth['Total'] ?? _powerMonth['TOTAL'] ?? _powerMonth['total_power'] ?? _powerMonth['totalPower'],
-                                              itEnergyKwh: _powerMonth['IT Device'] ?? _powerMonth['IT DEVICE'] ?? _powerMonth['IT'] ?? _powerMonth['it_power'] ?? _powerMonth['itPower'] ?? _powerMonth['IT_DEVICE'],
+                                              totalEnergyKwh: _powerMonth[
+                                                      'Total'] ??
+                                                  _powerMonth['TOTAL'] ??
+                                                  _powerMonth['total_power'] ??
+                                                  _powerMonth['totalPower'],
+                                              itEnergyKwh: _powerMonth[
+                                                      'IT Device'] ??
+                                                  _powerMonth['IT DEVICE'] ??
+                                                  _powerMonth['IT'] ??
+                                                  _powerMonth['it_power'] ??
+                                                  _powerMonth['itPower'] ??
+                                                  _powerMonth['IT_DEVICE'],
                                               loading: _loading || _refreshing,
                                             ),
                                           ),
@@ -695,7 +703,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                             lastService: _lastMaintenance,
                                             cycleDays: 90,
                                             onTap: () {
-                                              GlobalEventBus.targetMaintenancePage.value = true;
+                                              GlobalEventBus
+                                                  .targetMaintenancePage
+                                                  .value = true;
                                               widget.onNavigateToReport?.call();
                                             },
                                           ),
@@ -714,7 +724,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                               temperatures: _temperatures,
                                               humidities: _humidities,
                                               alarms: _poller.recentAlarms,
-                                              gaugeHeight: envGaugeHeight ?? 260,
+                                              gaugeHeight:
+                                                  envGaugeHeight ?? 260,
                                               loading: _loading || _refreshing,
                                             ),
                                           ),
@@ -736,8 +747,16 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                 PueHeroCard(
                                   pue: _pue,
                                   pueStatus: _pueStatus,
-                                  totalEnergyKwh: _powerMonth['Total'] ?? _powerMonth['TOTAL'] ?? _powerMonth['total_power'] ?? _powerMonth['totalPower'],
-                                  itEnergyKwh: _powerMonth['IT Device'] ?? _powerMonth['IT DEVICE'] ?? _powerMonth['IT'] ?? _powerMonth['it_power'] ?? _powerMonth['itPower'] ?? _powerMonth['IT_DEVICE'],
+                                  totalEnergyKwh: _powerMonth['Total'] ??
+                                      _powerMonth['TOTAL'] ??
+                                      _powerMonth['total_power'] ??
+                                      _powerMonth['totalPower'],
+                                  itEnergyKwh: _powerMonth['IT Device'] ??
+                                      _powerMonth['IT DEVICE'] ??
+                                      _powerMonth['IT'] ??
+                                      _powerMonth['it_power'] ??
+                                      _powerMonth['itPower'] ??
+                                      _powerMonth['IT_DEVICE'],
                                   loading: _loading || _refreshing,
                                 ),
                                 const SizedBox(height: 20),
@@ -759,7 +778,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                   lastService: _lastMaintenance,
                                   cycleDays: 90,
                                   onTap: () {
-                                    GlobalEventBus.targetMaintenancePage.value = true;
+                                    GlobalEventBus.targetMaintenancePage.value =
+                                        true;
                                     widget.onNavigateToReport?.call();
                                   },
                                 ),
