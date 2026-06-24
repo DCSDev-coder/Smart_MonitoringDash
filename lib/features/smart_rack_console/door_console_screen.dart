@@ -45,7 +45,12 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
   String _doorLabel(Map<String, dynamic>? door, String fallback) {
     if (door == null) return fallback;
     final name = (door['accessName'] ?? door['name'] ?? '').toString().trim();
-    if (name.isNotEmpty) return name;
+    if (name.isNotEmpty) {
+      final lower = name.toLowerCase();
+      if (lower.contains('front')) return 'Front 1';
+      if (lower.contains('rear') || lower.contains('back')) return 'Rear 1';
+      return name;
+    }
     return fallback;
   }
 
