@@ -40,26 +40,20 @@ class SmartRackConsoleShell extends StatefulWidget {
 
 class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   int _selectedIndex = 0;
-  bool _isSidebarCollapsed = false;
-  double? _lastWidth;
+  bool _sidebarHovered = false;
+  bool _sidebarSwiped = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
   bool _accessGuardHandled = false;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final width = MediaQuery.of(context).size.width;
-    const double breakpoint = 1024.0;
-    
-    if (_lastWidth == null) {
-      _isSidebarCollapsed = width < breakpoint;
-    } else if (width < breakpoint && _lastWidth! >= breakpoint) {
-      _isSidebarCollapsed = true;
-    } else if (width >= breakpoint && _lastWidth! < breakpoint) {
-      _isSidebarCollapsed = false;
-    }
-    _lastWidth = width;
+  void _setSidebarHovered(bool value) {
+    if (_sidebarHovered == value) return;
+    setState(() => _sidebarHovered = value);
+  }
+
+  void _setSidebarSwiped(bool value) {
+    if (_sidebarSwiped == value) return;
+    setState(() => _sidebarSwiped = value);
   }
 
   bool _hasPinNotification() {
@@ -372,31 +366,28 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
               Expanded(
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity != null) {
-                          if (details.primaryVelocity! < -300) {
-                            // Swipe Left -> Collapse
-                            if (!_isSidebarCollapsed) {
-                              setState(() => _isSidebarCollapsed = true);
-                            }
-                          } else if (details.primaryVelocity! > 300) {
-                            // Swipe Right -> Expand
-                            if (_isSidebarCollapsed) {
-                              setState(() => _isSidebarCollapsed = false);
-                            }
+                    MouseRegion(
+                      onEnter: (_) => _setSidebarHovered(true),
+                      onExit: (_) => _setSidebarHovered(false),
+                      child: GestureDetector(
+                        onHorizontalDragUpdate: (details) {
+                          if (details.primaryDelta! > 5) {
+                            _setSidebarSwiped(true);
+                          } else if (details.primaryDelta! < -5) {
+                            _setSidebarSwiped(false);
                           }
-                        }
-                      },
-                      child: ConsoleSidebar(
-                        profile: widget.profile,
-                        selectedIndex: _selectedIndex,
-                        isCollapsed: _isSidebarCollapsed,
-                        onItemSelected: (index) {
-                          setState(() {
-                            _selectedIndex = index;
-                          });
                         },
+                        child: ConsoleSidebar(
+                          profile: widget.profile,
+                          selectedIndex: _selectedIndex,
+                          isCollapsed: !(_sidebarHovered || _sidebarSwiped),
+                          onItemSelected: (index) {
+                            _setSidebarSwiped(false);
+                            setState(() {
+                              _selectedIndex = index;
+                            });
+                          },
+                        ),
                       ),
                     ),
                     Expanded(
