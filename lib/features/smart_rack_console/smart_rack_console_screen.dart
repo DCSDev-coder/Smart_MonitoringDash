@@ -155,26 +155,30 @@ class _MainGrid extends StatelessWidget {
 
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: left),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(child: middle),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(child: right),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: middle),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: right),
+            ],
+          ),
         ),
         const SizedBox(height: ConsoleTheme.lg),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildMonitoringStatisticsPanel(context, snapshot)),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(child: _buildCapacityPanel(context, snapshot)),
-            const SizedBox(width: ConsoleTheme.lg),
-            Expanded(child: _buildResourcePanel(context, snapshot)),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildMonitoringStatisticsPanel(context, snapshot)),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: _buildCapacityPanel(context, snapshot)),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(child: _buildResourcePanel(context, snapshot)),
+            ],
+          ),
         ),
       ],
     );
