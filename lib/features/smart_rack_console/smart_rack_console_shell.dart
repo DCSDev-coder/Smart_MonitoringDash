@@ -24,6 +24,7 @@ import 'it_device_console_screen.dart';
 import 'door_console_screen.dart';
 import 'pue_console_screen.dart';
 import 'settings_console_screen.dart';
+import 'alarm_console_screen.dart';
 
 class SmartRackConsoleShell extends StatefulWidget {
   const SmartRackConsoleShell({
@@ -322,7 +323,9 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         compact: compact,
       );
     } else if (index == 9) {
-      return ComingSoonPanel(title: _pageTitle(index));
+      return AlarmConsoleScreen(
+        compact: compact,
+      );
     }
     return ComingSoonPanel(title: _pageTitle(index));
   }
