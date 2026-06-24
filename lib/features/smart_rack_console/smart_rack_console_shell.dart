@@ -23,6 +23,7 @@ import 'pdu_console_screen.dart';
 import 'it_device_console_screen.dart';
 import 'door_console_screen.dart';
 import 'pue_console_screen.dart';
+import 'settings_console_screen.dart';
 
 class SmartRackConsoleShell extends StatefulWidget {
   const SmartRackConsoleShell({
@@ -316,7 +317,11 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         snapshot: snapshot,
         compact: compact,
       );
-    } else if (index == 8 || index == 9) {
+    } else if (index == 8) {
+      return SettingsConsoleScreen(
+        compact: compact,
+      );
+    } else if (index == 9) {
       return ComingSoonPanel(title: _pageTitle(index));
     }
     return ComingSoonPanel(title: _pageTitle(index));
