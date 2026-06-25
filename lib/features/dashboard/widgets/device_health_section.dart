@@ -14,6 +14,7 @@ class DeviceHealthSection extends StatelessWidget {
   final int smokeStatus;
   final int floodStatus;
   final bool minimalist;
+  final bool twoColumn;
 
   const DeviceHealthSection({
     super.key,
@@ -24,6 +25,7 @@ class DeviceHealthSection extends StatelessWidget {
     this.smokeStatus = -1,
     this.floodStatus = -1,
     this.minimalist = false,
+    this.twoColumn = false,
   });
 
   @override
@@ -611,6 +613,25 @@ class DeviceHealthSection extends StatelessWidget {
             );
           }).toList(),
         ),
+      );
+    }
+
+    if (twoColumn && items.length > 1) {
+      final mid = (items.length / 2).ceil();
+      final leftItems = items.sublist(0, mid);
+      final rightItems = items.sublist(mid);
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: buildGroup(leftItems),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: buildGroup(rightItems),
+          ),
+        ],
       );
     }
 

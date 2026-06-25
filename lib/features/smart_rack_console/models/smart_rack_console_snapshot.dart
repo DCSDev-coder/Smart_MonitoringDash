@@ -22,6 +22,7 @@ class SmartRackConsoleSnapshot {
     required this.memoryUsedPct,
     required this.cpuUsedPct,
     required this.diskUsedPct,
+    required this.pue,
     this.temperatures = const [],
     this.humidities = const [],
     this.alarms = const [],
@@ -49,6 +50,7 @@ class SmartRackConsoleSnapshot {
   final double? memoryUsedPct;
   final double? cpuUsedPct;
   final double? diskUsedPct;
+  final double pue;
   final List<Map<String, dynamic>> temperatures;
   final List<Map<String, dynamic>> humidities;
   final List<dynamic> alarms;
@@ -93,6 +95,10 @@ class SmartRackConsoleSnapshot {
       sysData,
       const ['diskUsedPct', 'disk_used_pct', 'diskUsage', 'disk'],
     );
+    final pueVal = poller.pue ?? _extractDouble(
+      sysData,
+      const ['pue', 'currentPue', 'current_pue'],
+    ) ?? 2.25;
 
     return SmartRackConsoleSnapshot(
       siteName: siteName,
@@ -120,6 +126,7 @@ class SmartRackConsoleSnapshot {
       memoryUsedPct: memoryUsedPct,
       cpuUsedPct: cpuUsedPct,
       diskUsedPct: diskUsedPct,
+      pue: pueVal,
       temperatures: poller.rawTemperatures,
       humidities: poller.rawHumidities,
       alarms: poller.recentAlarms,

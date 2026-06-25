@@ -23,6 +23,7 @@ void main() {
       memoryUsedPct: 40.0,
       cpuUsedPct: 15.0,
       diskUsedPct: 45.0,
+      pue: 2.25,
       doors: [
         {
           'id': 1,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_gauges/gauges.dart';
 
 import '../../core/controllers/global_status_poller.dart';
 import '../dashboard/widgets/device_health_section.dart';
@@ -133,7 +132,7 @@ class _MainGrid extends StatelessWidget {
 
     final left = _buildRackOverview(context, snapshot);
     final middle = _buildEnvironmentPanel(context, snapshot);
-    final right = _buildSensorPanel(context, snapshot);
+    final right = _buildCurrentPuePanel(context, snapshot);
 
     if (isNarrow) {
       return Column(
@@ -144,11 +143,9 @@ class _MainGrid extends StatelessWidget {
           const SizedBox(height: ConsoleTheme.lg),
           right,
           const SizedBox(height: ConsoleTheme.lg),
-          _buildPlaceholderCard('Card 4'),
+          _buildMonitoringStatisticsPanel(context, snapshot, twoColumn: false),
           const SizedBox(height: ConsoleTheme.lg),
-          _buildPlaceholderCard('Card 5'),
-          const SizedBox(height: ConsoleTheme.lg),
-          _buildPlaceholderCard('Card 6'),
+          _buildCapacityPanel(context, snapshot),
         ],
       );
     }
@@ -172,11 +169,15 @@ class _MainGrid extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _buildMonitoringStatisticsPanel(context, snapshot)),
+              Expanded(
+                flex: 2,
+                child: _buildMonitoringStatisticsPanel(context, snapshot, twoColumn: true),
+              ),
               const SizedBox(width: ConsoleTheme.lg),
-              Expanded(child: _buildCapacityPanel(context, snapshot)),
-              const SizedBox(width: ConsoleTheme.lg),
-              Expanded(child: _buildResourcePanel(context, snapshot)),
+              Expanded(
+                flex: 1,
+                child: _buildCapacityPanel(context, snapshot),
+              ),
             ],
           ),
         ),
@@ -184,18 +185,6 @@ class _MainGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholderCard(String title) {
-    return ConsoleSectionCard(
-      title: title,
-      minHeight: 200,
-      child: const Center(
-        child: Text(
-          'Coming Soon',
-          style: TextStyle(color: Colors.white54, fontSize: 16),
-        ),
-      ),
-    );
-  }
 
 
   Widget _buildRackOverview(BuildContext context, SmartRackConsoleSnapshot snapshot) {
@@ -295,28 +284,112 @@ class _MainGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildSensorPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+  Color _getPueColor(double pue) {
+    if (pue <= 0) {
+      return const Color(0xFF8A94A6);
+    }
+    if (pue <= 1.2) {
+      return const Color(0xFF00A174);
+    }
+    if (pue < 2.0) {
+      return const Color(0xFFFF8A00);
+    }
+    return const Color(0xFFFF3B30);
+  }
+
+  Widget _buildCurrentPuePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+    final isWide = MediaQuery.of(context).size.width > 1200;
+    final chartSize = isWide ? 160.0 : 120.0;
+    final pueColor = _getPueColor(snapshot.pue);
+
     return ConsoleSectionCard(
-      title: 'Smoke & Water Sensors',
+      title: 'Current PUE',
       minHeight: 200,
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _SensorRow(
-            icon: Icons.cloud_rounded,
-            label: 'Smoke Sensor',
-            value: snapshot.smokeLabel,
-            color: snapshot.smokeLabel == 'Normal'
-                ? ConsoleTheme.success(context)
-                : ConsoleTheme.danger(context),
+          SizedBox(
+            width: chartSize,
+            height: chartSize,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                ArcGauge(
+                  progress: ((snapshot.pue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
+                  glowColor: pueColor,
+                  baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
+                  strokeWidth: isWide ? 16.0 : 12.0,
+                  sweepDegrees: 210,
+                  startDegrees: 195,
+                  glowIntensity: 1.0,
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 16),
+                    Text(
+                      snapshot.pue.toStringAsFixed(2),
+                      style: TextStyle(
+                        fontSize: isWide ? 32 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: ConsoleTheme.textPrimary(context),
+                      ),
+                    ),
+                    Text(
+                      'PUE',
+                      style: TextStyle(
+                        fontSize: isWide ? 14 : 11,
+                        color: pueColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          _SensorRow(
-            icon: Icons.water_drop_rounded,
-            label: 'Water Leak Sensor',
-            value: snapshot.waterLeakLabel,
-            color: snapshot.waterLeakLabel == 'Normal'
-                ? ConsoleTheme.success(context)
-                : ConsoleTheme.danger(context),
+          const SizedBox(height: 16),
+          Text(
+            'Total Energy Consumption Of The Month',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: ConsoleTheme.textPrimary(context),
+              fontSize: isWide ? 13 : 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '850.72',
+                style: TextStyle(
+                  color: ConsoleTheme.cyan(context),
+                  fontSize: isWide ? 32 : 24,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: ConsoleTheme.cyan(context).withValues(alpha: 0.5),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Padding(
+                padding: EdgeInsets.only(bottom: isWide ? 4.0 : 2.0),
+                child: Text(
+                  'kW·h',
+                  style: TextStyle(
+                    color: ConsoleTheme.textPrimary(context),
+                    fontSize: isWide ? 14 : 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -352,7 +425,7 @@ class _MainGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildMonitoringStatisticsPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+  Widget _buildMonitoringStatisticsPanel(BuildContext context, SmartRackConsoleSnapshot snapshot, {bool twoColumn = false}) {
     return ConsoleSectionCard(
       title: 'Monitoring Statistics',
       minHeight: 200,
@@ -378,6 +451,7 @@ class _MainGrid extends StatelessWidget {
               smokeStatus: snapshot.smokeStatus,
               floodStatus: snapshot.floodStatus,
               minimalist: true,
+              twoColumn: twoColumn,
             ),
           ),
         ],
@@ -445,46 +519,7 @@ class _MainGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildResourcePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    final memoryPct = snapshot.memoryUsedPct ?? 63.2;
-    final cpuPct = snapshot.cpuUsedPct ?? 18.5;
-    final diskPct = snapshot.diskUsedPct ?? 45.0;
-
-    return ConsoleSectionCard(
-      title: 'Resource',
-      minHeight: 200,
-      child: Column(
-        children: [
-          _SensorRow(
-            icon: Icons.memory_rounded,
-            label: 'Memory Usage',
-            value: '${memoryPct.toInt()}%',
-            color: ConsoleTheme.primaryBlue(context),
-          ),
-          const SizedBox(height: 8),
-          _buildResourceProgressBar(context, memoryPct),
-          const SizedBox(height: 16),
-          _SensorRow(
-            icon: Icons.developer_board_rounded,
-            label: 'CPU Usage',
-            value: '${cpuPct.toInt()}%',
-            color: ConsoleTheme.cyan(context),
-          ),
-          const SizedBox(height: 8),
-          _buildResourceProgressBar(context, cpuPct, color: ConsoleTheme.cyan(context)),
-          const SizedBox(height: 16),
-          _SensorRow(
-            icon: Icons.storage_rounded,
-            label: 'Disk Usage',
-            value: '${diskPct.toInt()}%',
-            color: ConsoleTheme.purple(context),
-          ),
-          const SizedBox(height: 8),
-          _buildResourceProgressBar(context, diskPct, color: ConsoleTheme.purple(context)),
-        ],
-      ),
-    );
-  }
+  // Removed unused _buildResourcePanel
 
   // Helper widget to build premium radial gauges using Syncfusion Gauge library
   Widget _buildRadialGauge({

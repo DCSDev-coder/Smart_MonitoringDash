@@ -731,6 +731,21 @@ class _ExpandableHistoricalAlarmCardState
     final bool resolved =
         alarm['recoveryTime'] != null || alarm['recoverTime'] != null;
 
+    String getStatusText() {
+      final String? statusTxt = alarm['statusTxt'];
+      if (statusTxt != null) {
+        final clean = statusTxt.trim().toLowerCase();
+        if (clean == 'unconfirm' || clean == 'unconfirmed') {
+          return 'Active';
+        }
+        if (clean == 'resolved' || clean == 'recover' || clean == 'recovered' || clean == 'clear' || clean == 'cleared') {
+          return 'Resolved';
+        }
+        return statusTxt;
+      }
+      return resolved ? 'Resolved' : 'Active';
+    }
+
     // Dahua often packs everything into a comma-separated 'content' string
     // e.g. "Alarm Item: Electric heating protection alarm,Alarm Value: Fault, Alarm Type: Device Reporting, Alarm Level: Major"
     final String rawContent = (alarm['content'] ?? '').toString();
@@ -997,7 +1012,7 @@ class _ExpandableHistoricalAlarmCardState
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Status: ${alarm['statusTxt'] ?? (resolved ? "Resolved" : "Unconfirmed")}',
+                    'Status: ${getStatusText()}',
                     style: TextStyle(
                       color: detailColor,
                       fontSize: resolved ? 12 : 11,

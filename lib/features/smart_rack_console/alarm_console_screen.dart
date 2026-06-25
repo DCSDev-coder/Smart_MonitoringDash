@@ -133,45 +133,39 @@ class _AlarmConsoleScreenState extends State<AlarmConsoleScreen> {
       decoration: BoxDecoration(
         gradient: ConsoleTheme.pageBgGradient(context),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(ConsoleTheme.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Historical Alarms', style: TextStyle(color: ConsoleTheme.textPrimary(context), fontSize: 24, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildEventFilterRow(),
-            const SizedBox(height: 24),
-            ConsoleSectionCard(
+      padding: const EdgeInsets.all(ConsoleTheme.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Historical Alarms', style: TextStyle(color: ConsoleTheme.textPrimary(context), fontSize: 24, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildEventFilterRow(),
+          const SizedBox(height: 24),
+          Expanded(
+            child: ConsoleSectionCard(
               title: 'Alarm Records',
+              expand: true,
               child: _fetchingHistoricalEvents
-                  ? const SizedBox(
-                      height: 200,
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                  ? const Center(
+                      child: CircularProgressIndicator(),
                     )
                   : _reportAlarms.isEmpty
-                      ? SizedBox(
-                          height: 200,
-                          child: Center(
-                            child: Text(
-                              'No historical alarms found for this period.',
-                              style: TextStyle(
-                                color: ConsoleTheme.textSecondary(context),
-                                fontSize: 14,
-                              ),
+                      ? Center(
+                          child: Text(
+                            'No historical alarms found for this period.',
+                            style: TextStyle(
+                              color: ConsoleTheme.textSecondary(context),
+                              fontSize: 14,
                             ),
                           ),
                         )
                       : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
+                          padding: EdgeInsets.zero,
                           itemCount: _reportAlarms.length,
                           separatorBuilder: (_, __) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
@@ -179,8 +173,8 @@ class _AlarmConsoleScreenState extends State<AlarmConsoleScreen> {
                           },
                         ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

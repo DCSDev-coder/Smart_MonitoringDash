@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/network/cpanel_api_service.dart';
-import '../../shared/widgets/safe_network_image.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
 
@@ -21,6 +20,7 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
   final TextEditingController _ipController = TextEditingController(text: '192.168.1.100');
   final TextEditingController _subnetController = TextEditingController(text: '255.255.255.0');
   final TextEditingController _gatewayController = TextEditingController(text: '192.168.1.1');
+  bool _isIpConfigHidden = true;
 
   @override
   void dispose() {
@@ -30,32 +30,12 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
     super.dispose();
   }
 
-  String? _companyLogoUrl() {
-    final site = CpanelApiService.instance.currentSite;
-    if (site == null) return null;
-    final logo = site['company_logo_path']?.toString() ?? '';
-    if (logo.trim().isEmpty) return null;
-    return '${CpanelApiService.baseAssetUrl}$logo';
-  }
-
-  Widget _buildDcsLogo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('DCS', style: TextStyle(color: ConsoleTheme.cyan(context), fontSize: 64, fontWeight: FontWeight.bold, letterSpacing: 2)),
-            const SizedBox(width: 8),
-            const Icon(Icons.copyright, color: Colors.redAccent, size: 20),
-          ],
-        ),
-        const Text('DATA CENTER SPECIALISTS', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-      ],
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool obscureText = false,
+    Widget? suffixIcon,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -63,10 +43,12 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          obscureText: obscureText,
           style: TextStyle(color: ConsoleTheme.textPrimary(context)),
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFF0F2648).withValues(alpha: 0.5),
+            suffixIcon: suffixIcon,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(color: ConsoleTheme.divider(context)),
@@ -87,6 +69,33 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
   }
 
   Widget _buildIpConfiguration() {
+    Widget buildEyeIcon() {
+      return IconButton(
+        icon: Icon(
+          _isIpConfigHidden ? Icons.visibility_off : Icons.visibility,
+          color: ConsoleTheme.textSecondary(context),
+          size: 20,
+        ),
+        onPressed: () async {
+          if (_isIpConfigHidden) {
+            final ok = await SecureActionGuard.ensureAuthorized(
+              context,
+              reason: 'View IP Configuration',
+            );
+            if (ok == true) {
+              setState(() {
+                _isIpConfigHidden = false;
+              });
+            }
+          } else {
+            setState(() {
+              _isIpConfigHidden = true;
+            });
+          }
+        },
+      );
+    }
+
     return ConsoleSectionCard(
       title: 'IP Configuration',
       child: Column(
@@ -96,9 +105,33 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
             spacing: 16,
             runSpacing: 16,
             children: [
-              SizedBox(width: 250, child: _buildTextField('IP Address', _ipController)),
-              SizedBox(width: 250, child: _buildTextField('Subnet Mask', _subnetController)),
-              SizedBox(width: 250, child: _buildTextField('Gateway', _gatewayController)),
+              SizedBox(
+                width: 250,
+                child: _buildTextField(
+                  'IP Address',
+                  _ipController,
+                  obscureText: _isIpConfigHidden,
+                  suffixIcon: buildEyeIcon(),
+                ),
+              ),
+              SizedBox(
+                width: 250,
+                child: _buildTextField(
+                  'Subnet Mask',
+                  _subnetController,
+                  obscureText: _isIpConfigHidden,
+                  suffixIcon: buildEyeIcon(),
+                ),
+              ),
+              SizedBox(
+                width: 250,
+                child: _buildTextField(
+                  'Gateway',
+                  _gatewayController,
+                  obscureText: _isIpConfigHidden,
+                  suffixIcon: buildEyeIcon(),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -178,26 +211,19 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
       ),
     );
 
-    final logoUrl = _companyLogoUrl();
     final col3 = Expanded(
       flex: 3,
       child: Align(
         alignment: Alignment.centerRight,
         child: Padding(
           padding: const EdgeInsets.only(right: 48.0),
-          child: logoUrl != null && logoUrl.isNotEmpty
-              ? SizedBox(
-                  height: 160,
-                  child: SafeNetworkImage(
-                    logoUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context) => _buildDcsLogo(),
-                  ),
-                )
-              : SizedBox(
-                  height: 160,
-                  child: Center(child: _buildDcsLogo()),
-                ),
+          child: SizedBox(
+            height: 160,
+            child: Image.asset(
+              'assets/DCS_Logo/untitled_design.png',
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
       ),
     );
@@ -226,16 +252,13 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
           Text('(Check And Update Cabinet Screen Version)', style: TextStyle(color: ConsoleTheme.textSecondary(context), fontSize: 11)),
           const SizedBox(height: 32),
           Center(
-            child: logoUrl != null && logoUrl.isNotEmpty
-              ? SizedBox(
-                  height: 160,
-                  child: SafeNetworkImage(
-                    logoUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context) => _buildDcsLogo(),
-                  ),
-                )
-              : _buildDcsLogo(),
+            child: SizedBox(
+              height: 160,
+              child: Image.asset(
+                'assets/DCS_Logo/untitled_design.png',
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
         ],
       );

@@ -11,7 +11,6 @@ import '../../features/settings/control_presets_screen.dart';
 import '../../features/settings/export_pdf_screen.dart';
 import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
-import 'safe_network_image.dart';
 import 'secure_action_guard.dart';
 import 'set_pin_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
@@ -188,7 +187,6 @@ class _SettingsPanel extends StatefulWidget {
 class _SettingsPanelState extends State<_SettingsPanel> {
   String? _username;
   int? _portalUserId;
-  String? _logoUrl;
   bool _loadingUser = true;
 
   bool get _canManageUsers {
@@ -334,17 +332,11 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   Future<void> _loadUserInfo() async {
     final user = await CpanelApiService.instance.getUsername();
     final uid = await CpanelApiService.instance.getUserId();
-    final site = CpanelApiService.instance.currentSite;
-    final logoPath = site?['company_logo_path']?.toString() ?? '';
-    final logoUrl = logoPath.trim().isNotEmpty
-        ? '${CpanelApiService.baseAssetUrl}$logoPath'
-        : null;
 
     if (!mounted) return;
     setState(() {
       _username = user;
       _portalUserId = uid;
-      _logoUrl = logoUrl;
       _loadingUser = false;
     });
   }
@@ -538,46 +530,14 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               color: Colors.transparent,
                               borderRadius: BorderRadius.circular(24),
                               clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: () async {
-                                  if (widget.onUploadLogo != null) {
-                                    await widget.onUploadLogo!();
-                                    _loadUserInfo();
-                                  }
-                                },
-                                child: SizedBox(
-                                  width: 140,
-                                  height: 140,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      if (_logoUrl != null)
-                                        Positioned.fill(
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(23),
-                                            child: SafeNetworkImage(
-                                              _logoUrl!,
-                                              fit: BoxFit.contain,
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        const Icon(Icons.business_rounded,
-                                            color: Colors.white24, size: 48),
-                                      if (_logoUrl == null) ...[
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.white.withValues(alpha: 0.4),
-                                            borderRadius: BorderRadius.circular(23),
-                                          ),
-                                        ),
-                                        Icon(Icons.camera_alt_rounded,
-                                            color:
-                                                Colors.white.withValues(alpha: 0.7),
-                                            size: 32),
-                                      ],
-                                    ],
+                              child: SizedBox(
+                                width: 140,
+                                height: 140,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(23),
+                                  child: Image.asset(
+                                    'assets/DCS_Logo/untitled_design.png',
+                                    fit: BoxFit.contain,
                                   ),
                                 ),
                               ),
