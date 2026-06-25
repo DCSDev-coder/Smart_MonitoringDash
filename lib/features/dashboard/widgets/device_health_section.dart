@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/utils/alarm_payload.dart';
 import '../../../shared/widgets/dashboard_glass.dart';
 import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
@@ -41,8 +42,7 @@ class DeviceHealthSection extends StatelessWidget {
       if (alarms == null || alarms!.isEmpty) return null;
       final dn = displayName.toLowerCase();
       for (final a in alarms!) {
-        final msg = (a is Map ? a['msg'] : null)?.toString().toLowerCase() ??
-            a.toString().toLowerCase();
+        final msg = alarmSearchText(a);
 
         // If the message indicates connectivity loss, prefer OFFLINE over ALERT.
         final isOfflineMsg = msg.contains('offline') ||
@@ -107,7 +107,9 @@ class DeviceHealthSection extends StatelessWidget {
         } else if (type == 'AC') {
           // Avoid matching random words; require "ac" as a token or "aircond".
           final hasAcToken = RegExp(r'\\bac\\b').hasMatch(msg);
-          if (hasAcToken || msg.contains('aircond') || msg.contains('air con')) {
+          if (hasAcToken ||
+              msg.contains('aircond') ||
+              msg.contains('air con')) {
             return isOfflineMsg ? _BoxState.offline : _BoxState.alarm;
           }
         }
@@ -251,26 +253,47 @@ class DeviceHealthSection extends StatelessWidget {
     final categoryAlarms = <String, List<dynamic>>{};
     if (alarms != null) {
       for (final a in alarms!) {
-        final msg = a['msg']?.toString().toLowerCase() ?? '';
-        
-        if (msg.contains('smoke') || msg.contains('fire') || msg.contains('detector')) {
+        final msg = alarmSearchText(a);
+
+        if (msg.contains('smoke') ||
+            msg.contains('fire') ||
+            msg.contains('detector')) {
           categoryAlarms.putIfAbsent('SMOKE', () => []).add(a);
         }
-        if (msg.contains('flood') || msg.contains('leak') || msg.contains('wld') || msg.contains('water') || msg.contains('moisture')) {
+        if (msg.contains('flood') ||
+            msg.contains('leak') ||
+            msg.contains('wld') ||
+            msg.contains('water') ||
+            msg.contains('moisture')) {
           categoryAlarms.putIfAbsent('WLD', () => []).add(a);
         }
-        if (msg.contains('temp') || msg.contains('humid') || msg.contains('t&h') || msg.contains('cabinet') || msg.contains('rack') || msg.contains('door')) {
+        if (msg.contains('temp') ||
+            msg.contains('humid') ||
+            msg.contains('t&h') ||
+            msg.contains('cabinet') ||
+            msg.contains('rack') ||
+            msg.contains('door')) {
           categoryAlarms.putIfAbsent('T&H', () => []).add(a);
         }
-        if (msg.contains('ups') || msg.contains('battery') || msg.contains('bypass')) {
+        if (msg.contains('ups') ||
+            msg.contains('battery') ||
+            msg.contains('bypass')) {
           categoryAlarms.putIfAbsent('UPS', () => []).add(a);
         }
         if (msg.contains('pdu')) {
           categoryAlarms.putIfAbsent('PDU', () => []).add(a);
-        } else if (msg.contains('power') || msg.contains('volt') || msg.contains('amp') || msg.contains('curr') || msg.contains('load')) {
+        } else if (msg.contains('power') ||
+            msg.contains('volt') ||
+            msg.contains('amp') ||
+            msg.contains('curr') ||
+            msg.contains('load')) {
           categoryAlarms.putIfAbsent('POWER', () => []).add(a);
         }
-        if (msg.contains('ac ') || msg.contains('air con') || msg.contains('cooling') || msg.contains('compressor') || msg.contains('fan')) {
+        if (msg.contains('ac ') ||
+            msg.contains('air con') ||
+            msg.contains('cooling') ||
+            msg.contains('compressor') ||
+            msg.contains('fan')) {
           categoryAlarms.putIfAbsent('AC', () => []).add(a);
         }
       }
@@ -285,9 +308,11 @@ class DeviceHealthSection extends StatelessWidget {
     }) {
       final items = grouped[type] ?? [];
       final activeAlarms = categoryAlarms[type] ?? [];
-      
+
       // If there are no rack items AND no site status AND no alarms, skip this category
-      if (items.isEmpty && (siteStatus == null || siteStatus == -1) && activeAlarms.isEmpty) return null;
+      if (items.isEmpty &&
+          (siteStatus == null || siteStatus == -1) &&
+          activeAlarms.isEmpty) return null;
 
       int total = 0;
       int normal = 0;
@@ -316,10 +341,24 @@ class DeviceHealthSection extends StatelessWidget {
       // 2. Add Rack-level sensors
       for (final item in items) {
         final tc = readCount(item, const ['totalCount', 'total', 'count']);
-        final nc = readCount(item, const ['normalCount', 'normal', 'okCount', 'secureCount']);
+        final nc = readCount(
+            item, const ['normalCount', 'normal', 'okCount', 'secureCount']);
         // Vendor dashboards typically expose alarm/offline separately. Use best-effort keys.
-        var ac = readCount(item, const ['alarmCount', 'alarm', 'alertCount', 'criticalCount', 'warnCount', 'abnormalCount']);
-        var oc = readCount(item, const ['offlineCount', 'offline', 'offCount', 'downCount', 'disconnectCount']);
+        var ac = readCount(item, const [
+          'alarmCount',
+          'alarm',
+          'alertCount',
+          'criticalCount',
+          'warnCount',
+          'abnormalCount'
+        ]);
+        var oc = readCount(item, const [
+          'offlineCount',
+          'offline',
+          'offCount',
+          'downCount',
+          'disconnectCount'
+        ]);
 
         // If the backend doesn't expose split counts, treat non-normal as offline by default.
         if (ac == 0 && oc == 0 && tc > 0) {
@@ -359,13 +398,16 @@ class DeviceHealthSection extends StatelessWidget {
           });
         } else {
           total++;
-          
+
           // Check for specific alarms mentioning this device's name
           bool hasSpecificAlarm = false;
-          final nodeName = (item['nodeName'] ?? item['name'] ?? '').toString().toLowerCase().trim();
+          final nodeName = (item['nodeName'] ?? item['name'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
           if (alarms != null && nodeName.isNotEmpty) {
             for (final a in alarms!) {
-              final msg = a['msg']?.toString().toLowerCase() ?? '';
+              final msg = alarmSearchText(a);
               if (msg.contains(nodeName)) {
                 hasSpecificAlarm = true;
                 break;
@@ -373,16 +415,21 @@ class DeviceHealthSection extends StatelessWidget {
             }
           }
 
-          final status = (item['status'] ?? item['nodeStatus'] ?? 0).toString().trim().toLowerCase();
+          final status = (item['status'] ?? item['nodeStatus'] ?? 0)
+              .toString()
+              .trim()
+              .toLowerCase();
           final statusColor = item['statusColor'];
-          
+
           // A device is "Good" ONLY if:
           // 1. Its status is normal/secure/1
           // 2. It has NO statusColor (which indicates an active alert/warning)
           // 3. It has NO specific alarm message in the recent alarms list
-          final isNormal = (status == '1' || status == 'normal' || status == 'secure');
-          final hasNoColor = statusColor == null || statusColor.toString().isEmpty;
-          
+          final isNormal =
+              (status == '1' || status == 'normal' || status == 'secure');
+          final hasNoColor =
+              statusColor == null || statusColor.toString().isEmpty;
+
           if (isNormal && hasNoColor && !hasSpecificAlarm) {
             normal++;
             boxStates.add(_BoxState.normal);
@@ -398,7 +445,10 @@ class DeviceHealthSection extends StatelessWidget {
 
       // 3. Fallback: if the backend doesn't provide alarm counts but we do have
       // active alarms for this category, mark at least one indicator as alarm.
-      if (alarm == 0 && offline == 0 && activeAlarms.isNotEmpty && boxStates.isNotEmpty) {
+      if (alarm == 0 &&
+          offline == 0 &&
+          activeAlarms.isNotEmpty &&
+          boxStates.isNotEmpty) {
         boxStates[0] = _BoxState.alarm;
         alarm = 1;
       }
@@ -408,14 +458,20 @@ class DeviceHealthSection extends StatelessWidget {
       // 4. Sort and Standardize T&H device names if needed
       if (type == 'T&H') {
         deviceList.sort((a, b) {
-          final aName = (a['nodeName'] ?? a['name'] ?? '').toString().toLowerCase();
-          final bName = (b['nodeName'] ?? b['name'] ?? '').toString().toLowerCase();
-          
-          final aNum = int.tryParse(RegExp(r'(\d+)').firstMatch(aName)?.group(1) ?? '1') ?? 1;
-          final bNum = int.tryParse(RegExp(r'(\d+)').firstMatch(bName)?.group(1) ?? '1') ?? 1;
-          
+          final aName =
+              (a['nodeName'] ?? a['name'] ?? '').toString().toLowerCase();
+          final bName =
+              (b['nodeName'] ?? b['name'] ?? '').toString().toLowerCase();
+
+          final aNum = int.tryParse(
+                  RegExp(r'(\d+)').firstMatch(aName)?.group(1) ?? '1') ??
+              1;
+          final bNum = int.tryParse(
+                  RegExp(r'(\d+)').firstMatch(bName)?.group(1) ?? '1') ??
+              1;
+
           if (aNum != bNum) return aNum.compareTo(bNum);
-          
+
           final aIsFront = aName.contains('front') ? 0 : 1;
           final bIsFront = bName.contains('front') ? 0 : 1;
           return aIsFront.compareTo(bIsFront);
@@ -434,9 +490,12 @@ class DeviceHealthSection extends StatelessWidget {
         final d = deviceList[i];
         String name = (d['nodeName'] ?? d['name'] ?? '').toString().trim();
         if (name.isEmpty) name = '$label ${i + 1}';
-        
+
         final tc = d['totalCount'] as int? ?? 1;
-        final nId = int.tryParse(d['id']?.toString() ?? d['collectControlNodeId']?.toString() ?? d['nodeId']?.toString() ?? '');
+        final nId = int.tryParse(d['id']?.toString() ??
+            d['collectControlNodeId']?.toString() ??
+            d['nodeId']?.toString() ??
+            '');
         final mCode = d['metricCode']?.toString();
 
         if (tc > 1) {
@@ -451,7 +510,7 @@ class DeviceHealthSection extends StatelessWidget {
           metricCodes.add(mCode);
         }
       }
-      
+
       // Fallback padding if total > deviceList bounds
       while (displayNames.length < total) {
         displayNames.add('$label ${displayNames.length + 1}');
@@ -463,7 +522,8 @@ class DeviceHealthSection extends StatelessWidget {
       // - apply offline count as grey (unknown identity -> mark from the end)
       // - apply alarm count as red (unknown identity -> mark from the start)
       // - refine alarms based on message matching (best-effort, per-device)
-      boxStates = List<_BoxState>.filled(total, _BoxState.normal, growable: true);
+      boxStates =
+          List<_BoxState>.filled(total, _BoxState.normal, growable: true);
 
       // For Temp/Humd specifically, prefer the same live readings the gauges use.
       // This gives us per-cabinet-side accuracy (e.g. only Cabinet 1 Front turns red).
@@ -524,10 +584,7 @@ class DeviceHealthSection extends StatelessWidget {
       'T&H': {'label': 'T.H', 'icon': 'assets/icons/thermometer.svg'},
       'POWER': {'label': 'Power', 'icon': 'assets/icons/plug.svg'},
       'UPS': {'label': 'UPS', 'icon': 'assets/icons/ups.svg'},
-      'SMOKE': {
-        'label': 'Smoke',
-        'icon': 'assets/icons/fire-extinguisher.svg'
-      },
+      'SMOKE': {'label': 'Smoke', 'icon': 'assets/icons/fire-extinguisher.svg'},
       'WLD': {'label': 'Leak', 'icon': 'assets/icons/droplet.svg'},
       'PDU': {'label': 'PDU', 'icon': 'assets/icons/pdu.svg'},
     };
@@ -555,10 +612,8 @@ class DeviceHealthSection extends StatelessWidget {
 
     // Then: any unknown categories returned by the backend (keep them visible,
     // but push them to the end so the dashboard is stable).
-    final extras = grouped.keys
-        .where((t) => !preferredOrder.contains(t))
-        .toList()
-      ..sort();
+    final extras =
+        grouped.keys.where((t) => !preferredOrder.contains(t)).toList()..sort();
     for (final type in extras) {
       final it = mapItem(
         type,
@@ -577,7 +632,9 @@ class DeviceHealthSection extends StatelessWidget {
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: minimalist ? Colors.transparent : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
+          color: minimalist
+              ? Colors.transparent
+              : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
           borderRadius: BorderRadius.circular(24),
           boxShadow: (isLight && !minimalist)
               ? [
@@ -597,10 +654,12 @@ class DeviceHealthSection extends StatelessWidget {
             final isLast = i == groupItems.length - 1;
             return Column(
               children: [
-                _DeviceHealthRow(item: item, alarms: alarms, minimalist: minimalist),
+                _DeviceHealthRow(
+                    item: item, alarms: alarms, minimalist: minimalist),
                 if (!isLast)
                   Padding(
-                    padding: EdgeInsets.only(left: minimalist ? 52 : 72, right: minimalist ? 0 : 16),
+                    padding: EdgeInsets.only(
+                        left: minimalist ? 52 : 72, right: minimalist ? 0 : 16),
                     child: Divider(
                       height: 1,
                       thickness: 1,
@@ -674,14 +733,22 @@ class _DeviceHealthItem {
 
   Color get iconBgColor {
     switch (type) {
-      case 'AC': return const Color(0xFF00C7BE); // Cyan
-      case 'T&H': return const Color(0xFFFF9500); // Orange
-      case 'POWER': return const Color(0xFF5856D6); // Purple
-      case 'UPS': return const Color(0xFF4CD964); // Green
-      case 'SMOKE': return const Color(0xFFFF3B30); // Red
-      case 'WLD': return const Color(0xFF34A853); // Teal
-      case 'PDU': return const Color(0xFF007AFF); // Blue
-      default: return const Color(0xFF8E8E93); // Grey
+      case 'AC':
+        return const Color(0xFF00C7BE); // Cyan
+      case 'T&H':
+        return const Color(0xFFFF9500); // Orange
+      case 'POWER':
+        return const Color(0xFF5856D6); // Purple
+      case 'UPS':
+        return const Color(0xFF4CD964); // Green
+      case 'SMOKE':
+        return const Color(0xFFFF3B30); // Red
+      case 'WLD':
+        return const Color(0xFF34A853); // Teal
+      case 'PDU':
+        return const Color(0xFF007AFF); // Blue
+      default:
+        return const Color(0xFF8E8E93); // Grey
     }
   }
 
@@ -742,75 +809,81 @@ class _DeviceHealthRow extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: item.iconBgColor,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          item.iconAsset,
-                          width: 24,
-                          height: 24,
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Text(
-                            item.label.toUpperCase(),
-                            style: bitcount(
-                              context,
-                              fontSize: 14,
-                              color: const Color(0xFFFF8A00),
-                              letterSpacing: 1.5,
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: item.iconBgColor,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Center(
+                              child: SvgPicture.asset(
+                                item.iconAsset,
+                                width: 24,
+                                height: 24,
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.white,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                             ),
                           ),
-                          Text(
-                            'Unified Monitoring: ${item.total} Sensors',
-                            style: TextStyle(
-                              color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white).withValues(alpha: 0.5),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.label.toUpperCase(),
+                                  style: bitcount(
+                                    context,
+                                    fontSize: 14,
+                                    color: const Color(0xFFFF8A00),
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                Text(
+                                  'Unified Monitoring: ${item.total} Sensors',
+                                  style: TextStyle(
+                                    color: (Theme.of(context).brightness ==
+                                                Brightness.light
+                                            ? AppTheme.lightTextSecondary
+                                            : Colors.white)
+                                        .withValues(alpha: 0.5),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: onSurface.withValues(alpha: 0.05),
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.close_rounded,
+                                  color: onSurface, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                  minWidth: 36, minHeight: 36),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: onSurface.withValues(alpha: 0.05),
-                      ),
-                      child: IconButton(
-                        icon: Icon(Icons.close_rounded, color: onSurface, size: 20),
-                        onPressed: () => Navigator.pop(ctx),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Legacy per-device rendering based on raw payload kept for reference.
-                        // The new behavior renders from displayNames + boxStates (derived from
-                        // /byTypeForStatus and alarm message matching).
-                        /*
+                      const SizedBox(height: 20),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              // Legacy per-device rendering based on raw payload kept for reference.
+                              // The new behavior renders from displayNames + boxStates (derived from
+                              // /byTypeForStatus and alarm message matching).
+                              /*
                         ...item.devices.map((d) {
                           final idx = item.devices.indexOf(d);
                           final isAlarm = d['isAlarm'] == true;
@@ -861,7 +934,7 @@ class _DeviceHealthRow extends StatelessWidget {
                           final dn = (d['nodeName'] ?? d['name'] ?? '').toString().toLowerCase().trim();
                           if (alarms != null && dn.isNotEmpty) {
                             for (final a in alarms!) {
-                              final msg = a['msg']?.toString().toLowerCase() ?? '';
+                              final msg = alarmSearchText(a);
                               if (msg.contains(dn)) {
                                 hasSpecificAlarm = true;
                                 break;
@@ -884,34 +957,39 @@ class _DeviceHealthRow extends StatelessWidget {
                           );
                         }),
                         */
-                        for (var i = 0; i < item.displayNames.length; i++)
-                          _DeviceDetailRow(
-                            name: item.displayNames[i],
-                            state: i < item.boxStates.length
-                                ? item.boxStates[i]
-                                : _BoxState.normal,
-                            nodeId: i < item.nodeIds.length ? item.nodeIds[i] : null,
-                            metricCode: i < item.metricCodes.length ? item.metricCodes[i] : null,
-                            deviceType: item.type,
-                            iconAsset: item.iconAsset,
-                            iconBgColor: item.iconBgColor,
+                              for (var i = 0; i < item.displayNames.length; i++)
+                                _DeviceDetailRow(
+                                  name: item.displayNames[i],
+                                  state: i < item.boxStates.length
+                                      ? item.boxStates[i]
+                                      : _BoxState.normal,
+                                  nodeId: i < item.nodeIds.length
+                                      ? item.nodeIds[i]
+                                      : null,
+                                  metricCode: i < item.metricCodes.length
+                                      ? item.metricCodes[i]
+                                      : null,
+                                  deviceType: item.type,
+                                  iconAsset: item.iconAsset,
+                                  iconBgColor: item.iconBgColor,
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    ),
-  );
-},
-transitionBuilder: (ctx, anim1, anim2, child) {
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
         return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
+          filter: ImageFilter.blur(
+              sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
           child: Transform.scale(
             scale: 0.8 + (0.2 * curve.value),
             child: FadeTransition(
@@ -938,7 +1016,7 @@ transitionBuilder: (ctx, anim1, anim2, child) {
             : const Color(0xFFFF3B30).withValues(alpha: 0.08));
 
     final iconBgColor = item.iconBgColor;
-      
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -952,7 +1030,9 @@ transitionBuilder: (ctx, anim1, anim2, child) {
                 color: alertTint ?? Colors.transparent,
                 borderRadius: BorderRadius.circular(18),
               ),
-              padding: EdgeInsets.symmetric(horizontal: minimalist ? 0 : 14, vertical: minimalist ? 12 : 14),
+              padding: EdgeInsets.symmetric(
+                  horizontal: minimalist ? 0 : 14,
+                  vertical: minimalist ? 12 : 14),
               child: Row(
                 children: [
                   Container(
@@ -983,7 +1063,9 @@ transitionBuilder: (ctx, anim1, anim2, child) {
                         Text(
                           item.label,
                           style: TextStyle(
-                            color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                            color: isLight
+                                ? AppTheme.lightTextPrimary
+                                : Colors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1007,7 +1089,8 @@ transitionBuilder: (ctx, anim1, anim2, child) {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _HealthBoxesFromStates(states: item.boxStates, minimalist: minimalist),
+                  _HealthBoxesFromStates(
+                      states: item.boxStates, minimalist: minimalist),
                 ],
               ),
             ),
@@ -1176,7 +1259,8 @@ class _DeviceDetailRow extends StatelessWidget {
           ),
           if (nodeId != null) ...[
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded, color: isLight ? Colors.black38 : Colors.white38, size: 18),
+            Icon(Icons.chevron_right_rounded,
+                color: isLight ? Colors.black38 : Colors.white38, size: 18),
           ],
         ],
       ),
@@ -1231,7 +1315,8 @@ class _HealthBoxesFromStates extends StatelessWidget {
 
     return Row(
       children: [
-        for (var i = 0; i < visible; i++) _SingleHealthBox(state: states[i], minimalist: minimalist),
+        for (var i = 0; i < visible; i++)
+          _SingleHealthBox(state: states[i], minimalist: minimalist),
         if (extra > 0)
           Padding(
             padding: const EdgeInsets.only(left: 8),
@@ -1262,7 +1347,8 @@ class _SingleHealthBox extends StatelessWidget {
     final baseColor = switch (state) {
       _BoxState.normal => const Color(0xFFFF8A00), // Orange
       _BoxState.alarm => const Color(0xFFFF3B30), // Red
-      _BoxState.offline => isLight ? const Color(0xFFBFC5D2) : const Color(0xFF6B7280), // Grey
+      _BoxState.offline =>
+        isLight ? const Color(0xFFBFC5D2) : const Color(0xFF6B7280), // Grey
     };
 
     return Container(

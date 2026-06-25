@@ -19,6 +19,11 @@ class AdapterApiService {
     return token;
   }
 
+  void _logMissingPortalTokenIfNeeded() {
+    if (AppConfig.isDemoMode) return;
+    _logMissingPortalTokenIfNeeded();
+  }
+
   Map<String, String> _headers(String token) => {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
@@ -45,7 +50,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return false;
     }
 
@@ -86,7 +91,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -115,7 +120,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -144,7 +149,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -176,7 +181,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -210,7 +215,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -239,7 +244,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -269,7 +274,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -299,7 +304,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -330,7 +335,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -360,7 +365,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -390,7 +395,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -420,7 +425,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -450,7 +455,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -488,7 +493,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -534,7 +539,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -578,7 +583,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -622,7 +627,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -661,7 +666,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -694,7 +699,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -733,7 +738,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -778,7 +783,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -827,7 +832,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -872,7 +877,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return false;
     }
 
@@ -904,7 +909,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -948,7 +953,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 
@@ -995,7 +1000,7 @@ class AdapterApiService {
 
     final token = _tokenOrNull();
     if (token == null) {
-      AppLog.d('Missing portal auth token in memory', tag: 'AdapterApi');
+      _logMissingPortalTokenIfNeeded();
       return null;
     }
 

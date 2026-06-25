@@ -22,8 +22,18 @@ class DoorConsoleScreen extends StatefulWidget {
 }
 
 class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
+  final Map<int, Timer> _unlockTimers = <int, Timer>{};
+  final Set<int> _localUnlocked = <int>{};
 
   List<Map<String, dynamic>> get _doors => widget.snapshot.doors;
+
+  @override
+  void dispose() {
+    for (final timer in _unlockTimers.values) {
+      timer.cancel();
+    }
+    super.dispose();
+  }
 
   Map<String, dynamic>? _doorBySemanticName(List<String> keywords) {
     for (final door in _doors) {
@@ -45,12 +55,18 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
   String _doorLabel(Map<String, dynamic>? door, String fallback) {
     if (door == null) return fallback;
     final name = (door['accessName'] ?? door['name'] ?? '').toString().trim();
-    if (name.isNotEmpty) {
-      final lower = name.toLowerCase();
-      if (lower.contains('front')) return 'Front 1';
-      if (lower.contains('rear') || lower.contains('back')) return 'Rear 1';
-      return name;
-    }
+    if (name.isEmpty) return fallback;
+
+    final lower = name.toLowerCase();
+    if (lower.contains('front')) return 'Front Door';
+    if (lower.contains('rear') || lower.contains('back')) return 'Back Door';
+    return name;
+  }
+
+  String _doorPosition(Map<String, dynamic>? door, String fallback) {
+    final label = _doorLabel(door, fallback).toLowerCase();
+    if (label.contains('front')) return 'Front';
+    if (label.contains('back') || label.contains('rear')) return 'Back';
     return fallback;
   }
 
@@ -61,10 +77,43 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     return int.tryParse(idRaw?.toString() ?? '') ?? 0;
   }
 
-  String _formatLogDateTime(String raw) {
-    final dt = DateTime.tryParse(raw);
-    if (dt == null) return raw;
-    return DateFormat('yyyy-MM-dd hh:mm:ss a').format(dt);
+  bool _isDoorUnlocked(Map<String, dynamic>? door) {
+    final id = _doorId(door);
+    if (id != 0 && _localUnlocked.contains(id)) return true;
+    return door?['isOpen'] == true;
+  }
+
+  Future<void> _unlockDoor(Map<String, dynamic>? door, String fallbackLabel) async {
+    final id = _doorId(door);
+    final name = _doorLabel(door, fallbackLabel);
+    if (id == 0) return;
+
+    AppLog.d(
+      'Rack Console unlock requested',
+      tag: 'RackConsoleDoor',
+      fields: {'doorId': id, 'doorName': name, 'doorCount': _doors.length},
+    );
+
+    final authorized = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
+    );
+
+    if (authorized != true || !mounted) return;
+
+    setState(() {
+      _localUnlocked.add(id);
+    });
+
+    _unlockTimers[id]?.cancel();
+    _unlockTimers[id] = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      setState(() {
+        _localUnlocked.remove(id);
+      });
+    });
   }
 
   String _formatLogDate(String raw) {
@@ -79,120 +128,59 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     return DateFormat('hh:mm:ss a').format(dt);
   }
 
-  Future<bool> _handleUnlockDoor(int id, String name) async {
-    AppLog.d(
-      'Rack Console unlock requested',
-      tag: 'RackConsoleDoor',
-      fields: {'doorId': id, 'doorName': name, 'doorCount': _doors.length},
+  Widget _headerCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
     );
-    final authorized = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
-    );
-
-    if (authorized == true) {
-      return true;
-    }
-    return false;
   }
 
-  Widget _buildHorizontalDoorRow(
-    BuildContext context,
-    String defaultLabel,
-    Map<String, dynamic>? door, {
-    double bottomMargin = 16,
-  }) {
-    final name = _doorLabel(door, defaultLabel);
-    final id = _doorId(door);
-    final isUnlocked = door?['isOpen'] == true;
-    final enabled = id != 0;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      margin: EdgeInsets.only(bottom: bottomMargin),
-      decoration: BoxDecoration(
-        color: ConsoleTheme.panelBg(context).withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: isUnlocked 
-                ? ConsoleTheme.success(context).withValues(alpha: 0.2) 
-                : Colors.white.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
-              color: isUnlocked ? ConsoleTheme.success(context) : Colors.white70,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            width: 140,
-            height: 48,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isUnlocked ? ConsoleTheme.success(context) : ConsoleTheme.primaryBlue(context),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              ),
-              onPressed: enabled ? () => _handleUnlockDoor(id, name) : null,
-              child: Text(
-                isUnlocked ? 'UNLOCKED' : 'UNLOCK',
-                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
-              ),
-            ),
-          ),
-        ],
+  Widget _dataCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white70, fontSize: 13),
       ),
     );
   }
 
   Widget _buildRecentLogsTable(BuildContext context) {
     final logs = widget.snapshot.recentDoorLogs;
-    
+
     if (logs.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.all(32.0),
+        padding: EdgeInsets.all(32),
         child: Center(
-          child: Text('No recent door access logs', style: TextStyle(color: Colors.white54)),
+          child: Text(
+            'No recent door access logs',
+            style: TextStyle(color: Colors.white54),
+          ),
         ),
       );
     }
 
     return Table(
       columnWidths: const {
-        0: FlexColumnWidth(1.7),
-        1: FlexColumnWidth(1.5),
-        2: FlexColumnWidth(1.3),
+        0: FlexColumnWidth(1.6),
+        1: FlexColumnWidth(1.4),
+        2: FlexColumnWidth(1.5),
         3: FlexColumnWidth(1.7),
       },
       children: [
         TableRow(
           decoration: BoxDecoration(
-            color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2),
-            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+            color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.16),
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            ),
           ),
           children: [
             _headerCell('Date'),
@@ -201,27 +189,34 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
             _headerCell('User'),
           ],
         ),
-        ...logs.take(15).map((log) {
+        ...logs.take(12).map((log) {
           final rawTime =
               log['opTime']?.toString() ?? log['time']?.toString() ?? '--';
           final date = rawTime == '--' ? rawTime : _formatLogDate(rawTime);
           final time = rawTime == '--' ? rawTime : _formatLogTime(rawTime);
-          
-          String door = log['accessName']?.toString() ?? log['doorName']?.toString() ?? '--';
-          if (door != '--') {
-            final lower = door.toLowerCase();
-            if (lower.contains('front')) {
-              door = 'Front 1';
-            } else if (lower.contains('rear') || lower.contains('back')) {
-              door = 'Rear 1';
-            }
+
+          var door = log['accessName']?.toString() ??
+              log['doorName']?.toString() ??
+              '--';
+          final lowerDoor = door.toLowerCase();
+          if (lowerDoor.contains('front')) {
+            door = 'Front Door';
+          } else if (lowerDoor.contains('rear') || lowerDoor.contains('back')) {
+            door = 'Back Door';
           }
-          
-          final user = log['opUser']?.toString() ?? log['openUser']?.toString() ?? log['userName']?.toString() ?? log['username']?.toString() ?? log['user']?.toString() ?? '--';
-          
+
+          final user = log['opUser']?.toString() ??
+              log['openUser']?.toString() ??
+              log['userName']?.toString() ??
+              log['username']?.toString() ??
+              log['user']?.toString() ??
+              '--';
+
           return TableRow(
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+              border: Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+              ),
             ),
             children: [
               _dataCell(date),
@@ -235,98 +230,531 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     );
   }
 
-  Widget _headerCell(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-      ),
-    );
-  }
-
-  Widget _dataCell(String text, {bool isStatus = false}) {
-    Color color = Colors.white70;
-    if (isStatus) {
-      final s = text.toLowerCase();
-      if (s.contains('success') || s.contains('unlock') || s == '1' || s.contains('open')) {
-        color = Colors.greenAccent;
-        text = 'Success';
-      } else if (s.contains('fail') || s.contains('denied') || s == '0') {
-        color = Colors.redAccent;
-        text = 'Failed';
-      }
-    }
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      child: Text(
-        text,
-        style: TextStyle(color: color, fontSize: 13),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final leftDoor = _doorBySemanticName(const ['front', 'front door']) ??
-        _doorByFallbackIndex(0);
-    final rightDoor = _doorBySemanticName(const ['rear', 'back', 'rear door']) ??
-        (_doors.length > 1 ? _doorByFallbackIndex(_doors.length - 1) : leftDoor);
+    final frontDoor =
+        _doorBySemanticName(const ['front', 'front door']) ?? _doorByFallbackIndex(0);
+    final backDoor = _doorBySemanticName(const ['rear', 'back', 'back door']) ??
+        (_doors.length > 1 ? _doorByFallbackIndex(_doors.length - 1) : frontDoor);
 
-    final double width = MediaQuery.of(context).size.width;
-    final isNarrow = width < 768;
+    final width = MediaQuery.of(context).size.width;
+    final isNarrow = width < 1024;
 
-    final frontDoorCard = ConsoleSectionCard(
-      title: 'Front Door Access',
-      child: _buildHorizontalDoorRow(context, 'Front Door', leftDoor, bottomMargin: 0),
-    );
-
-    final rearDoorCard = ConsoleSectionCard(
-      title: 'Rear Door Access',
-      child: _buildHorizontalDoorRow(context, 'Rear Door', rightDoor, bottomMargin: 0),
-    );
-
-    final logsCard = ConsoleSectionCard(
-      title: 'Door Access Logs',
-      expand: true,
-      child: SingleChildScrollView(
-        child: _buildRecentLogsTable(context),
-      ),
-    );
-
-    if (isNarrow) {
-      return Padding(
-        padding: const EdgeInsets.all(ConsoleTheme.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            frontDoorCard,
-            const SizedBox(height: ConsoleTheme.lg),
-            rearDoorCard,
-            const SizedBox(height: ConsoleTheme.lg),
-            Expanded(child: logsCard),
-          ],
-        ),
-      );
-    }
+    final topSection = isNarrow
+        ? Column(
+            children: [
+              _DoorAccessPanel(
+                title: 'Front Door Access',
+                doorLabel: _doorLabel(frontDoor, 'Front Door'),
+                positionLabel: _doorPosition(frontDoor, 'Front'),
+                isUnlocked: _isDoorUnlocked(frontDoor),
+                enabled: _doorId(frontDoor) != 0,
+                onUnlock: () => _unlockDoor(frontDoor, 'Front Door'),
+              ),
+              const SizedBox(height: ConsoleTheme.lg),
+              const _RackVisualPanel(),
+              const SizedBox(height: ConsoleTheme.lg),
+              _DoorAccessPanel(
+                title: 'Back Door Access',
+                doorLabel: _doorLabel(backDoor, 'Back Door'),
+                positionLabel: _doorPosition(backDoor, 'Back'),
+                isUnlocked: _isDoorUnlocked(backDoor),
+                enabled: _doorId(backDoor) != 0,
+                onUnlock: () => _unlockDoor(backDoor, 'Back Door'),
+              ),
+            ],
+          )
+        : IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _DoorAccessPanel(
+                    title: 'Front Door Access',
+                    doorLabel: _doorLabel(frontDoor, 'Front Door'),
+                    positionLabel: _doorPosition(frontDoor, 'Front'),
+                    isUnlocked: _isDoorUnlocked(frontDoor),
+                    enabled: _doorId(frontDoor) != 0,
+                    onUnlock: () => _unlockDoor(frontDoor, 'Front Door'),
+                  ),
+                ),
+                const SizedBox(width: ConsoleTheme.lg),
+                const Expanded(child: _RackVisualPanel()),
+                const SizedBox(width: ConsoleTheme.lg),
+                Expanded(
+                  child: _DoorAccessPanel(
+                    title: 'Back Door Access',
+                    doorLabel: _doorLabel(backDoor, 'Back Door'),
+                    positionLabel: _doorPosition(backDoor, 'Back'),
+                    isUnlocked: _isDoorUnlocked(backDoor),
+                    enabled: _doorId(backDoor) != 0,
+                    onUnlock: () => _unlockDoor(backDoor, 'Back Door'),
+                  ),
+                ),
+              ],
+            ),
+          );
 
     return Padding(
       padding: const EdgeInsets.all(ConsoleTheme.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(child: frontDoorCard),
-              const SizedBox(width: ConsoleTheme.lg),
-              Expanded(child: rearDoorCard),
-            ],
-          ),
+          topSection,
           const SizedBox(height: ConsoleTheme.lg),
-          Expanded(child: logsCard),
+          Expanded(
+            child: ConsoleSectionCard(
+              title: 'Door Access Logs',
+              expand: true,
+              child: SingleChildScrollView(
+                child: _buildRecentLogsTable(context),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _DoorAccessPanel extends StatelessWidget {
+  const _DoorAccessPanel({
+    required this.title,
+    required this.doorLabel,
+    required this.positionLabel,
+    required this.isUnlocked,
+    required this.enabled,
+    required this.onUnlock,
+  });
+
+  final String title;
+  final String doorLabel;
+  final String positionLabel;
+  final bool isUnlocked;
+  final bool enabled;
+  final VoidCallback onUnlock;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isUnlocked
+        ? ConsoleTheme.success(context)
+        : ConsoleTheme.primaryBlue(context);
+
+    return ConsoleSectionCard(
+      title: title,
+      minHeight: 260,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    accent.withValues(alpha: 0.14),
+                    ConsoleTheme.innerSurface(context).withValues(alpha: 0.72),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
+                border: Border.all(
+                  color: accent.withValues(alpha: 0.28),
+                ),
+              ),
+              padding: const EdgeInsets.all(ConsoleTheme.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _DoorGlyph(isUnlocked: isUnlocked, accent: accent),
+                      const SizedBox(width: ConsoleTheme.lg),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              doorLabel,
+                              style: TextStyle(
+                                color: ConsoleTheme.textPrimary(context),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Rack Position: $positionLabel',
+                              style: TextStyle(
+                                color: ConsoleTheme.textSecondary(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Wrap(
+                    spacing: ConsoleTheme.md,
+                    runSpacing: ConsoleTheme.md,
+                    children: [
+                      _DoorStatusPill(
+                        label: isUnlocked ? 'Door Opened' : 'Door Locked',
+                        value: isUnlocked ? 'Active' : 'Secured',
+                        accent: accent,
+                      ),
+                      _DoorStatusPill(
+                        label: 'Access Mode',
+                        value: 'User PIN',
+                        accent: ConsoleTheme.cyan(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ConsoleTheme.xl),
+                  SizedBox(
+                    height: 52,
+                    width: double.infinity,
+                    child: _ConsoleUnlockButton(
+                      enabled: enabled && !isUnlocked,
+                      label: isUnlocked ? 'UNLOCKED' : 'UNLOCK DOOR',
+                      onPressed: enabled && !isUnlocked ? onUnlock : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RackVisualPanel extends StatelessWidget {
+  const _RackVisualPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return ConsoleSectionCard(
+      title: 'Smart Rack',
+      minHeight: 260,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.02),
+              ConsoleTheme.cyan(context).withValues(alpha: 0.06),
+              Colors.white.withValues(alpha: 0.02),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          border: Border.all(
+            color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.8),
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 18,
+              child: Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ConsoleTheme.cyan(context).withValues(alpha: 0.28),
+                      blurRadius: 26,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(ConsoleTheme.xl),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Image.asset(
+                      'assets/images/smart_rack_containment_logo.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: ConsoleTheme.md),
+                  Text(
+                    'INVT Rack Demo Layout',
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Front and back door control are presented around the rack view for event display.',
+                    style: TextStyle(
+                      color: ConsoleTheme.textSecondary(context),
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DoorGlyph extends StatefulWidget {
+  const _DoorGlyph({required this.isUnlocked, required this.accent});
+
+  final bool isUnlocked;
+  final Color accent;
+
+  @override
+  State<_DoorGlyph> createState() => _DoorGlyphState();
+}
+
+class _DoorGlyphState extends State<_DoorGlyph>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final pulse = 0.14 + (_controller.value * 0.16);
+        return Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                widget.accent.withValues(alpha: pulse + 0.18),
+                widget.accent.withValues(alpha: 0.10),
+                Colors.transparent,
+              ],
+            ),
+            border: Border.all(
+              color: widget.accent.withValues(alpha: 0.4),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.accent.withValues(alpha: pulse),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            transitionBuilder: (child, animation) =>
+                ScaleTransition(scale: animation, child: child),
+            child: Icon(
+              widget.isUnlocked
+                  ? Icons.lock_open_rounded
+                  : Icons.lock_outline_rounded,
+              key: ValueKey<bool>(widget.isUnlocked),
+              color: Colors.white,
+              size: 38,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DoorStatusPill extends StatelessWidget {
+  const _DoorStatusPill({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: ConsoleTheme.textSecondary(context),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConsoleUnlockButton extends StatefulWidget {
+  const _ConsoleUnlockButton({
+    required this.enabled,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_ConsoleUnlockButton> createState() => _ConsoleUnlockButtonState();
+}
+
+class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = !widget.enabled || widget.onPressed == null;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onPressed,
+            borderRadius: BorderRadius.circular(999),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: disabled
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : null,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: disabled
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : ConsoleTheme.cyan(context).withValues(alpha: 0.30),
+                ),
+                boxShadow: disabled
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: ConsoleTheme.cyan(context)
+                              .withValues(alpha: 0.18),
+                          blurRadius: 22,
+                          spreadRadius: 2,
+                        ),
+                      ],
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (!disabled)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: 0.32,
+                        child: Transform.translate(
+                          offset: Offset(_controller.value * 240 - 90, 0),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.white.withValues(alpha: 0.14),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Center(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: disabled
+                            ? Colors.white54
+                            : ConsoleTheme.textInverse(context),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

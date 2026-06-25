@@ -35,6 +35,11 @@ class _BootGateState extends State<BootGate> {
 
   Future<void> _boot() async {
     try {
+      if (AppConfig.isDemoMode) {
+        _goHome();
+        return;
+      }
+
       final enabled = await rememberMeStore.isEnabled();
       final token = await rememberMeStore.getAuthToken();
 
@@ -149,6 +154,11 @@ class _BootGateState extends State<BootGate> {
   void _goWelcome() {
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed('/welcome');
+  }
+
+  void _goHome() {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed('/home');
   }
 
   @override

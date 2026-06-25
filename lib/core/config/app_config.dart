@@ -12,6 +12,31 @@ class AppConfig {
   static String get appTitle =>
       isRackConsoleBuild ? 'DCS Rack Console' : 'DCS Dashboard';
 
+  static const String _demoModeRaw = String.fromEnvironment(
+    'DEMO_MODE',
+    defaultValue: 'false',
+  );
+
+  static bool get isDemoMode {
+    final v = _demoModeRaw.trim().toLowerCase();
+    return v == '1' || v == 'true' || v == 'yes';
+  }
+
+  static const String _demoScenarioRotationRaw = String.fromEnvironment(
+    'DEMO_SCENARIO_ROTATION',
+    defaultValue: 'true',
+  );
+
+  static bool get demoScenarioRotationEnabled {
+    final v = _demoScenarioRotationRaw.trim().toLowerCase();
+    return v == '1' || v == 'true' || v == 'yes';
+  }
+
+  static const int demoScenarioSeconds = int.fromEnvironment(
+    'DEMO_SCENARIO_SECONDS',
+    defaultValue: 45,
+  );
+
   // Override via:
   // flutter run --dart-define=CPANEL_BASE_URL="https://example.com/api/index.php"
   // flutter run --dart-define=CPANEL_ASSET_BASE_URL="https://example.com/"

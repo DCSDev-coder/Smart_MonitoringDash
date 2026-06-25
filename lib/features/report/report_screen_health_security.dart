@@ -8,9 +8,66 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
         children: [
           _buildDiagnosticsSection(),
           const SizedBox(height: 24),
+          _buildCurrentAlarmSection(),
+          const SizedBox(height: 24),
           _buildReportAlarmSection(),
         ],
       ),
+    );
+  }
+
+  List<Map<String, dynamic>> _activeCurrentAlarms() {
+    return _poller.recentAlarms
+        .whereType<Map>()
+        .map((alarm) => alarm.cast<String, dynamic>())
+        .where((alarm) => !alarmIsResolved(alarm))
+        .toList();
+  }
+
+  Widget _buildCurrentAlarmSection() {
+    final currentAlarms = _activeCurrentAlarms();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'CURRENT ISSUES',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context).brightness == Brightness.light
+                ? AppTheme.lightTextPrimary
+                : Colors.white,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sectionGapSm),
+        if (currentAlarms.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'No active alarms right now.',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppTheme.lightTextPrimary
+                    : Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: currentAlarms.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              return ExpandableHistoricalAlarmCard(alarm: currentAlarms[index]);
+            },
+          ),
+      ],
     );
   }
 
@@ -222,7 +279,8 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               primary: AppTheme.accentBlue,
               surface: isLight ? Colors.white : const Color(0xFF0B0F14),
             ),
-            dialogBackgroundColor: isLight ? Colors.white : const Color(0xFF0B0F14),
+            dialogBackgroundColor:
+                isLight ? Colors.white : const Color(0xFF0B0F14),
           ),
           child: child!,
         );
@@ -237,7 +295,8 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       if (mounted) {
         if (success) {
           _applyMaintenanceDate(picked, dateStr);
-          AppToast.showSuccess(context, 'Maintenance date updated successfully');
+          AppToast.showSuccess(
+              context, 'Maintenance date updated successfully');
         } else {
           AppToast.showError(context, 'Failed to update maintenance date');
         }
@@ -465,12 +524,15 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
 
     final int status = int.tryParse(log['op']?.toString() ?? '') ?? -1;
     final String timeStr = log['opTime']?.toString() ?? '';
-    
-    String user = (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'])?.toString() ?? '';
+
+    String user =
+        (log['opUser'] ?? log['openUser'] ?? log['userName'] ?? log['username'])
+                ?.toString() ??
+            '';
 
     String timeLabel = '--:--';
     String dateLabel = '--/--';
-    
+
     DateTime? dt = DateTime.tryParse(timeStr);
     if (dt != null) {
       timeLabel = DateFormat('hh:mm a').format(dt);
@@ -655,7 +717,8 @@ class _ExpandableHistoricalAlarmCardState
                     color: isLight ? Colors.black54 : Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: isLight ? Colors.black54 : const Color(0xFFEAA61E),
+                        color:
+                            isLight ? Colors.black54 : const Color(0xFFEAA61E),
                         width: 3),
                   ),
                 ),
@@ -707,12 +770,16 @@ class _ExpandableHistoricalAlarmCardState
                   Row(
                     children: [
                       Icon(Icons.access_time_rounded,
-                          color: isLight ? Colors.black45 : const Color(0xFF4C8FE1), size: 14),
+                          color: isLight
+                              ? Colors.black45
+                              : const Color(0xFF4C8FE1),
+                          size: 14),
                       const SizedBox(width: 6),
                       Text(
                         time,
-                        style:
-                            TextStyle(color: isLight ? Colors.black87 : Colors.white, fontSize: 12),
+                        style: TextStyle(
+                            color: isLight ? Colors.black87 : Colors.white,
+                            fontSize: 12),
                       ),
                     ],
                   ),
@@ -738,7 +805,11 @@ class _ExpandableHistoricalAlarmCardState
         if (clean == 'unconfirm' || clean == 'unconfirmed') {
           return 'Active';
         }
-        if (clean == 'resolved' || clean == 'recover' || clean == 'recovered' || clean == 'clear' || clean == 'cleared') {
+        if (clean == 'resolved' ||
+            clean == 'recover' ||
+            clean == 'recovered' ||
+            clean == 'clear' ||
+            clean == 'cleared') {
           return 'Resolved';
         }
         return statusTxt;
@@ -775,12 +846,22 @@ class _ExpandableHistoricalAlarmCardState
                 'Alert')
             .toString();
 
-    final String cabinet = (alarm['deviceCabinetName'] ?? alarm['locationName'] ?? '').toString().trim();
-    final String device = (alarm['deviceCabinetItemName'] ?? alarm['name'] ?? alarm['collectControlNodeName'] ?? '').toString().trim();
-    
+    final String cabinet =
+        (alarm['deviceCabinetName'] ?? alarm['locationName'] ?? '')
+            .toString()
+            .trim();
+    final String device = (alarm['deviceCabinetItemName'] ??
+            alarm['name'] ??
+            alarm['collectControlNodeName'] ??
+            '')
+        .toString()
+        .trim();
+
     String subtitle = '';
-    if (cabinet.isNotEmpty && device.isNotEmpty) subtitle = '$cabinet / $device';
-    else if (cabinet.isNotEmpty) subtitle = cabinet;
+    if (cabinet.isNotEmpty && device.isNotEmpty)
+      subtitle = '$cabinet / $device';
+    else if (cabinet.isNotEmpty)
+      subtitle = cabinet;
     else if (device.isNotEmpty) subtitle = device;
 
     String alarmValue() {
@@ -843,7 +924,7 @@ class _ExpandableHistoricalAlarmCardState
     }
 
     final String valueStr = valueWithUnit();
-    
+
     String getRawTypeStr() {
       if (extractedType.isNotEmpty) return extractedType;
       return (alarm['alarmTypeType'] ??
@@ -854,7 +935,7 @@ class _ExpandableHistoricalAlarmCardState
           .toString()
           .trim();
     }
-    
+
     final String rawType = getRawTypeStr();
     final String typeStr = rawType.isEmpty ? title : rawType;
     final String levelStr = alarmLevelName();
@@ -890,8 +971,7 @@ class _ExpandableHistoricalAlarmCardState
         ? Color.lerp(levelColor, Colors.white, 0.25)!
         : Color.lerp(levelColor, Colors.black, 0.82)!;
     final titleColor = isLight ? Colors.black87 : Colors.white;
-    final detailColor =
-        isLight ? Colors.black54 : Colors.white70;
+    final detailColor = isLight ? Colors.black54 : Colors.white70;
 
     // Timeline parsing
     final occurTime = _formatTime(
@@ -937,7 +1017,9 @@ class _ExpandableHistoricalAlarmCardState
                   width: 9,
                   height: 9,
                   decoration: BoxDecoration(
-                    color: isLight ? Color.lerp(levelColor, Colors.black, 0.4)! : levelColor,
+                    color: isLight
+                        ? Color.lerp(levelColor, Colors.black, 0.4)!
+                        : levelColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -1024,7 +1106,8 @@ class _ExpandableHistoricalAlarmCardState
                     Text(
                       'Resolved: ${alarm['recoveryTime'] ?? alarm['recoverTime'] ?? '--'}',
                       style: TextStyle(
-                        color: isLight ? Colors.black87 : const Color(0xFF2D8CFF),
+                        color:
+                            isLight ? Colors.black87 : const Color(0xFF2D8CFF),
                         fontSize: resolved ? 12 : 11,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1037,7 +1120,8 @@ class _ExpandableHistoricalAlarmCardState
             // Expanded Timeline Content
             if (_isExpanded) ...[
               const SizedBox(height: 24),
-              Divider(color: isLight ? Colors.black12 : Colors.white24, height: 1),
+              Divider(
+                  color: isLight ? Colors.black12 : Colors.white24, height: 1),
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.only(left: 19),
@@ -1046,8 +1130,7 @@ class _ExpandableHistoricalAlarmCardState
                     _buildTimelineNode('Alarm Occurrence', occurTime,
                         isFirst: true),
                     _buildTimelineNode('Alarm Recovery', recoverTime),
-                    _buildTimelineNode('Alarm Clear', clearTime,
-                        isLast: true),
+                    _buildTimelineNode('Alarm Clear', clearTime, isLast: true),
                   ],
                 ),
               ),
