@@ -646,7 +646,7 @@ class DeviceHealthSection extends StatelessWidget {
                 ]
               : null,
         ),
-        clipBehavior: Clip.antiAlias,
+        clipBehavior: minimalist ? Clip.none : Clip.antiAlias,
         child: Column(
           children: groupItems.asMap().entries.map((entry) {
             final i = entry.key;
@@ -1031,7 +1031,7 @@ class _DeviceHealthRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
               padding: EdgeInsets.symmetric(
-                  horizontal: minimalist ? 0 : 14,
+                  horizontal: minimalist ? 12 : 14,
                   vertical: minimalist ? 12 : 14),
               child: Row(
                 children: [
@@ -1160,14 +1160,14 @@ class _BreathingOutlineGlowState extends State<_BreathingOutlineGlow>
             ),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withValues(alpha: 0.22 * k),
-                blurRadius: 14 + 10 * t,
-                spreadRadius: 1,
+                color: widget.color.withValues(alpha: 0.10 * k),
+                blurRadius: 8 + 4 * t,
+                spreadRadius: 0,
               ),
               BoxShadow(
-                color: widget.color.withValues(alpha: 0.12 * k),
-                blurRadius: 36 + 18 * t,
-                spreadRadius: 10,
+                color: widget.color.withValues(alpha: 0.05 * k),
+                blurRadius: 16 + 8 * t,
+                spreadRadius: 2,
               ),
             ],
           ),
@@ -1360,9 +1360,9 @@ class _SingleHealthBox extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
-            color: baseColor.withValues(alpha: 0.35),
-            blurRadius: 14,
-            spreadRadius: 1,
+            color: baseColor.withValues(alpha: 0.20),
+            blurRadius: 8,
+            spreadRadius: 0,
           ),
         ],
       ),

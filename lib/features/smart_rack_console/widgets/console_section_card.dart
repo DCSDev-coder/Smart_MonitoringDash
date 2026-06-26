@@ -5,7 +5,7 @@ import '../theme/console_theme.dart';
 class ConsoleSectionCard extends StatelessWidget {
   const ConsoleSectionCard({
     super.key,
-    required this.title,
+    this.title,
     required this.child,
     this.subtitle,
     this.trailing,
@@ -14,7 +14,7 @@ class ConsoleSectionCard extends StatelessWidget {
     this.expand = false,
   });
 
-  final String title;
+  final String? title;
   final String? subtitle;
   final Widget child;
   final Widget? trailing;
@@ -41,39 +41,41 @@ class ConsoleSectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 4),
+            if (title != null && title!.isNotEmpty) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          subtitle!,
+                          title!,
                           style: TextStyle(
-                            color: textSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w400,
+                            color: textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
                           ),
                         ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle!,
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-            const SizedBox(height: ConsoleTheme.lg),
+                  if (trailing != null) trailing!,
+                ],
+              ),
+              const SizedBox(height: ConsoleTheme.lg),
+            ],
             expand ? Expanded(child: child) : child,
           ],
         ),
