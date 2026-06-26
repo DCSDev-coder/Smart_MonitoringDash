@@ -16,6 +16,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/utils/app_log.dart';
+import '../../core/utils/alarm_payload.dart';
 
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
@@ -360,8 +361,7 @@ class _ReportScreenState extends State<ReportScreen>
                       ?.toString()
                       .toLowerCase() ??
                   '';
-              final bool isResolvedIdentity =
-                  log['is_intercepted'] == true ||
+              final bool isResolvedIdentity = log['is_intercepted'] == true ||
                   log['matched_event_id'] != null ||
                   log['matched_user_id'] != null ||
                   (log['event_source']?.toString().trim().isNotEmpty ?? false);
@@ -605,8 +605,7 @@ class _ReportScreenState extends State<ReportScreen>
                     ?.toString()
                     .toLowerCase() ??
                 '';
-            final bool isResolvedIdentity =
-                log['is_intercepted'] == true ||
+            final bool isResolvedIdentity = log['is_intercepted'] == true ||
                 log['matched_event_id'] != null ||
                 log['matched_user_id'] != null ||
                 (log['event_source']?.toString().trim().isNotEmpty ?? false);

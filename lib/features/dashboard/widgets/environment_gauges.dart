@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/utils/alarm_payload.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/skeleton.dart';
 import 'dashboard_typography.dart';
@@ -230,29 +231,32 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                     rName.contains('back') || rName.contains('rear');
 
                 for (final a in alarms) {
-                  final msg =
-                      (a is Map ? a['msg'] : null)?.toString().toLowerCase() ??
-                          a.toString().toLowerCase();
+                  final msg = alarmSearchText(a);
 
                   bool matchesSource = false;
-                  
+
                   // Check if alarm specifically names this sensor
                   if (rName.isNotEmpty && msg.contains(rName)) {
                     matchesSource = true;
                   } else if (msg.contains(cabLower)) {
                     // Or if it matches the cabinet, verify front/back constraints
                     bool frontBackMatch = true;
-                    if (wantFront && !msg.contains('front')) frontBackMatch = false;
-                    if (wantBack && !(msg.contains('back') || msg.contains('rear'))) {
+                    if (wantFront && !msg.contains('front'))
+                      frontBackMatch = false;
+                    if (wantBack &&
+                        !(msg.contains('back') || msg.contains('rear'))) {
                       frontBackMatch = false;
                     }
                     if (frontBackMatch) matchesSource = true;
                   }
 
-                  if (!matchesSource) continue; // Alarm is for a different rack/sensor
+                  if (!matchesSource)
+                    continue; // Alarm is for a different rack/sensor
 
                   // Now check if the alarm is specifically about Temp or Hum
-                  bool hasHumKeyword = msg.contains('hum') || msg.contains('humid') || msg.contains('humd');
+                  bool hasHumKeyword = msg.contains('hum') ||
+                      msg.contains('humid') ||
+                      msg.contains('humd');
                   bool hasTempKeyword = msg.contains('temp');
 
                   if (isHumidity) {
@@ -331,7 +335,8 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                 // the adjacent pages don't visually "stick" together.
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Flex(
-                  direction: widget.isVertical ? Axis.vertical : Axis.horizontal,
+                  direction:
+                      widget.isVertical ? Axis.vertical : Axis.horizontal,
                   children: [
                     Expanded(
                       child: _MiniGaugeCard(
@@ -428,44 +433,44 @@ class _EnvironmentGaugeSkeleton extends StatelessWidget {
     return const Card(
       child: Padding(
         padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Skeleton(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Skeleton(
+                    height: 14,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+                SizedBox(width: 8),
+                Skeleton(
+                  width: 14,
                   height: 14,
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderRadius: BorderRadius.all(Radius.circular(6)),
+                ),
+              ],
+            ),
+            SizedBox(height: 14),
+            AspectRatio(
+              aspectRatio: 1.65,
+              child: Center(
+                child: Skeleton(
+                  width: 160,
+                  height: 90,
+                  borderRadius: BorderRadius.all(Radius.circular(24)),
                 ),
               ),
-              SizedBox(width: 8),
-              Skeleton(
-                width: 14,
-                height: 14,
-                borderRadius: BorderRadius.all(Radius.circular(6)),
-              ),
-            ],
-          ),
-          SizedBox(height: 14),
-          AspectRatio(
-            aspectRatio: 1.65,
-            child: Center(
-              child: Skeleton(
-                width: 160,
-                height: 90,
-                borderRadius: BorderRadius.all(Radius.circular(24)),
-              ),
             ),
-          ),
-          SizedBox(height: 10),
-          Skeleton(
-            width: 120,
-            height: 12,
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-          ),
-        ],
-      ),
+            SizedBox(height: 10),
+            Skeleton(
+              width: 120,
+              height: 12,
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -533,128 +538,133 @@ class _MiniGaugeCard extends StatelessWidget {
       elevation: minimalist ? 0 : null,
       margin: minimalist ? EdgeInsets.zero : null,
       child: Padding(
-        padding: minimalist ? const EdgeInsets.all(10) : const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!minimalist) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: isLight ? Colors.white : onSurface,
-                      fontSize: _kMiniGaugeTitleFontSize,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                if (!placeholder)
-                  SvgPicture.asset(
-                    iconAsset,
-                    width: 22,
-                    height: 22,
-                    colorFilter: ColorFilter.mode(
-                        isLight ? Colors.white : accent, BlendMode.srcIn),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          Expanded(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Convert absolute warning thresholds to 0..1 stops.
-                    // Only render if they are within the scale.
-                    //
-                    // Example:
-                    // Temp: warnHigh=28 (maxScale=50) => 0.56
-                    // Hum: warnHigh=70 (maxScale=100) => 0.70
-                    Positioned.fill(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 500),
-                        switchInCurve: Curves.easeOutBack,
-                        switchOutCurve: Curves.easeInBack,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: ScaleTransition(scale: animation, child: child),
-                          );
-                        },
-                        child: style == EnvironmentGaugeStyle.meter
-                            ? TweenAnimationBuilder<double>(
-                                key: const ValueKey(EnvironmentGaugeStyle.meter),
-                                tween: Tween<double>(
-                                  begin: 0,
-                                  end: placeholder ? 0.0 : progress,
-                                ),
-                                duration: const Duration(milliseconds: 1600),
-                                curve: Curves.easeOutCubic,
-                                builder: (context, v, _) => _DialMeterGauge(
-                                  progress: v,
-                                  glowColor: accent,
-                                  glowIntensity: minimalist ? 0.4 : 1.0,
-                                  warningStops: [
-                                    if (warnLow != null)
-                                      (warnLow! / maxScale).clamp(0.0, 1.0),
-                                    if (warnHigh != null)
-                                      (warnHigh! / maxScale).clamp(0.0, 1.0),
-                                  ],
-                                ),
-                              )
-                            : TweenAnimationBuilder<double>(
-                                key: const ValueKey(EnvironmentGaugeStyle.arc),
-                                tween: Tween<double>(
-                                  begin: 0,
-                                  end: placeholder ? 0.0 : progress,
-                                ),
-                                duration: const Duration(milliseconds: 1600),
-                                curve: Curves.easeOutCubic,
-                                builder: (context, v, _) => ArcGauge(
-                                  progress: v,
-                                  glowColor: accent,
-                                  baseColor: const Color(0xFF5A5A5A),
-                                  strokeWidth: isWide ? 22 : 18,
-                                  sweepDegrees: 210,
-                                  startDegrees: 195,
-                                  glowIntensity: minimalist ? 0.4 : 1.0,
-                                  warningStops: [
-                                    if (warnLow != null)
-                                      (warnLow! / maxScale).clamp(0.0, 1.0),
-                                    if (warnHigh != null)
-                                      (warnHigh! / maxScale).clamp(0.0, 1.0),
-                                  ],
-                                ),
-                              ),
+        padding: minimalist
+            ? const EdgeInsets.all(10)
+            : const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!minimalist) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        color: isLight ? Colors.white : onSurface,
+                        fontSize: _kMiniGaugeTitleFontSize,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
                       ),
                     ),
-                    FractionallySizedBox(
-                      widthFactor: 0.6,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          valueText,
-                          style: bitcount(
-                            context,
-                            fontSize: 36,
-                            color: Colors.white,
+                  ),
+                  if (!placeholder)
+                    SvgPicture.asset(
+                      iconAsset,
+                      width: 22,
+                      height: 22,
+                      colorFilter: ColorFilter.mode(
+                          isLight ? Colors.white : accent, BlendMode.srcIn),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            Expanded(
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Convert absolute warning thresholds to 0..1 stops.
+                      // Only render if they are within the scale.
+                      //
+                      // Example:
+                      // Temp: warnHigh=28 (maxScale=50) => 0.56
+                      // Hum: warnHigh=70 (maxScale=100) => 0.70
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          switchInCurve: Curves.easeOutBack,
+                          switchOutCurve: Curves.easeInBack,
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: ScaleTransition(
+                                  scale: animation, child: child),
+                            );
+                          },
+                          child: style == EnvironmentGaugeStyle.meter
+                              ? TweenAnimationBuilder<double>(
+                                  key: const ValueKey(
+                                      EnvironmentGaugeStyle.meter),
+                                  tween: Tween<double>(
+                                    begin: 0,
+                                    end: placeholder ? 0.0 : progress,
+                                  ),
+                                  duration: const Duration(milliseconds: 1600),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, v, _) => _DialMeterGauge(
+                                    progress: v,
+                                    glowColor: accent,
+                                    glowIntensity: minimalist ? 0.4 : 1.0,
+                                    warningStops: [
+                                      if (warnLow != null)
+                                        (warnLow! / maxScale).clamp(0.0, 1.0),
+                                      if (warnHigh != null)
+                                        (warnHigh! / maxScale).clamp(0.0, 1.0),
+                                    ],
+                                  ),
+                                )
+                              : TweenAnimationBuilder<double>(
+                                  key:
+                                      const ValueKey(EnvironmentGaugeStyle.arc),
+                                  tween: Tween<double>(
+                                    begin: 0,
+                                    end: placeholder ? 0.0 : progress,
+                                  ),
+                                  duration: const Duration(milliseconds: 1600),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, v, _) => ArcGauge(
+                                    progress: v,
+                                    glowColor: accent,
+                                    baseColor: const Color(0xFF5A5A5A),
+                                    strokeWidth: isWide ? 22 : 18,
+                                    sweepDegrees: 210,
+                                    startDegrees: 195,
+                                    glowIntensity: minimalist ? 0.4 : 1.0,
+                                    warningStops: [
+                                      if (warnLow != null)
+                                        (warnLow! / maxScale).clamp(0.0, 1.0),
+                                      if (warnHigh != null)
+                                        (warnHigh! / maxScale).clamp(0.0, 1.0),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: 0.6,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            valueText,
+                            style: bitcount(
+                              context,
+                              fontSize: 36,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -788,7 +798,10 @@ class _PagerArrow extends StatelessWidget {
           height: 22,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white).withValues(alpha: enabled ? 0.06 : 0.03),
+            color: (Theme.of(context).brightness == Brightness.light
+                    ? AppTheme.lightTextPrimary
+                    : Colors.white)
+                .withValues(alpha: enabled ? 0.06 : 0.03),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Icon(icon, size: 20, color: c),

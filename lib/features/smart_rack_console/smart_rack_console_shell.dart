@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
@@ -11,6 +13,8 @@ import '../../shared/widgets/settings_overlay.dart';
 import '../../shared/widgets/notifications_overlay.dart';
 import 'models/smart_rack_device_profile.dart';
 import 'models/smart_rack_console_snapshot.dart';
+import 'services/smart_rack_console_repository.dart';
+import 'services/smart_rack_demo_session.dart';
 import 'smart_rack_console_screen.dart';
 import 'theme/console_theme.dart';
 import 'ups_console_screen.dart';
@@ -44,6 +48,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   bool _sidebarSwiped = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
+  final SmartRackDemoSession _demoSession = SmartRackDemoSession.instance;
   bool _accessGuardHandled = false;
 
   void _setSidebarHovered(bool value) {
@@ -57,6 +62,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   }
 
   bool _hasPinNotification() {
+    if (AppConfig.isDemoMode) return false;
     final api = CpanelApiService.instance;
     return !api.isCurrentSiteRackConsole() && !api.hasPin;
   }
@@ -212,16 +218,29 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   @override
   void initState() {
     super.initState();
-    _poller.start();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _enforceRackConsoleAccess();
-    });
+    if (AppConfig.isDemoMode) {
+      _demoSession.ensureDemoContext();
+      _demoSession.startRotation();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _poller.start();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _enforceRackConsoleAccess();
+      });
+    }
   }
 
   @override
   void dispose() {
     _poller.stop();
+    _demoSession.stopRotation();
     super.dispose();
+  }
+
+  SmartRackConsoleSnapshot _snapshot() {
+    return SmartRackConsoleRepository.instance.currentSnapshot();
   }
 
   Future<void> _enforceRackConsoleAccess() async {
@@ -282,32 +301,32 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         compact: compact,
       );
     } else if (index == 2) {
-      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      final snapshot = _snapshot();
       return UpsConsoleScreen(
         snapshot: snapshot,
       );
     } else if (index == 3) {
-      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      final snapshot = _snapshot();
       return PowerConsoleScreen(
         snapshot: snapshot,
       );
     } else if (index == 4) {
-      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      final snapshot = _snapshot();
       return PduConsoleScreen(
         snapshot: snapshot,
       );
     } else if (index == 5) {
-      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      final snapshot = _snapshot();
       return ItDeviceConsoleScreen(
         snapshot: snapshot,
       );
     } else if (index == 6) {
-      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      final snapshot = _snapshot();
       return DoorConsoleScreen(
         snapshot: snapshot,
       );
     } else if (index == 7) {
-      final snapshot = SmartRackConsoleSnapshot.fromPoller(_poller);
+      final snapshot = _snapshot();
       return PueConsoleScreen(
         snapshot: snapshot,
         compact: compact,
@@ -403,7 +422,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: ListenableBuilder(
-                          listenable: _poller,
+                          listenable: AppConfig.isDemoMode ? _demoSession : _poller,
                           builder: (context, _) => _buildMainContent(_selectedIndex, false),
                         ),
                       ),

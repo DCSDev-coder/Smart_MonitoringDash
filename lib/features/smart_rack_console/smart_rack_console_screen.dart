@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../dashboard/widgets/device_health_section.dart';
 import '../dashboard/widgets/environment_gauges.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'models/smart_rack_device_profile.dart';
 import 'services/smart_rack_console_repository.dart';
+import 'services/smart_rack_demo_session.dart';
 import 'theme/console_theme.dart';
-import 'widgets/console_metric_card.dart';
 import 'widgets/console_section_card.dart';
 
 class SmartRackConsoleScreen extends StatelessWidget {
@@ -22,8 +23,12 @@ class SmartRackConsoleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final listenable = AppConfig.isDemoMode
+        ? SmartRackDemoSession.instance
+        : GlobalStatusPoller.instance;
+
     return AnimatedBuilder(
-      animation: GlobalStatusPoller.instance,
+      animation: listenable,
       builder: (context, _) {
         final snapshot =
             SmartRackConsoleRepository.instance.currentSnapshot();
@@ -41,75 +46,6 @@ class SmartRackConsoleScreen extends StatelessWidget {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({
-    required this.snapshot,
-    required this.compact,
-  });
-
-  final SmartRackConsoleSnapshot snapshot;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final columns = compact ? 2 : 4;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const gap = ConsoleTheme.lg;
-        final cardWidth = (constraints.maxWidth - (columns - 1) * gap) / columns;
-
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            SizedBox(
-              width: cardWidth,
-              child: ConsoleMetricCard(
-                label: 'Total Devices',
-                value: '${snapshot.totalDevices}',
-                icon: Icons.developer_board_rounded,
-                accentColor: ConsoleTheme.primaryBlue(context),
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: ConsoleMetricCard(
-                label: 'Active Issues',
-                value: '${snapshot.issueCount}',
-                icon: Icons.notifications_active_rounded,
-                accentColor: snapshot.issueCount > 0
-                    ? ConsoleTheme.danger(context)
-                    : ConsoleTheme.success(context),
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: ConsoleMetricCard(
-                label: 'Temp / RH',
-                value: '${snapshot.temperatureC?.toStringAsFixed(1) ?? '--'}°C',
-                subtext: '${snapshot.humidityPct?.toStringAsFixed(1) ?? '--'} %',
-                icon: Icons.thermostat_rounded,
-                accentColor: ConsoleTheme.cyan(context),
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: ConsoleMetricCard(
-                label: 'Maintenance',
-                value: snapshot.maintenanceDaysLeft?.toString() ?? '--',
-                subtext: 'Days left',
-                icon: Icons.handyman_rounded,
-                accentColor: ConsoleTheme.success(context),
-              ),
-            ),
-          ],
         );
       },
     );
@@ -188,12 +124,6 @@ class _MainGrid extends StatelessWidget {
 
 
   Widget _buildRackOverview(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    final textSecondary = ConsoleTheme.textSecondary(context);
-    final statusColor = snapshot.issueCount > 0
-        ? ConsoleTheme.danger(context)
-        : ConsoleTheme.success(context);
-    final statusText = snapshot.issueCount > 0 ? 'Attention Needed' : 'Normal';
-
     final isSuperWide = MediaQuery.of(context).size.width >= 1100;
 
     return ConsoleSectionCard(
@@ -396,35 +326,6 @@ class _MainGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildMonitoringStats(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    return ConsoleSectionCard(
-      title: 'Monitoring Statistics',
-      subtitle: 'Device and alarm snapshot',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Expanded(child: _TabChip(label: 'PE Monitoring', selected: true)),
-              SizedBox(width: 8),
-              Expanded(child: _TabChip(label: 'IT Monitoring')),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _MiniStat(label: 'Total Devices', value: '${snapshot.totalDevices}'),
-          const SizedBox(height: 12),
-          _MiniStat(
-            label: 'Active Issues',
-            value: '${snapshot.issueCount}',
-            valueColor: snapshot.issueCount > 0
-                ? ConsoleTheme.danger(context)
-                : ConsoleTheme.success(context),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMonitoringStatisticsPanel(BuildContext context, SmartRackConsoleSnapshot snapshot, {bool twoColumn = false}) {
     return ConsoleSectionCard(
       title: 'Monitoring Statistics',
@@ -615,54 +516,6 @@ class _MainGrid extends StatelessWidget {
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = valueColor ?? ConsoleTheme.textPrimary(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: ConsoleTheme.innerSurface(context),
-        borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
-        border: Border.all(color: ConsoleTheme.divider(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: ConsoleTheme.textSecondary(context),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SensorRow extends StatelessWidget {
   const _SensorRow({
     required this.icon,
@@ -733,86 +586,6 @@ class _SensorRow extends StatelessWidget {
   }
 }
 
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = valueColor ?? ConsoleTheme.textPrimary(context);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: ConsoleTheme.textSecondary(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    this.selected = false,
-  });
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final activeColor = ConsoleTheme.primaryBlue(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected
-            ? activeColor.withValues(alpha: 0.15)
-            : ConsoleTheme.innerSurface(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: selected
-              ? activeColor.withValues(alpha: 0.3)
-              : ConsoleTheme.divider(context),
-        ),
-      ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: selected
-              ? ConsoleTheme.textPrimary(context)
-              : ConsoleTheme.textSecondary(context),
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
 class _VerticalStatItem extends StatelessWidget {
   const _VerticalStatItem({
     required this.label,
@@ -877,3 +650,4 @@ class _VerticalStatItem extends StatelessWidget {
     );
   }
 }
+
