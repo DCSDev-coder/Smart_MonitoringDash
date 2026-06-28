@@ -21,7 +21,10 @@ class AdapterApiService {
 
   void _logMissingPortalTokenIfNeeded() {
     if (AppConfig.isDemoMode) return;
-    _logMissingPortalTokenIfNeeded();
+    AppLog.d(
+      'Adapter call skipped: portal auth token missing',
+      tag: 'AdapterApi',
+    );
   }
 
   Map<String, String> _headers(String token) => {

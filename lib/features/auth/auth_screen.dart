@@ -8,6 +8,7 @@ import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/config/app_config.dart';
 import '../../core/notifications/push_notification_service.dart';
+import '../../core/security/app_lock_controller.dart';
 import '../../core/auth/remember_me_store.dart';
 import '../../core/utils/app_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,22 @@ import '../../shared/widgets/fade_in_slide.dart';
 import '../../shared/utils/global_video_background.dart';
 import 'setup_user_screen.dart';
 import '../../shared/utils/app_toast.dart';
+
+class _RememberMeInvalidException implements Exception {
+  const _RememberMeInvalidException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class _RememberMeTransientException implements Exception {
+  const _RememberMeTransientException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -74,20 +91,6 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     AppToast.showError(context, message);
-  }
-
-  void _goToIntro() {
-    var found = false;
-    Navigator.of(context).popUntil((route) {
-      if (route.settings.name == '/welcome') {
-        found = true;
-        return true;
-      }
-      return false;
-    });
-    if (!found) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (r) => false);
-    }
   }
 
   @override
@@ -166,8 +169,18 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _loading = true);
     try {
       final authRes = await CpanelApiService.instance.authMe(token: token);
-      if (authRes == null || authRes['status'] != 'success') {
-        throw 'Session expired. Please sign in again.';
+      if (authRes == null) {
+        throw const _RememberMeTransientException(
+          'Saved session could not be restored right now. Please try signing in again.',
+        );
+      }
+      if (authRes['status'] != 'success') {
+        final msg = authRes['message']?.toString().trim();
+        throw _RememberMeInvalidException(
+          (msg != null && msg.isNotEmpty)
+              ? msg
+              : 'Session expired. Please sign in again.',
+        );
       }
 
       final sites = authRes['sites'];
@@ -257,6 +270,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (ok) {
         AppToast.showSuccess(context, 'Login successful!');
+        AppLockController.instance.prepareForHomeEntry(
+          requireImmediateUnlock: isAuto,
+        );
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         throw 'Connection to Rack failed.';
@@ -265,7 +281,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       AppToast.showError(context, e.toString());
-      if (isAuto) {
+      if (isAuto && e is _RememberMeInvalidException) {
         await rememberMeStore.clear();
       }
     }
@@ -407,6 +423,9 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         if (!mounted) return;
         AppToast.showSuccess(context, 'Login successful!');
+        AppLockController.instance.prepareForHomeEntry(
+          requireImmediateUnlock: false,
+        );
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         throw 'Connection to Rack failed. Verify your phone is on the Office Wi-Fi and that the Rack login matches.';
@@ -415,7 +434,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       _showErrorDialog(e.toString());
-      if (isAuto) {
+      if (isAuto && e is _RememberMeInvalidException) {
         // Auto-login failed; don't keep retrying in a loop.
         await rememberMeStore.clear();
       }

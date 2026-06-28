@@ -14,6 +14,21 @@ import '../../features/smart_rack_console/theme/console_theme.dart';
 class SecureActionGuard {
   SecureActionGuard._();
 
+  static Future<bool> requestAuthorization(
+    BuildContext context, {
+    required String reason,
+    bool allowPin = false,
+  }) async {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SecureActionSheet(reason: reason, allowPin: allowPin),
+    );
+
+    return ok == true;
+  }
+
   static Future<bool> ensureAuthorized(
     BuildContext context, {
     required String reason,
@@ -22,14 +37,13 @@ class SecureActionGuard {
   }) async {
     if (SecureActionSession.instance.isValid) return true;
 
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _SecureActionSheet(reason: reason, allowPin: allowPin),
+    final ok = await requestAuthorization(
+      context,
+      reason: reason,
+      allowPin: allowPin,
     );
 
-    if (ok == true) {
+    if (ok) {
       SecureActionSession.instance.grant(ttl: ttl);
       return true;
     }
@@ -73,7 +87,8 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
   }
 
   Future<void> _initUsername() async {
-    final portalUsername = await CpanelApiService.instance.getUsername() ?? 'admin';
+    final portalUsername =
+        await CpanelApiService.instance.getUsername() ?? 'admin';
     if (mounted) {
       setState(() {
         _userCtrl.text = portalUsername;
@@ -141,7 +156,8 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isAuthenticating = false);
-      AppToast.showError(context, 'Biometric auth failed. Use password instead.');
+      AppToast.showError(
+          context, 'Biometric auth failed. Use password instead.');
     }
   }
 
@@ -178,7 +194,7 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
 
       final portalUsername = _userCtrl.text.trim();
       final pwd = _pwdCtrl.text;
-      
+
       final loginRes =
           await CpanelApiService.instance.login(portalUsername, pwd);
       if (!mounted) return;
@@ -281,14 +297,12 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
             child: FilledButton(
               onPressed: _isAuthenticating ? null : _runDeviceAuth,
               style: FilledButton.styleFrom(
-                backgroundColor:
-                    Colors.orangeAccent.withValues(alpha: 0.85),
+                backgroundColor: Colors.orangeAccent.withValues(alpha: 0.85),
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text(
-                  _hasBiometrics ? 'Use Biometrics' : 'Use Device PIN'),
+              child: Text(_hasBiometrics ? 'Use Biometrics' : 'Use Device PIN'),
             ),
           ),
           const SizedBox(height: 12),
@@ -320,7 +334,9 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
                   style: TextStyle(
                     color: isRack
                         ? ConsoleTheme.cyan(context)
-                        : (isLight ? Theme.of(context).colorScheme.primary : Colors.white),
+                        : (isLight
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.white),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -329,7 +345,6 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
           ],
         ),
         const SizedBox(height: 8),
-
         TextField(
           controller: _pwdCtrl,
           focusNode: _pwdFocus,
@@ -434,7 +449,8 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(isRack ? 24 : 14),
                 ),
-                padding: isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
+                padding:
+                    isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
               ),
               child: const Text('Confirm'),
             ),

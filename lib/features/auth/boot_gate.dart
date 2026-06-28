@@ -6,7 +6,9 @@ import '../../core/network/adapter_api_service.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
+import '../../core/security/app_lock_controller.dart';
 import '../../core/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// App entry gate.
 ///
@@ -36,6 +38,9 @@ class _BootGateState extends State<BootGate> {
   Future<void> _boot() async {
     try {
       if (AppConfig.isDemoMode) {
+        AppLockController.instance.prepareForHomeEntry(
+          requireImmediateUnlock: false,
+        );
         _goHome();
         return;
       }
@@ -55,7 +60,12 @@ class _BootGateState extends State<BootGate> {
       });
 
       final authRes = await CpanelApiService.instance.authMe(token: token);
-      if (authRes == null || authRes['status'] != 'success') {
+      if (authRes == null) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/auth');
+        return;
+      }
+      if (authRes['status'] != 'success') {
         await rememberMeStore.clear();
         _goWelcome();
         return;
@@ -108,11 +118,34 @@ class _BootGateState extends State<BootGate> {
         _label = 'Connecting to rack...';
       });
 
-      final ok = await ApiService.instance.login(
-        siteUser,
-        sitePass,
-        ip: targetIp.toString(),
-      );
+      bool ok = false;
+      final prefs = await SharedPreferences.getInstance();
+      final dbLocalIp = site['local_ip']?.toString();
+      final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
+      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty)
+          ? dbLocalIp
+          : manualFallbackIp;
+
+      if (AdapterApiService.instance.isConfigured) {
+        ok = true;
+        ApiService.instance
+            .login(siteUser, sitePass, ip: targetIp.toString())
+            .ignore();
+      } else {
+        ok = await ApiService.instance.login(
+          siteUser,
+          sitePass,
+          ip: targetIp.toString(),
+        );
+
+        if (!ok && fallbackIp.isNotEmpty) {
+          ok = await ApiService.instance.login(
+            siteUser,
+            sitePass,
+            ip: fallbackIp,
+          );
+        }
+      }
 
       if (!ok) {
         // Portal session is valid but rack credentials/network failed;
@@ -123,6 +156,9 @@ class _BootGateState extends State<BootGate> {
       }
 
       if (!mounted) return;
+      AppLockController.instance.prepareForHomeEntry(
+        requireImmediateUnlock: true,
+      );
       Navigator.of(context).pushReplacementNamed('/home');
     } catch (_) {
       // Any unexpected boot error: fall back to welcome.

@@ -38,9 +38,15 @@ migrate_working_dir/
 /android/
 /assets/
 /ios/
+!/ios/
+/ios/**
+!/ios/Runner/
+/ios/Runner/**
+!/ios/Runner/Runner.entitlements
 
 # OS files
 .DS_Store
+._*
 Thumbs.db
 
 # Local mock/dev bypass config

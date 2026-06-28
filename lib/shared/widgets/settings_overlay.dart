@@ -14,6 +14,7 @@ import 'reset_password_dialog.dart';
 import 'secure_action_guard.dart';
 import 'set_pin_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
+import '../../core/security/app_lock_controller.dart';
 import '../utils/app_toast.dart';
 import '../../features/smart_rack_console/theme/console_theme.dart';
 
@@ -147,7 +148,8 @@ class _SettingsOverlayPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 clipBehavior: Clip.antiAlias,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 380, maxHeight: 650),
+                  constraints:
+                      const BoxConstraints(maxWidth: 380, maxHeight: 650),
                   child: _SettingsPanel(
                     onClose: () => Navigator.of(context).pop(),
                     onManageUsers: onManageUsers,
@@ -188,6 +190,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   String? _username;
   int? _portalUserId;
   bool _loadingUser = true;
+  bool _updatingAppLock = false;
 
   bool get _canManageUsers {
     final site = CpanelApiService.instance.currentSite;
@@ -245,17 +248,24 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     super.initState();
     _loadUserInfo();
     AppThemeController.instance.addListener(_syncThemeMode);
+    AppLockController.instance.addListener(_syncAppLock);
   }
 
   @override
   void dispose() {
     AppThemeController.instance.removeListener(_syncThemeMode);
+    AppLockController.instance.removeListener(_syncAppLock);
     super.dispose();
   }
 
   bool _isAppearanceExpanded = false;
 
   void _syncThemeMode() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _syncAppLock() {
     if (!mounted) return;
     setState(() {});
   }
@@ -284,7 +294,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                       : const Color(0xFF1E242B)),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
                 width: 1,
               ),
             ),
@@ -351,6 +363,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     );
 
     if (confirm == true) {
+      AppLockController.instance.clear();
       await rememberMeStore.clear();
       await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
       await CpanelApiService.instance.logout();
@@ -384,6 +397,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     );
 
     if (result == true && context.mounted) {
+      AppLockController.instance.clear();
       await rememberMeStore.clear();
       await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
       await CpanelApiService.instance.logout();
@@ -403,11 +417,11 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       if (AdapterApiService.instance.isConfigured) {
         success = await AdapterApiService.instance.setPin(result);
       }
-      
+
       if (!success) {
         success = await CpanelApiService.instance.setPin(result);
       }
-      
+
       if (mounted) {
         if (success) {
           AppToast.showSuccess(context, 'Door Access PIN updated securely');
@@ -426,6 +440,26 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     );
   }
 
+  Future<void> _handleAppLockChanged(bool enabled) async {
+    if (!AppLockController.instance.isSupported || _updatingAppLock) return;
+
+    setState(() => _updatingAppLock = true);
+    try {
+      await AppLockController.instance.setEnabled(enabled);
+      if (!mounted) return;
+      AppToast.showSuccess(
+        context,
+        enabled
+            ? 'App Lock enabled. Re-entry protection starts after 30 seconds away.'
+            : 'App Lock disabled.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingAppLock = false);
+      }
+    }
+  }
+
   Widget _buildGroup(String title, List<Widget> children, bool isLight) {
     if (children.isEmpty) return const SizedBox.shrink();
 
@@ -440,9 +474,11 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             child: Divider(
               height: 1,
               thickness: 1,
-              color: isRackConsole ? ConsoleTheme.divider(context) : (isLight
-                  ? Colors.black.withValues(alpha: 0.05)
-                  : Colors.white.withValues(alpha: 0.05)),
+              color: isRackConsole
+                  ? ConsoleTheme.divider(context)
+                  : (isLight
+                      ? Colors.black.withValues(alpha: 0.05)
+                      : Colors.white.withValues(alpha: 0.05)),
             ),
           ),
         );
@@ -459,14 +495,18 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isRackConsole ? ConsoleTheme.textSecondary(context) : (isLight ? Colors.black54 : Colors.white54),
+              color: isRackConsole
+                  ? ConsoleTheme.textSecondary(context)
+                  : (isLight ? Colors.black54 : Colors.white54),
               letterSpacing: 1.2,
             ),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: isRackConsole ? ConsoleTheme.cardBg(context) : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
+            color: isRackConsole
+                ? ConsoleTheme.cardBg(context)
+                : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
             borderRadius: BorderRadius.circular(24),
             boxShadow: isLight
                 ? [
@@ -490,7 +530,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   Widget build(BuildContext context) {
     final isRackConsole = CpanelApiService.instance.isCurrentSiteRackConsole();
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final headerTextColor = isRackConsole ? ConsoleTheme.textPrimary(context) : (isLight ? AppTheme.lightTextPrimary : Colors.white);
+    final isWebPreview = !AppLockController.instance.isSupported;
+    final headerTextColor = isRackConsole
+        ? ConsoleTheme.textPrimary(context)
+        : (isLight ? AppTheme.lightTextPrimary : Colors.white);
     final trailingTextColor = isRackConsole
         ? ConsoleTheme.textSecondary(context)
         : (isLight
@@ -498,9 +541,11 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             : Colors.white.withValues(alpha: 0.75));
     return Container(
       // Match the dashboard background per theme.
-      color: isRackConsole ? ConsoleTheme.panelBg(context) : (isLight
-          ? Theme.of(context).scaffoldBackgroundColor
-          : const Color(0xFF060B11)),
+      color: isRackConsole
+          ? ConsoleTheme.panelBg(context)
+          : (isLight
+              ? Theme.of(context).scaffoldBackgroundColor
+              : const Color(0xFF060B11)),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
@@ -515,7 +560,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                   onPressed: widget.onClose,
                 ),
               ),
-              
+
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -557,80 +602,119 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
+
                       if (!isRackConsole)
-                        _buildGroup('Account & Security', [
-                          if (_canManageUsers)
-                            _SettingsTile(
-                              title: 'Manage Users',
-                              icon: Icons.manage_accounts_outlined,
-                              iconColor: const Color(0xFF007AFF),
-                              onTap: widget.onManageUsers,
-                            ),
-                          _SettingsTile(
-                            title: 'Reset Password',
-                            icon: Icons.lock_reset_rounded,
-                            iconColor: const Color(0xFFFF9500),
-                            onTap: _handleChangePassword,
-                          ),
-                          _SettingsTile(
-                            title: 'Set Door PIN',
-                            icon: Icons.dialpad_rounded,
-                            iconColor: const Color(0xFF34C759),
-                            onTap: _handleSetPin,
-                          ),
-                        ], isLight),
-                      _buildGroup('Rack Management', [
-                        if (_canUseControlPresets)
-                          _SettingsTile(
-                            title: 'AC Control Presets',
-                            icon: Icons.tune_rounded,
-                            iconColor: const Color(0xFF00B8D9),
-                            onTap: _openControlPresets,
-                          ),
-                        _SettingsTile(
-                          title: 'Export PDF Report',
-                          icon: Icons.picture_as_pdf_rounded,
-                          iconColor: const Color(0xFFFF3B30),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ExportPdfScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ], isLight),
-                      _buildGroup('Preferences', [
-                        Column(
-                          children: [
-                            _SettingsTile(
-                              title: 'Appearance',
-                              icon: Icons.palette_outlined,
-                              iconColor: const Color(0xFF5856D6),
-                              trailing: AnimatedRotation(
-                                turns: _isAppearanceExpanded ? 0.25 : 0,
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: trailingTextColor,
+                        _buildGroup(
+                            'Account & Security',
+                            [
+                              if (_canManageUsers)
+                                _SettingsTile(
+                                  title: 'Manage Users',
+                                  icon: Icons.manage_accounts_outlined,
+                                  iconColor: const Color(0xFF007AFF),
+                                  onTap: widget.onManageUsers,
                                 ),
+                              _SettingsTile(
+                                title: 'Reset Password',
+                                icon: Icons.lock_reset_rounded,
+                                iconColor: const Color(0xFFFF9500),
+                                onTap: _handleChangePassword,
                               ),
-                              onTap: () {
-                                setState(() {
-                                  _isAppearanceExpanded = !_isAppearanceExpanded;
-                                });
+                              _SettingsTile(
+                                title: 'Set Door PIN',
+                                icon: Icons.dialpad_rounded,
+                                iconColor: const Color(0xFF34C759),
+                                onTap: _handleSetPin,
+                              ),
+                            ],
+                            isLight),
+                      _buildGroup(
+                          'Rack Management',
+                          [
+                            if (_canUseControlPresets)
+                              _SettingsTile(
+                                title: 'AC Control Presets',
+                                icon: Icons.tune_rounded,
+                                iconColor: const Color(0xFF00B8D9),
+                                onTap: _openControlPresets,
+                              ),
+                            _SettingsTile(
+                              title: 'Export PDF Report',
+                              icon: Icons.picture_as_pdf_rounded,
+                              iconColor: const Color(0xFFFF3B30),
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ExportPdfScreen(),
+                                  ),
+                                );
                               },
                             ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 200),
-                              alignment: Alignment.topCenter,
-                              child: _buildAppearanceDropdown(),
+                          ],
+                          isLight),
+                      _buildGroup(
+                          'Preferences',
+                          [
+                            if (!isRackConsole)
+                              _SettingsTile(
+                                title: 'App Lock',
+                                subtitle: isWebPreview
+                                    ? 'Design preview in web. Enable on iPhone or Android after install.'
+                                    : null,
+                                icon: Icons.lock_rounded,
+                                iconColor: const Color(0xFF00BD10),
+                                trailing: isWebPreview
+                                    ? const Switch.adaptive(
+                                        value: false,
+                                        onChanged: null,
+                                        activeThumbColor: Color(0xFF00BD10),
+                                      )
+                                    : Switch.adaptive(
+                                        value: AppLockController
+                                            .instance.isEnabled,
+                                        onChanged: _updatingAppLock
+                                            ? null
+                                            : _handleAppLockChanged,
+                                        activeThumbColor:
+                                            const Color(0xFF00BD10),
+                                      ),
+                                onTap: isWebPreview || _updatingAppLock
+                                    ? null
+                                    : () => _handleAppLockChanged(
+                                          !AppLockController.instance.isEnabled,
+                                        ),
+                              ),
+                            Column(
+                              children: [
+                                _SettingsTile(
+                                  title: 'Appearance',
+                                  icon: Icons.palette_outlined,
+                                  iconColor: const Color(0xFF5856D6),
+                                  trailing: AnimatedRotation(
+                                    turns: _isAppearanceExpanded ? 0.25 : 0,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: trailingTextColor,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    setState(() {
+                                      _isAppearanceExpanded =
+                                          !_isAppearanceExpanded;
+                                    });
+                                  },
+                                ),
+                                AnimatedSize(
+                                  duration: const Duration(milliseconds: 200),
+                                  alignment: Alignment.topCenter,
+                                  child: _buildAppearanceDropdown(),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ], isLight),
+                          isLight),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -670,6 +754,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
 
 class _SettingsTile extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final IconData icon;
   final Color iconColor;
   final Widget? trailing;
@@ -677,6 +762,7 @@ class _SettingsTile extends StatelessWidget {
 
   const _SettingsTile({
     required this.title,
+    this.subtitle,
     required this.icon,
     required this.iconColor,
     this.trailing,
@@ -718,14 +804,33 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 20),
               Expanded(
-                child: Text(
-                  title,
-                  style: bitcount(
-                    context,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: textColor,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: bitcount(
+                        context,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: textColor,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          color: isLight
+                              ? Colors.black.withValues(alpha: 0.58)
+                              : Colors.white.withValues(alpha: 0.58),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(width: 12),
@@ -741,5 +846,3 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
-
-

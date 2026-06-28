@@ -4,6 +4,7 @@ import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/auth/remember_me_store.dart';
 import '../../core/notifications/push_notification_service.dart';
+import '../../core/security/app_lock_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass_confirm_dialog.dart';
 import '../../shared/widgets/reset_password_dialog.dart';
@@ -87,13 +88,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.1),
                           shape: BoxShape.circle,
-                          border:
-                              Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
+                          border: Border.all(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2),
                         ),
                         child: Icon(Icons.person_rounded,
-                            size: 50, color: Theme.of(context).colorScheme.primary),
+                            size: 50,
+                            color: Theme.of(context).colorScheme.primary),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -230,6 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirm == true) {
+      AppLockController.instance.clear();
       await rememberMeStore.clear();
       await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
       await CpanelApiService.instance.logout();
@@ -253,6 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (result == true && context.mounted) {
+      AppLockController.instance.clear();
       await rememberMeStore.clear();
       await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
       await CpanelApiService.instance.logout();
@@ -278,4 +286,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 }
-

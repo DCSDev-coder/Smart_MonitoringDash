@@ -16,6 +16,7 @@ import 'core/controllers/global_status_poller.dart';
 import 'core/controllers/smart_polling_settings.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/notifications/push_notification_service.dart';
+import 'core/security/app_lock_controller.dart';
 import 'core/utils/app_log.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/dashboard/dashboard_v2_screen.dart';
@@ -32,6 +33,7 @@ import 'features/auth/boot_gate.dart';
 import 'features/report/report_screen.dart';
 import 'features/control/control_screen.dart';
 import 'shared/widgets/floating_nav_bar.dart';
+import 'shared/widgets/app_lock_gate.dart';
 import 'shared/widgets/notifications_overlay.dart';
 import 'shared/widgets/sticky_header_bar.dart';
 import 'shared/widgets/dashboard_header.dart';
@@ -187,8 +189,12 @@ Future<void> main() async {
   await safeInit(SmartPollingSettings.instance.init);
   // Load persisted theme mode (best-effort).
   await safeInit(AppThemeController.instance.init);
+  // Load persisted app lock preference (best-effort).
+  await safeInit(AppLockController.instance.init);
   // Firebase push setup (best-effort; no boot blocking).
-  if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
+  if (kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS) {
     AppLog.d('Starting push init', tag: 'Boot');
     PushNotificationService.instance.init().catchError((e) {
       AppLog.w('Push init failed', tag: 'Boot', error: '$e');
@@ -269,7 +275,7 @@ class CigApp extends StatelessWidget {
             '/auth': (_) => const AuthScreen(),
             '/home': (_) => AppConfig.isRackConsoleBuild
                 ? const SmartRackConsoleShell()
-                : const MainShell(),
+                : const AppLockGate(child: MainShell()),
             '/smart_rack_console': (_) {
               if (!AppConfig.isRackConsoleBuild) {
                 return const _PermissionDeniedScreen(
@@ -1120,7 +1126,6 @@ class _MainSidebar extends StatelessWidget {
   }
 
   Widget _buildLogo(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       height: 80, // Fixed height so the logo's vertical center never shifts
