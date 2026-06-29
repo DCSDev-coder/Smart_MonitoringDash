@@ -21,6 +21,7 @@ import 'widgets/device_health_section.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/utils/app_toast.dart';
+import '../../shared/widgets/header_refresh_bar.dart';
 
 /// Dashboard V2 (dark-only) matching `DashboardV2_Page.png`.
 ///
@@ -55,6 +56,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   bool _loading = true;
   bool _refreshing = false;
+  RefreshIndicatorStatus? _refreshStatus;
 
   // Environment gauge source
   List<Map<String, dynamic>> _temperatures = [];
@@ -193,6 +195,16 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       if (mounted) setState(() => _refreshing = false);
     }
   }
+
+  void _onRefreshStatusChanged(RefreshIndicatorStatus? status) {
+    if (!mounted || _refreshStatus == status) return;
+    setState(() => _refreshStatus = status);
+  }
+
+  bool get _showRefreshBar =>
+      _refreshing ||
+      (_refreshStatus != null &&
+          _refreshStatus != RefreshIndicatorStatus.canceled);
 
   Duration _desiredTickInterval() {
     if (_poller.emergencyMode) return const Duration(seconds: 5);
@@ -638,9 +650,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
             children: [
               // Content
               Positioned.fill(
-                child: RefreshIndicator(
-                  edgeOffset: AppConstants.headerClearance(context),
+                child: RefreshIndicator.noSpinner(
                   onRefresh: _onRefresh,
+                  onStatusChange: _onRefreshStatusChanged,
                   child: ListView(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(
@@ -800,6 +812,11 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                     ],
                   ),
                 ),
+              ),
+              HeaderRefreshBar(
+                visible: _showRefreshBar,
+                top: AppConstants.headerClearance(context) - 6,
+                horizontalInset: AppSpacing.pageHorizontal(context),
               ),
             ],
           ),

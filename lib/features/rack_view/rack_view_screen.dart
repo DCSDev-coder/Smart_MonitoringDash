@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:ui';import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/controllers/smart_polling_settings.dart';
@@ -10,6 +11,7 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../core/config/site_runtime_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../shared/widgets/header_refresh_bar.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
@@ -33,6 +35,7 @@ class _RackViewScreenState extends State<RackViewScreen>
     with TickerProviderStateMixin {
   bool _loading = true;
   bool _refreshing = false;
+  RefreshIndicatorStatus? _refreshStatus;
   Timer? _refreshTimer;
   Duration _interval = SmartPollingSettings.instance.normalInterval();
 
@@ -70,7 +73,7 @@ class _RackViewScreenState extends State<RackViewScreen>
   bool _pdu2Expanded = false;
   int _adapterMissStreak = 0;
   bool get _showAdapterDegraded => _adapterMissStreak >= 2;
-  
+
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -139,6 +142,16 @@ class _RackViewScreenState extends State<RackViewScreen>
       if (mounted) setState(() => _refreshing = false);
     }
   }
+
+  void _onRefreshStatusChanged(RefreshIndicatorStatus? status) {
+    if (!mounted || _refreshStatus == status) return;
+    setState(() => _refreshStatus = status);
+  }
+
+  bool get _showRefreshBar =>
+      _refreshing ||
+      (_refreshStatus != null &&
+          _refreshStatus != RefreshIndicatorStatus.canceled);
 
   Future<void> _fetchRackData() async {
     try {
@@ -531,7 +544,6 @@ class _RackViewScreenState extends State<RackViewScreen>
     return (code: null, value: null);
   }
 
-
   bool _outletIsOn(
       {required List<dynamic> records,
       required double watts,
@@ -553,42 +565,58 @@ class _RackViewScreenState extends State<RackViewScreen>
     final hPadding = screenWidth * 0.06;
     final columns = isVerySmall ? 3 : 4;
     final bool sideBySide = screenWidth >= 720;
-    final int effectivePduColumns = columns; // Use the same 4 columns everywhere since PDU takes half screen on tablet
+    final int effectivePduColumns =
+        columns; // Use the same 4 columns everywhere since PDU takes half screen on tablet
     final showSkeleton = _loading || _refreshing;
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: RefreshIndicator(
-          edgeOffset: AppConstants.headerClearance(context),
-          onRefresh: _onRefresh,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics()),
-            padding: EdgeInsets.fromLTRB(
-                hPadding, AppConstants.headerClearance(context), hPadding, AppSpacing.pageBottom(context)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-
-                showSkeleton
-                    ? _buildInletCardSkeleton(uiScale)
-                    : _buildInletCard(uiScale),
-                const SizedBox(height: 16),
-                showSkeleton
-                    ? _buildOutletCardSkeleton(
-                        columns: effectivePduColumns,
-                        uiScale: uiScale,
-                        sideBySide: sideBySide)
-                    : _buildOutletCard(
-                        columns: effectivePduColumns,
-                        uiScale: uiScale,
-                        sideBySide: sideBySide),
-              ],
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: RefreshIndicator.noSpinner(
+                onRefresh: _onRefresh,
+                onStatusChange: _onRefreshStatusChanged,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    hPadding,
+                    AppConstants.headerClearance(context),
+                    hPadding,
+                    AppSpacing.pageBottom(context),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      showSkeleton
+                          ? _buildInletCardSkeleton(uiScale)
+                          : _buildInletCard(uiScale),
+                      const SizedBox(height: 16),
+                      showSkeleton
+                          ? _buildOutletCardSkeleton(
+                              columns: effectivePduColumns,
+                              uiScale: uiScale,
+                              sideBySide: sideBySide)
+                          : _buildOutletCard(
+                              columns: effectivePduColumns,
+                              uiScale: uiScale,
+                              sideBySide: sideBySide),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+            HeaderRefreshBar(
+              visible: _showRefreshBar,
+              top: AppConstants.headerClearance(context) - 6,
+              horizontalInset: hPadding,
+            ),
+          ],
         ),
       ),
     );
@@ -746,90 +774,90 @@ class _RackViewScreenState extends State<RackViewScreen>
       child: Padding(
         padding: EdgeInsets.all(18 * uiScale),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.flash_on_rounded,
-                  color: Color(0xFF00A174), size: 18 * uiScale),
-              const SizedBox(width: 8),
-              Text('INLET',
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? AppTheme.lightTextPrimary
-                          : Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1)),
-              const SizedBox(width: 8),
-              _infoIcon(
-                  uiScale: uiScale,
-                  onTap: () => _showInfoDialog(
-                      title: 'Inlet (Total Rack Load)',
-                      body:
-                          'Total Rack Load is the active power feeding the rack.')),
-              const Spacer(),
-              _statusPill(online: _inletOnline, uiScale: uiScale),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '${_inletP.toStringAsFixed(2)} kW',
-            style: TextStyle(
-              color: Color(0xFF00A174),
-              fontSize: 38 * uiScale,
-              fontWeight: FontWeight.w900,
-              height: 1.0,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.flash_on_rounded,
+                    color: Color(0xFF00A174), size: 18 * uiScale),
+                const SizedBox(width: 8),
+                Text('INLET',
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1)),
+                const SizedBox(width: 8),
+                _infoIcon(
+                    uiScale: uiScale,
+                    onTap: () => _showInfoDialog(
+                        title: 'Inlet (Total Rack Load)',
+                        body:
+                            'Total Rack Load is the active power feeding the rack.')),
+                const Spacer(),
+                _statusPill(online: _inletOnline, uiScale: uiScale),
+              ],
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Total Rack Load',
-            style: TextStyle(
-              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontSize: 13.5 * uiScale,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 14),
+            Text(
+              '${_inletP.toStringAsFixed(2)} kW',
+              style: TextStyle(
+                color: Color(0xFF00A174),
+                fontSize: 38 * uiScale,
+                fontWeight: FontWeight.w900,
+                height: 1.0,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          // VOLTS/AMPS are omitted because many vendor builds report them as null/0.
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text('RACK LOAD',
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.55),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8)),
-              const Spacer(),
-              Text(
-                  '${(loadPct * 100).round()}% of ${_totalRackMaxKw.toInt()}kW',
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.55),
-                      fontSize: 11)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: loadPct,
-              minHeight: 12,
-              // Light mode needs a visible track behind the green fill.
-              backgroundColor: isLight
-                  ? const Color(0xFFD0D5DD)
-                  : Colors.white.withValues(alpha: 0.12),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(Color(0xFF00A174)),
+            const SizedBox(height: 2),
+            Text(
+              'Total Rack Load',
+              style: TextStyle(
+                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                fontSize: 13.5 * uiScale,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 10),
+            // VOLTS/AMPS are omitted because many vendor builds report them as null/0.
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text('RACK LOAD',
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.55),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8)),
+                const Spacer(),
+                Text(
+                    '${(loadPct * 100).round()}% of ${_totalRackMaxKw.toInt()}kW',
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.55),
+                        fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: loadPct,
+                minHeight: 12,
+                // Light mode needs a visible track behind the green fill.
+                backgroundColor: isLight
+                    ? const Color(0xFFD0D5DD)
+                    : Colors.white.withValues(alpha: 0.12),
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(Color(0xFF00A174)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -888,71 +916,71 @@ class _RackViewScreenState extends State<RackViewScreen>
       child: Padding(
         padding: EdgeInsets.all(18 * uiScale),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.outlet_rounded,
-                  color: Colors.lightBlueAccent, size: 18 * uiScale),
-              const SizedBox(width: 8),
-              Text('OUTLET',
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? AppTheme.lightTextPrimary
-                          : Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1)),
-              const SizedBox(width: 8),
-              _infoIcon(
-                  uiScale: uiScale,
-                  onTap: () => _showInfoDialog(
-                      title: 'Outlet (PDU Outputs)',
-                      body:
-                          'Each PDU card shows total power (kW) and current (A), plus per-outlet active power.')),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (sideBySide) ...[
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: pdu1),
-              const SizedBox(width: 14),
-              Expanded(child: pdu2)
-            ]),
-            const SizedBox(height: 14),
-            Center(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  setState(() {
-                    _pdu1Expanded = !_pdu1Expanded;
-                    _pdu2Expanded = _pdu1Expanded;
-                  });
-                  if (_pdu1Expanded) _scrollToBottom();
-                },
-                child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(_pdu1Expanded ? 'COLLAPSE ALL' : 'EXPAND ALL',
-                          style: const TextStyle(
-                              color: Colors.orangeAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900)),
-                      Icon(
-                          _pdu1Expanded
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
-                          color: Colors.orangeAccent)
-                    ])),
-              ),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.outlet_rounded,
+                    color: Colors.lightBlueAccent, size: 18 * uiScale),
+                const SizedBox(width: 8),
+                Text('OUTLET',
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1)),
+                const SizedBox(width: 8),
+                _infoIcon(
+                    uiScale: uiScale,
+                    onTap: () => _showInfoDialog(
+                        title: 'Outlet (PDU Outputs)',
+                        body:
+                            'Each PDU card shows total power (kW) and current (A), plus per-outlet active power.')),
+              ],
             ),
-          ] else ...[
-            pdu1,
             const SizedBox(height: 14),
-            pdu2
+            if (sideBySide) ...[
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: pdu1),
+                const SizedBox(width: 14),
+                Expanded(child: pdu2)
+              ]),
+              const SizedBox(height: 14),
+              Center(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    setState(() {
+                      _pdu1Expanded = !_pdu1Expanded;
+                      _pdu2Expanded = _pdu1Expanded;
+                    });
+                    if (_pdu1Expanded) _scrollToBottom();
+                  },
+                  child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(_pdu1Expanded ? 'COLLAPSE ALL' : 'EXPAND ALL',
+                            style: const TextStyle(
+                                color: Colors.orangeAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900)),
+                        Icon(
+                            _pdu1Expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: Colors.orangeAccent)
+                      ])),
+                ),
+              ),
+            ] else ...[
+              pdu1,
+              const SizedBox(height: 14),
+              pdu2
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -986,7 +1014,9 @@ class _RackViewScreenState extends State<RackViewScreen>
       child: Container(
         padding: EdgeInsets.all(12 * uiScale),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF0B0F14).withValues(alpha: 0.35),
+          color: isLight
+              ? Colors.white
+              : const Color(0xFF0B0F14).withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(18 * uiScale),
           border: Border.all(
             color: isLight
@@ -1098,7 +1128,8 @@ class _RackViewScreenState extends State<RackViewScreen>
                   crossAxisCount: columns,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
-                  mainAxisExtent: 82 * uiScale, // Fixed compact height so they are never "too big"
+                  mainAxisExtent: 82 *
+                      uiScale, // Fixed compact height so they are never "too big"
                 ),
                 itemCount: showing.length,
                 itemBuilder: (context, idx) {
@@ -1154,13 +1185,13 @@ class _RackViewScreenState extends State<RackViewScreen>
 
     await showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true, // Allows the sheet to take up more than 50% of screen height
+      isScrollControlled:
+          true, // Allows the sheet to take up more than 50% of screen height
       backgroundColor: Colors.transparent,
       builder: (context) {
         final isLight = Theme.of(context).brightness == Brightness.light;
         final sheetTint = isLight ? Colors.white : const Color(0xFF0E141B);
-        final sheetBorder =
-            isLight ? AppTheme.lightStroke : Colors.transparent;
+        final sheetBorder = isLight ? AppTheme.lightStroke : Colors.transparent;
         final labelColor =
             isLight ? AppTheme.lightTextSecondary : Colors.white70;
         final valueColor = isLight ? AppTheme.lightTextPrimary : Colors.white;
@@ -1212,99 +1243,99 @@ class _RackViewScreenState extends State<RackViewScreen>
             bottom: MediaQuery.of(context).viewInsets.bottom + 32,
           ),
           child: DashboardGlass(
-          radius: 22,
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          tint: sheetTint.withValues(alpha: isLight ? 0.98 : 0.96),
-          borderColor: sheetBorder,
-          child: SingleChildScrollView(
-            child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            radius: 22,
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            tint: sheetTint.withValues(alpha: isLight ? 0.98 : 0.96),
+            borderColor: sheetBorder,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'PDU $nodeId  Outlet $outletNum',
-                    style: TextStyle(
-                        color: valueColor,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14 * uiScale),
+                  Row(
+                    children: [
+                      Text(
+                        'PDU $nodeId  Outlet $outletNum',
+                        style: TextStyle(
+                            color: valueColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14 * uiScale),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            color: isLight
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white70),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white70),
-                    onPressed: () => Navigator.pop(context),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isOn
+                          ? Color(0xFF00A174).withValues(alpha: 0.18)
+                          : (isLight
+                              ? const Color(0xFFE5E7EB)
+                              : Colors.white.withValues(alpha: 0.10)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: isLight
+                              ? Colors.black.withValues(alpha: 0.08)
+                              : Colors.white.withValues(alpha: 0.10)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isOn ? Icons.power_rounded : Icons.power_off_rounded,
+                          size: 18,
+                          color: isOn
+                              ? Color(0xFF00A174)
+                              : (isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white.withValues(alpha: 0.75)),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isOn ? 'Status: On' : 'Status: Off',
+                          style: TextStyle(
+                            color: valueColor,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 10),
+                  row(
+                    label: 'Power (Watts)',
+                    value: '${watts.round()} W',
+                    icon: Icons.bolt_rounded,
+                  ),
+                  row(
+                    label: 'Current (Amps)',
+                    value: '${amps.toStringAsFixed(2)} A',
+                    icon: Icons.speed_rounded,
+                  ),
+                  if (hasEnergy)
+                    row(
+                      label: 'Energy (kWh)',
+                      value: kwh.toStringAsFixed(2),
+                      icon: Icons.stacked_line_chart_rounded,
+                    ),
+                  if (hasPf)
+                    row(
+                      label: 'Power factor',
+                      value: pf.toStringAsFixed(2),
+                      icon: Icons.tune_rounded,
+                    ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isOn
-                      ? Color(0xFF00A174).withValues(alpha: 0.18)
-                      : (isLight
-                          ? const Color(0xFFE5E7EB)
-                          : Colors.white.withValues(alpha: 0.10)),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: isLight
-                          ? Colors.black.withValues(alpha: 0.08)
-                          : Colors.white.withValues(alpha: 0.10)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isOn ? Icons.power_rounded : Icons.power_off_rounded,
-                      size: 18,
-                      color: isOn
-                          ? Color(0xFF00A174)
-                          : (isLight
-                              ? AppTheme.lightTextSecondary
-                              : Colors.white.withValues(alpha: 0.75)),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      isOn ? 'Status: On' : 'Status: Off',
-                      style: TextStyle(
-                        color: valueColor,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              row(
-                label: 'Power (Watts)',
-                value: '${watts.round()} W',
-                icon: Icons.bolt_rounded,
-              ),
-              row(
-                label: 'Current (Amps)',
-                value: '${amps.toStringAsFixed(2)} A',
-                icon: Icons.speed_rounded,
-              ),
-              if (hasEnergy)
-                row(
-                  label: 'Energy (kWh)',
-                  value: kwh.toStringAsFixed(2),
-                  icon: Icons.stacked_line_chart_rounded,
-                ),
-              if (hasPf)
-                row(
-                  label: 'Power factor',
-                  value: pf.toStringAsFixed(2),
-                  icon: Icons.tune_rounded,
-                ),
-            ],
-          ),
-         ), // Closes SingleChildScrollView
-        ), // Closes DashboardGlass
+            ), // Closes SingleChildScrollView
+          ), // Closes DashboardGlass
         ); // Closes Padding
       },
     );
@@ -1552,8 +1583,7 @@ class _RackViewScreenState extends State<RackViewScreen>
         );
       },
       transitionBuilder: (ctx, anim1, anim2, child) {
-        final curve =
-            CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+        final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
         return BackdropFilter(
           filter: ImageFilter.blur(
               sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),

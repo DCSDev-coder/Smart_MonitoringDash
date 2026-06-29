@@ -13,6 +13,7 @@ import '../../shared/widgets/skeleton.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/utils/app_toast.dart';
+import '../../shared/widgets/header_refresh_bar.dart';
 
 class ControlScreen extends StatefulWidget {
   final bool isActive;
@@ -32,6 +33,7 @@ class _ControlScreenState extends State<ControlScreen>
   bool _loading = true;
   bool _refreshing = false;
   bool _writing = false;
+  RefreshIndicatorStatus? _refreshStatus;
 
   _NodeMetrics? _pdu1;
   _NodeMetrics? _pdu2;
@@ -83,6 +85,16 @@ class _ControlScreenState extends State<ControlScreen>
       if (mounted) setState(() => _refreshing = false);
     }
   }
+
+  void _onRefreshStatusChanged(RefreshIndicatorStatus? status) {
+    if (!mounted || _refreshStatus == status) return;
+    setState(() => _refreshStatus = status);
+  }
+
+  bool get _showRefreshBar =>
+      _refreshing ||
+      (_refreshStatus != null &&
+          _refreshStatus != RefreshIndicatorStatus.canceled);
 
   Future<void> _fetchAll() async {
     try {
@@ -297,64 +309,78 @@ class _ControlScreenState extends State<ControlScreen>
           .copyWith(textScaler: const TextScaler.linear(1.0)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: RefreshIndicator(
-          edgeOffset: AppConstants.headerClearance(context),
-          onRefresh: _onRefresh,
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics()),
-            slivers: [
-              SliverToBoxAdapter(
-                child: SizedBox(height: AppConstants.headerClearance(context)),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: hPadding),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionButtons(),
-                      const SizedBox(height: AppSpacing.sectionGapSm),
-                      if (_writing)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 25, left: 4),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.orangeAccent
-                                      .withValues(alpha: 0.9),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Applying change...',
-                                style: TextStyle(
-                                  color: subTextColor,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      _loading
-                          ? _tableSkeleton()
-                          : _nodeTable(node, hint: hint),
-
-                      SizedBox(
-                          height:
-                              AppSpacing.pageBottom(context)), // Bottom padding
-                    ],
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: RefreshIndicator.noSpinner(
+                onRefresh: _onRefresh,
+                onStatusChange: _onRefreshStatusChanged,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
                   ),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: AppConstants.headerClearance(context),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: hPadding),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionButtons(),
+                            const SizedBox(height: AppSpacing.sectionGapSm),
+                            if (_writing)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(bottom: 25, left: 4),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.orangeAccent
+                                            .withValues(alpha: 0.9),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Applying change...',
+                                      style: TextStyle(
+                                        color: subTextColor,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            _loading
+                                ? _tableSkeleton()
+                                : _nodeTable(node, hint: hint),
+                            SizedBox(
+                              height: AppSpacing.pageBottom(context),
+                            ), // Bottom padding
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            HeaderRefreshBar(
+              visible: _showRefreshBar,
+              top: AppConstants.headerClearance(context) - 6,
+              horizontalInset: hPadding,
+            ),
+          ],
         ),
       ),
     );
@@ -836,69 +862,69 @@ class _ControlScreenState extends State<ControlScreen>
               top: false,
               child: SingleChildScrollView(
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Align(
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(2),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(row.name,
-                            style: TextStyle(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? AppTheme.lightTextPrimary
-                                    : Colors.white,
-                                fontWeight: FontWeight.w900)),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close_rounded,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(row.name,
+                              style: TextStyle(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? AppTheme.lightTextPrimary
+                                      : Colors.white,
+                                  fontWeight: FontWeight.w900)),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white70),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    Text('Current: ${row.displayValue}',
+                        style: TextStyle(
                             color:
                                 Theme.of(context).brightness == Brightness.light
-                                    ? AppTheme.lightTextPrimary
-                                    : Colors.white70),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  Text('Current: ${row.displayValue}',
-                      style: TextStyle(
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? AppTheme.lightTextSecondary
-                                  : Colors.white.withValues(alpha: 0.7))),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      for (final o in options)
-                        _chip(
-                          label: o.value.trim(),
-                          active: row.currentIntValue == o.key,
-                          onTap: () => _confirmAndWrite(
-                              nodeId: nodeId,
-                              metricCode: row.metricCode,
-                              value: o.key,
-                              closeAfterWrite: true),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 60), // Pushes the options higher
-                ],
-              ),
-             ), // Closes SingleChildScrollView
+                                    ? AppTheme.lightTextSecondary
+                                    : Colors.white.withValues(alpha: 0.7))),
+                    const SizedBox(height: 18),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        for (final o in options)
+                          _chip(
+                            label: o.value.trim(),
+                            active: row.currentIntValue == o.key,
+                            onTap: () => _confirmAndWrite(
+                                nodeId: nodeId,
+                                metricCode: row.metricCode,
+                                value: o.key,
+                                closeAfterWrite: true),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 60), // Pushes the options higher
+                  ],
+                ),
+              ), // Closes SingleChildScrollView
             ), // Closes SafeArea
           ),
         );

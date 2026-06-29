@@ -128,6 +128,7 @@ class _AppLockGateState extends State<AppLockGate> {
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.2,
+                                  decoration: TextDecoration.none,
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -140,6 +141,7 @@ class _AppLockGateState extends State<AppLockGate> {
                                   color: Colors.white.withValues(alpha: 0.72),
                                   fontSize: 14,
                                   height: 1.4,
+                                  decoration: TextDecoration.none,
                                 ),
                               ),
                               const SizedBox(height: 20),
@@ -161,6 +163,9 @@ class _AppLockGateState extends State<AppLockGate> {
                                   ),
                                   child: Text(
                                     _promptInFlight ? 'Checking...' : 'Unlock',
+                                    style: const TextStyle(
+                                      decoration: TextDecoration.none,
+                                    ),
                                   ),
                                 ),
                               ),

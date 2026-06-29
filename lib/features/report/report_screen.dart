@@ -22,6 +22,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
+import '../../shared/widgets/header_refresh_bar.dart';
 import '../dashboard/widgets/dashboard_typography.dart';
 import '../../shared/utils/app_toast.dart';
 
@@ -61,6 +62,7 @@ class _ReportScreenState extends State<ReportScreen>
 
   bool _loading = true;
   bool _refreshing = false;
+  RefreshIndicatorStatus? _refreshStatus;
   Map<String, double> _powerMonth = {};
   List<dynamic> _alarms = [];
   List<dynamic> _devices = [];
@@ -290,6 +292,16 @@ class _ReportScreenState extends State<ReportScreen>
       if (mounted) setState(() => _refreshing = false);
     }
   }
+
+  void _onRefreshStatusChanged(RefreshIndicatorStatus? status) {
+    if (!mounted || _refreshStatus == status) return;
+    setState(() => _refreshStatus = status);
+  }
+
+  bool get _showRefreshBar =>
+      _refreshing ||
+      (_refreshStatus != null &&
+          _refreshStatus != RefreshIndicatorStatus.canceled);
 
   Future<void> _refreshEventData() {
     // Prefer a single report bundle call when adapter is configured.
@@ -1147,10 +1159,43 @@ class _ReportScreenState extends State<ReportScreen>
     }
   }
 
+  Widget _buildLoadingView(BuildContext context) {
+    final hPadding = AppSpacing.pageHorizontal(context);
+    return MediaQuery(
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: const TextScaler.linear(1.0)),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            hPadding,
+            AppConstants.headerClearance(context),
+            hPadding,
+            AppSpacing.pageBottom(context),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: AppSpacing.sectionGapSm),
+              _ReportSkeletonCard(),
+              SizedBox(height: AppSpacing.cardGap),
+              _ReportSkeletonCard(),
+              SizedBox(height: AppSpacing.cardGap),
+              _ReportSkeletonCard(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return _buildLoadingView(context);
     }
 
     final media = MediaQuery.of(context);
@@ -1189,112 +1234,126 @@ class _ReportScreenState extends State<ReportScreen>
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: RefreshIndicator(
-          edgeOffset: AppConstants.headerClearance(context),
-          onRefresh: _onRefresh,
-          child: CustomScrollView(
-            controller: _scrollController,
-            // Avoid iOS-style "rubber band" overscroll that can feel like infinite
-            // scrolling, while still allowing pull-to-refresh even when content is
-            // shorter than the viewport.
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            slivers: [
-              // 1. Dynamic Header Clearance (Scrollable)
-              SliverToBoxAdapter(
-                child: SizedBox(height: AppConstants.headerClearance(context)),
-              ),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: RefreshIndicator.noSpinner(
+                onRefresh: _onRefresh,
+                onStatusChange: _onRefreshStatusChanged,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  // Avoid iOS-style "rubber band" overscroll that can feel like infinite
+                  // scrolling, while still allowing pull-to-refresh even when content is
+                  // shorter than the viewport.
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  ),
+                  slivers: [
+                    // 1. Dynamic Header Clearance (Scrollable)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                          height: AppConstants.headerClearance(context)),
+                    ),
 
-              // 2. Custom Navigation
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: hPadding),
-                  child: const SizedBox.shrink(),
-                ),
-              ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: hPadding),
-                  child: _buildCustomNavButtons(),
-                ),
-              ),
-
-              // 3. Tab Content
-              // We use Visibility with maintainState: true but maintainSize: false
-              // instead of IndexedStack. This allows the scroll boundary to
-              // shrink/grow to fit only the active page, while still keeping the
-              // inactive page's charts alive for the PDF capture process.
-              SliverToBoxAdapter(
-                child: Stack(
-                  children: [
-                    if (!_loading)
-                      Column(
-                        children: [
-                          const SizedBox(height: AppSpacing.sectionGapSm),
-                          Visibility(
-                            visible: _selectedTabIndex == 0,
-                            maintainState: true,
-                            maintainAnimation: true,
-                            maintainSize: false,
-                            child: _buildEnergyPage(
-                                hPadding, totalPower, healthScore),
-                          ),
-                          Visibility(
-                            visible: _selectedTabIndex == 1,
-                            maintainState: true,
-                            maintainAnimation: true,
-                            maintainSize: false,
-                            child: _buildMaintenancePage(hPadding),
-                          ),
-                          Visibility(
-                            visible: _selectedTabIndex == 2,
-                            maintainState: true,
-                            maintainAnimation: true,
-                            maintainSize: false,
-                            child: _buildSecurityPage(hPadding),
-                          ),
-                        ],
+                    // 2. Custom Navigation
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hPadding),
+                        child: const SizedBox.shrink(),
                       ),
-                    if ((_loading || _refreshing) && _selectedTabIndex != 2)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          ignoring: true,
-                          child: SingleChildScrollView(
-                            physics: const NeverScrollableScrollPhysics(),
-                            child: Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: hPadding),
-                              child: const Column(
-                                children: [
-                                  SizedBox(height: AppSpacing.sectionGapSm),
-                                  _ReportSkeletonCard(),
-                                  SizedBox(height: AppSpacing.cardGap),
-                                  _ReportSkeletonCard(),
-                                  SizedBox(height: AppSpacing.cardGap),
-                                  _ReportSkeletonCard(),
-                                ],
+                    ),
+
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hPadding),
+                        child: _buildCustomNavButtons(),
+                      ),
+                    ),
+
+                    // 3. Tab Content
+                    // We use Visibility with maintainState: true but maintainSize: false
+                    // instead of IndexedStack. This allows the scroll boundary to
+                    // shrink/grow to fit only the active page, while still keeping the
+                    // inactive page's charts alive for the PDF capture process.
+                    SliverToBoxAdapter(
+                      child: Stack(
+                        children: [
+                          if (!_loading)
+                            Column(
+                              children: [
+                                const SizedBox(height: AppSpacing.sectionGapSm),
+                                Visibility(
+                                  visible: _selectedTabIndex == 0,
+                                  maintainState: true,
+                                  maintainAnimation: true,
+                                  maintainSize: false,
+                                  child: _buildEnergyPage(
+                                      hPadding, totalPower, healthScore),
+                                ),
+                                Visibility(
+                                  visible: _selectedTabIndex == 1,
+                                  maintainState: true,
+                                  maintainAnimation: true,
+                                  maintainSize: false,
+                                  child: _buildMaintenancePage(hPadding),
+                                ),
+                                Visibility(
+                                  visible: _selectedTabIndex == 2,
+                                  maintainState: true,
+                                  maintainAnimation: true,
+                                  maintainSize: false,
+                                  child: _buildSecurityPage(hPadding),
+                                ),
+                              ],
+                            ),
+                          if ((_loading || _refreshing) &&
+                              _selectedTabIndex != 2)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                ignoring: true,
+                                child: SingleChildScrollView(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: hPadding),
+                                    child: const Column(
+                                      children: [
+                                        SizedBox(
+                                            height: AppSpacing.sectionGapSm),
+                                        _ReportSkeletonCard(),
+                                        SizedBox(height: AppSpacing.cardGap),
+                                        _ReportSkeletonCard(),
+                                        SizedBox(height: AppSpacing.cardGap),
+                                        _ReportSkeletonCard(),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
+                        ],
                       ),
+                    ),
+
+                    // Bottom padding
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        // Keep the last card (PUE Stability) as the natural end of the
+                        // scroll, while still leaving enough room for the floating
+                        // bottom nav on phones.
+                        height: AppSpacing.pageBottom(context),
+                      ),
+                    ),
                   ],
                 ),
               ),
-
-              // Bottom padding
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  // Keep the last card (PUE Stability) as the natural end of the
-                  // scroll, while still leaving enough room for the floating
-                  // bottom nav on phones.
-                  height: AppSpacing.pageBottom(context),
-                ),
-              ),
-            ],
-          ),
+            ),
+            HeaderRefreshBar(
+              visible: _showRefreshBar,
+              top: AppConstants.headerClearance(context) - 6,
+              horizontalInset: hPadding,
+            ),
+          ],
         ),
       ),
     );

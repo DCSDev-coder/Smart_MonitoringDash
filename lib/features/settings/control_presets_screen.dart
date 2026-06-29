@@ -5,9 +5,11 @@ import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/utils/app_toast.dart';
+import '../../shared/widgets/header_refresh_bar.dart';
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/kiosk_user_pin_sheet.dart';
 import '../../shared/widgets/secure_action_guard.dart';
+import '../../shared/widgets/skeleton.dart';
 
 class ControlPresetsScreen extends StatefulWidget {
   const ControlPresetsScreen({super.key});
@@ -21,6 +23,7 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
   bool _saving = false;
   String? _error;
   int? _portalUserId;
+  RefreshIndicatorStatus? _refreshStatus;
 
   _LiveControlSnapshot? _live;
   String? _defaultPresetKey;
@@ -121,6 +124,17 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       });
     }
   }
+
+  void _onRefreshStatusChanged(RefreshIndicatorStatus? status) {
+    if (!mounted || _refreshStatus == status) return;
+    setState(() => _refreshStatus = status);
+  }
+
+  bool get _showRefreshBar =>
+      _loading ||
+      _saving ||
+      (_refreshStatus != null &&
+          _refreshStatus != RefreshIndicatorStatus.canceled);
 
   Future<_LiveControlSnapshot?> _fetchLiveSnapshot() async {
     final candidates = <Map<String, dynamic>>[];
@@ -245,75 +259,79 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
                 padding: const EdgeInsets.all(16),
                 tint: isLight ? Colors.white : const Color(0xFF0E141B),
                 borderColor: Colors.transparent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Admin Password Required',
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Enter the admin password to save or change the default preset.',
-                    style: TextStyle(
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.75),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    obscureText: obscure,
-                    style: TextStyle(color: isLight ? Colors.black : Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: TextStyle(color: isLight ? Colors.black54 : Colors.white54),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: isLight ? Colors.black12 : Colors.white24,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-                      ),
-                      suffixIcon: IconButton(
-                        onPressed: () =>
-                            setLocalState(() => obscure = !obscure),
-                        icon: Icon(
-                          obscure ? Icons.visibility : Icons.visibility_off,
-                          color: isLight ? Colors.black54 : Colors.white54,
-                        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Admin Password Required',
+                      style: TextStyle(
+                        color:
+                            isLight ? AppTheme.lightTextPrimary : Colors.white,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Enter the admin password to save or change the default preset.',
+                      style: TextStyle(
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.75),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: ctrl,
+                      autofocus: true,
+                      obscureText: obscure,
+                      style: TextStyle(
+                          color: isLight ? Colors.black : Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        labelStyle: TextStyle(
+                            color: isLight ? Colors.black54 : Colors.white54),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isLight ? Colors.black12 : Colors.white24,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                        suffixIcon: IconButton(
                           onPressed: () =>
-                              Navigator.pop(context, ctrl.text.trim()),
-                          child: const Text('Confirm'),
+                              setLocalState(() => obscure = !obscure),
+                          icon: Icon(
+                            obscure ? Icons.visibility : Icons.visibility_off,
+                            color: isLight ? Colors.black54 : Colors.white54,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () =>
+                                Navigator.pop(context, ctrl.text.trim()),
+                            child: const Text('Confirm'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         );
@@ -488,7 +506,8 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       final ok = res?['status'] == 'success';
       if (!ok) {
         if (!mounted) return;
-        String msg = res?['message']?.toString() ?? 'Failed to change the default preset.';
+        String msg = res?['message']?.toString() ??
+            'Failed to change the default preset.';
         if (msg.contains('Invalid Action')) {
           msg = 'This feature is currently unavailable on the backend server.';
         }
@@ -519,10 +538,12 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: RefreshIndicator(
+            child: RefreshIndicator.noSpinner(
               onRefresh: _reload,
+              onStatusChange: _onRefreshStatusChanged,
               child: ListView(
-                padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 70, 16, 16),
+                padding: EdgeInsets.fromLTRB(
+                    16, MediaQuery.of(context).padding.top + 70, 16, 16),
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(left: 8, bottom: 24),
@@ -537,112 +558,225 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
                     ),
                   ),
                   DashboardGlass(
-              radius: 20,
-              padding: const EdgeInsets.all(16),
-              tint: isLight ? Colors.white : const Color(0xFF10161D),
-              borderColor: Colors.transparent,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Site State',
-                    style: TextStyle(
-                      color: textPrimary,
-                      fontWeight: FontWeight.w900,
+                    radius: 20,
+                    padding: const EdgeInsets.all(16),
+                    tint: isLight ? Colors.white : const Color(0xFF10161D),
+                    borderColor: Colors.transparent,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Site State',
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Current state: $_currentStateLabel',
+                          style: TextStyle(color: textSecondary),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Default preset: $_defaultStateLabel',
+                          style: TextStyle(color: textSecondary),
+                        ),
+                        if (_isRackConsoleMode) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Rack Console mode is active. Applying a preset will require the approving user PIN.',
+                            style:
+                                TextStyle(color: textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Current state: $_currentStateLabel',
-                    style: TextStyle(color: textSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Default preset: $_defaultStateLabel',
-                    style: TextStyle(color: textSecondary),
-                  ),
-                  if (_isRackConsoleMode) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'Rack Console mode is active. Applying a preset will require the approving user PIN.',
-                      style: TextStyle(color: textSecondary, fontSize: 13),
-                    ),
-                  ],
+                  const SizedBox(height: 16),
+                  if (_loading)
+                    _buildLoadingSkeleton()
+                  else if (_error != null)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Text(_error!,
+                            style: TextStyle(color: textSecondary)),
+                      ),
+                    )
+                  else if (!_canUseControlPresets)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'Your account does not have permission to use control presets.',
+                          style: TextStyle(color: textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else if (_live == null || _live!.writableRows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'Live AC control values are unavailable for this site.',
+                          style: TextStyle(color: textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    ..._presetKeys.map((key) => Padding(
+                          key: ValueKey(key),
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _PresetCardWidget(
+                            key: ValueKey('card_$key'),
+                            preset: _presets[key]!,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                            isDefault: _defaultPresetKey == key,
+                            isActive: _live != null &&
+                                _doesPresetMatchLive(_presets[key]!, _live!),
+                            isSaving: _saving,
+                            onApply: () => _applyPreset(key),
+                            onSaveCurrent: () => _saveCurrentToPreset(key),
+                            onSetDefault: () => _setDefaultPreset(key),
+                          ),
+                        )),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            if (_loading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: CircularProgressIndicator(),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 16,
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back,
+                color: textPrimary,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          HeaderRefreshBar(
+            visible: _showRefreshBar,
+            top: MediaQuery.of(context).padding.top + 62,
+            horizontalInset: 16,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final cardTint = isLight ? Colors.white : const Color(0xFF10161D);
+    const borderColor = Colors.transparent;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DashboardGlass(
+          radius: 20,
+          padding: const EdgeInsets.all(16),
+          tint: cardTint,
+          borderColor: borderColor,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Skeleton(
+                width: 120,
+                height: 14,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              const SizedBox(height: 12),
+              Skeleton(
+                height: 12,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              const SizedBox(height: 8),
+              Skeleton(
+                height: 12,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              if (_isRackConsoleMode) ...[
+                const SizedBox(height: 12),
+                Skeleton(
+                  width: 220,
+                  height: 12,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              )
-            else if (_error != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40),
-                  child: Text(_error!, style: TextStyle(color: textSecondary)),
-                ),
-              )
-            else if (!_canUseControlPresets)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: Text(
-                    'Your account does not have permission to use control presets.',
-                    style: TextStyle(color: textSecondary),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else if (_live == null || _live!.writableRows.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: Text(
-                    'Live AC control values are unavailable for this site.',
-                    style: TextStyle(color: textSecondary),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else
-              ..._presetKeys.map((key) => Padding(
-                    key: ValueKey(key),
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _PresetCardWidget(
-                      key: ValueKey('card_$key'),
-                      preset: _presets[key]!,
-                      textPrimary: textPrimary,
-                      textSecondary: textSecondary,
-                      isDefault: _defaultPresetKey == key,
-                      isActive: _live != null && _doesPresetMatchLive(_presets[key]!, _live!),
-                      isSaving: _saving,
-                      onApply: () => _applyPreset(key),
-                      onSaveCurrent: () => _saveCurrentToPreset(key),
-                      onSetDefault: () => _setDefaultPreset(key),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        for (var index = 0; index < _presetKeys.length; index++) ...[
+          DashboardGlass(
+            radius: 18,
+            padding: const EdgeInsets.all(16),
+            tint: cardTint,
+            borderColor: borderColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Skeleton(
+                        width: 140,
+                        height: 18,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                  )),
-          ],
-        ),
-      ),
-    ),
-    Positioned(
-      top: MediaQuery.of(context).padding.top + 10,
-      left: 16,
-      child: IconButton(
-        icon: Icon(
-          Icons.arrow_back,
-          color: textPrimary,
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
-    ),
-  ],
-),
-);
+                    Skeleton(
+                      width: 72,
+                      height: 22,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Skeleton(
+                  height: 12,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                const SizedBox(height: 8),
+                Skeleton(
+                  height: 12,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                const SizedBox(height: 8),
+                Skeleton(
+                  height: 12,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Skeleton(
+                        height: 40,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Skeleton(
+                        height: 40,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (index != _presetKeys.length - 1) const SizedBox(height: 14),
+        ],
+      ],
+    );
   }
 
   Widget _badge(String label, Color color) {
@@ -724,8 +858,7 @@ class _PresetCardWidgetState extends State<_PresetCardWidget> {
                   ),
                 ),
               ),
-              if (widget.isDefault)
-                _badge('Default', const Color(0xFF007AFF)),
+              if (widget.isDefault) _badge('Default', const Color(0xFF007AFF)),
               if (widget.isActive) ...[
                 const SizedBox(width: 8),
                 _badge('Current', Theme.of(context).colorScheme.primary),
@@ -753,7 +886,8 @@ class _PresetCardWidgetState extends State<_PresetCardWidget> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Text(
                         '${value.name.isNotEmpty ? value.name : value.metricCode}: ${value.value}${value.unit.isNotEmpty ? ' ${value.unit}' : ''}',
-                        style: TextStyle(color: widget.textSecondary, fontSize: 13),
+                        style: TextStyle(
+                            color: widget.textSecondary, fontSize: 13),
                       ),
                     ),
                   if (widget.preset.values.length > 3)
@@ -761,23 +895,32 @@ class _PresetCardWidgetState extends State<_PresetCardWidget> {
                       onTap: () => setState(() => _isExpanded = !_isExpanded),
                       borderRadius: BorderRadius.circular(6),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 4, horizontal: 2),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              _isExpanded ? 'Show Less' : 'View All Details (${widget.preset.values.length})',
+                              _isExpanded
+                                  ? 'Show Less'
+                                  : 'View All Details (${widget.preset.values.length})',
                               style: TextStyle(
-                                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                                color: isLight
+                                    ? AppTheme.lightTextPrimary
+                                    : Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
                             ),
                             const SizedBox(width: 4),
                             Icon(
-                              _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              _isExpanded
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
                               size: 16,
-                              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
                             )
                           ],
                         ),
@@ -793,7 +936,8 @@ class _PresetCardWidgetState extends State<_PresetCardWidget> {
             runSpacing: 10,
             children: [
               FilledButton(
-                onPressed: widget.isSaving || !hasValues ? null : widget.onApply,
+                onPressed:
+                    widget.isSaving || !hasValues ? null : widget.onApply,
                 child: const Text('Apply'),
               ),
               OutlinedButton(

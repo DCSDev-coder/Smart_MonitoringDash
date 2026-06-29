@@ -57,6 +57,9 @@ class CpanelApiService {
     _portalUserId = null;
     _portalPasswordInMemory = null;
     _portalAuthToken = null;
+    currentSite = null;
+    currentAppConfig = null;
+    currentUser = null;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyPortalUsername);
@@ -102,15 +105,17 @@ class CpanelApiService {
   }
 
   bool get hasPin {
-    if (currentUser == null) return true; // Default true to avoid false positives
+    if (currentUser == null) {
+      return true; // Default true to avoid false positives
+    }
     final hasPinFlag = currentUser!['has_pin'];
     final pinSetupFlag = currentUser!['pin_setup'];
     final pinValue = currentUser!['pin'];
-    
+
     if (hasPinFlag != null) return isTruthyFlag(hasPinFlag);
     if (pinSetupFlag != null) return isTruthyFlag(pinSetupFlag);
     if (pinValue != null && pinValue.toString().trim().isNotEmpty) return true;
-    
+
     return false;
   }
 
@@ -957,8 +962,6 @@ class CpanelApiService {
     }
     return null;
   }
-
-
 
   Future<bool> logRemoteAccess({
     required int siteId,
