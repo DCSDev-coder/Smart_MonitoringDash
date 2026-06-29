@@ -8,9 +8,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
         children: [
           _buildDiagnosticsSection(),
           const SizedBox(height: 24),
-          _buildCurrentAlarmSection(),
-          const SizedBox(height: 24),
-          _buildReportAlarmSection(),
+          _buildIssuesSection(),
         ],
       ),
     );
@@ -24,118 +22,151 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
         .toList();
   }
 
-  Widget _buildCurrentAlarmSection() {
-    final currentAlarms = _activeCurrentAlarms();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'CURRENT ISSUES',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: Theme.of(context).brightness == Brightness.light
-                ? AppTheme.lightTextPrimary
-                : Colors.white,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sectionGapSm),
-        if (currentAlarms.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'No active alarms right now.',
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+  Widget _buildIssuesSection() {
+    final issues = _combinedIssues();
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return DashboardGlass(
+      radius: 22,
+      padding: const EdgeInsets.all(18),
+      tint: isLight
+          ? Colors.white
+          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+      borderColor: isLight ? AppTheme.lightStroke : Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'ISSUES',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  letterSpacing: 1.2,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: currentAlarms.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              return ExpandableHistoricalAlarmCard(alarm: currentAlarms[index]);
-            },
+              _buildEventFilterRow(),
+            ],
           ),
-      ],
+          const SizedBox(height: AppSpacing.sectionGapSm),
+          if (_fetchingHistoricalEvents && issues.isEmpty)
+            const SizedBox(
+              height: 100,
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (issues.isEmpty)
+            _buildSectionEmptyState('No issues right now.')
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: issues.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                return ExpandableHistoricalAlarmCard(
+                  alarm: issues[index],
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildReportAlarmSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'HISTORICAL',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white,
-                letterSpacing: 1.2,
-              ),
-            ),
-            _buildEventFilterRow(),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sectionGapSm),
-        if (_fetchingHistoricalEvents)
-          const SizedBox(
-            height: 100,
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          )
-        else if (_reportAlarms.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'No events found for this period.',
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _reportAlarms.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              return _buildReportAlarmItem(_reportAlarms[index]);
-            },
-          ),
-      ],
-    );
+  List<Map<String, dynamic>> _combinedIssues() {
+    final merged = <Map<String, dynamic>>[];
+    final seen = <String>{};
+
+    void addIssue(dynamic alarm) {
+      if (alarm is! Map) return;
+      final item = alarm.cast<String, dynamic>();
+      final key = _issueKey(item);
+      if (seen.add(key)) {
+        merged.add(item);
+      }
+    }
+
+    for (final alarm in _activeCurrentAlarms()) {
+      addIssue(alarm);
+    }
+
+    for (final alarm in _reportAlarms) {
+      addIssue(alarm);
+    }
+
+    merged.sort((a, b) {
+      final aTime = _issueSortTime(a);
+      final bTime = _issueSortTime(b);
+      return bTime.compareTo(aTime);
+    });
+
+    return merged;
   }
 
-  Widget _buildReportAlarmItem(dynamic alarm) {
-    return ExpandableHistoricalAlarmCard(alarm: alarm);
+  String _issueKey(Map<String, dynamic> alarm) {
+    final parts = <String>[
+      (alarm['collectControlNodeName'] ??
+              alarm['name'] ??
+              alarm['alarmName'] ??
+              '')
+          .toString()
+          .trim()
+          .toLowerCase(),
+      (alarm['occurrenceTime'] ??
+              alarm['createTime'] ??
+              alarm['timestamp'] ??
+              alarm['opTime'] ??
+              '')
+          .toString()
+          .trim(),
+      (alarm['alarmItem'] ?? alarm['content'] ?? alarm['alarmTypeName'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase(),
+    ];
+    return parts.join('|');
+  }
+
+  DateTime _issueSortTime(Map<String, dynamic> alarm) {
+    final raw = alarm['occurrenceTime'] ??
+        alarm['createTime'] ??
+        alarm['timestamp'] ??
+        alarm['opTime'] ??
+        alarm['lastOccurTime'] ??
+        alarm['recoverTime'] ??
+        alarm['recoveryTime'] ??
+        '';
+    final parsed = raw is DateTime
+        ? raw
+        : DateTime.tryParse(raw.toString().replaceFirst(' ', 'T'));
+    return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  Widget _buildSectionEmptyState(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: Theme.of(context).brightness == Brightness.light
+              ? AppTheme.lightTextPrimary
+              : Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
   }
 
   Widget _buildDiagnosticsSection() {
@@ -164,9 +195,6 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
   }
 
   Widget _buildMaintenanceCard() {
-    final days = _lastMaintenance == null
-        ? 'N/A'
-        : DateTime.now().difference(_lastMaintenance!).inDays.toString();
     final isOverdue = _lastMaintenance != null &&
         DateTime.now().difference(_lastMaintenance!).inDays >= 90;
     final isLight = Theme.of(context).brightness == Brightness.light;
@@ -279,8 +307,9 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               primary: AppTheme.accentBlue,
               surface: isLight ? Colors.white : const Color(0xFF0B0F14),
             ),
-            dialogBackgroundColor:
-                isLight ? Colors.white : const Color(0xFF0B0F14),
+            dialogTheme: DialogThemeData(
+              backgroundColor: isLight ? Colors.white : const Color(0xFF0B0F14),
+            ),
           ),
           child: child!,
         );
@@ -326,7 +355,6 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
           (sum, d) => sum + (d['normalCount'] as int? ?? 0),
         ) +
         siteOnline;
-    final int offline = total - online;
     final isLight = Theme.of(context).brightness == Brightness.light;
     return DashboardGlass(
       radius: 20,
@@ -826,7 +854,7 @@ class _ExpandableHistoricalAlarmCardState
       final parts = rawContent.split(',');
       for (final p in parts) {
         final pt = p.trim();
-        if (pt.startsWith(key + ':')) {
+        if (pt.startsWith('$key:')) {
           return pt.substring(pt.indexOf(':') + 1).trim();
         }
       }
@@ -858,11 +886,13 @@ class _ExpandableHistoricalAlarmCardState
         .trim();
 
     String subtitle = '';
-    if (cabinet.isNotEmpty && device.isNotEmpty)
+    if (cabinet.isNotEmpty && device.isNotEmpty) {
       subtitle = '$cabinet / $device';
-    else if (cabinet.isNotEmpty)
+    } else if (cabinet.isNotEmpty) {
       subtitle = cabinet;
-    else if (device.isNotEmpty) subtitle = device;
+    } else if (device.isNotEmpty) {
+      subtitle = device;
+    }
 
     String alarmValue() {
       if (extractedValue.isNotEmpty) return extractedValue;

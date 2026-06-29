@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/utils/alarm_payload.dart';
-import '../../../shared/widgets/dashboard_glass.dart';
 import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
 import 'device_history_sheet.dart';
@@ -312,7 +311,9 @@ class DeviceHealthSection extends StatelessWidget {
       // If there are no rack items AND no site status AND no alarms, skip this category
       if (items.isEmpty &&
           (siteStatus == null || siteStatus == -1) &&
-          activeAlarms.isEmpty) return null;
+          activeAlarms.isEmpty) {
+        return null;
+      }
 
       int total = 0;
       int normal = 0;
@@ -972,6 +973,7 @@ class _DeviceHealthRow extends StatelessWidget {
                                   deviceType: item.type,
                                   iconAsset: item.iconAsset,
                                   iconBgColor: item.iconBgColor,
+                                  alarms: alarms,
                                 ),
                             ],
                           ),
@@ -1185,6 +1187,7 @@ class _DeviceDetailRow extends StatelessWidget {
   final String deviceType;
   final String? iconAsset;
   final Color? iconBgColor;
+  final List<dynamic>? alarms;
 
   const _DeviceDetailRow({
     required this.name,
@@ -1194,6 +1197,7 @@ class _DeviceDetailRow extends StatelessWidget {
     this.deviceType = '',
     this.iconAsset,
     this.iconBgColor,
+    this.alarms,
   });
 
   @override
@@ -1283,6 +1287,7 @@ class _DeviceDetailRow extends StatelessWidget {
                 metricCode: metricCode,
                 iconAsset: iconAsset,
                 iconBgColor: iconBgColor,
+                alarms: alarms,
               ),
             );
           },
