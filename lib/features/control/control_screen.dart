@@ -788,9 +788,13 @@ class _ControlScreenState extends State<ControlScreen>
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context, null),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
+                        foregroundColor: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white70,
                         side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.25)),
+                            color: Theme.of(context).brightness == Brightness.light
+                                ? AppTheme.lightTextSecondary.withValues(alpha: 0.25)
+                                : Colors.white.withValues(alpha: 0.25)),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                       ),
@@ -898,12 +902,6 @@ class _ControlScreenState extends State<ControlScreen>
                         ),
                       ],
                     ),
-                    Text('Current: ${row.displayValue}',
-                        style: TextStyle(
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? AppTheme.lightTextSecondary
-                                    : Colors.white.withValues(alpha: 0.7))),
                     const SizedBox(height: 18),
                     Wrap(
                       spacing: 10,
@@ -936,24 +934,49 @@ class _ControlScreenState extends State<ControlScreen>
       {required String label,
       required bool active,
       required VoidCallback onTap}) {
-    final c =
-        active ? Colors.orangeAccent : Colors.white.withValues(alpha: 0.18);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    
+    // Theme-aware colors for inactive state
+    final inactiveBg = isLight ? Colors.black.withValues(alpha: 0.04) : Colors.white.withValues(alpha: 0.08);
+    final inactiveBorder = isLight ? Colors.black.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.15);
+    final inactiveText = isLight ? AppTheme.lightTextSecondary : Colors.white.withValues(alpha: 0.7);
+
+    // Theme-aware colors for active state
+    final activeBg = isLight ? Colors.orangeAccent.withValues(alpha: 0.15) : Colors.orangeAccent.withValues(alpha: 0.18);
+    final activeBorder = Colors.orangeAccent.withValues(alpha: 0.5);
+    final activeText = isLight ? Colors.orange.shade900 : Colors.orangeAccent.shade100;
+
     return InkWell(
       onTap: _writing ? null : onTap,
       borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(horizontal: active ? 16 : 14, vertical: 10),
         decoration: BoxDecoration(
-          color: c.withValues(alpha: active ? 0.18 : 0.12),
+          color: active ? activeBg : inactiveBg,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: c.withValues(alpha: 0.35)),
+          border: Border.all(
+            color: active ? activeBorder : inactiveBorder,
+            width: active ? 1.5 : 1.0,
+          ),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white.withValues(alpha: 0.92),
-                fontWeight: FontWeight.w900)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (active) ...[
+              Icon(Icons.check_circle_rounded, color: activeText, size: 16),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? activeText : inactiveText,
+                fontWeight: active ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1002,9 +1025,13 @@ class _ControlScreenState extends State<ControlScreen>
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context, false),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
+                        foregroundColor: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white70,
                         side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.25)),
+                            color: Theme.of(context).brightness == Brightness.light
+                                ? AppTheme.lightTextSecondary.withValues(alpha: 0.25)
+                                : Colors.white.withValues(alpha: 0.25)),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                       ),
