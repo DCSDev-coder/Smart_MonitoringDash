@@ -25,6 +25,12 @@ class ControlScreen extends StatefulWidget {
 
 enum _ControlSection { pdu1, pdu2, ac }
 
+enum _MainTab { pdu, ac }
+
+enum _AcTab { metric, status, setting }
+
+enum _AcSection { metric, status, setting }
+
 class _ControlScreenState extends State<ControlScreen>
     with TickerProviderStateMixin {
   static const int _pdu1NodeId = 6; // Verified from SetupACPDU.har
@@ -39,8 +45,13 @@ class _ControlScreenState extends State<ControlScreen>
   _NodeMetrics? _pdu2;
   _NodeMetrics? _ac;
   String? _acHint;
-  _ControlSection _section = _ControlSection.pdu1;
+  _MainTab _mainTab = _MainTab.pdu;
+  _ControlSection _pduTab = _ControlSection.pdu1;
+  _AcTab _acTab = _AcTab.metric;
+
   late final AnimationController _tabSelC;
+  late final AnimationController _pduSubTabC;
+  late final AnimationController _acSubTabC;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -50,18 +61,51 @@ class _ControlScreenState extends State<ControlScreen>
       vsync: this,
       duration: const Duration(milliseconds: 340),
       value: 0.0,
+      upperBound: 1.0,
+    );
+    _pduSubTabC = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+      value: 0.0,
+      upperBound: 1.0,
+    );
+    _acSubTabC = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+      value: 0.0,
       upperBound: 2.0,
     );
     _fetchAll();
   }
 
-  void _selectTab(_ControlSection s) {
-    if (_section == s) return;
-    setState(() => _section = s);
-    _tabSelC.animateTo(
-      s.index.toDouble(),
-      curve: Curves.easeOutCubic,
-    );
+  void _selectMainTab(_MainTab tab) {
+    if (_mainTab != tab) {
+      setState(() => _mainTab = tab);
+      _tabSelC.animateTo(
+        tab == _MainTab.pdu ? 0.0 : 1.0,
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _selectPduTab(_ControlSection tab) {
+    if (_pduTab != tab) {
+      setState(() => _pduTab = tab);
+      _pduSubTabC.animateTo(
+        tab == _ControlSection.pdu1 ? 0.0 : 1.0,
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _selectAcTab(_AcTab tab) {
+    if (_acTab != tab) {
+      setState(() => _acTab = tab);
+      _acSubTabC.animateTo(
+        tab.index.toDouble(),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
@@ -113,12 +157,23 @@ class _ControlScreenState extends State<ControlScreen>
           fields: {
             'nodeId': acRes.id,
             'name': acRes.name,
-            'writable': acRes.rows.where((r) => r.write).length,
+            'sections': {
+              'metric': acRes.rows
+                  .where((r) => r.acSection == _AcSection.metric)
+                  .length,
+              'status': acRes.rows
+                  .where((r) => r.acSection == _AcSection.status)
+                  .length,
+              'setting': acRes.rows
+                  .where((r) => r.acSection == _AcSection.setting)
+                  .length,
+            },
             'sample': [
-              for (final r in acRes.rows.where((x) => x.write).take(6))
+              for (final r in acRes.rows.take(8))
                 {
                   'metric': r.metricCode,
                   'name': r.name,
+                  'section': r.acSection.name,
                   'value': r.displayValue,
                   'unit': r.unit,
                   'ts': r.updateTime,
@@ -280,6 +335,8 @@ class _ControlScreenState extends State<ControlScreen>
   @override
   void dispose() {
     _tabSelC.dispose();
+    _pduSubTabC.dispose();
+    _acSubTabC.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -291,14 +348,21 @@ class _ControlScreenState extends State<ControlScreen>
 
   @override
   Widget build(BuildContext context) {
-    final node = switch (_section) {
-      _ControlSection.pdu1 => _pdu1,
-      _ControlSection.pdu2 => _pdu2,
-      _ControlSection.ac => _ac,
-    };
-    final hint = _section == _ControlSection.ac ? _acHint : null;
-    final theme = Theme.of(context);
-    final isLight = theme.brightness == Brightness.light;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final onSurface = isLight ? Colors.black : Colors.white;
+
+    _NodeMetrics? node;
+    String? hint;
+    if (_mainTab == _MainTab.pdu) {
+      if (_pduTab == _ControlSection.pdu1) {
+        node = _pdu1;
+      } else {
+        node = _pdu2;
+      }
+    } else {
+      node = _ac;
+      hint = _acHint;
+    }
     final hPadding = AppSpacing.pageHorizontal(context);
     final subTextColor = isLight
         ? AppTheme.lightTextSecondary
@@ -332,8 +396,9 @@ class _ControlScreenState extends State<ControlScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildSectionButtons(),
-                            const SizedBox(height: AppSpacing.sectionGapSm),
+                            const SizedBox(height: 12),
+                            _buildTabs(isLight, onSurface),
+                            const SizedBox(height: 16),
                             if (_writing)
                               Padding(
                                 padding:
@@ -361,9 +426,12 @@ class _ControlScreenState extends State<ControlScreen>
                                   ],
                                 ),
                               ),
-                            _loading
-                                ? _tableSkeleton()
-                                : _nodeTable(node, hint: hint),
+                            if (_loading)
+                              _tableSkeleton()
+                            else if (_mainTab == _MainTab.pdu)
+                              _nodeTable(node, hint: hint)
+                            else
+                              _buildAcContent(isLight, onSurface, node),
                             SizedBox(
                               height: AppSpacing.pageBottom(context),
                             ), // Bottom padding
@@ -386,66 +454,65 @@ class _ControlScreenState extends State<ControlScreen>
     );
   }
 
-  Widget _buildSectionButtons() {
-    return Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.light
-                ? Colors.white
-                : const Color(0xFF0E141B),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.transparent),
-          ),
-          child: SizedBox(
-            height: 44,
-            width: double.infinity,
-            child: Stack(
-              children: [
-                AnimatedBuilder(
-                  animation: _tabSelC,
-                  builder: (context, _) {
-                    final sel = _tabSelC.value.clamp(0.0, 2.0);
+  Widget _buildTabs(bool isLight, Color onSurface) {
+    return Column(
+      children: [
+        // Main Tabs
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isLight ? Colors.white : const Color(0xFF0E141B),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.transparent),
+            ),
+            child: SizedBox(
+              height: 44,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  AnimatedBuilder(
+                    animation: _tabSelC,
+                    builder: (context, _) {
+                      final sel = _tabSelC.value.clamp(0.0, 1.0);
 
-                    // Dynamic colors for PDUs, fixed for AC
-                    final p1C = _getDeviceColor(_ControlSection.pdu1);
-                    final p2C = _getDeviceColor(_ControlSection.pdu2);
-                    const acC = Color(0xFF3271D7); // Blue like Energy
+                      // Dynamic colors for PDU, fixed for AC
+                      final pC = _getDeviceColor(_pduTab);
+                      const acC = Color(0xFF3271D7); // Blue like Energy
 
-                    Color accentColor;
-                    if (sel <= 1.0) {
-                      accentColor = Color.lerp(p1C, p2C, sel)!;
-                    } else {
-                      accentColor = Color.lerp(p2C, acC, sel - 1.0)!;
-                    }
+                      final accentColor = Color.lerp(pC, acC, sel)!;
 
-                    final alignX = -1.0 + (sel * 1.0);
+                      final alignX = -1.0 + (sel * 2.0);
 
-                    return Align(
-                      alignment: Alignment(alignX, 0),
-                      child: FractionallySizedBox(
-                        widthFactor: 1 / 3,
-                        heightFactor: 1.0,
-                        child: _AuraPill(color: accentColor),
-                      ),
-                    );
-                  },
-                ),
-                Row(
-                  children: [
-                    _navBtn('PDU 1', _ControlSection.pdu1),
-                    _navBtn('PDU 2', _ControlSection.pdu2),
-                    _navBtn('AC', _ControlSection.ac),
-                  ],
-                ),
-              ],
+                      return Align(
+                        alignment: Alignment(alignX, 0),
+                        child: FractionallySizedBox(
+                          widthFactor: 1 / 2,
+                          heightFactor: 1.0,
+                          child: _AuraPill(color: accentColor),
+                        ),
+                      );
+                    },
+                  ),
+                  Row(
+                    children: [
+                      _navMainBtn('PDU', _MainTab.pdu),
+                      _navMainBtn('AC', _MainTab.ac),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+        const SizedBox(height: 16),
+        // Sub Tabs
+        if (_mainTab == _MainTab.pdu)
+          _buildPduSubTabs(isLight)
+        else
+          _buildAcSubTabs(isLight),
+      ],
     );
   }
 
@@ -476,18 +543,19 @@ class _ControlScreenState extends State<ControlScreen>
     };
   }
 
-  Widget _navBtn(String label, _ControlSection s) {
+  Widget _navMainBtn(String label, _MainTab s) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => _selectTab(s),
+        onTap: () => _selectMainTab(s),
         behavior: HitTestBehavior.opaque,
         child: Center(
           child: AnimatedBuilder(
             animation: _tabSelC,
             builder: (context, _) {
-              final t = _tabSelC.value.clamp(0.0, 2.0);
+              final t = _tabSelC.value.clamp(0.0, 1.0);
+              final targetIndex = s == _MainTab.pdu ? 0.0 : 1.0;
               final selectedness =
-                  (1.0 - (t - s.index).abs()).clamp(0.0, 1.0).toDouble();
+                  (1.0 - (t - targetIndex).abs()).clamp(0.0, 1.0).toDouble();
               final isLight = Theme.of(context).brightness == Brightness.light;
               const selectedColor = Colors.white;
               final unselectedColor = isLight
@@ -498,7 +566,7 @@ class _ControlScreenState extends State<ControlScreen>
                 style: TextStyle(
                   color:
                       Color.lerp(unselectedColor, selectedColor, selectedness),
-                  fontSize: 12,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.8,
                 ),
@@ -507,6 +575,227 @@ class _ControlScreenState extends State<ControlScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPduSubTabs(bool isLight) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 400),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isLight ? Colors.white : const Color(0xFF0E141B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.transparent),
+        ),
+        child: SizedBox(
+          height: 36,
+          width: double.infinity,
+          child: Stack(
+            children: [
+              AnimatedBuilder(
+                animation: _pduSubTabC,
+                builder: (context, _) {
+                  final sel = _pduSubTabC.value.clamp(0.0, 1.0);
+                  final p1C = _getDeviceColor(_ControlSection.pdu1);
+                  final p2C = _getDeviceColor(_ControlSection.pdu2);
+                  final accentColor = Color.lerp(p1C, p2C, sel)!;
+                  final alignX = -1.0 + (sel * 2.0);
+
+                  return Align(
+                    alignment: Alignment(alignX, 0),
+                    child: FractionallySizedBox(
+                      widthFactor: 1 / 2,
+                      heightFactor: 1.0,
+                      child: _AuraPill(color: accentColor),
+                    ),
+                  );
+                },
+              ),
+              Row(
+                children: [
+                  _navSubBtn('PDU 1', () => _selectPduTab(_ControlSection.pdu1),
+                      _pduSubTabC, 0.0),
+                  _navSubBtn('PDU 2', () => _selectPduTab(_ControlSection.pdu2),
+                      _pduSubTabC, 1.0),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAcSubTabs(bool isLight) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 500),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isLight ? Colors.white : const Color(0xFF0E141B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.transparent),
+        ),
+        child: SizedBox(
+          height: 36,
+          width: double.infinity,
+          child: Stack(
+            children: [
+              AnimatedBuilder(
+                animation: _acSubTabC,
+                builder: (context, _) {
+                  final sel = _acSubTabC.value.clamp(0.0, 2.0);
+                  const accentColor = Color(0xFF3271D7); // Fixed Blue for AC
+                  final alignX = -1.0 + (sel * 1.0);
+
+                  return Align(
+                    alignment: Alignment(alignX, 0),
+                    child: const FractionallySizedBox(
+                      widthFactor: 1 / 3,
+                      heightFactor: 1.0,
+                      child: _AuraPill(color: accentColor),
+                    ),
+                  );
+                },
+              ),
+              Row(
+                children: [
+                  _navSubBtn('Metric', () => _selectAcTab(_AcTab.metric),
+                      _acSubTabC, 0.0),
+                  _navSubBtn('Status', () => _selectAcTab(_AcTab.status),
+                      _acSubTabC, 1.0),
+                  _navSubBtn('Setting', () => _selectAcTab(_AcTab.setting),
+                      _acSubTabC, 2.0),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navSubBtn(String label, VoidCallback onTap, AnimationController animC,
+      double targetIndex) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: AnimatedBuilder(
+            animation: animC,
+            builder: (context, _) {
+              final t = animC.value.clamp(0.0, 2.0);
+              final selectedness =
+                  (1.0 - (t - targetIndex).abs()).clamp(0.0, 1.0).toDouble();
+              final isLight = Theme.of(context).brightness == Brightness.light;
+              const selectedColor = Colors.white;
+              final unselectedColor = isLight
+                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.5);
+              return Text(
+                label,
+                style: TextStyle(
+                  color:
+                      Color.lerp(unselectedColor, selectedColor, selectedness),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAcContent(bool isLight, Color onSurface, _NodeMetrics? node) {
+    final rows = node?.rows ?? const <_MetricRow>[];
+
+    final categorized = <_AcSection, List<_MetricRow>>{
+      _AcSection.metric: <_MetricRow>[],
+      _AcSection.status: <_MetricRow>[],
+      _AcSection.setting: <_MetricRow>[],
+    };
+    for (final row in rows) {
+      categorized[row.acSection]!.add(row);
+    }
+
+    for (final bucket in categorized.values) {
+      bucket.sort((a, b) => a.sortIndex.compareTo(b.sortIndex));
+    }
+
+    final visibleRows = switch (_acTab) {
+      _AcTab.metric => categorized[_AcSection.metric]!,
+      _AcTab.status => categorized[_AcSection.status]!,
+      _AcTab.setting => categorized[_AcSection.setting]!,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : null,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: visibleRows.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Center(
+                    child: Text(
+                      'No ${_acTab.name} data available',
+                      style: TextStyle(
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: visibleRows.length,
+                  separatorBuilder: (_, __) => Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 16),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: isLight
+                          ? Colors.black.withValues(alpha: 0.05)
+                          : Colors.white.withValues(alpha: 0.05),
+                    ),
+                  ),
+                  itemBuilder: (context, idx) {
+                    final r = visibleRows[idx];
+                    return _metricTile(
+                      title: r.name,
+                      value: r.displayValue,
+                      unit: r.unit,
+                      time: r.updateTime,
+                      canSet: r.write,
+                      onSet: r.write
+                          ? () => _openSetDialog(nodeId: node?.id, row: r)
+                          : null,
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -788,13 +1077,16 @@ class _ControlScreenState extends State<ControlScreen>
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context, null),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white70,
+                        foregroundColor:
+                            Theme.of(context).brightness == Brightness.light
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white70,
                         side: BorderSide(
-                            color: Theme.of(context).brightness == Brightness.light
-                                ? AppTheme.lightTextSecondary.withValues(alpha: 0.25)
-                                : Colors.white.withValues(alpha: 0.25)),
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? AppTheme.lightTextSecondary
+                                        .withValues(alpha: 0.25)
+                                    : Colors.white.withValues(alpha: 0.25)),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                       ),
@@ -935,16 +1227,25 @@ class _ControlScreenState extends State<ControlScreen>
       required bool active,
       required VoidCallback onTap}) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     // Theme-aware colors for inactive state
-    final inactiveBg = isLight ? Colors.black.withValues(alpha: 0.04) : Colors.white.withValues(alpha: 0.08);
-    final inactiveBorder = isLight ? Colors.black.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.15);
-    final inactiveText = isLight ? AppTheme.lightTextSecondary : Colors.white.withValues(alpha: 0.7);
+    final inactiveBg = isLight
+        ? Colors.black.withValues(alpha: 0.04)
+        : Colors.white.withValues(alpha: 0.08);
+    final inactiveBorder = isLight
+        ? Colors.black.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: 0.15);
+    final inactiveText = isLight
+        ? AppTheme.lightTextSecondary
+        : Colors.white.withValues(alpha: 0.7);
 
     // Theme-aware colors for active state
-    final activeBg = isLight ? Colors.orangeAccent.withValues(alpha: 0.15) : Colors.orangeAccent.withValues(alpha: 0.18);
+    final activeBg = isLight
+        ? Colors.orangeAccent.withValues(alpha: 0.15)
+        : Colors.orangeAccent.withValues(alpha: 0.18);
     final activeBorder = Colors.orangeAccent.withValues(alpha: 0.5);
-    final activeText = isLight ? Colors.orange.shade900 : Colors.orangeAccent.shade100;
+    final activeText =
+        isLight ? Colors.orange.shade900 : Colors.orangeAccent.shade100;
 
     return InkWell(
       onTap: _writing ? null : onTap,
@@ -952,7 +1253,8 @@ class _ControlScreenState extends State<ControlScreen>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        padding: EdgeInsets.symmetric(horizontal: active ? 16 : 14, vertical: 10),
+        padding:
+            EdgeInsets.symmetric(horizontal: active ? 16 : 14, vertical: 10),
         decoration: BoxDecoration(
           color: active ? activeBg : inactiveBg,
           borderRadius: BorderRadius.circular(999),
@@ -1025,13 +1327,16 @@ class _ControlScreenState extends State<ControlScreen>
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context, false),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white70,
+                        foregroundColor:
+                            Theme.of(context).brightness == Brightness.light
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white70,
                         side: BorderSide(
-                            color: Theme.of(context).brightness == Brightness.light
-                                ? AppTheme.lightTextSecondary.withValues(alpha: 0.25)
-                                : Colors.white.withValues(alpha: 0.25)),
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? AppTheme.lightTextSecondary
+                                        .withValues(alpha: 0.25)
+                                    : Colors.white.withValues(alpha: 0.25)),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                       ),
@@ -1235,6 +1540,7 @@ class _NodeMetrics {
 
   static _NodeMetrics? fromApi(Map<String, dynamic>? res) {
     if (res == null) return null;
+    final normalized = res['normalized'];
     final r = res['result'];
     if (r is! Map) return null;
     final id = (r['id'] is num)
@@ -1242,11 +1548,20 @@ class _NodeMetrics {
         : int.tryParse(r['id']?.toString() ?? '');
     if (id == null) return null;
     final name = r['name']?.toString() ?? 'Node $id';
+    final normalizedRows = _rowsFromNormalized(normalized);
+    if (normalizedRows.isNotEmpty) {
+      return _NodeMetrics(id: id, name: name, rows: normalizedRows);
+    }
     final metrics = (r['metrics'] as List?) ?? const [];
     final rows = <_MetricRow>[];
+    var index = 0;
     for (final m in metrics) {
       if (m is! Map) continue;
-      rows.add(_MetricRow.fromMetric(m.cast<String, dynamic>()));
+      rows.add(_MetricRow.fromMetric(
+        m.cast<String, dynamic>(),
+        sourceIndex: index,
+      ));
+      index++;
     }
     return _NodeMetrics(id: id, name: name, rows: rows);
   }
@@ -1261,9 +1576,14 @@ class _NodeMetrics {
     if (r is! Map) return null;
     final metrics = (r['records'] as List?) ?? const [];
     final rows = <_MetricRow>[];
+    var index = 0;
     for (final m in metrics) {
       if (m is! Map) continue;
-      rows.add(_MetricRow.fromMetric(m.cast<String, dynamic>()));
+      rows.add(_MetricRow.fromMetric(
+        m.cast<String, dynamic>(),
+        sourceIndex: index,
+      ));
+      index++;
     }
     return _NodeMetrics(
       id: fallbackNodeId,
@@ -1275,6 +1595,72 @@ class _NodeMetrics {
   }
 }
 
+List<_MetricRow> _rowsFromNormalized(dynamic normalized) {
+  if (normalized is! Map) return const [];
+  final normalizedMap = normalized.cast<String, dynamic>();
+
+  final rows = <_MetricRow>[];
+  final rawRows = normalizedMap['rows'];
+  if (rawRows is List) {
+    var index = 0;
+    for (final raw in rawRows) {
+      if (raw is! Map) {
+        index++;
+        continue;
+      }
+      final rawMap = Map<String, dynamic>.from(raw.cast<String, dynamic>());
+      rows.add(
+        _MetricRow.fromMetric(
+          rawMap,
+          sourceIndex: index,
+          sectionOverride: _parseAcSection(
+            rawMap['section'] ??
+                rawMap['category'] ??
+                rawMap['group'] ??
+                rawMap['groupName'],
+          ),
+        ),
+      );
+      index++;
+    }
+    if (rows.isNotEmpty) {
+      rows.sort((a, b) => a.sortIndex.compareTo(b.sortIndex));
+      return rows;
+    }
+  }
+
+  final sections = normalizedMap['sections'];
+  if (sections is Map) {
+    final sectionMap = sections.cast<String, dynamic>();
+    var index = 0;
+    for (final entry in [
+      MapEntry('metric', sectionMap['metric']),
+      MapEntry('status', sectionMap['status']),
+      MapEntry('setting', sectionMap['setting']),
+    ]) {
+      final sectionRows = entry.value;
+      if (sectionRows is! List) continue;
+      for (final raw in sectionRows) {
+        if (raw is! Map) {
+          index++;
+          continue;
+        }
+        rows.add(
+          _MetricRow.fromMetric(
+            Map<String, dynamic>.from(raw.cast<String, dynamic>()),
+            sourceIndex: index,
+            sectionOverride: _parseAcSection(entry.key),
+          ),
+        );
+        index++;
+      }
+    }
+  }
+
+  rows.sort((a, b) => a.sortIndex.compareTo(b.sortIndex));
+  return rows;
+}
+
 class _MetricRow {
   final String metricCode;
   final String name;
@@ -1284,6 +1670,8 @@ class _MetricRow {
   final Map<int, String>? writeMap;
   final int? currentIntValue;
   final String displayValue;
+  final _AcSection acSection;
+  final int sortIndex;
 
   const _MetricRow({
     required this.metricCode,
@@ -1294,9 +1682,15 @@ class _MetricRow {
     required this.writeMap,
     required this.currentIntValue,
     required this.displayValue,
+    required this.acSection,
+    required this.sortIndex,
   });
 
-  static _MetricRow fromMetric(Map<String, dynamic> m) {
+  static _MetricRow fromMetric(
+    Map<String, dynamic> m, {
+    required int sourceIndex,
+    _AcSection? sectionOverride,
+  }) {
     final metricCode = (m['code'] ?? m['metricTypeLibCode'] ?? '').toString();
     final name = (m['name'] ?? m['desc'] ?? metricCode).toString();
     final unit = (m['codeUnit'] ?? '').toString().trim();
@@ -1312,6 +1706,19 @@ class _MetricRow {
             '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
 
     final write = (m['write'] == true) || (m['writable'] == true);
+    final sortIndex = _firstInt(
+          m,
+          const [
+            'sortOrder',
+            'sort',
+            'displayOrder',
+            'orderNo',
+            'seq',
+            'index',
+            'sortIndex'
+          ],
+        ) ??
+        sourceIndex;
 
     Map<int, String>? writeMap;
     final rawMap = m['writeMap'];
@@ -1323,6 +1730,20 @@ class _MetricRow {
       });
       if (tmp.isNotEmpty) writeMap = tmp;
     }
+
+    final explicitSection = sectionOverride ??
+        _parseAcSection(
+          m['section'] ??
+              m['category'] ??
+              m['group'] ??
+              m['groupName'] ??
+              m['tab'] ??
+              m['bucket'] ??
+              m['kind'] ??
+              m['type'] ??
+              m['role'] ??
+              m['metricCategory'],
+        );
 
     final valueStr = m['valueStr']?.toString();
     final val = m['value'] ?? m['val'];
@@ -1343,6 +1764,11 @@ class _MetricRow {
       display = val.toString();
     }
 
+    final acSection = explicitSection ??
+        (write
+            ? _AcSection.setting
+            : _inferAcSection(metricCode, name, unit, display));
+
     return _MetricRow(
       metricCode: metricCode,
       name: name,
@@ -1352,6 +1778,118 @@ class _MetricRow {
       writeMap: writeMap,
       currentIntValue: intVal,
       displayValue: display,
+      acSection: acSection,
+      sortIndex: sortIndex,
     );
   }
+}
+
+_AcSection? _parseAcSection(dynamic raw) {
+  final normalized = raw?.toString().trim().toLowerCase() ?? '';
+  switch (normalized) {
+    case 'metric':
+    case 'metrics':
+    case 'measurement':
+    case 'measurements':
+    case 'reading':
+    case 'readings':
+    case 'sensor':
+    case 'sensors':
+    case 'telemetry':
+      return _AcSection.metric;
+    case 'status':
+    case 'statuses':
+    case 'state':
+    case 'states':
+    case 'alarm':
+    case 'alarms':
+    case 'fault':
+    case 'faults':
+    case 'warning':
+    case 'warnings':
+    case 'condition':
+    case 'conditions':
+      return _AcSection.status;
+    case 'setting':
+    case 'settings':
+    case 'control':
+    case 'controls':
+    case 'config':
+    case 'configuration':
+    case 'parameter':
+    case 'parameters':
+    case 'setpoint':
+    case 'setpoints':
+    case 'adjustment':
+    case 'adjustments':
+    case 'threshold':
+    case 'thresholds':
+      return _AcSection.setting;
+    default:
+      return null;
+  }
+}
+
+_AcSection _inferAcSection(
+  String metricCode,
+  String name,
+  String unit,
+  String display,
+) {
+  final text = [
+    metricCode,
+    name,
+    unit,
+    display,
+  ].map((v) => v.trim().toLowerCase()).join(' ');
+
+  if (text.contains('status') ||
+      text.contains('state') ||
+      text.contains('alarm') ||
+      text.contains('fault') ||
+      text.contains('warning') ||
+      text.contains('error') ||
+      text.contains('trip') ||
+      text.contains('running') ||
+      text.contains('stopped') ||
+      text.contains('online') ||
+      text.contains('offline') ||
+      text.contains('open') ||
+      text.contains('closed') ||
+      text.contains('ready') ||
+      text.contains('disabled') ||
+      text.contains('enabled') ||
+      text.contains('cooling') ||
+      text.contains('heating') ||
+      text.contains('standby')) {
+    return _AcSection.status;
+  }
+
+  if (text.contains('setpoint') ||
+      text.contains('threshold') ||
+      text.contains('control') ||
+      text.contains('config') ||
+      text.contains('parameter') ||
+      text.contains('adjustment') ||
+      text.contains('preset') ||
+      text.contains('reset') ||
+      text.contains('power on') ||
+      text.contains('power off') ||
+      text.contains('enable') ||
+      text.contains('disable') ||
+      text.contains('mode')) {
+    return _AcSection.setting;
+  }
+
+  return _AcSection.metric;
+}
+
+int? _firstInt(Map<String, dynamic> data, List<String> keys) {
+  for (final key in keys) {
+    final value = data[key];
+    if (value is num) return value.toInt();
+    final parsed = int.tryParse(value?.toString() ?? '');
+    if (parsed != null) return parsed;
+  }
+  return null;
 }
