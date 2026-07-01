@@ -129,6 +129,8 @@ class _SettingsOverlayPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    
     return Stack(
       children: [
         Positioned.fill(
@@ -140,9 +142,11 @@ class _SettingsOverlayPage extends StatelessWidget {
         ),
         SafeArea(
           child: Align(
-            alignment: Alignment.topRight,
+            alignment: isMobile ? Alignment.topCenter : Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.only(top: 76, right: 24, bottom: 24),
+              padding: isMobile 
+                  ? const EdgeInsets.only(top: 76, left: 16, right: 16, bottom: 24)
+                  : const EdgeInsets.only(top: 76, right: 24, bottom: 24),
               child: Material(
                 elevation: 16,
                 borderRadius: BorderRadius.circular(20),
