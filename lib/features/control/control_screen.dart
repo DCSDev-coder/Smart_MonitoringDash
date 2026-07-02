@@ -390,14 +390,26 @@ class _ControlScreenState extends State<ControlScreen>
                         height: AppConstants.headerClearance(context),
                       ),
                     ),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ControlTabsHeaderDelegate(
+                        height: 124,
+                        child: Container(
+                          color: isLight
+                              ? Theme.of(context).scaffoldBackgroundColor
+                              : const Color(0xFF060B11),
+                          padding:
+                              EdgeInsets.fromLTRB(hPadding, 12, hPadding, 16),
+                          child: _buildTabs(isLight, onSurface),
+                        ),
+                      ),
+                    ),
                     SliverPadding(
                       padding: EdgeInsets.symmetric(horizontal: hPadding),
                       sliver: SliverToBoxAdapter(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 12),
-                            _buildTabs(isLight, onSurface),
                             const SizedBox(height: 16),
                             if (_writing)
                               Padding(
@@ -1781,6 +1793,36 @@ class _MetricRow {
       acSection: acSection,
       sortIndex: sortIndex,
     );
+  }
+}
+
+class _ControlTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double height;
+  final Widget child;
+
+  const _ControlTabsHeaderDelegate({
+    required this.height,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(covariant _ControlTabsHeaderDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }
 

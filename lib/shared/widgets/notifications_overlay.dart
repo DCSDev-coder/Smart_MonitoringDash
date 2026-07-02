@@ -15,7 +15,8 @@ class NotificationsOverlay {
     void Function()? onNavigateToReport,
   }) {
     return Navigator.of(context).push<void>(
-      _NotificationsOverlayRoute(alarms: alarms, onNavigateToReport: onNavigateToReport),
+      _NotificationsOverlayRoute(
+          alarms: alarms, onNavigateToReport: onNavigateToReport),
     );
   }
 }
@@ -23,7 +24,7 @@ class NotificationsOverlay {
 class _NotificationsOverlayRoute extends PopupRoute<void> {
   final List<dynamic> alarms;
   final void Function()? onNavigateToReport;
-  
+
   _NotificationsOverlayRoute({required this.alarms, this.onNavigateToReport});
 
   @override
@@ -44,7 +45,8 @@ class _NotificationsOverlayRoute extends PopupRoute<void> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    return _NotificationsOverlayPage(alarms: alarms, onNavigateToReport: onNavigateToReport);
+    return _NotificationsOverlayPage(
+        alarms: alarms, onNavigateToReport: onNavigateToReport);
   }
 
   @override
@@ -68,12 +70,16 @@ class _NotificationsOverlayRoute extends PopupRoute<void> {
 class _NotificationsOverlayPage extends StatelessWidget {
   final List<dynamic> alarms;
   final void Function()? onNavigateToReport;
-  
-  const _NotificationsOverlayPage({required this.alarms, this.onNavigateToReport});
+
+  const _NotificationsOverlayPage(
+      {required this.alarms, this.onNavigateToReport});
 
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final panelWidth =
+        isMobile ? (viewportWidth - 32).clamp(280.0, 380.0).toDouble() : 380.0;
 
     return Stack(
       children: [
@@ -88,16 +94,22 @@ class _NotificationsOverlayPage extends StatelessWidget {
           child: Align(
             alignment: isMobile ? Alignment.topCenter : Alignment.topRight,
             child: Padding(
-              padding: isMobile 
-                  ? const EdgeInsets.only(top: 76, left: 16, right: 16, bottom: 24)
+              padding: isMobile
+                  ? const EdgeInsets.only(
+                      top: 76, left: 16, right: 16, bottom: 24)
                   : const EdgeInsets.only(top: 76, right: 64, bottom: 24),
-              child: Material(
-                elevation: 16,
-                borderRadius: BorderRadius.circular(20),
-                clipBehavior: Clip.antiAlias,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 380, maxHeight: 600),
-                  child: _NotificationsPanel(alarms: alarms, onNavigateToReport: onNavigateToReport),
+              child: SizedBox(
+                width: panelWidth,
+                child: Material(
+                  elevation: 16,
+                  borderRadius: BorderRadius.circular(20),
+                  clipBehavior: Clip.antiAlias,
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxWidth: 380, maxHeight: 600),
+                    child: _NotificationsPanel(
+                        alarms: alarms, onNavigateToReport: onNavigateToReport),
+                  ),
                 ),
               ),
             ),
@@ -111,7 +123,7 @@ class _NotificationsOverlayPage extends StatelessWidget {
 class _NotificationsPanel extends StatefulWidget {
   final List<dynamic> alarms;
   final void Function()? onNavigateToReport;
-  
+
   const _NotificationsPanel({required this.alarms, this.onNavigateToReport});
 
   @override
@@ -123,10 +135,14 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     final s = level.trim().toLowerCase();
     if (s.isEmpty) return const Color.fromARGB(255, 28, 78, 159);
     if (s.contains('info')) return const Color.fromARGB(255, 34, 94, 190);
-    if (s.contains('good') || s.contains('normal') || s.contains('ok')) return const Color.fromARGB(255, 0, 153, 36);
-    if (s.contains('moderate') || s.contains('warning') || s.contains('minor')) return const Color.fromARGB(255, 146, 122, 42);
-    if (s.contains('critical') || s.contains('major')) return const Color.fromARGB(255, 145, 79, 25);
-    if (s.contains('red') || s.contains('emergency') || s.contains('severe')) return const Color.fromARGB(255, 155, 33, 26);
+    if (s.contains('good') || s.contains('normal') || s.contains('ok'))
+      return const Color.fromARGB(255, 0, 153, 36);
+    if (s.contains('moderate') || s.contains('warning') || s.contains('minor'))
+      return const Color.fromARGB(255, 146, 122, 42);
+    if (s.contains('critical') || s.contains('major'))
+      return const Color.fromARGB(255, 145, 79, 25);
+    if (s.contains('red') || s.contains('emergency') || s.contains('severe'))
+      return const Color.fromARGB(255, 155, 33, 26);
     return const Color(0xFF2D7DFF);
   }
 
@@ -134,15 +150,19 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     final t = itemOrTitle.toUpperCase();
     if (t.contains('TEMP')) return Icons.thermostat_rounded;
     if (t.contains('HUM')) return Icons.water_drop_rounded;
-    if (t.contains('SMOKE') || t.contains('FIRE')) return Icons.local_fire_department_rounded;
-    if (t.contains('FLOOD') || t.contains('LEAK') || t.contains('WATER')) return Icons.water_damage_rounded;
-    if (t.contains('UPS') || t.contains('BAT')) return Icons.battery_alert_rounded;
+    if (t.contains('SMOKE') || t.contains('FIRE'))
+      return Icons.local_fire_department_rounded;
+    if (t.contains('FLOOD') || t.contains('LEAK') || t.contains('WATER'))
+      return Icons.water_damage_rounded;
+    if (t.contains('UPS') || t.contains('BAT'))
+      return Icons.battery_alert_rounded;
     if (t.contains('PDU') || t.contains('POWER')) return Icons.bolt_rounded;
-    if (t.contains('SECURITY') || t.contains('DOOR') || t.contains('ACCESS')) return Icons.security_rounded;
-    
+    if (t.contains('SECURITY') || t.contains('DOOR') || t.contains('ACCESS'))
+      return Icons.security_rounded;
+
     // Use regex to match "AC" as a standalone word, so words like "ACTION" don't trigger it
     if (RegExp(r'\bAC\b').hasMatch(t)) return Icons.ac_unit_rounded;
-    
+
     return Icons.notifications_rounded;
   }
 
@@ -150,25 +170,31 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     final alarmItem = (a['alarmItem'] ?? '').toString().trim();
     final content = (a['content'] ?? '').toString().trim();
     final node = (a['collectControlNodeName'] ?? '').toString().trim();
-    
-    final candidate = alarmItem.isNotEmpty ? alarmItem : (node.isNotEmpty ? node : content);
+
+    final candidate =
+        alarmItem.isNotEmpty ? alarmItem : (node.isNotEmpty ? node : content);
     if (candidate.isEmpty) return 'ALARM';
 
     final upper = candidate.toUpperCase();
-    if (upper.contains('TEMP') && upper.contains('HUM')) return 'TEMP/HUM ISSUE';
+    if (upper.contains('TEMP') && upper.contains('HUM'))
+      return 'TEMP/HUM ISSUE';
     if (upper.contains('TEMP')) return 'TEMP ISSUE';
     if (upper.contains('HUM')) return 'HUMIDITY ISSUE';
     if (upper.contains('SMOKE')) return 'SMOKE ALERT';
     if (upper.contains('FLOOD') || upper.contains('LEAK')) return 'LEAK ALERT';
     if (upper.contains('UPS')) return 'UPS ISSUE';
     if (upper.contains('PDU')) return 'PDU ISSUE';
-    
-    return candidate.length > 40 ? '${candidate.substring(0, 40)}...' : candidate;
+
+    return candidate.length > 40
+        ? '${candidate.substring(0, 40)}...'
+        : candidate;
   }
 
   static String _subtitle(Map a) {
-    final cabinet = (a['deviceCabinetName'] ?? a['locationName'] ?? '').toString().trim();
-    final device = (a['deviceCabinetItemName'] ?? a['name'] ?? '').toString().trim();
+    final cabinet =
+        (a['deviceCabinetName'] ?? a['locationName'] ?? '').toString().trim();
+    final device =
+        (a['deviceCabinetItemName'] ?? a['name'] ?? '').toString().trim();
     if (cabinet.isNotEmpty && device.isNotEmpty) return '$cabinet / $device';
     if (cabinet.isNotEmpty) return cabinet;
     if (device.isNotEmpty) return device;
@@ -178,7 +204,9 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
   }
 
   static String _alarmLevel(Map a) {
-    final v = (a['alarmLevelLevel'] ?? a['alarmLevel'] ?? a['level'] ?? a['severity'])?.toString();
+    final v =
+        (a['alarmLevelLevel'] ?? a['alarmLevel'] ?? a['level'] ?? a['severity'])
+            ?.toString();
     return (v ?? '').trim();
   }
 
@@ -186,18 +214,30 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
   Widget build(BuildContext context) {
     final isRackConsole = CpanelApiService.instance.isCurrentSiteRackConsole();
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     var alarms = widget.alarms.whereType<Map>().toList();
 
     // Background colors matching the setting page approach
-    final bgColor = isRackConsole ? ConsoleTheme.panelBg(context) : (isLight
-        ? const Color.fromARGB(255, 247, 251, 255)
-        : const Color(0xFF060B11));
-    
-    final sectionHeaderColor = isRackConsole ? ConsoleTheme.textSecondary(context) : (isLight ? const Color(0xFF757575) : Colors.white54);
-    final itemBgColor = isRackConsole ? ConsoleTheme.cardBg(context) : (isLight ? Colors.white : const Color(0xFF131922));
-    final textColor = isRackConsole ? ConsoleTheme.textPrimary(context) : (isLight ? Colors.black87 : Colors.white);
-    final dividerColor = isRackConsole ? ConsoleTheme.divider(context) : (isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.05));
+    final bgColor = isRackConsole
+        ? ConsoleTheme.panelBg(context)
+        : (isLight
+            ? const Color.fromARGB(255, 247, 251, 255)
+            : const Color(0xFF060B11));
+
+    final sectionHeaderColor = isRackConsole
+        ? ConsoleTheme.textSecondary(context)
+        : (isLight ? const Color(0xFF757575) : Colors.white54);
+    final itemBgColor = isRackConsole
+        ? ConsoleTheme.cardBg(context)
+        : (isLight ? Colors.white : const Color(0xFF131922));
+    final textColor = isRackConsole
+        ? ConsoleTheme.textPrimary(context)
+        : (isLight ? Colors.black87 : Colors.white);
+    final dividerColor = isRackConsole
+        ? ConsoleTheme.divider(context)
+        : (isLight
+            ? Colors.black.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.05));
 
     return Container(
       color: bgColor,
@@ -294,7 +334,10 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
                                   if (i < alarms.length - 1)
                                     Padding(
                                       padding: const EdgeInsets.only(left: 86),
-                                      child: Divider(height: 1, thickness: 1, color: dividerColor),
+                                      child: Divider(
+                                          height: 1,
+                                          thickness: 1,
+                                          color: dividerColor),
                                     ),
                                 ],
                               ],
@@ -320,29 +363,30 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     final isResolved = level.trim().toLowerCase().contains('resolved');
     final isPinSetup = a['isPinSetupPrompt'] == true;
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     // We treat active issues as unread (red dot), resolved as read
     final unread = !isResolved;
 
     return InkWell(
       onTap: () async {
         if (isPinSetup) {
-           Navigator.of(context).pop();
-           final result = await showDialog<String>(
-             context: context,
-             builder: (_) => const SetPinDialog(showSkipOptions: false),
-           );
-           if (result != null && result != 'skipped' && result.length >= 4) {
-             final success = await AdapterApiService.instance.setPin(result);
-             if (context.mounted) {
-               AppToast.show(context, success ? 'PIN setup successfully.' : 'Failed to set PIN.');
-               if (success) {
-                 CpanelApiService.instance.currentUser ??= {};
-                 CpanelApiService.instance.currentUser!['has_pin'] = 1;
-               }
-             }
-           }
-           return;
+          Navigator.of(context).pop();
+          final result = await showDialog<String>(
+            context: context,
+            builder: (_) => const SetPinDialog(showSkipOptions: false),
+          );
+          if (result != null && result != 'skipped' && result.length >= 4) {
+            final success = await AdapterApiService.instance.setPin(result);
+            if (context.mounted) {
+              AppToast.show(context,
+                  success ? 'PIN setup successfully.' : 'Failed to set PIN.');
+              if (success) {
+                CpanelApiService.instance.currentUser ??= {};
+                CpanelApiService.instance.currentUser!['has_pin'] = 1;
+              }
+            }
+          }
+          return;
         }
 
         GlobalEventBus.targetHistoricalAlarm.value = a;
@@ -361,7 +405,9 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: isLight ? color.withValues(alpha: 0.15) : const Color(0xFF1B1B1B),
+                color: isLight
+                    ? color.withValues(alpha: 0.15)
+                    : const Color(0xFF1B1B1B),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
@@ -373,7 +419,7 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
               ),
             ),
             const SizedBox(width: 14),
-            
+
             // Text Content
             Expanded(
               child: Column(
@@ -400,9 +446,9 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
                 ],
               ),
             ),
-            
+
             const SizedBox(width: 12),
-            
+
             // Unread Dot
             if (unread)
               Container(
