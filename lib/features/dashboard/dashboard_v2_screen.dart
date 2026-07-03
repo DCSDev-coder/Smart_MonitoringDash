@@ -225,7 +225,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      return AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
+      final adapterData =
+          await AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
+      if (adapterData != null) return adapterData;
     }
     return ApiService.instance.fetchPowerMonth(id: cabinetId);
   }
@@ -235,7 +237,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      return AdapterApiService.instance.fetchPue(siteId: siteId);
+      final adapterData =
+          await AdapterApiService.instance.fetchPue(siteId: siteId);
+      if (adapterData != null) return adapterData;
     }
     return ApiService.instance.fetchPue(id: cabinetId);
   }
@@ -245,7 +249,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required String? cabinetId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      return AdapterApiService.instance.fetchDoors(siteId: siteId);
+      final adapterData =
+          await AdapterApiService.instance.fetchDoors(siteId: siteId);
+      if (adapterData != null) return adapterData;
     }
     final parsed = int.tryParse(cabinetId ?? '');
     return ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
@@ -255,7 +261,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     required int? siteId,
   }) async {
     if (AdapterApiService.instance.isConfigured && siteId != null) {
-      return AdapterApiService.instance.fetchTempHumTopN(siteId: siteId);
+      final adapterData =
+          await AdapterApiService.instance.fetchTempHumTopN(siteId: siteId);
+      if (adapterData != null) return adapterData;
     }
     return ApiService.instance.fetchTempHumTopN();
   }

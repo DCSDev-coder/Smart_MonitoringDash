@@ -490,6 +490,28 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _suppressLogoHero = false);
   }
 
+  Future<void> _openResetPassword() async {
+    setState(() => _suppressLogoHero = true);
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 1100),
+        reverseTransitionDuration: const Duration(milliseconds: 1100),
+        pageBuilder: (_, __, ___) =>
+            const SetupUserScreen(mode: SetupUserMode.resetPassword),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _suppressLogoHero = false);
+  }
+
   @override
   void dispose() {
     _lockoutTimer?.cancel();
@@ -740,7 +762,17 @@ class _AuthScreenState extends State<AuthScreen> {
                                                               : _signIn,
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 16),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: _buildButton(
+                                                      label: 'RESET PASSWORD',
+                                                      color: const Color(
+                                                          0xFFFF9500),
+                                                      onPressed:
+                                                          _openResetPassword,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
                                                   Expanded(
                                                     child: _buildButton(
                                                       label: 'NEW USER SETUP',
@@ -763,7 +795,15 @@ class _AuthScreenState extends State<AuthScreen> {
                                                             ? null
                                                             : _signIn,
                                                   ),
-                                                  const SizedBox(height: 16),
+                                                  const SizedBox(height: 14),
+                                                  _buildButton(
+                                                    label: 'RESET PASSWORD',
+                                                    color:
+                                                        const Color(0xFFFF9500),
+                                                    onPressed:
+                                                        _openResetPassword,
+                                                  ),
+                                                  const SizedBox(height: 14),
                                                   _buildButton(
                                                     label: 'NEW USER SETUP',
                                                     color:

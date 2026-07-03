@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/network/cpanel_api_service.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/utils/global_video_background.dart';
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/fade_in_slide.dart';
 import 'auth_screen.dart';
 import '../../shared/utils/app_toast.dart';
 
+enum SetupUserMode {
+  newUser,
+  resetPassword,
+}
+
 class SetupUserScreen extends StatefulWidget {
-  const SetupUserScreen({super.key});
+  final SetupUserMode mode;
+
+  const SetupUserScreen({
+    super.key,
+    this.mode = SetupUserMode.newUser,
+  });
 
   @override
   State<SetupUserScreen> createState() => _SetupUserScreenState();
@@ -26,6 +34,8 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
   bool _submitting = false;
   bool _obscurePassword = true;
   bool _suppressLogoHero = false;
+
+  bool get _isResetMode => widget.mode == SetupUserMode.resetPassword;
 
   @override
   void dispose() {
@@ -60,20 +70,6 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     );
   }
 
-  void _goToIntro() {
-    var found = false;
-    Navigator.of(context).popUntil((route) {
-      if (route.settings.name == '/welcome') {
-        found = true;
-        return true;
-      }
-      return false;
-    });
-    if (!found) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (r) => false);
-    }
-  }
-
   void _goToSignIn() {
     setState(() => _suppressLogoHero = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,25 +93,43 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     final password = _passwordCtrl.text;
 
     if (username.isEmpty || password.isEmpty) {
-      AppToast.showError(context, 'Please enter both username and password.');
+      AppToast.showError(
+        context,
+        _isResetMode
+            ? 'Please enter both username and new password.'
+            : 'Please enter both username and password.',
+      );
       return;
     }
 
     setState(() => _submitting = true);
-    final res = await CpanelApiService.instance.setupFirstPassword(
-      username: username,
-      newPassword: password,
-    );
+    final res = _isResetMode
+        ? await CpanelApiService.instance.resetPasswordByUsername(
+            username: username,
+            newPassword: password,
+          )
+        : await CpanelApiService.instance.setupFirstPassword(
+            username: username,
+            newPassword: password,
+          );
 
     if (!mounted) return;
 
     final status = res?['status']?.toString();
     if (status == 'success') {
-      AppToast.showSuccess(context, 'Password created successfully. You can now log in.');
+      AppToast.showSuccess(
+        context,
+        _isResetMode
+            ? 'Password reset successfully. You can now log in.'
+            : 'Password created successfully. You can now log in.',
+      );
       _goToSignIn();
     } else {
       setState(() => _submitting = false);
-      final msg = res?['message']?.toString() ?? 'Failed to setup password.';
+      final msg = res?['message']?.toString() ??
+          (_isResetMode
+              ? 'Failed to reset password.'
+              : 'Failed to setup password.');
       AppToast.showError(context, msg);
     }
   }
@@ -158,14 +172,14 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                   color: const Color(0xFF060B11).withValues(alpha: 0.70),
                 ),
               ),
-
               SafeArea(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final isWide = constraints.maxWidth >= 768;
                     return SingleChildScrollView(
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
                         child: IntrinsicHeight(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -177,10 +191,10 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                   child: Center(
                                     child: HeroMode(
                                       enabled: !_suppressLogoHero,
-                                      child: Hero(
+                                      child: const Hero(
                                         tag: 'logo',
                                         transitionOnUserGestures: true,
-                                        child: const SizedBox(
+                                        child: SizedBox(
                                           height: 120,
                                           child: AnimatedDcsLogo.login(),
                                         ),
@@ -192,7 +206,9 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                 FadeInSlide(
                                   delay: const Duration(milliseconds: 150),
                                   child: Text(
-                                    'NEW USER SETUP',
+                                    _isResetMode
+                                        ? 'RESET PASSWORD'
+                                        : 'NEW USER SETUP',
                                     style: GoogleFonts.manrope(
                                       fontSize: 28,
                                       letterSpacing: 1.2,
@@ -208,15 +224,20 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                 ),
                                 const SizedBox(height: 26),
                                 ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 560),
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 560),
                                   child: FadeInSlide(
                                     delay: const Duration(milliseconds: 220),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
                                       children: [
                                         _buildAuthFieldBlock(
-                                          delay: const Duration(milliseconds: 200),
-                                          label: 'Assigned Username :',
+                                          delay:
+                                              const Duration(milliseconds: 200),
+                                          label: _isResetMode
+                                              ? 'Username :'
+                                              : 'Assigned Username :',
                                           child: _buildGlassTextField(
                                             controller: _usernameCtrl,
                                             focusNode: _usernameFocus,
@@ -228,7 +249,8 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                         ),
                                         const SizedBox(height: 18),
                                         _buildAuthFieldBlock(
-                                          delay: const Duration(milliseconds: 400),
+                                          delay:
+                                              const Duration(milliseconds: 400),
                                           label: 'New Password :',
                                           child: _buildGlassTextField(
                                             controller: _passwordCtrl,
@@ -247,7 +269,8 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                   delay: const Duration(milliseconds: 650),
                                   child: Container(
                                     width: double.infinity,
-                                    constraints: const BoxConstraints(maxWidth: 600),
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 600),
                                     margin: const EdgeInsets.only(bottom: 20),
                                     child: isWide
                                         ? Row(
@@ -257,7 +280,8 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                               ),
                                               const SizedBox(width: 16),
                                               Expanded(
-                                                child: _buildSetPasswordButton(),
+                                                child:
+                                                    _buildSetPasswordButton(),
                                               ),
                                             ],
                                           )
@@ -351,10 +375,15 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.white70,
                     ),
-                    onPressed: enabled ? () => setState(() => _obscurePassword = !_obscurePassword) : null,
+                    onPressed: enabled
+                        ? () =>
+                            setState(() => _obscurePassword = !_obscurePassword)
+                        : null,
                   )
                 : null,
             border: InputBorder.none,
@@ -380,7 +409,8 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           elevation: 4,
-          shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          shadowColor:
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -395,7 +425,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                 ),
               )
             : Text(
-                'SET PASSWORD',
+                _isResetMode ? 'RESET PASSWORD' : 'SET PASSWORD',
                 style: GoogleFonts.manrope(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,

@@ -1,13 +1,86 @@
 # DCS Smart Rack Dashboard
 
-A modern, cross-platform Flutter application designed for monitoring, managing, and controlling the **Smart Rack** infrastructure gateways.
+Flutter application for the DCS Smart Monitoring mobile app.
 
----
+## Run The Standard / Main App
 
-## 🚀 Key Features
+The standard app is the default variant.
 
-* **Real-time Analytics:** Interactive trend graphs for **PUE (Power Usage Effectiveness)**, power consumption, temperature, and humidity metrics.
-* **Rack Visualization:** Visual status layouts displaying active sensor telemetry and smart rack components.
-* **Smart Access & Control:** Remote door unlocking capabilities backed by biometric (Face ID/Fingerprint) and secure PIN entry.
-* **Alerts & Alarms:** High-priority push notifications and local alert alarms for critical rack events.
-* **Access Logs & Reports:** Historical access logs, diagnostic reports, and system telemetry auditing.
+From [`Smart_MonitoringDash`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash>), run:
+
+```bash
+flutter pub get
+flutter run --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+If you want the shortest version, this also runs the standard app because `main` is already the default:
+
+```bash
+flutter run --dart-define-from-file=.env.json
+```
+
+## Run The Rack Console App
+
+```bash
+flutter run --dart-define-from-file=.env.json --dart-define=APP_VARIANT=rack_console
+```
+
+## Useful Examples
+
+Run on Chrome:
+
+```bash
+flutter run -d chrome --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+Run on a connected iPhone:
+
+```bash
+flutter run -d ios --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+Run on a connected Android device:
+
+```bash
+flutter run -d android --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+## Build Examples
+
+Android APK for the standard / main app:
+
+```bash
+flutter build apk --release --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+iOS build for the standard / main app:
+
+```bash
+flutter build ios --release --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+## Variant Notes
+
+- `APP_VARIANT=main` = standard / main application
+- `APP_VARIANT=rack_console` = rack console application
+- If `APP_VARIANT` is not provided, the app defaults to `main`
+
+This behavior comes from [`lib/core/config/app_config.dart`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash/lib/core/config/app_config.dart>).
+
+## Config Notes
+
+- `.env.json` is used for runtime Dart defines
+- `CPANEL_BASE_URL` defaults to `https://dcstack.my/api/index.php`
+- `CPANEL_ASSET_BASE_URL` defaults to `https://dcstack.my/`
+- `ADAPTER_BASE_URL` is optional
+- Recommended production domain split:
+  - `https://www.dcstack.my` = landing page
+  - `https://dcstack.my` = Smart Monitoring app
+  - `https://adapter.dcstack.my` = adapter API
+- For Flutter Web, the browser origin must be included in the adapter's `CORS_ALLOWED_ORIGINS` value or the dashboard/API reads will fail and the app may appear offline.
+
+## Current App Version
+
+The current Flutter app version in [`pubspec.yaml`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash/pubspec.yaml>) is:
+
+- `1.0.1+8`

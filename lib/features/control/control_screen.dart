@@ -393,7 +393,7 @@ class _ControlScreenState extends State<ControlScreen>
                     SliverPersistentHeader(
                       pinned: true,
                       delegate: _ControlTabsHeaderDelegate(
-                        height: 124,
+                        height: 144,
                         child: Container(
                           color: isLight
                               ? Theme.of(context).scaffoldBackgroundColor

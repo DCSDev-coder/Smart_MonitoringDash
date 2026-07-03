@@ -223,6 +223,32 @@ class CpanelApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> _postForm(
+    String action, {
+    required Map<String, String> fields,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final response = await http.post(
+      Uri.parse("$baseUrl?action=$action"),
+      headers: <String, String>{
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+        ...?headers,
+      },
+      body: <String, String>{
+        "action": action,
+        ...fields,
+      },
+    ).timeout(timeout);
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> verifyPin(String pin) async {
     try {
       final response = await http
@@ -367,22 +393,18 @@ class CpanelApiService {
       if (kDebugMode) {
         AppLog.d('[CpanelApi] Changing password for: $username');
       }
-      final response = await http
-          .post(
-            Uri.parse("$baseUrl?action=change_password"),
-            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
-            body: jsonEncode({
-              "action": "change_password",
-              "username": username,
-              "current_password": currentPassword,
-              "new_password": newPassword,
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+      final data = await _postForm(
+        "change_password",
+        headers: _authHeaders(),
+        fields: <String, String>{
+          "username": username,
+          "current_password": currentPassword,
+          "new_password": newPassword,
+        },
+      );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final ok = data is Map<String, dynamic> && data['status'] == 'success';
+      if (data != null) {
+        final ok = data['status'] == 'success';
         if (ok) {
           // Keep in-memory password in sync for the current session.
           _portalPasswordInMemory = newPassword;
@@ -421,7 +443,13 @@ class CpanelApiService {
       // Only persist the token in memory after the backend accepts it.
       final response = await http.get(
         Uri.parse("$baseUrl?action=auth_me"),
-        headers: <String, String>{'Authorization': 'Bearer $token'},
+        headers: <String, String>{
+          ..._authHeaders(extra: const {"Accept": "application/json"}),
+          if ((_portalAuthToken == null || _portalAuthToken!.isEmpty))
+            'Authorization': 'Bearer $token',
+          if ((_portalAuthToken == null || _portalAuthToken!.isEmpty))
+            'X-Auth-Token': token,
+        },
       ).timeout(const Duration(seconds: 10));
 
       final decoded = jsonDecode(response.body);
@@ -793,23 +821,41 @@ class CpanelApiService {
     required String newPassword,
   }) async {
     try {
-      final response = await http
-          .post(
-            Uri.parse("$baseUrl?action=setup_first_password"),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode({
-              "action": "setup_first_password",
-              "username": username,
-              "new_password": newPassword,
-            }),
-          )
-          .timeout(const Duration(seconds: 12));
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) return decoded;
+      final decoded = await _postForm(
+        "setup_first_password",
+        fields: <String, String>{
+          "username": username,
+          "new_password": newPassword,
+        },
+        timeout: const Duration(seconds: 12),
+      );
+      if (decoded != null) return decoded;
     } catch (e) {
       if (kDebugMode) {
         AppLog.w('Setup first password error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> resetPasswordByUsername({
+    required String username,
+    required String newPassword,
+  }) async {
+    try {
+      final decoded = await _postForm(
+        "reset_password_by_username",
+        fields: <String, String>{
+          "username": username,
+          "new_password": newPassword,
+        },
+        timeout: const Duration(seconds: 12),
+      );
+      if (decoded != null) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Reset password by username error',
+            tag: 'CpanelApi', error: e);
       }
     }
     return null;

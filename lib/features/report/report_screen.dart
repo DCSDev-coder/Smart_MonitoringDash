@@ -206,16 +206,37 @@ class _ReportScreenState extends State<ReportScreen>
       final cabinetId = SiteRuntimeConfig.cabinetId(site);
       final adapterReady = _isAdapterReady(siteId);
 
+      Future<Map<String, dynamic>?> fetchPowerMonth() async {
+        if (adapterReady) {
+          final adapterData =
+              await AdapterApiService.instance.fetchPowerMonth(siteId: siteId!);
+          if (adapterData != null) return adapterData;
+        }
+        return ApiService.instance.fetchPowerMonth(id: cabinetId);
+      }
+
+      Future<Map<String, dynamic>?> fetchRecentAlarms() async {
+        if (adapterReady) {
+          final adapterData = await AdapterApiService.instance
+              .fetchRecentAlarms(siteId: siteId!);
+          if (adapterData != null) return adapterData;
+        }
+        return ApiService.instance.fetchAlarmsByLevel();
+      }
+
+      Future<Map<String, dynamic>?> fetchSysInfo() async {
+        if (adapterReady) {
+          final adapterData =
+              await AdapterApiService.instance.fetchSysInfo(siteId: siteId!);
+          if (adapterData != null) return adapterData;
+        }
+        return ApiService.instance.fetchSysInfo();
+      }
+
       final results = await Future.wait([
-        adapterReady
-            ? AdapterApiService.instance.fetchPowerMonth(siteId: siteId!)
-            : ApiService.instance.fetchPowerMonth(id: cabinetId),
-        adapterReady
-            ? AdapterApiService.instance.fetchRecentAlarms(siteId: siteId!)
-            : ApiService.instance.fetchAlarmsByLevel(),
-        adapterReady
-            ? AdapterApiService.instance.fetchSysInfo(siteId: siteId!)
-            : ApiService.instance.fetchSysInfo(),
+        fetchPowerMonth(),
+        fetchRecentAlarms(),
+        fetchSysInfo(),
       ]);
 
       if (adapterReady) {
@@ -578,7 +599,8 @@ class _ReportScreenState extends State<ReportScreen>
         if (_shouldUseAdapter(siteId)) {
           doorsRes =
               await AdapterApiService.instance.fetchDoors(siteId: siteId!);
-        } else {
+        }
+        if (doorsRes == null) {
           final cabinetId = SiteRuntimeConfig.cabinetId(
               CpanelApiService.instance.currentSite);
           final parsed = int.tryParse(cabinetId ?? '');
@@ -767,7 +789,9 @@ class _ReportScreenState extends State<ReportScreen>
         final cabinetId = SiteRuntimeConfig.cabinetId(site);
 
         if (_isAdapterReady(siteId)) {
-          return AdapterApiService.instance.fetchPue(siteId: siteId!);
+          final adapterData =
+              await AdapterApiService.instance.fetchPue(siteId: siteId!);
+          if (adapterData != null) return adapterData;
         }
         // Legacy fallback expects a cabinet id (string), default to 1.
         return ApiService.instance.fetchPue(id: cabinetId ?? '1');
@@ -778,13 +802,14 @@ class _ReportScreenState extends State<ReportScreen>
         required String metricCode,
       }) async {
         if (_isAdapterReady(siteId)) {
-          return AdapterApiService.instance.fetchRange(
+          final adapterData = await AdapterApiService.instance.fetchRange(
             siteId: siteId!,
             nodeId: nodeId,
             metricCode: metricCode,
             startTime: startTime,
             endTime: endTime,
           );
+          if (adapterData != null) return adapterData;
         }
         return ApiService.instance.fetchHistoricalData(
           nodeId: nodeId,
