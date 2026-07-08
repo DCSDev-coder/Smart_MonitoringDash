@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/auth/session_flow_service.dart';
 import '../../core/config/app_config.dart';
 import '../../core/controllers/global_status_poller.dart';
-import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../../core/theme/app_theme.dart';
@@ -252,8 +252,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         CpanelApiService.instance.isCurrentSiteRackConsole(site);
     if (allowed) return;
 
-    await CpanelApiService.instance.clearSession();
-    await ApiService.instance.logout();
+    await SessionFlowService.instance.signOut();
     if (!mounted) return;
 
     AppToast.showError(

@@ -372,7 +372,9 @@ class _ControlScreenState extends State<ControlScreen>
       data: MediaQuery.of(context)
           .copyWith(textScaler: const TextScaler.linear(1.0)),
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: isLight
+            ? Theme.of(context).scaffoldBackgroundColor
+            : const Color(0xFF060B11),
         body: Stack(
           children: [
             Positioned.fill(

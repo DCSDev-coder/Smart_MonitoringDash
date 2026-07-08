@@ -417,10 +417,11 @@ class _DoorAccessPanel extends StatelessWidget {
 
     return ConsoleSectionCard(
       minHeight: 180,
-      expand: true,
+      expand: false,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
@@ -455,7 +456,7 @@ class _DoorAccessPanel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const Spacer(),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               height: 42,

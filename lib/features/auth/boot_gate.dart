@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/remember_me_store.dart';
+import '../../core/auth/session_flow_service.dart';
 import '../../core/config/app_config.dart';
-import '../../core/network/adapter_api_service.dart';
-import '../../core/network/api_service.dart';
-import '../../core/network/cpanel_api_service.dart';
-import '../../core/notifications/push_notification_service.dart';
 import '../../core/security/app_lock_controller.dart';
 import '../../core/theme/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// App entry gate.
 ///
@@ -59,51 +55,20 @@ class _BootGateState extends State<BootGate> {
         _label = 'Restoring session...';
       });
 
-      final authRes = await CpanelApiService.instance.authMe(token: token);
-      if (authRes == null) {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/auth');
-        return;
-      }
-      if (authRes['status'] != 'success') {
-        await rememberMeStore.clear();
-        _goWelcome();
-        return;
-      }
-
-      final sites = authRes['sites'];
-      if (sites is! List || sites.isEmpty) {
-        await rememberMeStore.clear();
-        _goWelcome();
-        return;
-      }
-
-      final firstSite = sites[0];
-      if (firstSite is! Map) {
-        await rememberMeStore.clear();
-        _goWelcome();
-        return;
-      }
-
-      final mergedSite = await CpanelApiService.instance
-          .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
-      final site = await _mergeSiteWithRemoteConfig(mergedSite);
-      CpanelApiService.instance.currentSite = site;
-      await PushNotificationService.instance.syncTokenWithBackendIfPossible();
+      final bootstrap =
+          await SessionFlowService.instance.bootstrapFromToken(token: token);
+      final site = bootstrap.site;
 
       final isRackConsoleAccount =
-          CpanelApiService.instance.isCurrentSiteRackConsole(site);
+          bootstrap.isRackConsoleAccount;
       final buildIsRackConsole = AppConfig.isRackConsoleBuild;
       if (buildIsRackConsole != isRackConsoleAccount) {
-        await CpanelApiService.instance.clearSession();
-        await ApiService.instance.logout();
-        await rememberMeStore.clear();
+        await SessionFlowService.instance.signOut();
         _goWelcome();
         return;
       }
 
       final targetIp = site['open_ip'];
-      final siteUser = (site['site_user'] ?? 'admin').toString();
       final sitePass = (site['site_pass'] ?? '').toString();
 
       if (targetIp == null || targetIp.toString().isEmpty || sitePass.isEmpty) {
@@ -118,34 +83,7 @@ class _BootGateState extends State<BootGate> {
         _label = 'Connecting to rack...';
       });
 
-      bool ok = false;
-      final prefs = await SharedPreferences.getInstance();
-      final dbLocalIp = site['local_ip']?.toString();
-      final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
-      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty)
-          ? dbLocalIp
-          : manualFallbackIp;
-
-      if (AdapterApiService.instance.isConfigured) {
-        ok = true;
-        ApiService.instance
-            .login(siteUser, sitePass, ip: targetIp.toString())
-            .ignore();
-      } else {
-        ok = await ApiService.instance.login(
-          siteUser,
-          sitePass,
-          ip: targetIp.toString(),
-        );
-
-        if (!ok && fallbackIp.isNotEmpty) {
-          ok = await ApiService.instance.login(
-            siteUser,
-            sitePass,
-            ip: fallbackIp,
-          );
-        }
-      }
+      final ok = await SessionFlowService.instance.connectRackSession(site);
 
       if (!ok) {
         // Portal session is valid but rack credentials/network failed;
@@ -168,23 +106,6 @@ class _BootGateState extends State<BootGate> {
         setState(() => _working = false);
       }
     }
-  }
-
-  Future<Map<String, dynamic>> _mergeSiteWithRemoteConfig(
-      Map<String, dynamic> site) async {
-    final siteId = int.tryParse(site['site_id']?.toString() ?? '');
-    Map<String, dynamic>? cfgEnvelope;
-
-    if (siteId != null) {
-      if (AdapterApiService.instance.isConfigured) {
-        cfgEnvelope =
-            await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
-      }
-      cfgEnvelope ??=
-          await CpanelApiService.instance.fetchAppConfig(siteId: siteId);
-    }
-
-    return CpanelApiService.instance.mergeSiteWithAppConfig(site, cfgEnvelope);
   }
 
   void _goWelcome() {

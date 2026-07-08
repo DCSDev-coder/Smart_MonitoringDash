@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/network/api_service.dart';
+import '../../core/auth/session_flow_service.dart';
 import '../../core/network/cpanel_api_service.dart';
-import '../../core/auth/remember_me_store.dart';
-import '../../core/notifications/push_notification_service.dart';
-import '../../core/security/app_lock_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass_confirm_dialog.dart';
 import '../../shared/widgets/reset_password_dialog.dart';
@@ -236,11 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirm == true) {
-      AppLockController.instance.clear();
-      await rememberMeStore.clear();
-      await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
-      await CpanelApiService.instance.logout();
-      await ApiService.instance.logout();
+      await SessionFlowService.instance.signOut();
       if (context.mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
       }
@@ -260,11 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (result == true && context.mounted) {
-      AppLockController.instance.clear();
-      await rememberMeStore.clear();
-      await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
-      await CpanelApiService.instance.logout();
-      await ApiService.instance.logout();
+      await SessionFlowService.instance.signOut();
       if (context.mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
       }

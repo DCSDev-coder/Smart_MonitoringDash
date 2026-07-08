@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../core/network/api_service.dart';
-import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/config/app_config.dart';
-import '../../core/notifications/push_notification_service.dart';
+import '../../core/auth/session_flow_service.dart';
 import '../../core/security/app_lock_controller.dart';
 import '../../core/auth/remember_me_store.dart';
 import '../../core/utils/app_log.dart';
@@ -18,22 +16,6 @@ import '../../shared/widgets/fade_in_slide.dart';
 import '../../shared/utils/global_video_background.dart';
 import 'setup_user_screen.dart';
 import '../../shared/utils/app_toast.dart';
-
-class _RememberMeInvalidException implements Exception {
-  const _RememberMeInvalidException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-class _RememberMeTransientException implements Exception {
-  const _RememberMeTransientException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
-}
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -81,13 +63,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _rejectWrongAppMode({
     required String message,
-    required bool clearRememberMe,
   }) async {
-    await CpanelApiService.instance.clearSession();
-    if (clearRememberMe) {
-      await rememberMeStore.clear();
-    }
-    await ApiService.instance.logout();
+    await SessionFlowService.instance.signOut();
     if (!mounted) return;
     setState(() => _loading = false);
     AppToast.showError(context, message);
@@ -147,64 +124,19 @@ class _AuthScreenState extends State<AuthScreen> {
     await _signInWithToken(token: token, isAuto: true);
   }
 
-  Future<Map<String, dynamic>> _mergeSiteWithRemoteConfig(
-      Map<String, dynamic> site) async {
-    final siteId = int.tryParse(site['site_id']?.toString() ?? '');
-    Map<String, dynamic>? cfgEnvelope;
-
-    if (siteId != null) {
-      if (AdapterApiService.instance.isConfigured) {
-        cfgEnvelope =
-            await AdapterApiService.instance.fetchAppConfig(siteId: siteId);
-      }
-      cfgEnvelope ??=
-          await CpanelApiService.instance.fetchAppConfig(siteId: siteId);
-    }
-
-    return CpanelApiService.instance.mergeSiteWithAppConfig(site, cfgEnvelope);
-  }
-
   Future<void> _signInWithToken(
       {required String token, bool isAuto = false}) async {
     setState(() => _loading = true);
     try {
-      final authRes = await CpanelApiService.instance.authMe(token: token);
-      if (authRes == null) {
-        throw const _RememberMeTransientException(
-          'Saved session could not be restored right now. Please try signing in again.',
-        );
-      }
-      if (authRes['status'] != 'success') {
-        final msg = authRes['message']?.toString().trim();
-        throw _RememberMeInvalidException(
-          (msg != null && msg.isNotEmpty)
-              ? msg
-              : 'Session expired. Please sign in again.',
-        );
-      }
+      final bootstrap =
+          await SessionFlowService.instance.bootstrapFromToken(token: token);
 
-      final sites = authRes['sites'];
-      if (sites is! List || sites.isEmpty) {
-        throw 'No Racks found for this account. Please contact support.';
-      }
-
-      final firstSite = sites[0] as Map<String, dynamic>;
-      final mergedSite = await CpanelApiService.instance
-          .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
-      CpanelApiService.instance.currentSite =
-          await _mergeSiteWithRemoteConfig(mergedSite);
-      await PushNotificationService.instance.syncTokenWithBackendIfPossible();
-
-      if (!_canEnterCurrentApp(CpanelApiService.instance.currentSite!)) {
-        final isRackConsoleAccount =
-            CpanelApiService.instance.isCurrentSiteRackConsole();
+      if (!_canEnterCurrentApp(bootstrap.site)) {
+        final isRackConsoleAccount = bootstrap.isRackConsoleAccount;
         final message = _isRackConsoleBuild
             ? 'Wrong account'
             : 'This account is reserved for the Rack Console app. Please use the Rack Console installation.';
-        await _rejectWrongAppMode(
-          message: message,
-          clearRememberMe: true,
-        );
+        await _rejectWrongAppMode(message: message);
         if (!mounted) return;
         if (isRackConsoleAccount) {
           Navigator.of(context).pushReplacementNamed('/welcome');
@@ -212,15 +144,7 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
-      final dbLocalIp =
-          CpanelApiService.instance.currentSite?['local_ip']?.toString();
-      final siteUser =
-          CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
-      final sitePass =
-          (CpanelApiService.instance.currentSite?['site_pass'] ?? '')
-              .toString();
-      final expiryStr = CpanelApiService.instance.currentSite?['expiry_date'];
+      final expiryStr = bootstrap.site['expiry_date'];
 
       if (expiryStr != null) {
         try {
@@ -233,37 +157,8 @@ class _AuthScreenState extends State<AuthScreen> {
         }
       }
 
-      if (sitePass.isEmpty) {
-        throw 'Rack credentials are missing for this site. Please ask your admin to update site_user/site_pass.';
-      }
-
-      bool ok = false;
-      final prefs = await SharedPreferences.getInstance();
-      final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
-      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty)
-          ? dbLocalIp
-          : manualFallbackIp;
-
-      if (AdapterApiService.instance.isConfigured) {
-        ok = true;
-        // Attempt direct login in the background for local features (like cameras) if on Wi-Fi
-        ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
-      } else {
-        ok = await ApiService.instance.login(
-          siteUser,
-          sitePass,
-          ip: targetIp,
-        );
-
-        if (!ok && fallbackIp.isNotEmpty) {
-          AppLog.i('Public IP failed, trying local fallback IP', tag: 'Auth');
-          ok = await ApiService.instance.login(
-            siteUser,
-            sitePass,
-            ip: fallbackIp,
-          );
-        }
-      }
+      final ok =
+          await SessionFlowService.instance.connectRackSession(bootstrap.site);
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -281,7 +176,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       AppToast.showError(context, e.toString());
-      if (isAuto && e is _RememberMeInvalidException) {
+      if (isAuto && e is SessionBootstrapInvalidException) {
         await rememberMeStore.clear();
       }
     }
@@ -335,35 +230,18 @@ class _AuthScreenState extends State<AuthScreen> {
       if (token == null || token.isEmpty) {
         throw 'Login succeeded but no session token was returned. Please sign in again.';
       }
-      final authRes = await CpanelApiService.instance.authMe(token: token);
-      if (authRes == null || authRes['status'] != 'success') {
-        final msg = (authRes is Map<String, dynamic>)
-            ? (authRes['message']?.toString() ?? 'Failed to fetch racks.')
-            : 'Failed to fetch racks.';
-        throw msg;
-      }
-      final sites = authRes['sites'];
-      if (sites is! List || sites.isEmpty) {
-        throw 'No Racks found for account "$u". Please contact DCS support to link your Smart Rack.';
+      final bootstrap =
+          await SessionFlowService.instance.bootstrapFromToken(token: token);
+
+      if (!_canEnterCurrentApp(bootstrap.site)) {
+        final message = _isRackConsoleBuild
+            ? 'Wrong account'
+            : 'This account is reserved for the Rack Console app. Please use the Rack Console installation.';
+        await _rejectWrongAppMode(message: message);
+        return;
       }
 
-      // 3. Connect to the first site using its SPECIFIC credentials
-      final firstSite = sites[0];
-      final mergedSite = await CpanelApiService.instance
-          .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
-      CpanelApiService.instance.currentSite =
-          await _mergeSiteWithRemoteConfig(mergedSite);
-      await PushNotificationService.instance.syncTokenWithBackendIfPossible();
-
-      final targetIp = CpanelApiService.instance.currentSite?['open_ip'];
-      final dbLocalIp =
-          CpanelApiService.instance.currentSite?['local_ip']?.toString();
-      final siteUser =
-          CpanelApiService.instance.currentSite?['site_user'] ?? 'admin';
-      final sitePass =
-          (CpanelApiService.instance.currentSite?['site_pass'] ?? '')
-              .toString();
-      final expiryStr = CpanelApiService.instance.currentSite?['expiry_date'];
+      final expiryStr = bootstrap.site['expiry_date'];
 
       // 4. Validate License Expiry (Production Guard)
       if (expiryStr != null) {
@@ -377,33 +255,8 @@ class _AuthScreenState extends State<AuthScreen> {
         }
       }
 
-      bool ok = false;
-      final prefs = await SharedPreferences.getInstance();
-      final manualFallbackIp = prefs.getString('local_fallback_ip') ?? '';
-      final fallbackIp = (dbLocalIp != null && dbLocalIp.isNotEmpty)
-          ? dbLocalIp
-          : manualFallbackIp;
-
-      if (AdapterApiService.instance.isConfigured) {
-        ok = true;
-        // Attempt direct login in the background for local features (like cameras) if on Wi-Fi
-        ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
-      } else {
-        ok = await ApiService.instance.login(
-          siteUser,
-          sitePass,
-          ip: targetIp,
-        );
-
-        if (!ok && fallbackIp.isNotEmpty) {
-          AppLog.i('Public IP failed, trying local fallback IP', tag: 'Auth');
-          ok = await ApiService.instance.login(
-            siteUser,
-            sitePass,
-            ip: fallbackIp,
-          );
-        }
-      }
+      final ok =
+          await SessionFlowService.instance.connectRackSession(bootstrap.site);
 
       if (!mounted) {
         return;
@@ -434,7 +287,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       _showErrorDialog(e.toString());
-      if (isAuto && e is _RememberMeInvalidException) {
+      if (isAuto && e is SessionBootstrapInvalidException) {
         // Auto-login failed; don't keep retrying in a loop.
         await rememberMeStore.clear();
       }

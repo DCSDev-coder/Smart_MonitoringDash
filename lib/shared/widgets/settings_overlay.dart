@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/network/api_service.dart';
+import '../../core/auth/session_flow_service.dart';
 import '../../core/network/cpanel_api_service.dart';
-import '../../core/auth/remember_me_store.dart';
-import '../../core/notifications/push_notification_service.dart';
 import '../../core/controllers/app_theme_controller.dart';
+import '../../core/security/app_lock_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
 import '../../features/settings/control_presets_screen.dart';
@@ -14,7 +13,6 @@ import 'reset_password_dialog.dart';
 import 'secure_action_guard.dart';
 import 'set_pin_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
-import '../../core/security/app_lock_controller.dart';
 import '../utils/app_toast.dart';
 import '../../features/smart_rack_console/theme/console_theme.dart';
 
@@ -374,11 +372,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     );
 
     if (confirm == true) {
-      AppLockController.instance.clear();
-      await rememberMeStore.clear();
-      await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
-      await CpanelApiService.instance.logout();
-      await ApiService.instance.logout();
+      await SessionFlowService.instance.signOut();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
     }
@@ -408,11 +402,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     );
 
     if (result == true && context.mounted) {
-      AppLockController.instance.clear();
-      await rememberMeStore.clear();
-      await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
-      await CpanelApiService.instance.logout();
-      await ApiService.instance.logout();
+      await SessionFlowService.instance.signOut();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
     }

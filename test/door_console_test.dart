@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_rack_dashboard/features/smart_rack_console/door_console_screen.dart';
 import 'package:smart_rack_dashboard/features/smart_rack_console/models/smart_rack_console_snapshot.dart';
-import 'package:smart_rack_dashboard/core/theme/app_theme.dart';
 
 void main() {
   testWidgets('Test DoorConsoleScreen Layout', (WidgetTester tester) async {
@@ -63,7 +62,9 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Test Door 1'), findsWidgets);
+    expect(find.text('Test Door 2'), findsWidgets);
 
     // Test narrow layout
     tester.view.physicalSize = const Size(400, 800);
@@ -79,7 +80,8 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Test Door 1'), findsWidgets);
+    expect(find.text('Test Door 2'), findsWidgets);
   });
 }
-
