@@ -1512,7 +1512,7 @@ class _ReportScreenState extends State<ReportScreen>
       padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
       tint: isLight
           ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+          : const Color(0xFF111922).withValues(alpha: 0.92),
       borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1818,7 +1818,7 @@ class _ReportScreenState extends State<ReportScreen>
       radius: 18,
       padding: const EdgeInsets.all(20),
       tint: useDarkTheme
-          ? const Color(0xFF0E141B).withValues(alpha: 0.92)
+          ? const Color(0xFF111922).withValues(alpha: 0.92)
           : color,
       borderColor: Colors.transparent,
       child: Column(
@@ -1857,7 +1857,7 @@ class _ReportScreenState extends State<ReportScreen>
               const SizedBox(width: 8),
               PopupMenuButton<String>(
                 onSelected: onRangeChanged,
-                color: isLight ? Colors.white : const Color(0xFF0E141B),
+                color: isLight ? Colors.white : const Color(0xFF111922),
                 itemBuilder: (context) => ['4H', '8H', '12H', '24H']
                     .map(
                       (option) => PopupMenuItem<String>(
@@ -1876,7 +1876,7 @@ class _ReportScreenState extends State<ReportScreen>
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   tint: isLight
                       ? color
-                      : const Color(0xFF0E141B).withValues(alpha: 0.92),
+                      : const Color(0xFF111922).withValues(alpha: 0.92),
                   borderColor: isLight
                       ? effectiveTextColor.withValues(alpha: 0.15)
                       : const Color(0x22FFFFFF),

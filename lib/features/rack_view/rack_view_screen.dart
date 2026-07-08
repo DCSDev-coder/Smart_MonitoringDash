@@ -628,7 +628,7 @@ class _RackViewScreenState extends State<RackViewScreen>
       padding: EdgeInsets.all(18 * uiScale),
       tint: Theme.of(context).brightness == Brightness.light
           ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+          : const Color(0xFF111922).withValues(alpha: 0.92),
       borderColor: Theme.of(context).brightness == Brightness.light
           ? AppTheme.lightStroke
           : Colors.transparent,
@@ -725,7 +725,7 @@ class _RackViewScreenState extends State<RackViewScreen>
       padding: EdgeInsets.all(18 * uiScale),
       tint: Theme.of(context).brightness == Brightness.light
           ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+          : const Color(0xFF111922).withValues(alpha: 0.92),
       borderColor: Theme.of(context).brightness == Brightness.light
           ? AppTheme.lightStroke
           : Colors.transparent,
@@ -1190,7 +1190,7 @@ class _RackViewScreenState extends State<RackViewScreen>
       backgroundColor: Colors.transparent,
       builder: (context) {
         final isLight = Theme.of(context).brightness == Brightness.light;
-        final sheetTint = isLight ? Colors.white : const Color(0xFF0E141B);
+        final sheetTint = isLight ? Colors.white : const Color(0xFF111922);
         final sheetBorder = isLight ? AppTheme.lightStroke : Colors.transparent;
         final labelColor =
             isLight ? AppTheme.lightTextSecondary : Colors.white70;
@@ -1509,7 +1509,7 @@ class _RackViewScreenState extends State<RackViewScreen>
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  color: isLight ? Colors.white : const Color(0xFF0E141B),
+                  color: isLight ? Colors.white : const Color(0xFF162436),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
                     color: isLight

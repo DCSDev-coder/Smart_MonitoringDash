@@ -787,7 +787,7 @@ class _DeviceHealthRow extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  color: isLight ? Colors.white : const Color(0xFF0E141B),
+                  color: isLight ? Colors.white : const Color(0xFF111922),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
                     color: isLight

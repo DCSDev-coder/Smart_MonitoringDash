@@ -12,8 +12,8 @@ class AppTheme {
 
   // ─── Colour tokens ────────────────────────────────────────────────────────
   static const Color bgColor = Colors.black; // Dark navy background
-  static const Color surfaceColor = Color(0xFF0E141B); // Match hardware background
-  static const Color cardColor = Color(0xFF0E141B);
+  static const Color surfaceColor = Color(0xFF162436); // Match hardware background
+  static const Color cardColor = Color(0xFF111922);
   static const Color accentGreen = Color(0xFF00C08B); // Accent green
   static const Color accentBlue = Color(0xFF42A5F5); // Soft blue
   static const Color accentRed = Color(0xFFCE4A4A); // Soft red

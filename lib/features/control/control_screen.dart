@@ -372,9 +372,7 @@ class _ControlScreenState extends State<ControlScreen>
       data: MediaQuery.of(context)
           .copyWith(textScaler: const TextScaler.linear(1.0)),
       child: Scaffold(
-        backgroundColor: isLight
-            ? Theme.of(context).scaffoldBackgroundColor
-            : const Color(0xFF060B11),
+        backgroundColor: Colors.transparent,
         body: Stack(
           children: [
             Positioned.fill(
@@ -397,9 +395,7 @@ class _ControlScreenState extends State<ControlScreen>
                       delegate: _ControlTabsHeaderDelegate(
                         height: 144,
                         child: Container(
-                          color: isLight
-                              ? Theme.of(context).scaffoldBackgroundColor
-                              : const Color(0xFF060B11),
+                          color: Colors.transparent,
                           padding:
                               EdgeInsets.fromLTRB(hPadding, 12, hPadding, 16),
                           child: _buildTabs(isLight, onSurface),
@@ -477,7 +473,7 @@ class _ControlScreenState extends State<ControlScreen>
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isLight ? Colors.white : const Color(0xFF0E141B),
+              color: isLight ? Colors.white : const Color(0xFF162436),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: Colors.transparent),
             ),
@@ -598,7 +594,7 @@ class _ControlScreenState extends State<ControlScreen>
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF0E141B),
+          color: isLight ? Colors.white : const Color(0xFF162436),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.transparent),
         ),
@@ -647,7 +643,7 @@ class _ControlScreenState extends State<ControlScreen>
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF0E141B),
+          color: isLight ? Colors.white : const Color(0xFF162436),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.transparent),
         ),
@@ -1025,7 +1021,7 @@ class _ControlScreenState extends State<ControlScreen>
           padding: const EdgeInsets.all(16),
           tint: Theme.of(context).brightness == Brightness.light
               ? Colors.white
-              : const Color(0xFF0E141B).withValues(alpha: 0.96),
+              : const Color(0xFF111922).withValues(alpha: 0.96),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
               : Colors.transparent,
@@ -1164,7 +1160,7 @@ class _ControlScreenState extends State<ControlScreen>
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             tint: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
-                : const Color(0xFF0E141B).withValues(alpha: 0.96),
+                : const Color(0xFF111922).withValues(alpha: 0.96),
             borderColor: Theme.of(context).brightness == Brightness.light
                 ? AppTheme.lightStroke
                 : Colors.transparent,
@@ -1314,7 +1310,7 @@ class _ControlScreenState extends State<ControlScreen>
           padding: const EdgeInsets.all(16),
           tint: Theme.of(context).brightness == Brightness.light
               ? Colors.white
-              : const Color(0xFF0E141B).withValues(alpha: 0.96),
+              : const Color(0xFF111922).withValues(alpha: 0.96),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
               : Colors.transparent,

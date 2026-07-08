@@ -257,7 +257,7 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
               child: DashboardGlass(
                 radius: 18,
                 padding: const EdgeInsets.all(16),
-                tint: isLight ? Colors.white : const Color(0xFF0E141B),
+                tint: isLight ? Colors.white : const Color(0xFF111922),
                 borderColor: Colors.transparent,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

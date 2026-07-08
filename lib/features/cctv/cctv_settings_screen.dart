@@ -422,7 +422,7 @@ class _CctvSettingsScreenState extends State<CctvSettingsScreen> {
                       onPressed: _isScanning ? null : _runScan,
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
-                            const Color(0xFF0E141B).withValues(alpha: 0.92),
+                            const Color(0xFF111922).withValues(alpha: 0.92),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -587,7 +587,7 @@ class _CctvSettingsScreenState extends State<CctvSettingsScreen> {
     return DashboardGlass(
       radius: 22,
       padding: const EdgeInsets.all(20),
-      tint: Theme.of(context).brightness == Brightness.light ? Colors.white : const Color(0xFF0E141B).withValues(alpha: 0.92),
+      tint: Theme.of(context).brightness == Brightness.light ? Colors.white : const Color(0xFF111922).withValues(alpha: 0.92),
       borderColor: Theme.of(context).brightness == Brightness.light ? AppTheme.lightStroke : const Color(0x22FFFFFF),
       child: child,
     );

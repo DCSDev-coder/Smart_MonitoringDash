@@ -11,7 +11,7 @@ extension _ReportScreenNavigation on _ReportScreenState {
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
-                : const Color(0xFF0E141B),
+                : const Color(0xFF111922),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.transparent),
           ),
@@ -122,7 +122,7 @@ extension _ReportScreenNavigation on _ReportScreenState {
         onSelected: (v) {
           _setEventLogRange(v);
         },
-        color: isLight ? Colors.white : const Color(0xFF0E141B),
+        color: isLight ? Colors.white : const Color(0xFF111922),
         itemBuilder: (context) => _ReportScreenState._eventRangeOptions
             .map(
               (option) => PopupMenuItem<String>(
@@ -141,7 +141,7 @@ extension _ReportScreenNavigation on _ReportScreenState {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           tint: Theme.of(context).brightness == Brightness.light
               ? Colors.white
-              : const Color(0xFF0E141B).withValues(alpha: 0.92),
+              : const Color(0xFF111922).withValues(alpha: 0.92),
           borderColor: Theme.of(context).brightness == Brightness.light
               ? AppTheme.lightStroke
               : const Color(0x22FFFFFF),

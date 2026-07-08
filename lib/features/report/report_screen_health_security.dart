@@ -31,7 +31,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       padding: const EdgeInsets.all(18),
       tint: isLight
           ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+          : const Color(0xFF111922).withValues(alpha: 0.92),
       borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +361,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       tint: isLight
           ? Colors.white
-          : const Color(0xFF0E141B).withValues(alpha: 0.92),
+          : const Color(0xFF111922).withValues(alpha: 0.92),
       borderColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,7 +576,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       decoration: BoxDecoration(
         color: isLight
             ? Colors.white
-            : const Color(0xFF0E141B).withValues(alpha: 0.92),
+            : const Color(0xFF111922).withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isLight
