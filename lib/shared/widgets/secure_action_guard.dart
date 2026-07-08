@@ -73,9 +73,20 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
   bool _biometricsChecked = false;
   bool _deviceAuthSupported = false;
   bool _hasBiometrics = false;
+  bool _showCredentialFallback = false;
+  List<BiometricType> _availableBiometrics = const [];
   bool _autoPrompted = false;
   bool get _isRackConsoleMode =>
       CpanelApiService.instance.isCurrentSiteRackConsole();
+  bool get _hasFaceId => _availableBiometrics.contains(BiometricType.face);
+  bool get _hasFingerprint =>
+      _availableBiometrics.contains(BiometricType.fingerprint);
+  bool get _shouldShowBiometricPrompt =>
+      !_showCredentialFallback && _hasBiometrics;
+  String get _biometricLabel =>
+      _hasFaceId ? 'Use Face ID' : (_hasFingerprint ? 'Use Fingerprint' : 'Use Biometrics');
+  String get _biometricHint =>
+      _hasFaceId ? 'Face ID' : (_hasFingerprint ? 'Fingerprint' : 'biometrics');
 
   @override
   void initState() {
@@ -113,13 +124,17 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
       if (!mounted) return;
       setState(() {
         _deviceAuthSupported = supported;
+        _availableBiometrics = available;
         _hasBiometrics = supported && available.isNotEmpty;
+        _showCredentialFallback = !_hasBiometrics;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _deviceAuthSupported = false;
         _hasBiometrics = false;
+        _availableBiometrics = const [];
+        _showCredentialFallback = true;
       });
     }
 
@@ -142,22 +157,27 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
       final ok = await _localAuth.authenticate(
         localizedReason: widget.reason,
         options: const AuthenticationOptions(
-          biometricOnly: false,
+          biometricOnly: true,
           stickyAuth: true,
         ),
       );
 
       if (!mounted) return;
       if (!ok) {
-        setState(() => _isAuthenticating = false);
+        setState(() {
+          _isAuthenticating = false;
+          _showCredentialFallback = true;
+        });
         return;
       }
       Navigator.pop(context, true);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _isAuthenticating = false);
-      AppToast.showError(
-          context, 'Biometric auth failed. Use password instead.');
+      setState(() {
+        _isAuthenticating = false;
+        _showCredentialFallback = true;
+      });
+      AppToast.showError(context, 'Biometric auth failed. Use fallback instead.');
     }
   }
 
@@ -227,6 +247,7 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final isRack = _isRackConsoleMode;
+    final showBiometricPath = _shouldShowBiometricPrompt;
 
     Widget innerContent = Column(
       mainAxisSize: MainAxisSize.min,
@@ -276,11 +297,11 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
         ),
         const SizedBox(height: 10),
         Text(
-          _usePin
-              ? (_deviceAuthSupported
-                  ? '${widget.reason}. Confirm with biometrics, or enter your 4-6 digit PIN.'
-                  : '${widget.reason}. Enter your 4-6 digit PIN.')
-              : widget.reason,
+          showBiometricPath
+              ? '${widget.reason}. Confirm with $_biometricHint.'
+              : (_usePin
+                  ? '${widget.reason}. Enter your 4-6 digit PIN.'
+                  : '${widget.reason}. Enter your password.'),
           style: TextStyle(
             color: isRack
                 ? ConsoleTheme.textSecondary(context)
@@ -291,170 +312,185 @@ class _SecureActionSheetState extends State<_SecureActionSheet> {
           ),
         ),
         const SizedBox(height: 14),
-        if (!kIsWeb && _deviceAuthSupported) ...[
+        if (showBiometricPath && !kIsWeb && _deviceAuthSupported) ...[
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: FilledButton.icon(
               onPressed: _isAuthenticating ? null : _runDeviceAuth,
+              icon: const Icon(Icons.verified_user_rounded),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.orangeAccent.withValues(alpha: 0.85),
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text(_hasBiometrics ? 'Use Biometrics' : 'Use Device PIN'),
+              label: Text(_biometricLabel),
             ),
           ),
           const SizedBox(height: 12),
-        ],
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _usePin ? 'PIN' : 'Password',
+          Center(
+            child: Text(
+              _isAuthenticating ? 'Waiting for $_biometricHint...' : 'Tap to continue',
               style: TextStyle(
-                color: isRack
-                    ? ConsoleTheme.textPrimary(context)
-                    : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if (widget.allowPin)
-              TextButton(
-                onPressed: _isAuthenticating
-                    ? null
-                    : () {
-                        setState(() {
-                          _usePin = !_usePin;
-                          _pwdCtrl.clear();
-                        });
-                      },
-                child: Text(
-                  _usePin ? 'Use Password instead' : 'Use PIN instead',
-                  style: TextStyle(
-                    color: isRack
-                        ? ConsoleTheme.cyan(context)
-                        : (isLight
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _pwdCtrl,
-          focusNode: _pwdFocus,
-          obscureText: _obscurePwd,
-          keyboardType: _usePin ? TextInputType.number : TextInputType.text,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _runPasswordAuth(),
-          style: TextStyle(
-            color: isRack
-                ? ConsoleTheme.textPrimary(context)
-                : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-            fontSize: _usePin ? 24 : 16,
-            letterSpacing: _usePin ? 8.0 : null,
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: _usePin ? TextAlign.center : TextAlign.start,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: isRack
-                ? Colors.white.withValues(alpha: 0.05)
-                : (isLight
-                    ? const Color(0xFFF3F4F7)
-                    : Colors.white.withValues(alpha: 0.08)),
-            labelText: _usePin ? 'PIN' : 'Password',
-            labelStyle: TextStyle(
-              color: isRack
-                  ? ConsoleTheme.textSecondary(context)
-                  : (isLight ? AppTheme.lightTextSecondary : Colors.white70),
-            ),
-            hintText: _usePin ? '••••' : null,
-            hintStyle: TextStyle(
-              color: isRack
-                  ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
-                  : (isLight ? AppTheme.lightTextSecondary : Colors.white30),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isRack
-                    ? ConsoleTheme.cardBorder(context)
-                    : (isLight
-                        ? const Color(0xFFD5DAE2)
-                        : Colors.white.withValues(alpha: 0.18)),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isRack
-                    ? ConsoleTheme.cardBorder(context)
-                    : (isLight
-                        ? const Color(0xFFD5DAE2)
-                        : Colors.white.withValues(alpha: 0.18)),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: isRack
-                    ? ConsoleTheme.primaryBlue(context)
-                    : Theme.of(context).colorScheme.primary,
-                width: 1.4,
-              ),
-            ),
-            suffixIcon: IconButton(
-              onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
-              icon: Icon(
-                _obscurePwd ? Icons.visibility : Icons.visibility_off,
                 color: isRack
                     ? ConsoleTheme.textSecondary(context)
                     : (isLight
                         ? AppTheme.lightTextSecondary
-                        : Colors.white.withValues(alpha: 0.75)),
+                        : Colors.white.withValues(alpha: 0.65)),
+                fontSize: 12,
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 18),
-        if (_isAuthenticating)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: CircularProgressIndicator(
-                color: isRack
-                    ? ConsoleTheme.primaryBlue(context)
-                    : Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          )
-        else
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _isAuthenticating ? null : _runPasswordAuth,
-              style: FilledButton.styleFrom(
-                backgroundColor: isRack
-                    ? ConsoleTheme.primaryBlue(context)
-                    : Colors.white.withValues(alpha: 0.12),
-                foregroundColor: isRack
-                    ? Colors.white
-                    : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(isRack ? 24 : 14),
+        ] else ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _usePin ? 'PIN' : 'Password',
+                style: TextStyle(
+                  color: isRack
+                      ? ConsoleTheme.textPrimary(context)
+                      : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+                  fontWeight: FontWeight.w700,
                 ),
-                padding:
-                    isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
               ),
-              child: const Text('Confirm'),
+              if (widget.allowPin)
+                TextButton(
+                  onPressed: _isAuthenticating
+                      ? null
+                      : () {
+                          setState(() {
+                            _usePin = !_usePin;
+                            _pwdCtrl.clear();
+                          });
+                        },
+                  child: Text(
+                    _usePin ? 'Use Password instead' : 'Use PIN instead',
+                    style: TextStyle(
+                      color: isRack
+                          ? ConsoleTheme.cyan(context)
+                          : (isLight
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.white),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _pwdCtrl,
+            focusNode: _pwdFocus,
+            obscureText: _obscurePwd,
+            keyboardType: _usePin ? TextInputType.number : TextInputType.text,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _runPasswordAuth(),
+            style: TextStyle(
+              color: isRack
+                  ? ConsoleTheme.textPrimary(context)
+                  : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+              fontSize: _usePin ? 24 : 16,
+              letterSpacing: _usePin ? 8.0 : null,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: _usePin ? TextAlign.center : TextAlign.start,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: isRack
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : (isLight
+                      ? const Color(0xFFF3F4F7)
+                      : Colors.white.withValues(alpha: 0.08)),
+              labelText: _usePin ? 'PIN' : 'Password',
+              labelStyle: TextStyle(
+                color: isRack
+                    ? ConsoleTheme.textSecondary(context)
+                    : (isLight ? AppTheme.lightTextSecondary : Colors.white70),
+              ),
+              hintText: _usePin ? '••••' : null,
+              hintStyle: TextStyle(
+                color: isRack
+                    ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
+                    : (isLight ? AppTheme.lightTextSecondary : Colors.white30),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: isRack
+                      ? ConsoleTheme.cardBorder(context)
+                      : (isLight
+                          ? const Color(0xFFD5DAE2)
+                          : Colors.white.withValues(alpha: 0.18)),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: isRack
+                      ? ConsoleTheme.cardBorder(context)
+                      : (isLight
+                          ? const Color(0xFFD5DAE2)
+                          : Colors.white.withValues(alpha: 0.18)),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: isRack
+                      ? ConsoleTheme.primaryBlue(context)
+                      : Theme.of(context).colorScheme.primary,
+                  width: 1.4,
+                ),
+              ),
+              suffixIcon: IconButton(
+                onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
+                icon: Icon(
+                  _obscurePwd ? Icons.visibility : Icons.visibility_off,
+                  color: isRack
+                      ? ConsoleTheme.textSecondary(context)
+                      : (isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.75)),
+                ),
+              ),
             ),
           ),
+          const SizedBox(height: 18),
+          if (_isAuthenticating)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: CircularProgressIndicator(
+                  color: isRack
+                      ? ConsoleTheme.primaryBlue(context)
+                      : Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isAuthenticating ? null : _runPasswordAuth,
+                style: FilledButton.styleFrom(
+                  backgroundColor: isRack
+                      ? ConsoleTheme.primaryBlue(context)
+                      : Colors.white.withValues(alpha: 0.12),
+                  foregroundColor: isRack
+                      ? Colors.white
+                      : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(isRack ? 24 : 14),
+                  ),
+                  padding:
+                      isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
+                ),
+                child: const Text('Confirm'),
+              ),
+            ),
+        ],
       ],
     );
 

@@ -58,10 +58,12 @@ class PueHeroCard extends StatelessWidget {
   }
 
   ({String label, Color color}) _pueStatus(double pue) {
-    // If we have a valid previous PUE, ignore 'unavailable'/'down' status 
-    // to maintain the last known color during polling/fetching.
-    // Heuristic buckets aligned with the copy in the info dialog:
-    // IDEAL ~ near 1.0, AVERAGE ~ around 1.5, POOR ~ 2.0+.
+    if (pueStatus == 'down' ||
+        pueStatus == 'unavailable' ||
+        pueStatus == 'error') {
+      return (label: 'DOWN', color: const Color(0xFF8A94A6));
+    }
+
     if (pue <= 0) {
       return (label: 'DOWN', color: const Color(0xFF8A94A6));
     }

@@ -147,45 +147,55 @@ class PushNotificationService {
   String? _lastAlarmSignature;
   String? _lastDoorLogSignature;
   bool _lastHadIssue = false;
+  Future<void>? _initFuture;
 
-  Future<void> init() async {
-    if (_initialized) return;
-    if (AppConfig.isRackConsoleBuild) {
-      AppLog.d('Push init skipped for rack console build', tag: 'Push');
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    return _initFuture ??= _initInternal();
+  }
+
+  Future<void> _initInternal() async {
+    try {
+      if (AppConfig.isRackConsoleBuild) {
+        AppLog.d('Push init skipped for rack console build', tag: 'Push');
+        _initialized = true;
+        return;
+      }
+
+      AppLog.d('Init start', tag: 'Push');
+
+      // Web push requires extra setup (service worker, VAPID key,
+      // permissions).
+      if (kIsWeb) {
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: "AIzaSyAnoPlaPA9kUOX5YIChT5M0_odKJQoD2us",
+            authDomain: "smartrack-f737a.firebaseapp.com",
+            projectId: "smartrack-f737a",
+            storageBucket: "smartrack-f737a.firebasestorage.app",
+            messagingSenderId: "1042621674847",
+            appId: "1:1042621674847:web:94c69b851c89a26f25f2ea",
+            measurementId: "G-XS3Z60L630",
+          ),
+        );
+      } else {
+        await Firebase.initializeApp();
+      }
+      AppLog.d('Firebase initialized', tag: 'Push');
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+      await _initLocalNotifications();
+      AppLog.d('Local notifications initialized', tag: 'Push');
+      await _requestPermission();
+      await _configureHandlers();
+      await _logCurrentToken();
+
       _initialized = true;
-      return;
+      _bindPoller();
+      AppLog.d('Init complete', tag: 'Push');
+    } finally {
+      _initFuture = null;
     }
-
-    AppLog.d('Init start', tag: 'Push');
-
-    // Web push requires extra setup (service worker, VAPID key, permissions).
-    if (kIsWeb) {
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: "AIzaSyAnoPlaPA9kUOX5YIChT5M0_odKJQoD2us",
-          authDomain: "smartrack-f737a.firebaseapp.com",
-          projectId: "smartrack-f737a",
-          storageBucket: "smartrack-f737a.firebasestorage.app",
-          messagingSenderId: "1042621674847",
-          appId: "1:1042621674847:web:94c69b851c89a26f25f2ea",
-          measurementId: "G-XS3Z60L630",
-        ),
-      );
-    } else {
-      await Firebase.initializeApp();
-    }
-    AppLog.d('Firebase initialized', tag: 'Push');
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    await _initLocalNotifications();
-    AppLog.d('Local notifications initialized', tag: 'Push');
-    await _requestPermission();
-    await _configureHandlers();
-    await _logCurrentToken();
-
-    _initialized = true;
-    _bindPoller();
-    AppLog.d('Init complete', tag: 'Push');
   }
 
   Future<void> _initLocalNotifications() async {
@@ -301,9 +311,9 @@ class PushNotificationService {
     await syncTokenWithBackendIfPossible(token: token);
   }
 
-  Future<void> syncTokenWithBackendIfPossible({String? token}) async {
+  Future<bool> syncTokenWithBackendIfPossible({String? token}) async {
     if (AppConfig.isRackConsoleBuild) {
-      return;
+      return true;
     }
     try {
       final site = CpanelApiService.instance.currentSite;
@@ -314,11 +324,11 @@ class PushNotificationService {
 
       if (siteId == null || siteId <= 0) {
         AppLog.d('Token sync skipped: site not ready', tag: 'Push');
-        return;
+        return false;
       }
       if (authToken == null || authToken.isEmpty) {
         AppLog.d('Token sync skipped: portal auth token missing', tag: 'Push');
-        return;
+        return false;
       }
 
       final resolvedToken = token ??
@@ -329,7 +339,7 @@ class PushNotificationService {
           );
       if (resolvedToken == null || resolvedToken.isEmpty) {
         AppLog.d('Token sync skipped: device token missing', tag: 'Push');
-        return;
+        return false;
       }
 
       AppLog.d('Attempting to sync token', tag: 'Push', fields: {
@@ -339,7 +349,7 @@ class PushNotificationService {
 
       if (_lastSyncedToken == resolvedToken && _lastSyncedSiteId == siteId) {
         AppLog.d('Token sync skipped: already registered', tag: 'Push');
-        return;
+        return true;
       }
 
       final success = await AdapterApiService.instance.registerPushToken(
@@ -353,14 +363,46 @@ class PushNotificationService {
         _lastSyncedSiteId = siteId;
         AppLog.i('Token registered to adapter',
             tag: 'Push', fields: {'siteId': siteId});
+        return true;
       } else {
         AppLog.w('Token register to adapter failed', tag: 'Push', fields: {
           'siteId': siteId,
         });
+        return false;
       }
     } catch (e) {
       AppLog.w('Token sync error', tag: 'Push', error: e);
+      return false;
     }
+  }
+
+  Future<bool> ensureTokenRegistered({
+    Duration timeout = const Duration(seconds: 30),
+    Duration retryInterval = const Duration(seconds: 1),
+  }) async {
+    if (AppConfig.isRackConsoleBuild) {
+      return true;
+    }
+
+    await init();
+
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (await syncTokenWithBackendIfPossible()) {
+        return true;
+      }
+      await Future.delayed(retryInterval);
+    }
+
+    AppLog.w(
+      'Token sync wait timed out',
+      tag: 'Push',
+      fields: {
+        'timeoutMs': timeout.inMilliseconds,
+        'siteReady': CpanelApiService.instance.currentSite != null,
+      },
+    );
+    return false;
   }
 
   Future<void> _syncPollerDrivenNotifications() async {

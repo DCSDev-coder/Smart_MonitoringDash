@@ -83,6 +83,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         controller: bg.controller!,
                         fit: BoxFit.cover,
                         controls: NoVideoControls,
+                        wakelock: false,
                       ),
                     ),
             ),

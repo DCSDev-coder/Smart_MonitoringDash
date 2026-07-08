@@ -5,6 +5,7 @@ import 'package:local_auth/local_auth.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/network/adapter_api_service.dart';
 import '../../../core/network/cpanel_api_service.dart';
+import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/animated_gradient_fill.dart';
 import '../../../shared/utils/app_toast.dart';
@@ -159,6 +160,7 @@ class _DoorRow extends StatefulWidget {
 
 class _DoorRowState extends State<_DoorRow> {
   bool _localUnlocked = false;
+  bool _isUnlocking = false;
   Timer? _timer;
 
   @override
@@ -167,14 +169,20 @@ class _DoorRowState extends State<_DoorRow> {
     super.dispose();
   }
 
-  void _doUnlock(int id, String rawName) async {
-    final success = await widget.onUnlock(id, rawName);
-    if (success == true && mounted) {
-      setState(() => _localUnlocked = true);
-      _timer?.cancel();
-      _timer = Timer(const Duration(seconds: 5), () {
-        if (mounted) setState(() => _localUnlocked = false);
-      });
+  Future<void> _doUnlock(int id, String rawName) async {
+    if (_isUnlocking) return;
+    setState(() => _isUnlocking = true);
+    try {
+      final success = await widget.onUnlock(id, rawName);
+      if (success == true && mounted) {
+        setState(() => _localUnlocked = true);
+        _timer?.cancel();
+        _timer = Timer(const Duration(seconds: 5), () {
+          if (mounted) setState(() => _localUnlocked = false);
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isUnlocking = false);
     }
   }
 
@@ -184,7 +192,7 @@ class _DoorRowState extends State<_DoorRow> {
     final rawName = widget.door['name']?.toString() ?? 'Unknown';
     final id = int.tryParse(widget.door['id']?.toString() ?? '') ?? 0;
     final isUnlocked = _localUnlocked || (widget.door['isOpen'] == true);
-    final enabled = widget.canUnlock && !isUnlocked && id != 0;
+    final enabled = widget.canUnlock && !isUnlocked && !_isUnlocking && id != 0;
 
     // Light-mode: keep the section card blue but make each row a light surface.
     // User request: keep all door rows the same background color.
@@ -233,9 +241,11 @@ class _DoorRowState extends State<_DoorRow> {
               height: isLight ? 40 : 38,
               child: _AnimatedUnlockButton(
                 enabled: enabled,
-                label: isUnlocked
-                    ? 'UNLOCKED'
-                    : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
+                label: _isUnlocking
+                    ? 'LOCKED...'
+                    : isUnlocked
+                        ? 'UNLOCKED'
+                        : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
                 onPressed: enabled ? () => _doUnlock(id, rawName) : null,
               ),
             ),
@@ -263,6 +273,7 @@ class _DoorTile extends StatefulWidget {
 
 class _DoorTileState extends State<_DoorTile> {
   bool _localUnlocked = false;
+  bool _isUnlocking = false;
   Timer? _timer;
 
   @override
@@ -271,14 +282,20 @@ class _DoorTileState extends State<_DoorTile> {
     super.dispose();
   }
 
-  void _doUnlock(int id, String rawName) async {
-    final success = await widget.onUnlock(id, rawName);
-    if (success == true && mounted) {
-      setState(() => _localUnlocked = true);
-      _timer?.cancel();
-      _timer = Timer(const Duration(seconds: 5), () {
-        if (mounted) setState(() => _localUnlocked = false);
-      });
+  Future<void> _doUnlock(int id, String rawName) async {
+    if (_isUnlocking) return;
+    setState(() => _isUnlocking = true);
+    try {
+      final success = await widget.onUnlock(id, rawName);
+      if (success == true && mounted) {
+        setState(() => _localUnlocked = true);
+        _timer?.cancel();
+        _timer = Timer(const Duration(seconds: 5), () {
+          if (mounted) setState(() => _localUnlocked = false);
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isUnlocking = false);
     }
   }
 
@@ -288,7 +305,7 @@ class _DoorTileState extends State<_DoorTile> {
     final rawName = widget.door['name']?.toString() ?? 'Unknown';
     final id = int.tryParse(widget.door['id']?.toString() ?? '') ?? 0;
     final isUnlocked = _localUnlocked || (widget.door['isOpen'] == true);
-    final enabled = widget.canUnlock && !isUnlocked && id != 0;
+    final enabled = widget.canUnlock && !isUnlocked && !_isUnlocking && id != 0;
 
     return Card(
       child: Padding(
@@ -328,7 +345,9 @@ class _DoorTileState extends State<_DoorTile> {
                 enabled: enabled,
                 label: isUnlocked
                     ? 'UNLOCKED'
-                    : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
+                    : _isUnlocking
+                        ? 'LOCKING'
+                        : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
                 onPressed: enabled
                     ? () => _doUnlock(id, widget.door['name']?.toString() ?? '')
                     : null,
@@ -489,9 +508,20 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   bool _biometricsChecked = false;
   bool _deviceAuthSupported = false;
   bool _hasBiometrics = false;
+  bool _showCredentialFallback = false;
   bool _autoPrompted = false;
+  List<BiometricType> _availableBiometrics = const [];
   bool get _isRackConsoleMode =>
       CpanelApiService.instance.isCurrentSiteRackConsole();
+  bool get _hasFaceId => _availableBiometrics.contains(BiometricType.face);
+  bool get _hasFingerprint =>
+      _availableBiometrics.contains(BiometricType.fingerprint);
+  bool get _shouldShowBiometricPrompt =>
+      !_showCredentialFallback && _hasBiometrics;
+  String get _biometricLabel =>
+      _hasFaceId ? 'Use Face ID' : (_hasFingerprint ? 'Use Fingerprint' : 'Use Biometrics');
+  String get _biometricHint =>
+      _hasFaceId ? 'Face ID' : (_hasFingerprint ? 'Fingerprint' : 'biometrics');
 
   @override
   void initState() {
@@ -529,13 +559,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
       setState(() {
         _deviceAuthSupported = supported;
+        _availableBiometrics = available;
         _hasBiometrics = supported && available.isNotEmpty;
+        _showCredentialFallback = !_hasBiometrics;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _deviceAuthSupported = false;
         _hasBiometrics = false;
+        _availableBiometrics = const [];
+        _showCredentialFallback = true;
       });
     }
 
@@ -560,16 +594,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       final ok = await _localAuth.authenticate(
         localizedReason: 'Confirm to unlock ${widget.doorName}',
         options: const AuthenticationOptions(
-          // Allow device credentials fallback (PIN/pattern) so devices without
-          // enrolled biometrics aren't forced into biometric setup screens.
-          biometricOnly: false,
+          biometricOnly: true,
           stickyAuth: true,
         ),
       );
 
       if (!mounted) return;
       if (!ok) {
-        setState(() => _isAuthenticating = false);
+        setState(() {
+          _isAuthenticating = false;
+          _showCredentialFallback = true;
+        });
         return;
       }
 
@@ -583,6 +618,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
       Map<String, dynamic>? res;
       if (usedAdapter) {
+        await PushNotificationService.instance.ensureTokenRegistered();
         res = await AdapterApiService.instance.openCloseDoor(
           siteId: siteId,
           accessId: widget.doorId,
@@ -609,9 +645,12 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _isAuthenticating = false);
+      setState(() {
+        _isAuthenticating = false;
+        _showCredentialFallback = true;
+      });
       AppToast.showError(
-          context, 'Biometric auth failed. Use password instead.');
+          context, 'Biometric auth failed. Use fallback instead.');
     }
   }
 
@@ -650,6 +689,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
         if (adapterAvailable) {
           usedAdapter = true;
+          await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.unlockWithUserPin(
             siteId: siteId,
             accessId: widget.doorId,
@@ -669,7 +709,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             setState(() => _isAuthenticating = false);
             AppToast.showError(
               context,
-              verifyRes?['message']?.toString() ?? 'Invalid PIN or Access Denied',
+              verifyRes?['message']?.toString() ??
+                  'Invalid PIN or Access Denied',
             );
             return;
           }
@@ -684,6 +725,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
         if (adapterAvailable) {
           usedAdapter = true;
+          await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.unlockWithPin(
             siteId: siteId,
             accessId: widget.doorId,
@@ -728,6 +770,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
         if (adapterAvailable) {
           usedAdapter = true;
+          await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.openCloseDoor(
             siteId: siteId,
             accessId: widget.doorId,
@@ -766,6 +809,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final isRack = _isRackConsoleMode;
+    final showBiometricPath = _shouldShowBiometricPrompt;
 
     Widget content = Padding(
       padding: const EdgeInsets.all(24),
@@ -817,11 +861,11 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           Text(
             isRack
                 ? 'Enter the approving user PIN to unlock ${widget.doorName} from the Rack Console.'
-                : _usePin
-                    ? (_deviceAuthSupported
-                        ? 'Confirm with fingerprint/Face ID, or enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}'
-                        : 'Please enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}')
-                    : 'Please enter your account password to unlock ${widget.doorName}',
+                : showBiometricPath
+                    ? 'Confirm with $_biometricHint to unlock ${widget.doorName}.'
+                    : (_usePin
+                        ? 'Please enter your 4-6 digit Door Access PIN to unlock ${widget.doorName}'
+                        : 'Please enter your account password to unlock ${widget.doorName}'),
             style: TextStyle(
               color: isRack
                   ? ConsoleTheme.textSecondary(context)
@@ -831,163 +875,175 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               fontSize: 12,
             ),
           ),
-          if (!isRack && _deviceAuthSupported) ...[
+          if (showBiometricPath && !kIsWeb && _deviceAuthSupported) ...[
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.fingerprint_rounded, size: 18),
-              label: Text(
-                _hasBiometrics ? 'Use Fingerprint / Face ID' : 'Use Phone PIN',
-              ),
-              onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                side: BorderSide(
-                  color: isLight
-                      ? AppTheme.lightStroke
-                      : Colors.white.withValues(alpha: 0.22),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                isRack ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
-                style: TextStyle(
-                  color: isRack
-                      ? ConsoleTheme.textPrimary(context)
-                      : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (!isRack)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _usePin = !_usePin;
-                      _pwdCtrl.clear();
-                    });
-                  },
-                  child: Text(
-                    _usePin ? 'Use Password' : 'Use PIN',
-                    style: TextStyle(
-                      color: isLight
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _pwdCtrl,
-            focusNode: _pwdFocus,
-            obscureText: _obscurePwd,
-            autofocus: false,
-            keyboardType: _usePin ? TextInputType.number : TextInputType.text,
-            style: TextStyle(
-              color: isRack
-                  ? ConsoleTheme.textPrimary(context)
-                  : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-              fontSize: _usePin ? 24 : 16,
-              letterSpacing: _usePin ? 8.0 : null,
-            ),
-            textAlign: _usePin ? TextAlign.center : TextAlign.start,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: isRack
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : (isLight
-                      ? const Color(0xFFF3F4F7)
-                      : Colors.white.withValues(alpha: 0.08)),
-              hintText: _usePin ? '••••' : 'Password',
-              hintStyle: TextStyle(
-                color: isRack
-                    ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
-                    : (isLight
-                        ? AppTheme.lightTextSecondary
-                        : Colors.white.withValues(alpha: 0.45)),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: isRack
-                      ? ConsoleTheme.cardBorder(context)
-                      : (isLight
-                          ? const Color(0xFFD5DAE2)
-                          : Colors.white.withValues(alpha: 0.18)),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: isRack
-                      ? ConsoleTheme.cardBorder(context)
-                      : (isLight
-                          ? const Color(0xFFD5DAE2)
-                          : Colors.white.withValues(alpha: 0.18)),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                    color: isRack
-                        ? ConsoleTheme.primaryBlue(context)
-                        : Theme.of(context).colorScheme.primary,
-                    width: 1.4),
-              ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePwd ? Icons.visibility_off : Icons.visibility,
-                  color: isRack
-                      ? ConsoleTheme.textSecondary(context)
-                      : (isLight
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.75)),
-                ),
-                onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (_isAuthenticating)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: CircularProgressIndicator(
-                    color: isRack
-                        ? ConsoleTheme.primaryBlue(context)
-                        : Theme.of(context).colorScheme.primary),
-              ),
-            )
-          else
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.lock_open_rounded, size: 16),
-                label: const Text('Unlock Door'),
-                onPressed: _runPasswordUnlock,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isRack
-                      ? const Color(0xFF109B5B)
-                      : Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.fingerprint_rounded, size: 18),
+                label: Text(_biometricLabel),
+                onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.orangeAccent.withValues(alpha: 0.85),
+                  foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(isRack ? 24 : 16),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  padding:
-                      isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(
+                _isAuthenticating
+                    ? 'Waiting for $_biometricHint...'
+                    : 'Use biometric unlock to continue',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.65),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isRack ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
+                  style: TextStyle(
+                    color: isRack
+                        ? ConsoleTheme.textPrimary(context)
+                        : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!isRack)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _usePin = !_usePin;
+                        _pwdCtrl.clear();
+                      });
+                    },
+                    child: Text(
+                      _usePin ? 'Use Password' : 'Use PIN',
+                      style: TextStyle(
+                        color: isLight
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _pwdCtrl,
+              focusNode: _pwdFocus,
+              obscureText: _obscurePwd,
+              autofocus: false,
+              keyboardType: _usePin ? TextInputType.number : TextInputType.text,
+              style: TextStyle(
+                color: isRack
+                    ? ConsoleTheme.textPrimary(context)
+                    : (isLight ? AppTheme.lightTextPrimary : Colors.white),
+                fontSize: _usePin ? 24 : 16,
+                letterSpacing: _usePin ? 8.0 : null,
+              ),
+              textAlign: _usePin ? TextAlign.center : TextAlign.start,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: isRack
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : (isLight
+                        ? const Color(0xFFF3F4F7)
+                        : Colors.white.withValues(alpha: 0.08)),
+                hintText: _usePin ? '••••' : 'Password',
+                hintStyle: TextStyle(
+                  color: isRack
+                      ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
+                      : (isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.45)),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: isRack
+                        ? ConsoleTheme.cardBorder(context)
+                        : (isLight
+                            ? const Color(0xFFD5DAE2)
+                            : Colors.white.withValues(alpha: 0.18)),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: isRack
+                        ? ConsoleTheme.cardBorder(context)
+                        : (isLight
+                            ? const Color(0xFFD5DAE2)
+                            : Colors.white.withValues(alpha: 0.18)),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                      color: isRack
+                          ? ConsoleTheme.primaryBlue(context)
+                          : Theme.of(context).colorScheme.primary,
+                      width: 1.4),
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePwd ? Icons.visibility_off : Icons.visibility,
+                    color: isRack
+                        ? ConsoleTheme.textSecondary(context)
+                        : (isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.75)),
+                  ),
+                  onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (_isAuthenticating)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: CircularProgressIndicator(
+                      color: isRack
+                          ? ConsoleTheme.primaryBlue(context)
+                          : Theme.of(context).colorScheme.primary),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.lock_open_rounded, size: 16),
+                  label: const Text('Unlock Door'),
+                  onPressed: _runPasswordUnlock,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isRack
+                        ? const Color(0xFF109B5B)
+                        : Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(isRack ? 24 : 16),
+                    ),
+                    padding:
+                        isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );

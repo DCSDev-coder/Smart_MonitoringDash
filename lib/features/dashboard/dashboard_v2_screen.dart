@@ -8,6 +8,7 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/config/site_runtime_config.dart';
 import '../../core/controllers/global_status_poller.dart';
+import '../../core/notifications/push_notification_service.dart';
 import '../../core/controllers/smart_polling_settings.dart';
 import '../../core/security/secure_action_session.dart';
 import '../../core/navigation/app_navigator.dart';
@@ -362,6 +363,8 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
             [];
       }
 
+      var derivedPueThisCycle = false;
+
       if (pm != null && pm['result'] is Map) {
         if (kDebugMode) {
           AppLog.d(
@@ -392,10 +395,9 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           final derived = totalE / itE;
           if (derived.isFinite && derived > 0) {
             _pue = derived;
-            // Treat derived PUE as a "good" sample so brief backend hiccups
-            // don't flip the UI to DOWN for a few seconds.
             _lastGoodPue = derived;
             _lastGoodPueAt = now;
+            derivedPueThisCycle = true;
           }
         }
       }
@@ -427,23 +429,13 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
-          if (_lastGoodPueAt == now) {
+          if (derivedPueThisCycle) {
             _consecutiveBadPueSamples = 0;
             _pueStatus = 'ok';
           } else {
             _consecutiveBadPueSamples += 1;
-            final recentGood = _lastGoodPueAt != null &&
-                now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
-            if (recentGood &&
-                _lastGoodPue != null &&
-                _consecutiveBadPueSamples < 3) {
-              _pue = _lastGoodPue!;
-              _pueStatus = 'ok';
-            } else {
-              // Keep the last visible number (if any) instead of snapping to 0.0.
-              // This avoids a brief "DOWN" flicker on single bad samples.
-              _pueStatus = status;
-            }
+            _pue = 0.0;
+            _pueStatus = status == 'ok' ? 'down' : status;
           }
         }
       } else if (pueRes != null &&
@@ -491,43 +483,22 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
-          if (_lastGoodPueAt == now) {
+          if (derivedPueThisCycle) {
             _consecutiveBadPueSamples = 0;
             _pueStatus = 'ok';
           } else {
             _consecutiveBadPueSamples += 1;
-            final recentGood = _lastGoodPueAt != null &&
-                now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
-            if (recentGood &&
-                _lastGoodPue != null &&
-                _consecutiveBadPueSamples < 3) {
-              _pue = _lastGoodPue!;
-              _pueStatus = 'ok';
-            } else {
-              // Keep the last visible number (if any) instead of snapping to 0.0.
-              _pueStatus = 'unavailable';
-            }
+            _pueStatus = 'down';
           }
         }
       } else {
-        if (_lastGoodPueAt == now) {
-          // Successfully derived PUE from Power just now, don't mark as disconnected
+        if (derivedPueThisCycle) {
           _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
           _consecutiveBadPueSamples += 1;
-          final recentGood = _lastGoodPueAt != null &&
-              now.difference(_lastGoodPueAt!) <= const Duration(minutes: 10);
-          if (recentGood &&
-              _lastGoodPue != null &&
-              _consecutiveBadPueSamples < 3) {
-            _pue = _lastGoodPue!;
-            _pueStatus = 'ok';
-          } else {
-            // Keep the last visible number (if any) instead of snapping to 0.0.
-            // We still mark status as down so the UI can tint appropriately.
-            _pueStatus = 'down';
-          }
+          _pue = 0.0;
+          _pueStatus = 'down';
         }
       }
 
@@ -847,6 +818,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
         Map<String, dynamic>? res;
         if (AdapterApiService.instance.isConfigured && siteId != null) {
+          await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.openCloseDoor(
             siteId: siteId,
             accessId: id,

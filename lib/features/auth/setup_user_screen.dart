@@ -164,6 +164,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                           controller: bg.controller!,
                           fit: BoxFit.cover,
                           controls: NoVideoControls,
+                          wakelock: false,
                         ),
                       ),
               ),

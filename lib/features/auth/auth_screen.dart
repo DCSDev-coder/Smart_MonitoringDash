@@ -559,6 +559,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             controller: bg.controller!,
                             fit: BoxFit.cover,
                             controls: NoVideoControls,
+                            wakelock: false,
                           ),
                         ),
                 ),
@@ -707,26 +708,71 @@ class _AuthScreenState extends State<AuthScreen> {
                                       FadeInSlide(
                                         delay:
                                             const Duration(milliseconds: 450),
-                                        child: CheckboxListTile(
-                                          value: _rememberMe,
-                                          controlAffinity:
-                                              ListTileControlAffinity.leading,
-                                          dense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          activeColor: const Color(0xFF00BD10),
-                                          checkColor: Colors.white,
-                                          side: const BorderSide(
-                                              color: Colors.white54),
-                                          title: Text(
-                                            'Remember Me',
-                                            style: GoogleFonts.manrope(
-                                              color: Colors.white70,
-                                              fontSize: 14,
-                                              letterSpacing: 0.2,
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                onTap: () => setState(() =>
+                                                    _rememberMe = !_rememberMe),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Checkbox(
+                                                      value: _rememberMe,
+                                                      activeColor: const Color(
+                                                          0xFF00BD10),
+                                                      checkColor: Colors.white,
+                                                      side: const BorderSide(
+                                                          color:
+                                                              Colors.white54),
+                                                      onChanged: (val) =>
+                                                          setState(() =>
+                                                              _rememberMe =
+                                                                  val == true),
+                                                    ),
+                                                    Text(
+                                                      'Remember Me',
+                                                      style:
+                                                          GoogleFonts.manrope(
+                                                        color: Colors.white70,
+                                                        fontSize: 14,
+                                                        letterSpacing: 0.2,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          onChanged: (val) => setState(
-                                              () => _rememberMe = val == true),
+                                            TextButton(
+                                              onPressed: _openResetPassword,
+                                              style: TextButton.styleFrom(
+                                                foregroundColor:
+                                                    const Color(0xFFFFB347),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 8,
+                                                ),
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                              ),
+                                              child: Text(
+                                                'Forgot Password?',
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                  decorationColor:
+                                                      const Color(0xFFFFB347),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -765,16 +811,6 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   const SizedBox(width: 12),
                                                   Expanded(
                                                     child: _buildButton(
-                                                      label: 'RESET PASSWORD',
-                                                      color: const Color(
-                                                          0xFFFF9500),
-                                                      onPressed:
-                                                          _openResetPassword,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: _buildButton(
                                                       label: 'NEW USER SETUP',
                                                       color: const Color(
                                                           0xFF00BD10),
@@ -794,14 +830,6 @@ class _AuthScreenState extends State<AuthScreen> {
                                                         _lockoutEndTime != null
                                                             ? null
                                                             : _signIn,
-                                                  ),
-                                                  const SizedBox(height: 14),
-                                                  _buildButton(
-                                                    label: 'RESET PASSWORD',
-                                                    color:
-                                                        const Color(0xFFFF9500),
-                                                    onPressed:
-                                                        _openResetPassword,
                                                   ),
                                                   const SizedBox(height: 14),
                                                   _buildButton(

@@ -42,6 +42,7 @@ class BackgroundLayer extends StatelessWidget {
           controller: controller,
           fit: BoxFit.cover,
           controls: NoVideoControls,
+          wakelock: false,
         ),
       );
     } else if (!isAuth) {

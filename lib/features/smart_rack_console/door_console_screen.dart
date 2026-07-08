@@ -26,6 +26,7 @@ class DoorConsoleScreen extends StatefulWidget {
 class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
   final Map<int, Timer> _unlockTimers = <int, Timer>{};
   final Set<int> _localUnlocked = <int>{};
+  final Set<int> _unlockingDoors = <int>{};
 
   List<Map<String, dynamic>> get _doors => widget.snapshot.doors;
 
@@ -85,10 +86,12 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     return door?['isOpen'] == true;
   }
 
-  Future<void> _unlockDoor(Map<String, dynamic>? door, String fallbackLabel) async {
+  Future<void> _unlockDoor(
+      Map<String, dynamic>? door, String fallbackLabel) async {
     final id = _doorId(door);
     final name = _doorLabel(door, fallbackLabel);
     if (id == 0) return;
+    if (_unlockingDoors.contains(id)) return;
 
     AppLog.d(
       'Rack Console unlock requested',
@@ -96,26 +99,40 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
       fields: {'doorId': id, 'doorName': name, 'doorCount': _doors.length},
     );
 
-    final authorized = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
-    );
-
-    if (authorized != true || !mounted) return;
-
     setState(() {
-      _localUnlocked.add(id);
+      _unlockingDoors.add(id);
     });
 
-    _unlockTimers[id]?.cancel();
-    _unlockTimers[id] = Timer(const Duration(seconds: 5), () {
-      if (!mounted) return;
+    try {
+      final authorized = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
+      );
+
+      if (authorized != true || !mounted) return;
+
       setState(() {
-        _localUnlocked.remove(id);
+        _localUnlocked.add(id);
       });
-    });
+
+      _unlockTimers[id]?.cancel();
+      _unlockTimers[id] = Timer(const Duration(seconds: 5), () {
+        if (!mounted) return;
+        setState(() {
+          _localUnlocked.remove(id);
+        });
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _unlockingDoors.remove(id);
+        });
+      } else {
+        _unlockingDoors.remove(id);
+      }
+    }
   }
 
   String _formatLogDate(String raw) {
@@ -234,10 +251,12 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final frontDoor =
-        _doorBySemanticName(const ['front', 'front door']) ?? _doorByFallbackIndex(0);
+    final frontDoor = _doorBySemanticName(const ['front', 'front door']) ??
+        _doorByFallbackIndex(0);
     final backDoor = _doorBySemanticName(const ['rear', 'back', 'back door']) ??
-        (_doors.length > 1 ? _doorByFallbackIndex(_doors.length - 1) : frontDoor);
+        (_doors.length > 1
+            ? _doorByFallbackIndex(_doors.length - 1)
+            : frontDoor);
 
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
@@ -252,6 +271,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                 positionLabel: _doorPosition(frontDoor, 'Front'),
                 isUnlocked: _isDoorUnlocked(frontDoor),
                 enabled: _doorId(frontDoor) != 0,
+                busy: _unlockingDoors.contains(_doorId(frontDoor)),
                 onUnlock: () => _unlockDoor(frontDoor, 'Front Door'),
               ),
               const SizedBox(height: ConsoleTheme.lg),
@@ -260,6 +280,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                 positionLabel: _doorPosition(backDoor, 'Back'),
                 isUnlocked: _isDoorUnlocked(backDoor),
                 enabled: _doorId(backDoor) != 0,
+                busy: _unlockingDoors.contains(_doorId(backDoor)),
                 onUnlock: () => _unlockDoor(backDoor, 'Back Door'),
               ),
             ],
@@ -274,6 +295,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                     positionLabel: _doorPosition(frontDoor, 'Front'),
                     isUnlocked: _isDoorUnlocked(frontDoor),
                     enabled: _doorId(frontDoor) != 0,
+                    busy: _unlockingDoors.contains(_doorId(frontDoor)),
                     onUnlock: () => _unlockDoor(frontDoor, 'Front Door'),
                   ),
                 ),
@@ -284,6 +306,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                     positionLabel: _doorPosition(backDoor, 'Back'),
                     isUnlocked: _isDoorUnlocked(backDoor),
                     enabled: _doorId(backDoor) != 0,
+                    busy: _unlockingDoors.contains(_doorId(backDoor)),
                     onUnlock: () => _unlockDoor(backDoor, 'Back Door'),
                   ),
                 ),
@@ -316,19 +339,29 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                     builder: (ctx) => Container(
                       decoration: BoxDecoration(
                         gradient: ConsoleTheme.cardBgGradient(context),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                        border: Border.all(color: ConsoleTheme.cardBorder(context)),
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24)),
+                        border:
+                            Border.all(color: ConsoleTheme.cardBorder(context)),
                       ),
                       padding: const EdgeInsets.all(24),
-                      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+                      constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Door Access Logs', style: TextStyle(color: ConsoleTheme.textPrimary(context), fontSize: 18, fontWeight: FontWeight.bold)),
-                              IconButton(icon: Icon(Icons.close, color: ConsoleTheme.textPrimary(context)), onPressed: () => Navigator.pop(ctx)),
+                              Text('Door Access Logs',
+                                  style: TextStyle(
+                                      color: ConsoleTheme.textPrimary(context),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold)),
+                              IconButton(
+                                  icon: Icon(Icons.close,
+                                      color: ConsoleTheme.textPrimary(context)),
+                                  onPressed: () => Navigator.pop(ctx)),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -367,6 +400,7 @@ class _DoorAccessPanel extends StatelessWidget {
     required this.positionLabel,
     required this.isUnlocked,
     required this.enabled,
+    required this.busy,
     required this.onUnlock,
   });
 
@@ -374,12 +408,13 @@ class _DoorAccessPanel extends StatelessWidget {
   final String positionLabel;
   final bool isUnlocked;
   final bool enabled;
+  final bool busy;
   final VoidCallback onUnlock;
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     return ConsoleSectionCard(
       minHeight: 180,
       expand: true,
@@ -399,8 +434,12 @@ class _DoorAccessPanel extends StatelessWidget {
               ),
               child: Center(
                 child: Icon(
-                  isUnlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
-                  color: isUnlocked ? ConsoleTheme.success(context) : (isLight ? Colors.black54 : Colors.white70),
+                  isUnlocked
+                      ? Icons.lock_open_rounded
+                      : Icons.lock_outline_rounded,
+                  color: isUnlocked
+                      ? ConsoleTheme.success(context)
+                      : (isLight ? Colors.black54 : Colors.white70),
                   size: 38,
                 ),
               ),
@@ -421,9 +460,11 @@ class _DoorAccessPanel extends StatelessWidget {
               width: double.infinity,
               height: 42,
               child: _ConsoleUnlockButton(
-                enabled: enabled && !isUnlocked,
-                label: isUnlocked ? 'UNLOCKED' : (enabled ? 'UNLOCK' : 'NO ACCESS'),
-                onPressed: enabled && !isUnlocked ? onUnlock : null,
+                enabled: enabled && !isUnlocked && !busy,
+                label: isUnlocked
+                    ? 'UNLOCKED'
+                    : (busy ? 'LOCKING' : (enabled ? 'UNLOCK' : 'NO ACCESS')),
+                onPressed: enabled && !isUnlocked && !busy ? onUnlock : null,
               ),
             ),
           ],
@@ -443,79 +484,79 @@ class _RackVisualPanel extends StatelessWidget {
       minHeight: 260,
       expand: true,
       child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.02),
-                ConsoleTheme.cyan(context).withValues(alpha: 0.06),
-                Colors.white.withValues(alpha: 0.02),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            border: Border.all(
-              color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.8),
-            ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.02),
+              ConsoleTheme.cyan(context).withValues(alpha: 0.06),
+              Colors.white.withValues(alpha: 0.02),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: 18,
-                child: Container(
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: [
-                      BoxShadow(
-                        color: ConsoleTheme.cyan(context).withValues(alpha: 0.28),
-                        blurRadius: 26,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(ConsoleTheme.xl),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Image.asset(
-                        'assets/images/smart_rack_containment_logo.png',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: ConsoleTheme.md),
-                    Text(
-                      'INVT Rack Demo Layout',
-                      style: TextStyle(
-                        color: ConsoleTheme.textPrimary(context),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Front and back door control are presented around the rack view for event display.',
-                      style: TextStyle(
-                        color: ConsoleTheme.textSecondary(context),
-                        fontSize: 12,
-                        height: 1.45,
-                      ),
-                      textAlign: TextAlign.center,
+          border: Border.all(
+            color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.8),
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 18,
+              child: Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ConsoleTheme.cyan(context).withValues(alpha: 0.28),
+                      blurRadius: 26,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(ConsoleTheme.xl),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Image.asset(
+                      'assets/images/smart_rack_containment_logo.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: ConsoleTheme.md),
+                  Text(
+                    'INVT Rack Demo Layout',
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Front and back door control are presented around the rack view for event display.',
+                    style: TextStyle(
+                      color: ConsoleTheme.textSecondary(context),
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -693,9 +734,7 @@ class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
             borderRadius: BorderRadius.circular(999),
             child: Ink(
               decoration: BoxDecoration(
-                color: disabled
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : null,
+                color: disabled ? Colors.white.withValues(alpha: 0.08) : null,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
                   color: disabled

@@ -30,6 +30,8 @@ class ApiService {
 
   String? get token => _storage[AppConstants.keyAccessToken];
   String? get baseUrl => _baseUrl;
+  bool get hasAccessToken =>
+      (_storage[AppConstants.keyAccessToken] ?? '').isNotEmpty;
 
   /// Call this on app startup to load the last used IP.
   Future<void> init() async {
