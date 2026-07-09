@@ -223,8 +223,8 @@ class PueConsoleScreen extends StatelessWidget {
                   glowColor: ConsoleTheme.cyan(context),
                   baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
                   strokeWidth: 16.0,
-                  sweepDegrees: 210,
-                  startDegrees: 195,
+                  sweepDegrees: 255,
+                  startDegrees: 145,
                   glowIntensity: 1.0,
                 ),
                 Column(
@@ -468,8 +468,9 @@ class _EightHoursQuadrantState extends State<EightHoursQuadrant> {
 
     try {
       final site = CpanelApiService.instance.currentSite;
-      final siteIdStr = site?['id']?.toString() ?? '';
-      final siteId = int.tryParse(siteIdStr) ?? 1;
+      final siteId = site != null 
+          ? (int.tryParse(site['site_id']?.toString() ?? '') ?? int.tryParse(site['id']?.toString() ?? '1') ?? 1)
+          : 1;
       
       final data = await AdapterApiService.instance.fetchOurPueHourly(siteId: siteId, hours: 8);
       
@@ -610,8 +611,9 @@ class _CurrentEnergyQuadrantState extends State<CurrentEnergyQuadrant> {
 
     try {
       final site = CpanelApiService.instance.currentSite;
-      final siteIdStr = site?['id']?.toString() ?? '';
-      final siteId = int.tryParse(siteIdStr) ?? 1; 
+      final siteId = site != null 
+          ? (int.tryParse(site['site_id']?.toString() ?? '') ?? int.tryParse(site['id']?.toString() ?? '1') ?? 1)
+          : 1; 
       
       final data = await AdapterApiService.instance.fetchPowerMonth(siteId: siteId); 
       
@@ -724,8 +726,9 @@ class _HistoricalTrendAnalysisQuadrantState extends State<HistoricalTrendAnalysi
 
     try {
       final site = CpanelApiService.instance.currentSite;
-      final siteIdStr = site?['id']?.toString() ?? '';
-      final siteId = int.tryParse(siteIdStr) ?? 1;
+      final siteId = site != null 
+          ? (int.tryParse(site['site_id']?.toString() ?? '') ?? int.tryParse(site['id']?.toString() ?? '1') ?? 1)
+          : 1;
       
       int hours = 8;
       if (_selectedHours == '12 Hours') hours = 12;
@@ -909,8 +912,9 @@ class _AnnualOperationQuadrantState extends State<AnnualOperationQuadrant> {
 
     try {
       final site = CpanelApiService.instance.currentSite;
-      final siteIdStr = site?['id']?.toString() ?? '';
-      final siteId = int.tryParse(siteIdStr) ?? 1;
+      final siteId = site != null 
+          ? (int.tryParse(site['site_id']?.toString() ?? '') ?? int.tryParse(site['id']?.toString() ?? '1') ?? 1)
+          : 1;
       
       final data = await AdapterApiService.instance.fetchPue(siteId: siteId); 
       

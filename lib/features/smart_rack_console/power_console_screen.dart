@@ -238,11 +238,20 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
       context: context,
       builder: (context) {
         return Dialog(
-          backgroundColor: const Color(0xFF0B0F14),
+          backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(24),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
             height: MediaQuery.of(context).size.height * 0.9,
+            decoration: BoxDecoration(
+              gradient: ConsoleTheme.cardBgGradient(context),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: ConsoleTheme.cardBorder(context),
+                width: 1.5,
+              ),
+              boxShadow: ConsoleTheme.glowShadow(context),
+            ),
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [

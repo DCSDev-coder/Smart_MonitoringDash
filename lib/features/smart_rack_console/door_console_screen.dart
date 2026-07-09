@@ -383,6 +383,57 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
               child: ConsoleSectionCard(
                 title: 'Door Access Logs',
                 expand: true,
+                trailing: TextButton.icon(
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text('View Logs'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: ConsoleTheme.cyan(context),
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => Container(
+                        decoration: BoxDecoration(
+                          gradient: ConsoleTheme.cardBgGradient(context),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24)),
+                          border:
+                              Border.all(color: ConsoleTheme.cardBorder(context)),
+                        ),
+                        padding: const EdgeInsets.all(24),
+                        constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(context).size.height * 0.8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Door Access Logs',
+                                    style: TextStyle(
+                                        color: ConsoleTheme.textPrimary(context),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold)),
+                                IconButton(
+                                    icon: Icon(Icons.close,
+                                        color: ConsoleTheme.textPrimary(context)),
+                                    onPressed: () => Navigator.pop(ctx)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: _buildRecentLogsTable(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 child: SingleChildScrollView(
                   child: _buildRecentLogsTable(context),
                 ),
@@ -416,56 +467,75 @@ class _DoorAccessPanel extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
 
     return ConsoleSectionCard(
-      minHeight: 180,
+      minHeight: 120,
       expand: false,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: isLight
-                    ? const Color(0xFFF1F5F9)
-                    : Colors.white.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    doorLabel,
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isUnlocked ? 'Status: Opened' : 'Status: Closed',
+                    style: TextStyle(
+                      color: isUnlocked
+                          ? ConsoleTheme.success(context)
+                          : ConsoleTheme.textSecondary(context),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
-              child: Center(
-                child: Icon(
-                  isUnlocked
-                      ? Icons.lock_open_rounded
-                      : Icons.lock_outline_rounded,
-                  color: isUnlocked
-                      ? ConsoleTheme.success(context)
-                      : (isLight ? Colors.black54 : Colors.white70),
-                  size: 38,
+            ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(40),
+                onTap: enabled && !isUnlocked && !busy ? onUnlock : null,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: isLight
+                        ? const Color(0xFFF1F5F9)
+                        : Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: busy 
+                        ? const CircularProgressIndicator()
+                        : AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 500),
+                            transitionBuilder: (child, animation) => 
+                                ScaleTransition(scale: animation, child: child),
+                            child: Icon(
+                              isUnlocked
+                                  ? Icons.lock_open_rounded
+                                  : Icons.lock_outline_rounded,
+                              key: ValueKey<bool>(isUnlocked),
+                              color: isUnlocked
+                                  ? ConsoleTheme.success(context)
+                                  : (isLight ? Colors.black54 : Colors.white70),
+                              size: 38,
+                            ),
+                          ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              doorLabel,
-              style: TextStyle(
-                color: ConsoleTheme.textPrimary(context),
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 42,
-              child: _ConsoleUnlockButton(
-                enabled: enabled && !isUnlocked && !busy,
-                label: isUnlocked
-                    ? 'UNLOCKED'
-                    : (busy ? 'LOCKING' : (enabled ? 'UNLOCK' : 'NO ACCESS')),
-                onPressed: enabled && !isUnlocked && !busy ? onUnlock : null,
               ),
             ),
           ],

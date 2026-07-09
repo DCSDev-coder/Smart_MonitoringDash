@@ -176,6 +176,64 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchCabinetStats({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      _logMissingPortalTokenIfNeeded();
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/cabinet-stats');
+    try {
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchCabinetStats non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchCabinetStats error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchRedisMemory({required int siteId}) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      _logMissingPortalTokenIfNeeded();
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/redis-memory');
+    try {
+      final res = await http
+          .get(url, headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchRedisMemory non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchRedisMemory error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> fetchOurPueHourly({
     required int siteId,
     int hours = 24,

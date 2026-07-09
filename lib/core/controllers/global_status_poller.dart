@@ -363,12 +363,22 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       Future<Map<String, dynamic>?> cabinetStatsWithFallback() async {
-        if (!directVendorReady) return null;
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter =
+              await AdapterApiService.instance.fetchCabinetStats(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+          if (!directVendorReady) return null;
+        }
         return ApiService.instance.fetchCabinetStats();
       }
 
       Future<Map<String, dynamic>?> redisMemoryWithFallback() async {
-        if (!directVendorReady) return null;
+        if (AdapterApiService.instance.isConfigured && siteId != null) {
+          final viaAdapter =
+              await AdapterApiService.instance.fetchRedisMemory(siteId: siteId);
+          if (viaAdapter != null) return viaAdapter;
+          if (!directVendorReady) return null;
+        }
         return ApiService.instance.fetchRedisMemory();
       }
 

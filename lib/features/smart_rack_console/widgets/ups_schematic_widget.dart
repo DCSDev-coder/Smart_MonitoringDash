@@ -97,7 +97,7 @@ class UpsPathCache {
     repairPath.moveTo(b.left + 80, b.top + 30);
     repairPath.lineTo(b.left + 80, repairY);
     repairPath.lineTo(b.right - 40, repairY);
-    repairPath.lineTo(b.right - 40, b.center.dy);
+    repairPath.lineTo(b.right - 40, b.top + 30);
 
     final ui.PathMetrics metrics = repairPath.computeMetrics();
     final ui.PathMetric? metric = metrics.iterator.moveNext() ? metrics.iterator.current : null;

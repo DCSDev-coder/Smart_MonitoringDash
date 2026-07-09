@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/utils/alarm_payload.dart';
 import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../smart_rack_console/theme/console_theme.dart';
 import 'device_history_sheet.dart';
 
 class DeviceHealthSection extends StatelessWidget {
@@ -787,12 +788,10 @@ class _DeviceHealthRow extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  color: isLight ? Colors.white : const Color(0xFF111922),
+                  gradient: ConsoleTheme.cardBgGradient(context),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: isLight
-                        ? Colors.black.withValues(alpha: 0.05)
-                        : Colors.white.withValues(alpha: 0.08),
+                    color: ConsoleTheme.cardBorder(context),
                     width: 1.5,
                   ),
                   boxShadow: [
@@ -1227,7 +1226,7 @@ class _DeviceDetailRow extends StatelessWidget {
     Widget child = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05),
+        color: ConsoleTheme.innerSurface(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.transparent),
       ),

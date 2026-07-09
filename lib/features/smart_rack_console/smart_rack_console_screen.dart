@@ -123,6 +123,7 @@ class _MainGrid extends StatelessWidget {
     return ConsoleSectionCard(
       title: 'Rack Overview',
       minHeight: 200,
+      expand: true,
       child: Padding(
         padding: const EdgeInsets.only(top: 8.0),
         child: isSuperWide
@@ -193,6 +194,7 @@ class _MainGrid extends StatelessWidget {
     return ConsoleSectionCard(
       title: 'Temperature & Humidity',
       minHeight: 200,
+      expand: true,
       child: Padding(
         padding: const EdgeInsets.only(top: 8.0),
         child: EnvironmentRow(
@@ -229,8 +231,9 @@ class _MainGrid extends StatelessWidget {
     return ConsoleSectionCard(
       title: 'Current PUE',
       minHeight: 200,
+      expand: true,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           SizedBox(
             width: chartSize,
@@ -243,8 +246,8 @@ class _MainGrid extends StatelessWidget {
                   glowColor: pueColor,
                   baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
                   strokeWidth: isWide ? 16.0 : 12.0,
-                  sweepDegrees: 210,
-                  startDegrees: 195,
+                  sweepDegrees: 255,
+                  startDegrees: 145,
                   glowIntensity: 1.0,
                 ),
                 Column(
@@ -324,6 +327,7 @@ class _MainGrid extends StatelessWidget {
     return ConsoleSectionCard(
       title: 'Monitoring Statistics',
       minHeight: 200,
+      expand: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -336,8 +340,9 @@ class _MainGrid extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
+          Expanded(
+            child: SizedBox(
+              width: double.infinity,
             child: DeviceHealthSection(
               devices: snapshot.devices,
               alarms: snapshot.alarms,
@@ -348,6 +353,7 @@ class _MainGrid extends StatelessWidget {
               minimalist: true,
               twoColumn: twoColumn,
             ),
+          ),
           ),
         ],
       ),
@@ -360,6 +366,7 @@ class _MainGrid extends StatelessWidget {
     return ConsoleSectionCard(
       title: 'Space Capacity',
       minHeight: 200,
+      expand: true,
       child: Builder(
         builder: (context) {
           final isWide = MediaQuery.of(context).size.width > 1200;
@@ -403,9 +410,9 @@ class _MainGrid extends StatelessWidget {
           );
 
           return Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               chart,
-              const SizedBox(height: 16),
               legend,
             ],
           );
@@ -444,8 +451,8 @@ class _MainGrid extends StatelessWidget {
           glowColor: accentColor,
           baseColor: trackColor,
           strokeWidth: strokeWidth,
-          sweepDegrees: 210,
-          startDegrees: 195,
+          sweepDegrees: 255,
+          startDegrees: 145,
           glowIntensity: 1.0,
         ),
         Column(

@@ -471,15 +471,7 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                ConsoleSectionCard(
-                  title: 'Device Info',
-                  expand: false,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildInfoGrid(context),
-                  ),
-                ),
-                const SizedBox(height: ConsoleTheme.lg),
+
                 ConsoleSectionCard(
                   title: 'Metric Information',
                   expand: false,
@@ -514,6 +506,15 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
+                ConsoleSectionCard(
+                  title: 'Device Info',
+                  expand: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildInfoGrid(context),
+                  ),
+                ),
+                const SizedBox(height: ConsoleTheme.lg),
                 ConsoleSectionCard(
                   title: 'Ethernet Interface',
                   expand: false,

@@ -630,9 +630,9 @@ class _MiniGaugeCard extends StatelessWidget {
                                     progress: v,
                                     glowColor: accent,
                                     baseColor: const Color(0xFF5A5A5A),
-                                    strokeWidth: isWide ? 22 : 18,
-                                    sweepDegrees: 210,
-                                    startDegrees: 195,
+                                    strokeWidth: isWide ? 15 : 8,
+                                    sweepDegrees: 255,
+                                    startDegrees: 145,
                                     glowIntensity: minimalist ? 0.4 : 1.0,
                                     warningStops: [
                                       if (warnLow != null)
