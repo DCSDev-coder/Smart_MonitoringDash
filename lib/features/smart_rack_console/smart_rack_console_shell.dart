@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/auth/session_flow_service.dart';
-import '../../core/config/app_config.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
@@ -14,7 +13,6 @@ import '../../shared/widgets/notifications_overlay.dart';
 import 'models/smart_rack_device_profile.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'services/smart_rack_console_repository.dart';
-import 'services/smart_rack_demo_session.dart';
 import 'smart_rack_console_screen.dart';
 import 'theme/console_theme.dart';
 import 'ups_console_screen.dart';
@@ -48,7 +46,6 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   bool _sidebarSwiped = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
-  final SmartRackDemoSession _demoSession = SmartRackDemoSession.instance;
   bool _accessGuardHandled = false;
 
   void _setSidebarHovered(bool value) {
@@ -62,7 +59,6 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   }
 
   bool _hasPinNotification() {
-    if (AppConfig.isDemoMode) return false;
     final api = CpanelApiService.instance;
     return !api.isCurrentSiteRackConsole() && !api.hasPin;
   }
@@ -218,24 +214,15 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   @override
   void initState() {
     super.initState();
-    if (AppConfig.isDemoMode) {
-      _demoSession.ensureDemoContext();
-      _demoSession.startRotation();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
-      });
-    } else {
-      _poller.start();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _enforceRackConsoleAccess();
-      });
-    }
+    _poller.start();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _enforceRackConsoleAccess();
+    });
   }
 
   @override
   void dispose() {
     _poller.stop();
-    _demoSession.stopRotation();
     super.dispose();
   }
 
@@ -421,7 +408,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: ListenableBuilder(
-                          listenable: AppConfig.isDemoMode ? _demoSession : _poller,
+                          listenable: _poller,
                           builder: (context, _) => _buildMainContent(_selectedIndex, false),
                         ),
                       ),

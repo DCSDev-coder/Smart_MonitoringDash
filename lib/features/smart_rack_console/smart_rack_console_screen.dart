@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../core/config/app_config.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../dashboard/widgets/device_health_section.dart';
 import '../dashboard/widgets/environment_gauges.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'models/smart_rack_device_profile.dart';
 import 'services/smart_rack_console_repository.dart';
-import 'services/smart_rack_demo_session.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
 
@@ -23,12 +21,8 @@ class SmartRackConsoleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final listenable = AppConfig.isDemoMode
-        ? SmartRackDemoSession.instance
-        : GlobalStatusPoller.instance;
-
     return AnimatedBuilder(
-      animation: listenable,
+      animation: GlobalStatusPoller.instance,
       builder: (context, _) {
         final snapshot =
             SmartRackConsoleRepository.instance.currentSnapshot();
