@@ -223,23 +223,23 @@ class CpanelApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> _postForm(
+  Future<Map<String, dynamic>?> _postJson(
     String action, {
-    required Map<String, String> fields,
+    required Map<String, dynamic> fields,
     Map<String, String>? headers,
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final response = await http.post(
       Uri.parse("$baseUrl?action=$action"),
       headers: <String, String>{
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
         "Accept": "application/json",
         ...?headers,
       },
-      body: <String, String>{
+      body: jsonEncode({
         "action": action,
         ...fields,
-      },
+      }),
     ).timeout(timeout);
 
     final decoded = jsonDecode(response.body);
@@ -393,10 +393,10 @@ class CpanelApiService {
       if (kDebugMode) {
         AppLog.d('[CpanelApi] Changing password for: $username');
       }
-      final data = await _postForm(
+      final data = await _postJson(
         "change_password",
         headers: _authHeaders(),
-        fields: <String, String>{
+        fields: <String, dynamic>{
           "username": username,
           "current_password": currentPassword,
           "new_password": newPassword,
@@ -821,9 +821,9 @@ class CpanelApiService {
     required String newPassword,
   }) async {
     try {
-      final decoded = await _postForm(
+      final decoded = await _postJson(
         "setup_first_password",
-        fields: <String, String>{
+        fields: <String, dynamic>{
           "username": username,
           "new_password": newPassword,
         },
@@ -843,9 +843,9 @@ class CpanelApiService {
     required String newPassword,
   }) async {
     try {
-      final decoded = await _postForm(
+      final decoded = await _postJson(
         "reset_password_by_username",
-        fields: <String, String>{
+        fields: <String, dynamic>{
           "username": username,
           "new_password": newPassword,
         },
@@ -1131,3 +1131,4 @@ class CpanelApiService {
     return null;
   }
 }
+
