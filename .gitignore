@@ -64,3 +64,6 @@ Thumbs.db
 # Private setup notes (keep off git)
 /docs/SETUP_PRIVATE.md
 android/local.properties
+
+# Gradle
+.gradle/
