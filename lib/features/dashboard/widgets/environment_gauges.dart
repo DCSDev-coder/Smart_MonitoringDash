@@ -1288,28 +1288,47 @@ class _GaugeStyleSwitch extends StatelessWidget {
     final isMeter = value == EnvironmentGaugeStyle.meter;
     final isLight = Theme.of(context).brightness == Brightness.light;
 
-    final sw = Transform.scale(
-      scale: 0.82,
-      child: Switch(
-        value: isMeter,
-        onChanged: (v) => onChanged(
-            v ? EnvironmentGaugeStyle.meter : EnvironmentGaugeStyle.arc),
-        activeThumbColor: AppTheme.accentGreen,
-        activeTrackColor: Colors.transparent,
-        inactiveThumbColor: (isLight ? AppTheme.lightTextPrimary : Colors.white)
-            .withValues(alpha: 0.85),
-        inactiveTrackColor: Colors.transparent,
-        trackOutlineColor: WidgetStateProperty.resolveWith<Color>((states) {
-          if (states.contains(WidgetState.selected)) {
-            return AppTheme.accentGreen;
-          }
-          return isLight ? AppTheme.lightTextPrimary : Colors.white;
-        }),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final activeColor = AppTheme.accentGreen;
+    final inactiveBorder = isLight ? AppTheme.lightTextPrimary : Colors.white;
+    final inactiveKnob = (isLight ? AppTheme.lightTextPrimary : Colors.white)
+        .withValues(alpha: 0.85);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => onChanged(
+            isMeter ? EnvironmentGaugeStyle.arc : EnvironmentGaugeStyle.meter),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+          width: 44,
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isMeter ? activeColor : inactiveBorder,
+              width: 1.5,
+            ),
+            color: Colors.transparent,
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 400),
+            curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+            alignment: isMeter ? Alignment.centerRight : Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isMeter ? activeColor : inactiveKnob,
+              ),
+            ),
+          ),
+        ),
       ),
     );
-
-    // No extra container behind the toggle in either mode.
-    return sw;
   }
 }
