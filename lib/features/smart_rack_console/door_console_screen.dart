@@ -403,12 +403,13 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                           gradient: ConsoleTheme.cardBgGradient(context),
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(24)),
-                          border:
-                              Border.all(color: ConsoleTheme.cardBorder(context)),
+                          border: Border.all(
+                              color: ConsoleTheme.cardBorder(context)),
                         ),
                         padding: const EdgeInsets.all(24),
                         constraints: BoxConstraints(
-                            maxHeight: MediaQuery.of(context).size.height * 0.8),
+                            maxHeight:
+                                MediaQuery.of(context).size.height * 0.8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -417,12 +418,14 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                               children: [
                                 Text('Door Access Logs',
                                     style: TextStyle(
-                                        color: ConsoleTheme.textPrimary(context),
+                                        color:
+                                            ConsoleTheme.textPrimary(context),
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold)),
                                 IconButton(
                                     icon: Icon(Icons.close,
-                                        color: ConsoleTheme.textPrimary(context)),
+                                        color:
+                                            ConsoleTheme.textPrimary(context)),
                                     onPressed: () => Navigator.pop(ctx)),
                               ],
                             ),
@@ -506,41 +509,12 @@ class _DoorAccessPanel extends StatelessWidget {
                 ],
               ),
             ),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(40),
-                onTap: enabled && !isUnlocked && !busy ? onUnlock : null,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: isLight
-                        ? const Color(0xFFF1F5F9)
-                        : Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: busy 
-                        ? const CircularProgressIndicator()
-                        : AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 500),
-                            transitionBuilder: (child, animation) => 
-                                ScaleTransition(scale: animation, child: child),
-                            child: Icon(
-                              isUnlocked
-                                  ? Icons.lock_open_rounded
-                                  : Icons.lock_outline_rounded,
-                              key: ValueKey<bool>(isUnlocked),
-                              color: isUnlocked
-                                  ? ConsoleTheme.success(context)
-                                  : (isLight ? Colors.black54 : Colors.white70),
-                              size: 38,
-                            ),
-                          ),
-                  ),
-                ),
-              ),
+            _HoldToConfirmButton(
+              isUnlocked: isUnlocked,
+              enabled: enabled,
+              busy: busy,
+              onUnlock: onUnlock,
+              isLight: isLight,
             ),
           ],
         ),
@@ -872,5 +846,170 @@ class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
         );
       },
     );
+  }
+}
+
+class _HoldToConfirmButton extends StatefulWidget {
+  final bool isUnlocked;
+  final bool enabled;
+  final bool busy;
+  final VoidCallback onUnlock;
+  final bool isLight;
+
+  const _HoldToConfirmButton({
+    required this.isUnlocked,
+    required this.enabled,
+    required this.busy,
+    required this.onUnlock,
+    required this.isLight,
+  });
+
+  @override
+  State<_HoldToConfirmButton> createState() => _HoldToConfirmButtonState();
+}
+
+class _HoldToConfirmButtonState extends State<_HoldToConfirmButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  bool _successFlash = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() => _successFlash = true);
+        widget.onUnlock();
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            setState(() => _successFlash = false);
+            _controller.reset();
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onPointerDown(_) {
+    if (widget.enabled && !widget.isUnlocked && !widget.busy) {
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  void _onPointerUp(_) {
+    if (!_controller.isCompleted) {
+      _controller.value = 0.0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: _onPointerDown,
+      onTapUp: _onPointerUp,
+      onTapCancel: () => _onPointerUp(null),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final showSuccess = _successFlash || widget.isUnlocked;
+          final bgColor = widget.isLight
+              ? const Color(0xFFF1F5F9)
+              : Colors.white.withValues(alpha: 0.1);
+          final progressColor = ConsoleTheme.cyan(context);
+          final successColor = ConsoleTheme.success(context);
+
+          return SizedBox(
+            width: 80,
+            height: 80,
+            child: CustomPaint(
+              painter: _RingProgressPainter(
+                progress: _controller.value,
+                ringColor: showSuccess ? successColor : progressColor,
+                bgColor: bgColor,
+              ),
+              child: Center(
+                child: widget.busy
+                    ? const CircularProgressIndicator()
+                    : AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 500),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(scale: animation, child: child),
+                        child: Icon(
+                          widget.isUnlocked
+                              ? Icons.lock_open_rounded
+                              : Icons.lock_outline_rounded,
+                          key: ValueKey<bool>(widget.isUnlocked),
+                          color: showSuccess
+                              ? successColor
+                              : (widget.isLight
+                                  ? Colors.black54
+                                  : Colors.white70),
+                          size: 38,
+                        ),
+                      ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RingProgressPainter extends CustomPainter {
+  final double progress;
+  final Color ringColor;
+  final Color bgColor;
+
+  _RingProgressPainter({
+    required this.progress,
+    required this.ringColor,
+    required this.bgColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Background circle
+    final bgPaint = Paint()
+      ..color = bgColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    if (progress > 0.0) {
+      final ringPaint = Paint()
+        ..color = ringColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.0
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius - 2.0),
+        -3.141592653589793 / 2,
+        2 * 3.141592653589793 * progress,
+        false,
+        ringPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.ringColor != ringColor ||
+        oldDelegate.bgColor != bgColor;
   }
 }

@@ -1,0 +1,154 @@
+[
+  {
+    "url": "http://219.92.246.237/itom/license/powerenv?_t=1783668959",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":2,\"timestamp\":1783668960078}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/bytypeforstatus?_t=1783668959&cabinetid=1&powerenv=true&rangetype=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"nodeTypeId\":4,\"nodeTypeCode\":null,\"nodeTypeName\":\"UPS\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-ups\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":1},{\"nodeTypeId\":5,\"nodeTypeCode\":null,\"nodeTypeName\":\"Smoke\",\"normalCount\":2,\"abnormalCount\":0,\"totalCount\":2,\"nodeTypeIcon\":\"icon-IOTtubiao_huaban\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":2},{\"nodeType"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/bytypeforstatus?_t=1783668959&cabinetid=1&powerenv=false&rangetype=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"nodeTypeId\":35,\"nodeTypeCode\":null,\"nodeTypeName\":\"Monitor\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-jiankongzhuji\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":1}],\"timestamp\":1783668960038}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/alarm/forrecovery?_t=1783668959&cabinetid=1&powerenv=true",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"unRecoveryCount\":0,\"recoveryCount\":0,\"totalCount\":0},\"timestamp\":1783668960100}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/alarm/forrecovery?_t=1783668959&cabinetid=1&powerenv=false",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"unRecoveryCount\":0,\"recoveryCount\":0,\"totalCount\":0},\"timestamp\":1783668960117}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/bytypeforstatus?_t=1783668959&powerenv=false&rangetype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"nodeTypeId\":35,\"nodeTypeCode\":null,\"nodeTypeName\":\"Monitor\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-jiankongzhuji\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":1}],\"timestamp\":1783668960169}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/forcabinet?_t=1783668959&powerenv=true&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"id\":1,\"name\":\"1-Cabinet 1 Front\",\"nodeTypeCode\":\"temperature\",\"nodeTypeName\":\"T.H\",\"status\":1,\"alarmStatus\":0,\"currentAlarmCount\":0,\"todayAlarmCount\":0},{\"id\":2,\"name\":\"Smoke\",\"nodeTypeCode\":\"somking\",\"nodeTypeName\":\"Smoke\",\"status\":1,\"alarmStatus\":0,\"currentAlarmCount\":0,\"todayAlarmCount\":0},{\"id\":3,\"name\":\"Water-leakage\",\"nodeTypeCode\":\"flooding\",\"nodeTypeName\":\"WLD\",\"status\":1,\"alarmStatus\":0,\"currentAlarmCount\":0,\"todayAlarmCount\":0}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/bytypeforstatusdiff?_t=1783668959&powerenv=true&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"curr\":[{\"nodeTypeId\":4,\"nodeTypeCode\":\"ups\",\"nodeTypeName\":\"UPS\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-ups\",\"alarmCount\":0,\"notAliveCount\":0,\"onlinePercent\":100.0,\"onlineCount\":1},{\"nodeTypeId\":5,\"nodeTypeCode\":\"somking\",\"nodeTypeName\":\"Smoke\",\"normalCount\":2,\"abnormalCount\":0,\"totalCount\":2,\"nodeTypeIcon\":\"icon-IOTtubiao_huaban\",\"alarmCount\":0,\"notAliveCount\":0,\"onlinePercent\":100.0,\"onlineCount\":2},{\"node"
+  },
+  {
+    "url": "http://219.92.246.237/itom/assets/cabinet/statistics?_t=1783668959&id=1&powerenv=true",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"id\":1,\"name\":\"DCS\",\"deviceLocationName\":\"Default location\",\"deviceCabinetTypeIcon\":\"temp/MicroD-B-MD02-B.png\",\"byTypeForStatusData\":[{\"nodeTypeId\":4,\"nodeTypeCode\":\"ups\",\"nodeTypeName\":\"UPS\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-ups\",\"offlineCount\":0,\"alarmCount\":0,\"onlinePercent\":100.0,\"onlineCount\":1},{\"nodeTypeId\":5,\"nodeTypeCode\":\"somking\",\"nodeTypeName\":\"Smoke\",\"normalCount\":2,\"abnormalCount\":0,\"totalC"
+  },
+  {
+    "url": "http://219.92.246.237/itom/assets/cabinet/statistics?_t=1783668959&id=1&powerenv=true",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"id\":1,\"name\":\"DCS\",\"deviceLocationName\":\"Default location\",\"deviceCabinetTypeIcon\":\"temp/MicroD-B-MD02-B.png\",\"byTypeForStatusData\":[{\"nodeTypeId\":4,\"nodeTypeCode\":\"ups\",\"nodeTypeName\":\"UPS\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-ups\",\"offlineCount\":0,\"alarmCount\":0,\"onlinePercent\":100.0,\"onlineCount\":1},{\"nodeTypeId\":5,\"nodeTypeCode\":\"somking\",\"nodeTypeName\":\"Smoke\",\"normalCount\":2,\"abnormalCount\":0,\"totalC"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/bytypeforstatus?_t=1783668959&powerenv=true&rangetype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"nodeTypeId\":4,\"nodeTypeCode\":null,\"nodeTypeName\":\"UPS\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-ups\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":1},{\"nodeTypeId\":5,\"nodeTypeCode\":null,\"nodeTypeName\":\"Smoke\",\"normalCount\":2,\"abnormalCount\":0,\"totalCount\":2,\"nodeTypeIcon\":\"icon-IOTtubiao_huaban\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":2},{\"nodeType"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/collectcontrolnode/bytypeforstatus?_t=1783668959&powerenv=true&rangetype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"nodeTypeId\":4,\"nodeTypeCode\":null,\"nodeTypeName\":\"UPS\",\"normalCount\":1,\"abnormalCount\":0,\"totalCount\":1,\"nodeTypeIcon\":\"icon-ups\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":1},{\"nodeTypeId\":5,\"nodeTypeCode\":null,\"nodeTypeName\":\"Smoke\",\"normalCount\":2,\"abnormalCount\":0,\"totalCount\":2,\"nodeTypeIcon\":\"icon-IOTtubiao_huaban\",\"offlineCount\":null,\"alarmCount\":null,\"onlinePercent\":100.0,\"onlineCount\":2},{\"nodeType"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getcurrentpueforcabinet?_t=1783668970&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"pue\":2.28,\"power\":549.11},\"timestamp\":1783668970297}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/gettrendforcabinet?_t=1783668970&cabinetid=1&trendtype=0",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":1.93},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":2.9},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":2.9},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 09:0"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783668970&powertype=0&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":0.31,\"IT Device\":0.21,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":0.1},\"timestamp\":1783668970287}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783668970&powertype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":549.11,\"IT Device\":242.82,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":306.32},\"timestamp\":1783668970300}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getrangetrendforcabinet?_t=1783668970&cabinetid=1&trendtype=0&starttime=1783640170000&endtime=1783668970000",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":1.93},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":2.9},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":2.9},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 09:0"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyeartrendforcabinet?_t=1783668970&cabinetid=1&trendtype=0",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"current\":[{\"monthStr\":\"Jan\",\"trendVal\":0.0},{\"monthStr\":\"Feb\",\"trendVal\":0.0},{\"monthStr\":\"Mar\",\"trendVal\":0.0},{\"monthStr\":\"Apr\",\"trendVal\":0.0},{\"monthStr\":\"May\",\"trendVal\":2.55},{\"monthStr\":\"Jun\",\"trendVal\":2.37},{\"monthStr\":\"Jul\",\"trendVal\":2.26},{\"monthStr\":\"Aug\",\"trendVal\":0.0},{\"monthStr\":\"Sep\",\"trendVal\":0.0},{\"monthStr\":\"Oct\",\"trendVal\":0.0},{\"monthStr\":\"Nov\",\"trendVal\":0.0},{\"monthStr\":\"Dec\",\"trendVal\":0.0}],\"prev\":[{\"monthStr\":"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyearpuetrendforcabinet?_t=1783668970&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"low\":[{\"monthStr\":\"01\",\"trendVal\":1.0},{\"monthStr\":\"02\",\"trendVal\":1.0},{\"monthStr\":\"03\",\"trendVal\":1.0},{\"monthStr\":\"04\",\"trendVal\":1.0},{\"monthStr\":\"05\",\"trendVal\":1.0},{\"monthStr\":\"06\",\"trendVal\":1.0},{\"monthStr\":\"07\",\"trendVal\":1.0},{\"monthStr\":\"08\",\"trendVal\":1.0},{\"monthStr\":\"09\",\"trendVal\":1.0},{\"monthStr\":\"10\",\"trendVal\":1.0},{\"monthStr\":\"11\",\"trendVal\":1.0},{\"monthStr\":\"12\",\"trendVal\":1.0}],\"best\":[{\"monthStr\":\"01\",\"trendVal\":1.2"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getcabinetpower?_t=1783668970&cabinetid=1&starttime=1782835200000&endtime=1783668970000",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"id\":1,\"name\":\"DCS\",\"icon\":\"temp/MicroD-B-MD02-B.png\",\"itemPowers\":[{\"id\":1,\"name\":\"Cabinet Item 1\",\"power\":114.73},{\"id\":2,\"name\":\"Cabinet Item 2\",\"power\":163.1}],\"power\":277.83}],\"timestamp\":1783668970417}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783668970&powertype=0&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":0.31,\"IT Device\":0.21,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":0.1},\"timestamp\":1783668970378}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783668970&powertype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":549.11,\"IT Device\":242.82,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":306.32},\"timestamp\":1783668970364}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/gettrendforcabinet?_t=1783668974&cabinetid=1&trendtype=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":0.62069},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":0.62069},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":0.31034"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/gettrendforcabinet?_t=1783668974&cabinetid=1&trendtype=2",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":0.321429},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":0.107143},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":0.214"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783668985&powertype=0&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":0.31,\"IT Device\":0.21,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":0.1},\"timestamp\":1783668985275}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783668985&powertype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":549.11,\"IT Device\":242.82,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":306.32},\"timestamp\":1783668985251}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getrangetrendforcabinet?_t=1783668987&cabinetid=1&trendtype=0&starttime=1783640187000&endtime=1783668987000",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":1.93},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":2.9},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":2.9},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":1.45},{\"trendTime\":\"2026-07-10 09:0"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyeartrendforcabinet?_t=1783668987&cabinetid=1&trendtype=0",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"current\":[{\"monthStr\":\"Jan\",\"trendVal\":0.0},{\"monthStr\":\"Feb\",\"trendVal\":0.0},{\"monthStr\":\"Mar\",\"trendVal\":0.0},{\"monthStr\":\"Apr\",\"trendVal\":0.0},{\"monthStr\":\"May\",\"trendVal\":2.55},{\"monthStr\":\"Jun\",\"trendVal\":2.37},{\"monthStr\":\"Jul\",\"trendVal\":2.26},{\"monthStr\":\"Aug\",\"trendVal\":0.0},{\"monthStr\":\"Sep\",\"trendVal\":0.0},{\"monthStr\":\"Oct\",\"trendVal\":0.0},{\"monthStr\":\"Nov\",\"trendVal\":0.0},{\"monthStr\":\"Dec\",\"trendVal\":0.0}],\"prev\":[{\"monthStr\":"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyearpuetrendforcabinet?_t=1783668987&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"low\":[{\"monthStr\":\"01\",\"trendVal\":1.0},{\"monthStr\":\"02\",\"trendVal\":1.0},{\"monthStr\":\"03\",\"trendVal\":1.0},{\"monthStr\":\"04\",\"trendVal\":1.0},{\"monthStr\":\"05\",\"trendVal\":1.0},{\"monthStr\":\"06\",\"trendVal\":1.0},{\"monthStr\":\"07\",\"trendVal\":1.0},{\"monthStr\":\"08\",\"trendVal\":1.0},{\"monthStr\":\"09\",\"trendVal\":1.0},{\"monthStr\":\"10\",\"trendVal\":1.0},{\"monthStr\":\"11\",\"trendVal\":1.0},{\"monthStr\":\"12\",\"trendVal\":1.0}],\"best\":[{\"monthStr\":\"01\",\"trendVal\":1.2"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyeartrendforcabinet?_t=1783668992&cabinetid=1&trendtype=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"current\":[{\"monthStr\":\"Jan\",\"trendVal\":0.0},{\"monthStr\":\"Feb\",\"trendVal\":0.0},{\"monthStr\":\"Mar\",\"trendVal\":0.0},{\"monthStr\":\"Apr\",\"trendVal\":0.0},{\"monthStr\":\"May\",\"trendVal\":617.1},{\"monthStr\":\"Jun\",\"trendVal\":1902.28},{\"monthStr\":\"Jul\",\"trendVal\":612.44},{\"monthStr\":\"Aug\",\"trendVal\":0.0},{\"monthStr\":\"Sep\",\"trendVal\":0.0},{\"monthStr\":\"Oct\",\"trendVal\":0.0},{\"monthStr\":\"Nov\",\"trendVal\":0.0},{\"monthStr\":\"Dec\",\"trendVal\":0.0}],\"prev\":[{\"mont"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyeartrendforcabinet?_t=1783668993&cabinetid=1&trendtype=2",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"current\":[{\"monthStr\":\"Jan\",\"trendVal\":0.0},{\"monthStr\":\"Feb\",\"trendVal\":0.0},{\"monthStr\":\"Mar\",\"trendVal\":0.0},{\"monthStr\":\"Apr\",\"trendVal\":0.0},{\"monthStr\":\"May\",\"trendVal\":241.83},{\"monthStr\":\"Jun\",\"trendVal\":803.94},{\"monthStr\":\"Jul\",\"trendVal\":270.84},{\"monthStr\":\"Aug\",\"trendVal\":0.0},{\"monthStr\":\"Sep\",\"trendVal\":0.0},{\"monthStr\":\"Oct\",\"trendVal\":0.0},{\"monthStr\":\"Nov\",\"trendVal\":0.0},{\"monthStr\":\"Dec\",\"trendVal\":0.0}],\"prev\":[{\"mont"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getrangetrendforcabinet?_t=1783668999&cabinetid=1&trendtype=1&starttime=1783640187000&endtime=1783668987000",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":0.62069},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":0.62069},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":0.310345},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":0.31034"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getrangetrendforcabinet?_t=1783668999&cabinetid=1&trendtype=2&starttime=1783640187000&endtime=1783668987000",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":[{\"trendTime\":\"2026-07-10 07:40:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 07:50:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:00:53\",\"trendVal\":0.321429},{\"trendTime\":\"2026-07-10 08:10:53\",\"trendVal\":0.107143},{\"trendTime\":\"2026-07-10 08:20:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:30:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:40:53\",\"trendVal\":0.214286},{\"trendTime\":\"2026-07-10 08:50:53\",\"trendVal\":0.214"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783669000&powertype=0&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":0.31,\"IT Device\":0.21,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":0.1},\"timestamp\":1783669000252}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783669000&powertype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":549.11,\"IT Device\":242.82,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":306.32},\"timestamp\":1783669000264}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getyeartrendforcabinet?_t=1783669004&cabinetid=1&trendtype=0",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"current\":[{\"monthStr\":\"Jan\",\"trendVal\":0.0},{\"monthStr\":\"Feb\",\"trendVal\":0.0},{\"monthStr\":\"Mar\",\"trendVal\":0.0},{\"monthStr\":\"Apr\",\"trendVal\":0.0},{\"monthStr\":\"May\",\"trendVal\":2.55},{\"monthStr\":\"Jun\",\"trendVal\":2.37},{\"monthStr\":\"Jul\",\"trendVal\":2.26},{\"monthStr\":\"Aug\",\"trendVal\":0.0},{\"monthStr\":\"Sep\",\"trendVal\":0.0},{\"monthStr\":\"Oct\",\"trendVal\":0.0},{\"monthStr\":\"Nov\",\"trendVal\":0.0},{\"monthStr\":\"Dec\",\"trendVal\":0.0}],\"prev\":[{\"monthStr\":"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783669015&powertype=0&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":0.31,\"IT Device\":0.21,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":0.1},\"timestamp\":1783669015308}"
+  },
+  {
+    "url": "http://219.92.246.237/itom/monitor/pueregion/getpowerforcabinet?_t=1783669015&powertype=1&cabinetid=1",
+    "text": "{\"success\":true,\"message\":\"\u64cd\u4f5c\u6210\u529f\uff01\",\"code\":20000,\"result\":{\"Total\":549.11,\"IT Device\":242.82,\"Aircon\":0.0,\"Power\":0.0,\"Lighting\":0.0,\"Other\":306.32},\"timestamp\":1783669015313}"
+  }
+]

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../constants/app_constants.dart';
+import '../config/app_config.dart';
 import '../controllers/smart_polling_settings.dart';
 import '../network/adapter_api_service.dart';
 import '../network/api_service.dart';
@@ -295,7 +296,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchEnvironment(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchEnvironment();
       }
@@ -305,7 +306,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter = await AdapterApiService.instance
               .fetchDeviceStatus(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchDeviceStatus();
       }
@@ -315,7 +316,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchSysInfo(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchSysInfo();
       }
@@ -325,7 +326,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter = await AdapterApiService.instance
               .fetchRecentAlarms(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchRecentAlarms();
       }
@@ -335,7 +336,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchTempHumTopN(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchTempHumTopN();
       }
@@ -345,7 +346,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchPue(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         final cabinetId = site?['cabinet_id']?.toString() ?? '1';
         return ApiService.instance.fetchPue(id: cabinetId);
@@ -356,7 +357,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         final cabinetId = site?['cabinet_id']?.toString() ?? '1';
         return ApiService.instance.fetchPowerMonth(id: cabinetId);
@@ -367,7 +368,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchCabinetStats(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchCabinetStats();
       }
@@ -377,7 +378,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchRedisMemory(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchRedisMemory();
       }
@@ -387,7 +388,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter = await AdapterApiService.instance
               .fetchItDeviceInterfaces(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchItDeviceInterfaces();
       }
@@ -397,7 +398,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter = await AdapterApiService.instance
               .fetchItDeviceTopMetrics(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchItDeviceTopMetrics();
       }
@@ -407,7 +408,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
           final viaAdapter =
               await AdapterApiService.instance.fetchDoors(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchCabinetDoors(cabinetId: 1);
       }
@@ -435,7 +436,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
             pageSize: 20,
           );
           if (viaAdapter != null) return viaAdapter;
-          if (!directVendorReady) return null;
+          if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
         return ApiService.instance.fetchDoorAccessLogs(pageSize: 20);
       }

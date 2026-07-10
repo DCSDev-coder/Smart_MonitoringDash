@@ -69,36 +69,69 @@ class SmartRackConsoleSnapshot {
       site?['company_name']?.toString(),
     ], fallback: 'Smart Rack');
 
-    final sysData = poller.sysInfo?['result'] as Map<String, dynamic>? ?? poller.sysInfo;
+    final sysData =
+        poller.sysInfo?['result'] as Map<String, dynamic>? ?? poller.sysInfo;
 
-    final temperatureC = poller.temperatureC ?? _extractDouble(
-      sysData,
-      const ['temperature', 'temp', 'ambientTemperature', 'ambient_temp'],
-    );
-    final humidityPct = poller.humidityPct ?? _extractDouble(
-      sysData,
-      const ['humidity', 'rh', 'relativeHumidity'],
-    );
-    final capacityUsedPct = poller.capacityUsedPct ?? _extractDouble(
-      sysData,
-      const ['capacityUsedPct', 'capacity_used_pct', 'usedRate', 'spaceUsedPct'],
-    );
-    final memoryUsedPct = poller.itMemoryUsage ?? poller.memoryUsedPct ?? _extractDouble(
-      sysData,
-      const ['memoryUsedPct', 'memory_used_pct', 'memoryUsage', 'memory'],
-    );
-    final cpuUsedPct = poller.itCpuUsage ?? _extractDouble(
-      sysData,
-      const ['cpuUsedPct', 'cpu_used_pct', 'cpuUsage', 'cpu'],
-    );
-    final diskUsedPct = poller.itDiskUsage ?? _extractDouble(
-      sysData,
-      const ['diskUsedPct', 'disk_used_pct', 'diskUsage', 'disk'],
-    );
-    final pueVal = poller.pue ?? _extractDouble(
-      sysData,
-      const ['pue', 'currentPue', 'current_pue'],
-    ) ?? 2.25;
+    final temperatureC = poller.temperatureC ??
+        _extractDouble(
+          sysData,
+          const ['temperature', 'temp', 'ambientTemperature', 'ambient_temp'],
+        );
+    final humidityPct = poller.humidityPct ??
+        _extractDouble(
+          sysData,
+          const ['humidity', 'rh', 'relativeHumidity'],
+        );
+    final capacityUsedPct = poller.capacityUsedPct ??
+        _extractDouble(
+          sysData,
+          const [
+            'capacityUsedPct',
+            'capacity_used_pct',
+            'usedRate',
+            'spaceUsedPct'
+          ],
+        );
+    final memoryUsedPct = poller.itMemoryUsage ??
+        poller.memoryUsedPct ??
+        _extractDouble(
+          sysData,
+          const ['memoryUsedPct', 'memory_used_pct', 'memoryUsage', 'memory'],
+        );
+    final cpuUsedPct = poller.itCpuUsage ??
+        _extractDouble(
+          sysData,
+          const ['cpuUsedPct', 'cpu_used_pct', 'cpuUsage', 'cpu'],
+        );
+    final diskUsedPct = poller.itDiskUsage ??
+        _extractDouble(
+          sysData,
+          const ['diskUsedPct', 'disk_used_pct', 'diskUsage', 'disk'],
+        );
+    final totalPower = _extractDouble(
+          sysData,
+          const ['totalPower', 'total_power', 'Total', 'TOTAL'],
+        ) ??
+        0.0;
+
+    final itPower = _extractDouble(
+          sysData,
+          const ['itPower', 'it_power', 'IT', 'IT Device', 'IT DEVICE'],
+        ) ??
+        0.0;
+
+    double? calculatedPue;
+    if (itPower > 0 && totalPower > 0) {
+      calculatedPue = totalPower / itPower;
+    }
+
+    final pueVal = calculatedPue ??
+        poller.pue ??
+        _extractDouble(
+          sysData,
+          const ['pue', 'currentPue', 'current_pue'],
+        ) ??
+        2.25;
 
     return SmartRackConsoleSnapshot(
       siteName: siteName,
@@ -114,14 +147,16 @@ class SmartRackConsoleSnapshot {
       temperatureC: temperatureC,
       humidityPct: humidityPct,
       lastUpdatedUtc: poller.lastUpdatedUtc,
-      maintenanceDaysLeft: poller.maintenanceDaysLeft ?? _extractInt(
-        sysData,
-        const ['maintenanceDaysLeft', 'maintenance_days_left', 'daysLeft'],
-      ),
-      systemUptimeDays: poller.systemUptimeDays ?? _extractInt(
-        sysData,
-        const ['systemUptimeDays', 'system_uptime_days', 'uptimeDays'],
-      ),
+      maintenanceDaysLeft: poller.maintenanceDaysLeft ??
+          _extractInt(
+            sysData,
+            const ['maintenanceDaysLeft', 'maintenance_days_left', 'daysLeft'],
+          ),
+      systemUptimeDays: poller.systemUptimeDays ??
+          _extractInt(
+            sysData,
+            const ['systemUptimeDays', 'system_uptime_days', 'uptimeDays'],
+          ),
       capacityUsedPct: capacityUsedPct,
       memoryUsedPct: memoryUsedPct,
       cpuUsedPct: cpuUsedPct,
@@ -161,7 +196,8 @@ class SmartRackConsoleSnapshot {
     return null;
   }
 
-  static String _firstNonEmpty(List<String?> values, {required String fallback}) {
+  static String _firstNonEmpty(List<String?> values,
+      {required String fallback}) {
     for (final value in values) {
       final next = value?.trim();
       if (next != null && next.isNotEmpty) return next;

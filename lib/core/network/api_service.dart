@@ -664,4 +664,17 @@ class ApiService {
       _get(AppConstants.cameraGroupPath);
   Future<Map<String, dynamic>?> restartCamera(int cameraId) =>
       _put(AppConstants.cameraRestartPath, {"id": cameraId});
+
+  Future<Map<String, dynamic>?> fetchYearTrend({required int cabinetId, required int trendType}) {
+    return _get('/itom/monitor/pueRegion/getYearTrendForCabinet', query: {
+      'cabinetId': cabinetId.toString(),
+      'trendType': trendType.toString(),
+    });
+  }
+
+  Future<Map<String, dynamic>?> fetchYearPueTrend({required int cabinetId}) {
+    return _get('/itom/monitor/pueRegion/getYearPueTrendForCabinet', query: {
+      'cabinetId': cabinetId.toString(),
+    });
+  }
 }

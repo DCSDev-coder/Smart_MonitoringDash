@@ -45,6 +45,45 @@ class AdapterApiService {
     return decoded is Map<String, dynamic> ? decoded : null;
   }
 
+  Future<Map<String, dynamic>?> _getJson(
+    String path, {
+    Map<String, String>? query,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      _logMissingPortalTokenIfNeeded();
+      return null;
+    }
+
+    final url = query == null
+        ? Uri.parse('$_base$path')
+        : Uri.parse('$_base$path').replace(queryParameters: query);
+
+    final res = await http
+        .get(
+          url,
+          headers: {
+            ..._headers(token),
+            ...?headers,
+          },
+        )
+        .timeout(timeout);
+
+    if (res.statusCode != 200) {
+      AppLog.w('GET non-200', tag: 'AdapterApi', fields: {
+        'path': path,
+        'status': res.statusCode,
+      });
+      return null;
+    }
+
+    return _decodeMap(res);
+  }
+
   Future<bool> registerPushToken(
       {required int siteId,
       required String deviceToken,
@@ -90,32 +129,70 @@ class AdapterApiService {
   }
 
   Future<Map<String, dynamic>?> fetchPue({required int siteId}) async {
-    if (!isConfigured) return null;
+    return _getJson('/v1/sites/$siteId/pue/current');
+  }
 
-    final token = _tokenOrNull();
-    if (token == null) {
-      _logMissingPortalTokenIfNeeded();
-      return null;
-    }
+  Future<Map<String, dynamic>?> fetchPueTrend({
+    required int siteId,
+    required int trendType,
+  }) async {
+    return _getJson(
+      '/v1/sites/$siteId/pue/trend',
+      query: {'trendType': trendType.toString()},
+      timeout: const Duration(seconds: 12),
+    );
+  }
 
-    final url = Uri.parse('$_base/v1/sites/$siteId/pue');
-    try {
-      final res = await http
-          .get(url, headers: _headers(token))
-          .timeout(const Duration(seconds: 10));
+  Future<Map<String, dynamic>?> fetchPueRangeTrend({
+    required int siteId,
+    required int trendType,
+    required int startTime,
+    required int endTime,
+  }) async {
+    return _getJson(
+      '/v1/sites/$siteId/pue/range-trend',
+      query: {
+        'trendType': trendType.toString(),
+        'startTime': startTime.toString(),
+        'endTime': endTime.toString(),
+      },
+      timeout: const Duration(seconds: 12),
+    );
+  }
 
-      if (res.statusCode != 200) {
-        AppLog.w('fetchPue non-200', tag: 'AdapterApi', fields: {
-          'status': res.statusCode,
-        });
-        return null;
-      }
+  Future<Map<String, dynamic>?> fetchYearTrendForCabinet({
+    required int siteId,
+    required int trendType,
+  }) async {
+    return _getJson(
+      '/v1/sites/$siteId/pue/year-trend',
+      query: {'trendType': trendType.toString()},
+      timeout: const Duration(seconds: 12),
+    );
+  }
 
-      return _decodeMap(res);
-    } catch (e) {
-      AppLog.w('fetchPue error', tag: 'AdapterApi', error: e);
-      return null;
-    }
+  Future<Map<String, dynamic>?> fetchYearPueTrendForCabinet({
+    required int siteId,
+  }) async {
+    return _getJson(
+      '/v1/sites/$siteId/pue/year-pue-trend',
+      timeout: const Duration(seconds: 12),
+    );
+  }
+
+  Future<Map<String, dynamic>?> fetchCabinetPower({
+    required int siteId,
+    required int startTime,
+    required int endTime,
+  }) async {
+    return _getJson(
+      '/v1/sites/$siteId/pue/cabinet-power',
+      query: {
+        'startTime': startTime.toString(),
+        'endTime': endTime.toString(),
+      },
+      timeout: const Duration(seconds: 12),
+    );
   }
 
   Future<Map<String, dynamic>?> fetchAppConfig({required int siteId}) async {
@@ -148,32 +225,7 @@ class AdapterApiService {
   }
 
   Future<Map<String, dynamic>?> fetchPowerMonth({required int siteId}) async {
-    if (!isConfigured) return null;
-
-    final token = _tokenOrNull();
-    if (token == null) {
-      _logMissingPortalTokenIfNeeded();
-      return null;
-    }
-
-    final url = Uri.parse('$_base/v1/sites/$siteId/power-month');
-    try {
-      final res = await http
-          .get(url, headers: _headers(token))
-          .timeout(const Duration(seconds: 10));
-
-      if (res.statusCode != 200) {
-        AppLog.w('fetchPowerMonth non-200', tag: 'AdapterApi', fields: {
-          'status': res.statusCode,
-        });
-        return null;
-      }
-
-      return _decodeMap(res);
-    } catch (e) {
-      AppLog.w('fetchPowerMonth error', tag: 'AdapterApi', error: e);
-      return null;
-    }
+    return _getJson('/v1/sites/$siteId/pue/power', query: {'powerType': '0'});
   }
 
   Future<Map<String, dynamic>?> fetchCabinetStats({required int siteId}) async {
@@ -237,38 +289,17 @@ class AdapterApiService {
   Future<Map<String, dynamic>?> fetchOurPueHourly({
     required int siteId,
     int hours = 24,
+    int trendType = 0,
   }) async {
-    if (!isConfigured) return null;
-
-    final token = _tokenOrNull();
-    if (token == null) {
-      _logMissingPortalTokenIfNeeded();
-      return null;
-    }
-
-    final url = Uri.parse('$_base/v1/sites/$siteId/our-pue-hourly').replace(
-      queryParameters: <String, String>{
-        'hours': hours.toString(),
-      },
+    final now = DateTime.now();
+    final endTime = now.millisecondsSinceEpoch;
+    final startTime = now.subtract(Duration(hours: hours)).millisecondsSinceEpoch;
+    return fetchPueRangeTrend(
+      siteId: siteId,
+      trendType: trendType,
+      startTime: startTime,
+      endTime: endTime,
     );
-
-    try {
-      final res = await http
-          .get(url, headers: _headers(token))
-          .timeout(const Duration(seconds: 12));
-
-      if (res.statusCode != 200) {
-        AppLog.w('fetchOurPueHourly non-200', tag: 'AdapterApi', fields: {
-          'status': res.statusCode,
-        });
-        return null;
-      }
-
-      return _decodeMap(res);
-    } catch (e) {
-      AppLog.w('fetchOurPueHourly error', tag: 'AdapterApi', error: e);
-      return null;
-    }
   }
 
   Future<Map<String, dynamic>?> fetchDoors({required int siteId}) async {
@@ -1124,4 +1155,4 @@ class AdapterApiService {
       return null;
     }
   }
-}
+}
