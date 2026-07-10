@@ -376,10 +376,15 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
             builder: (_) => const SetPinDialog(showSkipOptions: false),
           );
           if (result != null && result != 'skipped' && result.length >= 4) {
-            final success = await AdapterApiService.instance.setPin(result);
+            final pinRes = await AdapterApiService.instance.setPinDetailed(result);
+            final success = pinRes != null && pinRes['status'] == 'success';
             if (context.mounted) {
-              AppToast.show(context,
-                  success ? 'PIN setup successfully.' : 'Failed to set PIN.');
+              AppToast.show(
+                context,
+                success
+                    ? 'PIN setup successfully.'
+                    : (pinRes?['message']?.toString() ?? 'Failed to set PIN.'),
+              );
               if (success) {
                 CpanelApiService.instance.currentUser ??= {};
                 CpanelApiService.instance.currentUser!['has_pin'] = 1;

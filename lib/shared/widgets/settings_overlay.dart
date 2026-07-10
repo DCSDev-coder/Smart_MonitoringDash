@@ -414,9 +414,12 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       builder: (_) => const SetPinDialog(),
     );
     if (result != null && result.length >= 4 && mounted) {
+      String? failureMessage;
       bool success = false;
       if (AdapterApiService.instance.isConfigured) {
-        success = await AdapterApiService.instance.setPin(result);
+        final adapterRes = await AdapterApiService.instance.setPinDetailed(result);
+        success = adapterRes != null && adapterRes['status'] == 'success';
+        failureMessage = adapterRes?['message']?.toString();
       }
 
       if (!success) {
@@ -427,7 +430,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         if (success) {
           AppToast.showSuccess(context, 'Door Access PIN updated securely');
         } else {
-          AppToast.showError(context, 'Failed to set PIN');
+          AppToast.showError(
+            context,
+            failureMessage ?? 'Failed to set PIN.',
+          );
         }
       }
     }

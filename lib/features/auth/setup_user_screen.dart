@@ -87,6 +87,33 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     });
   }
 
+  String _friendlySetupError(Map<String, dynamic>? res) {
+    final raw = res?['message']?.toString().trim();
+    if (raw == null || raw.isEmpty) {
+      return _isResetMode
+          ? 'Failed to reset password.'
+          : 'Failed to set up password.';
+    }
+
+    final lower = raw.toLowerCase();
+    if (lower.contains('invalid json body')) {
+      return _isResetMode
+          ? 'The server rejected the password reset request. Please verify the username and try again.'
+          : 'The server rejected the account setup request. If this account may already be activated, try signing in or use Reset Password.';
+    }
+    if (lower.contains('already been set') || lower.contains('already activated')) {
+      return 'This account has already been activated. Please sign in or use Reset Password.';
+    }
+    if (lower.contains('user not found')) {
+      return 'The username was not found. Please check it and try again.';
+    }
+    if (lower.contains('password') && lower.contains('weak')) {
+      return 'Choose a stronger password and try again.';
+    }
+
+    return raw;
+  }
+
   Future<void> _submit() async {
     if (_submitting) return;
     final username = _usernameCtrl.text.trim();
@@ -126,11 +153,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
       _goToSignIn();
     } else {
       setState(() => _submitting = false);
-      final msg = res?['message']?.toString() ??
-          (_isResetMode
-              ? 'Failed to reset password.'
-              : 'Failed to setup password.');
-      AppToast.showError(context, msg);
+      AppToast.showError(context, _friendlySetupError(res));
     }
   }
 

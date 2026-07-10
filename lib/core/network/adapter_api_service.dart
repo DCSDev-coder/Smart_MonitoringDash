@@ -933,13 +933,21 @@ class AdapterApiService {
     }
   }
 
-  Future<bool> setPin(String pin) async {
-    if (!isConfigured) return false;
+  Future<Map<String, dynamic>?> setPinDetailed(String pin) async {
+    if (!isConfigured) {
+      return {
+        'status': 'error',
+        'message': 'PIN service is not configured on this build.',
+      };
+    }
 
     final token = _tokenOrNull();
     if (token == null) {
       _logMissingPortalTokenIfNeeded();
-      return false;
+      return {
+        'status': 'error',
+        'message': 'Your session has expired. Please sign in again.',
+      };
     }
 
     final url = Uri.parse('$_base/v1/user/set-pin');
@@ -958,11 +966,28 @@ class AdapterApiService {
           )
           .timeout(const Duration(seconds: 10));
 
-      return res.statusCode == 200;
+      final decoded = _decodeErrorMap(res);
+      if (res.statusCode == 200) {
+        return decoded ?? {'status': 'success'};
+      }
+
+      return decoded ??
+          {
+            'status': 'error',
+            'message': 'Failed to set PIN. Please try again.',
+          };
     } catch (e) {
       AppLog.w('setPin error', tag: 'AdapterApi', error: e);
-      return false;
+      return {
+        'status': 'error',
+        'message': 'Unable to update PIN right now. Please try again.',
+      };
     }
+  }
+
+  Future<bool> setPin(String pin) async {
+    final res = await setPinDetailed(pin);
+    return res != null && res['status'] == 'success';
   }
 
   Future<Map<String, dynamic>?> verifyPin(String pin) async {
@@ -1003,7 +1028,6 @@ class AdapterApiService {
       return null;
     }
   }
-
   Future<Map<String, dynamic>?> writeNodeMetric({
     required int siteId,
     required int nodeId,
@@ -1100,4 +1124,4 @@ class AdapterApiService {
       return null;
     }
   }
-}
+}

@@ -40,6 +40,29 @@ class _AddUserScreenState extends State<AddUserScreen> {
     super.dispose();
   }
 
+  String _friendlyCreateUserError(Map<String, dynamic>? res) {
+    final raw = res?['message']?.toString().trim();
+    if (raw == null || raw.isEmpty) {
+      return 'Failed to create user. Please check your inputs and try again.';
+    }
+
+    final lower = raw.toLowerCase();
+    if (lower.contains('invalid json body')) {
+      return 'The server rejected the user record. Please check the username and permissions, then try again.';
+    }
+    if (lower.contains('username already exists')) {
+      return 'That username already exists. Use a different username.';
+    }
+    if (lower.contains('site membership') && lower.contains('failed')) {
+      return 'The account was created but could not be linked to this site. Please try again.';
+    }
+    if (lower.contains('admin credentials')) {
+      return 'Admin verification failed. Please sign in again and retry.';
+    }
+
+    return raw;
+  }
+
   Future<void> _submit() async {
     if (_submitting) return;
     final nu = _newUserCtrl.text.trim();
@@ -79,9 +102,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     }
 
     setState(() => _submitting = false);
-    final msg = res?['message']?.toString() ??
-        'Failed to create user. Please check your inputs and try again.';
-    AppToast.showError(context, msg);
+    AppToast.showError(context, _friendlyCreateUserError(res));
   }
 
   void _setManageUsers(bool value) {

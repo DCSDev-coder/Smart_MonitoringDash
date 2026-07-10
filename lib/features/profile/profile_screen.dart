@@ -267,10 +267,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (pin != null && pin != 'skipped' && pin.length >= 4 && context.mounted) {
-      final success = await AdapterApiService.instance.setPin(pin);
+      final res = await AdapterApiService.instance.setPinDetailed(pin);
+      final success = res != null && res['status'] == 'success';
       if (context.mounted) {
-        AppToast.showError(context,
-            success ? 'Door Access PIN updated securely' : 'Failed to set PIN');
+        if (success) {
+          AppToast.showSuccess(context, 'Door Access PIN updated securely');
+        } else {
+          AppToast.showError(
+            context,
+            res?['message']?.toString() ?? 'Failed to set PIN.',
+          );
+        }
       }
     }
   }

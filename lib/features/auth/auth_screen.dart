@@ -717,24 +717,10 @@ class _AuthScreenState extends State<AuthScreen> {
     required Color color,
     required VoidCallback? onPressed,
   }) {
-    return ElevatedButton(
+    return _CustomRippleButton(
+      label: label,
+      color: color,
       onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shadowColor: color.withValues(alpha: 0.5),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.manrope(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-        ),
-      ),
     );
   }
 
@@ -815,6 +801,114 @@ class _AuthScreenState extends State<AuthScreen> {
               vertical: 18,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomRippleButton extends StatefulWidget {
+  const _CustomRippleButton({
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_CustomRippleButton> createState() => _CustomRippleButtonState();
+}
+
+class _CustomRippleButtonState extends State<_CustomRippleButton>
+    with TickerProviderStateMixin {
+  Offset? _tapPos;
+  AnimationController? _animCtrl;
+
+  void _handleTapDown(TapDownDetails details) {
+    if (widget.onPressed == null) return;
+    setState(() {
+      _tapPos = details.localPosition;
+    });
+    _animCtrl?.dispose();
+    _animCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _animCtrl!.forward().then((_) {
+      if (mounted) setState(() => _tapPos = null);
+    });
+  }
+
+  void _handleTap() {
+    if (widget.onPressed != null) widget.onPressed!();
+  }
+
+  @override
+  void dispose() {
+    _animCtrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: widget.color.withValues(alpha: 0.5),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTap: _handleTap,
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              alignment: Alignment.center,
+              child: Text(
+                widget.label,
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: Colors.white.withValues(alpha: widget.onPressed == null ? 0.5 : 1.0),
+                ),
+              ),
+            ),
+            if (_tapPos != null && _animCtrl != null)
+              Positioned(
+                left: _tapPos!.dx - 50,
+                top: _tapPos!.dy - 50,
+                child: IgnorePointer(
+                  child: FadeTransition(
+                    opacity: Tween<double>(begin: 1.0, end: 0.0)
+                        .animate(_animCtrl!),
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.0, end: 2.6)
+                          .animate(_animCtrl!),
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

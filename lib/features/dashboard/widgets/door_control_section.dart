@@ -585,6 +585,32 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
     }
   }
 
+  String _friendlyDoorUnlockError(dynamic rawMessage) {
+    final message = rawMessage?.toString().trim();
+    if (message == null || message.isEmpty) {
+      return 'Unlock failed. Please try again.';
+    }
+
+    final lower = message.toLowerCase();
+    if (lower.contains('wrong account')) {
+      return 'This PIN does not belong to the signed-in account.';
+    }
+    if (lower.contains('invalid pin') || lower.contains('invalid username or pin')) {
+      return 'Incorrect PIN.';
+    }
+    if (lower.contains('not allowed to unlock doors')) {
+      return 'This account is not allowed to unlock doors.';
+    }
+    if (lower.contains('invalid bearer token') || lower.contains('expired token') || lower.contains('session expired')) {
+      return 'Your session has expired. Please sign in again or use password unlock.';
+    }
+    if (lower.contains('user not found for this site')) {
+      return 'This account is not linked to the selected site.';
+    }
+
+    return message;
+  }
+
   Future<void> _runDeviceAuthUnlock() async {
     if (!mounted) return;
     if (_isAuthenticating) return;
@@ -641,7 +667,11 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       } else {
         setState(() => _isAuthenticating = false);
         AppToast.showError(
-            context, 'Unlock failed. If your session expired, use password.');
+          context,
+          _friendlyDoorUnlockError(
+            res?['message'] ?? 'Unlock failed. If your session expired, use password.',
+          ),
+        );
       }
     } catch (_) {
       if (!mounted) return;
@@ -709,16 +739,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             setState(() => _isAuthenticating = false);
             AppToast.showError(
               context,
-              verifyRes?['message']?.toString() ??
-                  'Invalid PIN or Access Denied',
+              _friendlyDoorUnlockError(
+                verifyRes?['message']?.toString() ?? 'Invalid PIN or Access Denied',
+              ),
             );
             return;
           }
         }
       } else if (_usePin) {
         final pin = _pwdCtrl.text.trim();
-        if (pin.isEmpty) {
-          AppToast.showError(context, 'Please enter PIN');
+        if (!RegExp(r'^\\d{4,6}$').hasMatch(pin)) {
+          AppToast.showError(context, 'Enter a 4-6 digit PIN.');
           setState(() => _isAuthenticating = false);
           return;
         }
@@ -796,7 +827,11 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       } else {
         Navigator.pop(context);
         AppToast.showError(
-            context, res?['message'] ?? 'Failed to unlock door via API');
+          context,
+          _friendlyDoorUnlockError(
+            res?['message'] ?? 'Failed to unlock door via API',
+          ),
+        );
       }
     } catch (_) {
       if (!mounted) return;
@@ -963,7 +998,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                     : (isLight
                         ? const Color(0xFFF3F4F7)
                         : Colors.white.withValues(alpha: 0.08)),
-                hintText: _usePin ? '••••' : 'Password',
+                hintText: _usePin ? 'Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢' : 'Password',
                 hintStyle: TextStyle(
                   color: isRack
                       ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
