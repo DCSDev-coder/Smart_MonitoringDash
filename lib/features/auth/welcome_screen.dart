@@ -245,7 +245,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: _buildButton(
-                                        label: 'NEW USER SETUP',
+                                        label: 'SIGN UP',
                                         color: const Color(0xFF00BD10),
                                         onPressed: () {
                                           Navigator.push(
@@ -298,7 +298,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     ),
                                     const SizedBox(height: 16),
                                     _buildButton(
-                                      label: 'NEW USER SETUP',
+                                      label: 'SIGN UP',
                                       color: const Color(0xFF00BD10),
                                       onPressed: () {
                                         Navigator.push(

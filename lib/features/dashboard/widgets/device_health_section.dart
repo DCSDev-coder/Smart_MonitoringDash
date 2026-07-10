@@ -788,10 +788,12 @@ class _DeviceHealthRow extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  gradient: ConsoleTheme.cardBgGradient(context),
+                  color: isLight ? Colors.white : const Color(0xFF111922),
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: ConsoleTheme.cardBorder(context),
+                    color: isLight
+                        ? Colors.black.withValues(alpha: 0.05)
+                        : Colors.white.withValues(alpha: 0.08),
                     width: 1.5,
                   ),
                   boxShadow: [
@@ -1226,7 +1228,7 @@ class _DeviceDetailRow extends StatelessWidget {
     Widget child = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ConsoleTheme.innerSurface(context),
+        color: (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.transparent),
       ),

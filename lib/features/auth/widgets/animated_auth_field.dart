@@ -150,6 +150,7 @@ class AnimatedAuthFieldState extends State<AnimatedAuthField>
                             child: TextField(
                               controller: widget.controller,
                               focusNode: widget.focusNode,
+                              obscuringCharacter: '*',
                               obscureText: widget.isPassword ? _obscure : false,
                               textInputAction: widget.action,
                               onSubmitted: widget.onSubmitted,
@@ -168,6 +169,7 @@ class AnimatedAuthFieldState extends State<AnimatedAuthField>
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
+                                filled: false,
                               ),
                             ),
                           ),
@@ -211,7 +213,7 @@ class AnimatedAuthFieldState extends State<AnimatedAuthField>
                   ),
                 ],
               ),
-              if (hasError)
+              if (hasError && _errorText!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 4),
                   child: FadeTransition(

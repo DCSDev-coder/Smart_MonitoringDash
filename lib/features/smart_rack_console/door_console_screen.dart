@@ -108,7 +108,11 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
+        builder: (ctx) => UnlockDoorSheet(
+          doorId: id,
+          doorName: name,
+          isRackConsoleStyle: true,
+        ),
       );
 
       if (authorized != true || !mounted) return;

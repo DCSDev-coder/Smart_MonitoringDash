@@ -485,11 +485,13 @@ class _AnimatedUnlockButtonState extends State<_AnimatedUnlockButton>
 class UnlockDoorSheet extends StatefulWidget {
   final int doorId;
   final String doorName;
+  final bool isRackConsoleStyle;
 
   const UnlockDoorSheet({
     super.key,
     required this.doorId,
     required this.doorName,
+    this.isRackConsoleStyle = false,
   });
 
   @override
@@ -527,7 +529,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   void initState() {
     super.initState();
     _initUsername();
-    if (!kIsWeb && !_isRackConsoleMode) {
+    if (!kIsWeb && !widget.isRackConsoleStyle) {
       _checkAndAutoPrompt();
     }
   }
@@ -843,7 +845,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final isRack = _isRackConsoleMode;
+    final isRack = widget.isRackConsoleStyle;
     final showBiometricPath = _shouldShowBiometricPrompt;
 
     Widget content = Padding(
@@ -981,6 +983,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               controller: _pwdCtrl,
               focusNode: _pwdFocus,
               obscureText: _obscurePwd,
+              obscuringCharacter: '*',
               autofocus: false,
               keyboardType: _usePin ? TextInputType.number : TextInputType.text,
               style: TextStyle(
@@ -998,7 +1001,7 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
                     : (isLight
                         ? const Color(0xFFF3F4F7)
                         : Colors.white.withValues(alpha: 0.08)),
-                hintText: _usePin ? 'Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢' : 'Password',
+                hintText: _usePin ? '****' : 'Password',
                 hintStyle: TextStyle(
                   color: isRack
                       ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)

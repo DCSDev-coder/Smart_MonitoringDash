@@ -6,6 +6,7 @@ import '../../core/network/cpanel_api_service.dart';
 import '../../shared/utils/global_video_background.dart';
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/fade_in_slide.dart';
+import 'widgets/animated_auth_field.dart';
 import 'auth_screen.dart';
 import '../../shared/utils/app_toast.dart';
 
@@ -31,8 +32,9 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
   final _passwordCtrl = TextEditingController();
   final _usernameFocus = FocusNode();
   final _passwordFocus = FocusNode();
+  final _userFieldKey = GlobalKey<AnimatedAuthFieldState>();
+  final _passFieldKey = GlobalKey<AnimatedAuthFieldState>();
   bool _submitting = false;
-  bool _obscurePassword = true;
   bool _suppressLogoHero = false;
 
   bool get _isResetMode => widget.mode == SetupUserMode.resetPassword;
@@ -44,30 +46,6 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     _usernameFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
-  }
-
-  TextStyle get _authFieldLabelStyle => GoogleFonts.manrope(
-        color: Colors.white70,
-        fontSize: 16,
-        letterSpacing: 0.4,
-      );
-
-  Widget _buildAuthFieldBlock({
-    required Duration delay,
-    required String label,
-    required Widget child,
-  }) {
-    return FadeInSlide(
-      delay: delay,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: _authFieldLabelStyle),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
   }
 
   void _goToSignIn() {
@@ -119,15 +97,14 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text;
 
-    if (username.isEmpty || password.isEmpty) {
-      AppToast.showError(
-        context,
-        _isResetMode
-            ? 'Please enter both username and new password.'
-            : 'Please enter both username and password.',
-      );
-      return;
+    if (username.isEmpty) {
+      _userFieldKey.currentState?.showError('Please enter a username.');
     }
+    if (password.isEmpty) {
+      _passFieldKey.currentState?.showError(
+          _isResetMode ? 'Please enter a new password.' : 'Please enter a password.');
+    }
+    if (username.isEmpty || password.isEmpty) return;
 
     setState(() => _submitting = true);
     final res = _isResetMode
@@ -153,7 +130,16 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
       _goToSignIn();
     } else {
       setState(() => _submitting = false);
-      AppToast.showError(context, _friendlySetupError(res));
+      final msg = _friendlySetupError(res);
+      final lowerMsg = msg.toLowerCase();
+      if (lowerMsg.contains('password') || lowerMsg.contains('weak')) {
+        _passFieldKey.currentState?.showError(msg);
+      } else if (lowerMsg.contains('user') || lowerMsg.contains('account')) {
+        _userFieldKey.currentState?.showError(msg);
+      } else {
+        _userFieldKey.currentState?.showError(msg);
+        _passFieldKey.currentState?.showError(msg);
+      }
     }
   }
 
@@ -196,6 +182,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                   color: const Color(0xFF060B11).withValues(alpha: 0.70),
                 ),
               ),
+
               SafeArea(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -232,7 +219,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                   child: Text(
                                     _isResetMode
                                         ? 'RESET PASSWORD'
-                                        : 'NEW USER SETUP',
+                                        : 'SIGN UP',
                                     style: GoogleFonts.manrope(
                                       fontSize: 28,
                                       letterSpacing: 1.2,
@@ -248,44 +235,34 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                 ),
                                 const SizedBox(height: 26),
                                 ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 560),
-                                  child: FadeInSlide(
-                                    delay: const Duration(milliseconds: 220),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        _buildAuthFieldBlock(
-                                          delay:
-                                              const Duration(milliseconds: 200),
-                                          label: _isResetMode
-                                              ? 'Username :'
-                                              : 'Assigned Username :',
-                                          child: _buildGlassTextField(
-                                            controller: _usernameCtrl,
-                                            focusNode: _usernameFocus,
-                                            enabled: !_submitting,
-                                            action: TextInputAction.next,
-                                            onSubmitted: (_) =>
-                                                _passwordFocus.requestFocus(),
-                                          ),
+                                  constraints: const BoxConstraints(maxWidth: 560),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      FadeInSlide(
+                                        delay: const Duration(milliseconds: 200),
+                                        child: AnimatedAuthField(
+                                          key: _userFieldKey,
+                                          controller: _usernameCtrl,
+                                          focusNode: _usernameFocus,
+                                          label: 'Username',
+                                          action: TextInputAction.next,
+                                          onSubmitted: (_) => _passwordFocus.requestFocus(),
                                         ),
-                                        const SizedBox(height: 18),
-                                        _buildAuthFieldBlock(
-                                          delay:
-                                              const Duration(milliseconds: 400),
-                                          label: 'New Password :',
-                                          child: _buildGlassTextField(
-                                            controller: _passwordCtrl,
-                                            focusNode: _passwordFocus,
-                                            enabled: !_submitting,
-                                            isPassword: true,
-                                            onSubmitted: (_) => _submit(),
-                                          ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                      FadeInSlide(
+                                        delay: const Duration(milliseconds: 400),
+                                        child: AnimatedAuthField(
+                                          key: _passFieldKey,
+                                          controller: _passwordCtrl,
+                                          focusNode: _passwordFocus,
+                                          label: 'New Password',
+                                          isPassword: true,
+                                          onSubmitted: (_) => _submit(),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 SizedBox(height: isWide ? 72 : 52),
@@ -296,26 +273,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                     constraints:
                                         const BoxConstraints(maxWidth: 600),
                                     margin: const EdgeInsets.only(bottom: 20),
-                                    child: isWide
-                                        ? Row(
-                                            children: [
-                                              Expanded(
-                                                child: _buildSignInButton(),
-                                              ),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child:
-                                                    _buildSetPasswordButton(),
-                                              ),
-                                            ],
-                                          )
-                                        : Column(
-                                            children: [
-                                              _buildSetPasswordButton(),
-                                              const SizedBox(height: 16),
-                                              _buildSignInButton(),
-                                            ],
-                                          ),
+                                    child: _buildSetPasswordButton(),
                                   ),
                                 ),
                               ],
@@ -327,96 +285,17 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                   },
                 ),
               ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+                    onPressed: _goToSignIn,
+                    tooltip: 'Back to Sign In',
+                  ),
+                ),
+              ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlassTextField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    bool enabled = true,
-    String hint = '',
-    bool isPassword = false,
-    TextInputAction action = TextInputAction.done,
-    Function(String)? onSubmitted,
-  }) {
-    return SizedBox(
-      height: 58,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF5B6474).withValues(alpha: 0.28),
-              const Color(0xFF303747).withValues(alpha: 0.22),
-            ],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.16),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 18,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          obscureText: isPassword ? _obscurePassword : false,
-          textInputAction: action,
-          onSubmitted: onSubmitted,
-          onTapOutside: (_) => focusNode.unfocus(),
-          enableInteractiveSelection: true,
-          autocorrect: !isPassword,
-          enableSuggestions: !isPassword,
-          cursorColor: Colors.white,
-          textAlignVertical: TextAlignVertical.center,
-          style: GoogleFonts.manrope(
-            color: Colors.white,
-            fontSize: 16,
-            letterSpacing: 0.2,
-          ),
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: Colors.transparent,
-            hintText: hint.isEmpty ? null : hint,
-            hintStyle: GoogleFonts.manrope(
-              color: Colors.white38,
-              fontSize: 14,
-              letterSpacing: 0.2,
-            ),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: Colors.white70,
-                    ),
-                    onPressed: enabled
-                        ? () =>
-                            setState(() => _obscurePassword = !_obscurePassword)
-                        : null,
-                  )
-                : null,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 18,
-            ),
           ),
         ),
       ),
@@ -433,8 +312,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           elevation: 4,
-          shadowColor:
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -449,7 +327,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                 ),
               )
             : Text(
-                _isResetMode ? 'RESET PASSWORD' : 'SET PASSWORD',
+                _isResetMode ? 'RESET PASSWORD' : 'SIGN UP',
                 style: GoogleFonts.manrope(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -460,31 +338,5 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     );
   }
 
-  Widget _buildSignInButton() {
-    return SizedBox(
-      height: 52,
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _goToSignIn,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF5588AA),
-          foregroundColor: Colors.white,
-          elevation: 4,
-          shadowColor: const Color(0xFF5588AA).withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-        child: Text(
-          'SIGN IN',
-          style: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.0,
-          ),
-        ),
-      ),
-    );
-  }
+
 }

@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/fade_in_slide.dart';
+import 'widgets/animated_auth_field.dart';
 import '../../shared/utils/global_video_background.dart';
 import 'setup_user_screen.dart';
 import '../../shared/utils/app_toast.dart';
@@ -29,6 +30,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final _passCtrl = TextEditingController();
   final _userFocus = FocusNode();
   final _passFocus = FocusNode();
+  final _userFieldKey = GlobalKey<AnimatedAuthFieldState>();
+  final _passFieldKey = GlobalKey<AnimatedAuthFieldState>();
   bool _loading = false;
   bool _obscure = true;
   bool _rememberMe = false;
@@ -286,7 +289,16 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showErrorDialog(e.toString());
+      final safeMsg = AppToast.sanitizeErrorMessage(e.toString());
+      final lowerMsg = safeMsg.toLowerCase();
+      if (lowerMsg.contains('password') || lowerMsg.contains('credentials')) {
+        _passFieldKey.currentState?.showError("");
+      } else if (lowerMsg.contains('user')) {
+        _userFieldKey.currentState?.showError("");
+      } else {
+        _userFieldKey.currentState?.showError("");
+        _passFieldKey.currentState?.showError(safeMsg);
+      }
       if (isAuto && e is SessionBootstrapInvalidException) {
         // Auto-login failed; don't keep retrying in a loop.
         await rememberMeStore.clear();
@@ -531,28 +543,25 @@ class _AuthScreenState extends State<AuthScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      _buildAuthFieldBlock(
-                                        delay:
-                                            const Duration(milliseconds: 200),
-                                        label: 'Username :',
-                                        child: _buildGlassTextField(
+                                      FadeInSlide(
+                                        delay: const Duration(milliseconds: 200),
+                                        child: AnimatedAuthField(
+                                          key: _userFieldKey,
                                           controller: _userCtrl,
                                           focusNode: _userFocus,
-                                          hint: '',
+                                          label: 'Username',
                                           action: TextInputAction.next,
-                                          onSubmitted: (_) =>
-                                              _passFocus.requestFocus(),
+                                          onSubmitted: (_) => _passFocus.requestFocus(),
                                         ),
                                       ),
                                       const SizedBox(height: 18),
-                                      _buildAuthFieldBlock(
-                                        delay:
-                                            const Duration(milliseconds: 400),
-                                        label: 'Password :',
-                                        child: _buildGlassTextField(
+                                      FadeInSlide(
+                                        delay: const Duration(milliseconds: 400),
+                                        child: AnimatedAuthField(
+                                          key: _passFieldKey,
                                           controller: _passCtrl,
                                           focusNode: _passFocus,
-                                          hint: '',
+                                          label: 'Password',
                                           isPassword: true,
                                           onSubmitted: (_) => _signIn(),
                                         ),
@@ -664,7 +673,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   const SizedBox(width: 12),
                                                   Expanded(
                                                     child: _buildButton(
-                                                      label: 'NEW USER SETUP',
+                                                      label: 'SIGN UP',
                                                       color: const Color(
                                                           0xFF00BD10),
                                                       onPressed:
@@ -686,7 +695,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   ),
                                                   const SizedBox(height: 14),
                                                   _buildButton(
-                                                    label: 'NEW USER SETUP',
+                                                    label: 'SIGN UP',
                                                     color:
                                                         const Color(0xFF00BD10),
                                                     onPressed:
