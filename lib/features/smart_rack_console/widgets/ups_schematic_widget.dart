@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../models/smart_rack_console_snapshot.dart';
-import '../theme/console_theme.dart';
 
 class UpsSchematicWidget extends StatefulWidget {
   const UpsSchematicWidget({

@@ -6,6 +6,7 @@ import '../network/api_service.dart';
 import '../network/cpanel_api_service.dart';
 import '../notifications/push_notification_service.dart';
 import '../security/app_lock_controller.dart';
+import '../security/secure_action_session.dart';
 import '../utils/app_log.dart';
 import 'remember_me_store.dart';
 
@@ -66,7 +67,10 @@ class SessionFlowService {
         .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
     final site = await _mergeSiteWithRemoteConfig(mergedSite);
     CpanelApiService.instance.currentSite = site;
-    await PushNotificationService.instance.syncTokenWithBackendIfPossible();
+    await PushNotificationService.instance.ensureTokenRegistered(
+      timeout: const Duration(seconds: 8),
+      retryInterval: const Duration(milliseconds: 500),
+    );
 
     return SessionBootstrapResult(
       authResponse: authRes,
@@ -144,6 +148,7 @@ class SessionFlowService {
 
   Future<void> signOut() async {
     AppLockController.instance.clear();
+    SecureActionSession.instance.clear();
     await rememberMeStore.clear();
     await PushNotificationService.instance.deactivateCurrentTokenIfPossible();
     await CpanelApiService.instance.logout();

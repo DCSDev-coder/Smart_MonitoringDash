@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/skeleton.dart';
 import 'dashboard_typography.dart';
 

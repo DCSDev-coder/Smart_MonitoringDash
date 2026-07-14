@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/navigation/app_navigator.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/network/api_service.dart';
@@ -19,10 +15,10 @@ import '../../core/utils/app_log.dart';
 import '../../core/utils/alarm_payload.dart';
 
 import 'dart:ui' as ui;
-import 'package:flutter/rendering.dart';
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../../shared/widgets/header_refresh_bar.dart';
+import '../../shared/utils/pull_to_refresh_gate.dart';
 import '../dashboard/widgets/dashboard_typography.dart';
 import '../../shared/utils/app_toast.dart';
 
@@ -52,26 +48,18 @@ class _ReportScreenState extends State<ReportScreen>
   ];
 
   int _selectedTabIndex = 0;
-  final GlobalKey _siteChartKey = GlobalKey();
-  final GlobalKey _itChartKey = GlobalKey();
-  final GlobalKey _pueChartKey = GlobalKey();
-
-  // We removed the GlobalKeys for the power cards because moving them around
-  // the tree during responsive layout shifts was causing a framework assertion
-  // failure in InheritedElement dependencies (ancestor == this is not true).
 
   bool _loading = true;
   bool _refreshing = false;
   RefreshIndicatorStatus? _refreshStatus;
+  final PullToRefreshGate _refreshGate = PullToRefreshGate();
   Map<String, double> _powerMonth = {};
-  List<dynamic> _alarms = [];
   List<dynamic> _devices = [];
   List<dynamic> _reportAlarms = [];
   List<dynamic> _doorLogs = [];
   bool _fetchingHistoricalEvents = false;
   bool _fetchingDoorLogs = false;
   String _eventLogRange = 'Recent'; // Recent, Weekly, Monthly, All
-  String _siteName = 'Smart Rack';
 
   // Historical Energy Analytics state
   List<FlSpot> _totalPowerSpots = [];
@@ -85,7 +73,6 @@ class _ReportScreenState extends State<ReportScreen>
   String _otherPowerRange = '24H';
 
   // Analytics State
-  bool _isExporting = false;
   int _smokeStatus = -1; // -1 means sensor not discovered yet
   int _floodStatus = -1;
   DateTime? _lastMaintenance;
@@ -96,21 +83,6 @@ class _ReportScreenState extends State<ReportScreen>
   late final AnimationController _tabSelC;
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
   final ScrollController _scrollController = ScrollController();
-
-  bool get _canViewReport {
-    final site = CpanelApiService.instance.currentSite;
-    if (site == null) return true; // backward compatible fallback
-
-    final v = site['can_view_report'];
-    if (v == null) return true;
-    if (v is bool) return v;
-    if (v is num) return v != 0;
-
-    final s = v.toString().trim().toLowerCase();
-    if (s == '1' || s == 'true' || s == 'yes') return true;
-    if (s == '0' || s == 'false' || s == 'no') return false;
-    return true;
-  }
 
   @override
   void didUpdateWidget(covariant ReportScreen oldWidget) {
@@ -263,23 +235,6 @@ class _ReportScreenState extends State<ReportScreen>
             _powerMonth = {};
           }
 
-          final alRes = results[1];
-          if (alRes != null) {
-            final raw = alRes['result'];
-            if (raw is List) {
-              _alarms = raw;
-            } else if (raw is Map && raw['records'] is List) {
-              _alarms = raw['records'];
-            } else {
-              _alarms = [];
-            }
-          }
-
-          final sysRes = results[2];
-          if (sysRes != null && sysRes['result'] != null) {
-            _siteName = sysRes['result']['sysName']?.toString() ?? 'Smart Rack';
-          }
-
           // 7. Load Cpanel Site Info
           if (site != null) {
             _siteId = siteId;
@@ -304,12 +259,14 @@ class _ReportScreenState extends State<ReportScreen>
 
   Future<void> _onRefresh() async {
     if (_refreshing) return;
+    _refreshGate.beginRefresh();
     setState(() => _refreshing = true);
     try {
       // Refresh without blanking the page; we keep the current content visible
       // and overlay skeletons in the build method.
       await _fetchReportData(showSkeleton: false);
     } finally {
+      _refreshGate.endRefresh();
       if (mounted) setState(() => _refreshing = false);
     }
   }
@@ -321,8 +278,10 @@ class _ReportScreenState extends State<ReportScreen>
 
   bool get _showRefreshBar =>
       _refreshing ||
-      (_refreshStatus != null &&
-          _refreshStatus != RefreshIndicatorStatus.canceled);
+      _refreshStatus == RefreshIndicatorStatus.drag ||
+      _refreshStatus == RefreshIndicatorStatus.armed ||
+      _refreshStatus == RefreshIndicatorStatus.snap ||
+      _refreshStatus == RefreshIndicatorStatus.refresh;
 
   Future<void> _refreshEventData() {
     // Prefer a single report bundle call when adapter is configured.
@@ -981,209 +940,6 @@ class _ReportScreenState extends State<ReportScreen>
     }
   }
 
-  double _estimateConsumptionKwh(
-      List<FlSpot> spots, List<String> labels, String range) {
-    final sliced = _sliceSeriesForRange(spots, labels, range);
-    if (sliced.spots.isEmpty) return 0.0;
-    final hours = _hoursForRange(range).toDouble();
-    final dt = hours / sliced.spots.length;
-    var sum = 0.0;
-    for (final p in sliced.spots) {
-      sum += p.y;
-    }
-    return sum * dt;
-  }
-
-  Future<Uint8List> _captureChart(GlobalKey key) async {
-    try {
-      final boundary =
-          key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return Uint8List(0);
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      return byteData!.buffer.asUint8List();
-    } catch (e) {
-      AppLog.w('Capture error', tag: 'ReportScreen', error: e);
-      return Uint8List(0);
-    }
-  }
-
-  Future<void> _generatePdf() async {
-    if (_isExporting) return;
-    if (!_canViewReport) {
-      if (!mounted) return;
-      AppToast.show(context, 'You do not have permission to export reports.');
-      return;
-    }
-    setState(() => _isExporting = true);
-
-    try {
-      // Capture charts before generating PDF
-      final siteChartImage = await _captureChart(_siteChartKey);
-      final itChartImage = await _captureChart(_itChartKey);
-      final pueChartImage = await _captureChart(_pueChartKey);
-
-      final pdf = pw.Document();
-      final now = DateTime.now();
-      final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(now);
-
-      final itPower = _powerMonth['IT Device'] ?? 0.0;
-      final coolingPower = _powerMonth['Aircon'] ?? 0.0;
-
-      final alarmCount = _alarms.fold<int>(
-          0, (prev, a) => prev + (a['alarmCount'] as int? ?? 0));
-
-      // Calculate true physical device counts (Fully Dynamic Discovery)
-      int siteCount = 0;
-      int siteOnline = 0;
-      if (_smokeStatus != -1) {
-        siteCount++;
-        if (_smokeStatus == 0) siteOnline++;
-      }
-      if (_floodStatus != -1) {
-        siteCount++;
-        if (_floodStatus == 0) siteOnline++;
-      }
-
-      final totalPhysicalDevices = _devices.fold<int>(
-              0, (sum, d) => sum + (d['totalCount'] as int? ?? 0)) +
-          siteCount;
-      final onlinePhysicalDevices = _devices.fold<int>(
-              0, (sum, d) => sum + (d['normalCount'] as int? ?? 0)) +
-          siteOnline;
-
-      final healthScore = totalPhysicalDevices == 0
-          ? 100
-          : (onlinePhysicalDevices / totalPhysicalDevices * 100).toInt();
-      final offlineDevices = totalPhysicalDevices - onlinePhysicalDevices;
-
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return [
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('SMART RACK ANALYTICS REPORT',
-                      style: pw.TextStyle(
-                          fontSize: 22, fontWeight: pw.FontWeight.bold)),
-                  pw.Text(dateStr, style: const pw.TextStyle(fontSize: 10)),
-                ],
-              ),
-              pw.Divider(thickness: 2),
-              pw.SizedBox(height: 10),
-              pw.Text('Site: $_siteName',
-                  style: pw.TextStyle(
-                      fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.Text('Report Period: $_totalPowerRange Consumption',
-                  style: const pw.TextStyle(fontSize: 12)),
-              pw.SizedBox(height: 20),
-              pw.Text('1. Energy Trends & Performance',
-                  style: pw.TextStyle(
-                      fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 10),
-              if (siteChartImage.isNotEmpty) ...[
-                pw.Text('Total Site Power Trend:',
-                    style: const pw.TextStyle(fontSize: 10)),
-                pw.SizedBox(height: 4),
-                pw.Container(
-                  height: 140,
-                  width: double.infinity,
-                  child: pw.Image(pw.MemoryImage(siteChartImage)),
-                ),
-                pw.SizedBox(height: 10),
-              ],
-              if (itChartImage.isNotEmpty) ...[
-                pw.Text('IT Device Power Trend:',
-                    style: const pw.TextStyle(fontSize: 10)),
-                pw.SizedBox(height: 4),
-                pw.Container(
-                  height: 140,
-                  width: double.infinity,
-                  child: pw.Image(pw.MemoryImage(itChartImage)),
-                ),
-                pw.SizedBox(height: 10),
-              ],
-              if (pueChartImage.isNotEmpty) ...[
-                pw.Text('PUE Stability Tracker:',
-                    style: const pw.TextStyle(fontSize: 10)),
-                pw.SizedBox(height: 4),
-                pw.Container(
-                  height: 140,
-                  width: double.infinity,
-                  child: pw.Image(pw.MemoryImage(pueChartImage)),
-                ),
-              ],
-              if (siteChartImage.isEmpty && pueChartImage.isEmpty)
-                pw.Text(
-                    '[Graph Data Unavailable - View the Energy tab to render charts before exporting]'),
-              pw.SizedBox(height: 20),
-              pw.Text('2. Consumption Details',
-                  style: pw.TextStyle(
-                      fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 10),
-              pw.Bullet(
-                  text:
-                      'Total Usage in Period: ${_estimateConsumptionKwh(_totalPowerSpots, _totalPowerLabels, _totalPowerRange).toStringAsFixed(2)} kWh'),
-              pw.Bullet(
-                  text:
-                      'Monthly Projected (IT): ${itPower.toStringAsFixed(2)} kWh'),
-              pw.Bullet(
-                  text:
-                      'Monthly Projected (Cooling): ${coolingPower.toStringAsFixed(2)} kWh'),
-              pw.SizedBox(height: 20),
-              pw.Text('3. Infrastructure Health & Utilization',
-                  style: pw.TextStyle(
-                      fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 10),
-              pw.Bullet(text: 'Uptime Integrity Index: $healthScore%'),
-              pw.Bullet(
-                  text:
-                      'Device Availability: $onlinePhysicalDevices Online / $offlineDevices Offline (Total: $totalPhysicalDevices)'),
-              if (_lastMaintenance != null)
-                pw.Bullet(
-                    text:
-                        'Last Service Date: ${DateFormat('yyyy-MM-dd').format(_lastMaintenance!)}'),
-              // Server utilization removed by request (CPU/RAM/Storage).
-              pw.Bullet(text: 'Historical Alarm Count: $alarmCount'),
-              pw.SizedBox(height: 20),
-              pw.Text('4. Recent Historical Events',
-                  style: pw.TextStyle(
-                      fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              ..._reportAlarms.take(15).map((alarm) => pw.Bullet(
-                    text:
-                        '[${alarm['occurrenceTime']}] ${alarm['alarmTypeName']}: ${alarm['content']}',
-                    style: const pw.TextStyle(fontSize: 9),
-                  )),
-              pw.SizedBox(height: 20),
-              pw.Divider(),
-              pw.Center(
-                child: pw.Text(
-                    'Document digitally generated by Smart Rack eCTRL Systems',
-                    style: const pw.TextStyle(fontSize: 8)),
-              ),
-            ];
-          },
-        ),
-      );
-
-      await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => pdf.save());
-
-      if (mounted) {
-        AppToast.showSuccess(context, 'Report generated successfully.');
-      }
-    } catch (e) {
-      AppLog.w('PDF error', tag: 'ReportScreen', error: e);
-      if (mounted) {
-        AppToast.showError(context, 'Failed to generate PDF: $e');
-      }
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
-  }
-
   Widget _buildLoadingView(BuildContext context) {
     final hPadding = AppSpacing.pageHorizontal(context);
     return MediaQuery(
@@ -1262,114 +1018,121 @@ class _ReportScreenState extends State<ReportScreen>
         body: Stack(
           children: [
             Positioned.fill(
-              child: RefreshIndicator.noSpinner(
-                onRefresh: _onRefresh,
-                onStatusChange: _onRefreshStatusChanged,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  // Avoid iOS-style "rubber band" overscroll that can feel like infinite
-                  // scrolling, while still allowing pull-to-refresh even when content is
-                  // shorter than the viewport.
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: ClampingScrollPhysics(),
-                  ),
-                  slivers: [
-                    // 1. Dynamic Header Clearance (Scrollable)
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                          height: AppConstants.headerClearance(context)),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _refreshGate.handleNotification,
+                child: RefreshIndicator.noSpinner(
+                  triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                  notificationPredicate: _refreshGate.shouldProcess,
+                  onRefresh: _onRefresh,
+                  onStatusChange: _onRefreshStatusChanged,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    // Avoid iOS-style "rubber band" overscroll that can feel like infinite
+                    // scrolling, while still allowing pull-to-refresh even when content is
+                    // shorter than the viewport.
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
                     ),
-
-                    // 2. Custom Navigation
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: hPadding),
-                        child: const SizedBox.shrink(),
+                    slivers: [
+                      // 1. Dynamic Header Clearance (Scrollable)
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                            height: AppConstants.headerClearance(context)),
                       ),
-                    ),
 
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: hPadding),
-                        child: _buildCustomNavButtons(),
+                      // 2. Custom Navigation
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: hPadding),
+                          child: const SizedBox.shrink(),
+                        ),
                       ),
-                    ),
 
-                    // 3. Tab Content
-                    // We use Visibility with maintainState: true but maintainSize: false
-                    // instead of IndexedStack. This allows the scroll boundary to
-                    // shrink/grow to fit only the active page, while still keeping the
-                    // inactive page's charts alive for the PDF capture process.
-                    SliverToBoxAdapter(
-                      child: Stack(
-                        children: [
-                          if (!_loading)
-                            Column(
-                              children: [
-                                const SizedBox(height: AppSpacing.sectionGapSm),
-                                Visibility(
-                                  visible: _selectedTabIndex == 0,
-                                  maintainState: true,
-                                  maintainAnimation: true,
-                                  maintainSize: false,
-                                  child: _buildEnergyPage(
-                                      hPadding, totalPower, healthScore),
-                                ),
-                                Visibility(
-                                  visible: _selectedTabIndex == 1,
-                                  maintainState: true,
-                                  maintainAnimation: true,
-                                  maintainSize: false,
-                                  child: _buildMaintenancePage(hPadding),
-                                ),
-                                Visibility(
-                                  visible: _selectedTabIndex == 2,
-                                  maintainState: true,
-                                  maintainAnimation: true,
-                                  maintainSize: false,
-                                  child: _buildSecurityPage(hPadding),
-                                ),
-                              ],
-                            ),
-                          if ((_loading || _refreshing) &&
-                              _selectedTabIndex != 2)
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                ignoring: true,
-                                child: SingleChildScrollView(
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: hPadding),
-                                    child: const Column(
-                                      children: [
-                                        SizedBox(
-                                            height: AppSpacing.sectionGapSm),
-                                        _ReportSkeletonCard(),
-                                        SizedBox(height: AppSpacing.cardGap),
-                                        _ReportSkeletonCard(),
-                                        SizedBox(height: AppSpacing.cardGap),
-                                        _ReportSkeletonCard(),
-                                      ],
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: hPadding),
+                          child: _buildCustomNavButtons(),
+                        ),
+                      ),
+
+                      // 3. Tab Content
+                      // We use Visibility with maintainState: true but maintainSize: false
+                      // instead of IndexedStack. This allows the scroll boundary to
+                      // shrink/grow to fit only the active page, while still keeping the
+                      // inactive page's charts alive for the PDF capture process.
+                      SliverToBoxAdapter(
+                        child: Stack(
+                          children: [
+                            if (!_loading)
+                              Column(
+                                children: [
+                                  const SizedBox(
+                                      height: AppSpacing.sectionGapSm),
+                                  Visibility(
+                                    visible: _selectedTabIndex == 0,
+                                    maintainState: true,
+                                    maintainAnimation: true,
+                                    maintainSize: false,
+                                    child: _buildEnergyPage(
+                                        hPadding, totalPower, healthScore),
+                                  ),
+                                  Visibility(
+                                    visible: _selectedTabIndex == 1,
+                                    maintainState: true,
+                                    maintainAnimation: true,
+                                    maintainSize: false,
+                                    child: _buildMaintenancePage(hPadding),
+                                  ),
+                                  Visibility(
+                                    visible: _selectedTabIndex == 2,
+                                    maintainState: true,
+                                    maintainAnimation: true,
+                                    maintainSize: false,
+                                    child: _buildSecurityPage(hPadding),
+                                  ),
+                                ],
+                              ),
+                            if ((_loading || _refreshing) &&
+                                _selectedTabIndex != 2)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  ignoring: true,
+                                  child: SingleChildScrollView(
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: hPadding),
+                                      child: const Column(
+                                        children: [
+                                          SizedBox(
+                                              height: AppSpacing.sectionGapSm),
+                                          _ReportSkeletonCard(),
+                                          SizedBox(height: AppSpacing.cardGap),
+                                          _ReportSkeletonCard(),
+                                          SizedBox(height: AppSpacing.cardGap),
+                                          _ReportSkeletonCard(),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
 
-                    // Bottom padding
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        // Keep the last card (PUE Stability) as the natural end of the
-                        // scroll, while still leaving enough room for the floating
-                        // bottom nav on phones.
-                        height: AppSpacing.pageBottom(context),
+                      // Bottom padding
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          // Keep the last card (PUE Stability) as the natural end of the
+                          // scroll, while still leaving enough room for the floating
+                          // bottom nav on phones.
+                          height: AppSpacing.pageBottom(context),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1502,9 +1265,6 @@ class _ReportScreenState extends State<ReportScreen>
   Widget _buildSummaryCard(int score) {
     // Light mode mock uses a brighter cyan/blue block rather than the darker
     // "navy" gradient.
-    const c1 = Color(0xFF00A3FF);
-    const c2 = Color(0xFF0077D6);
-
     final isLight = Theme.of(context).brightness == Brightness.light;
 
     return DashboardGlass(
@@ -1803,7 +1563,6 @@ class _ReportScreenState extends State<ReportScreen>
 
     final isLight = Theme.of(context).brightness == Brightness.light;
     final bool useDarkTheme = !isLight;
-    final isWide = MediaQuery.sizeOf(context).width >= 1100;
 
     // In dark mode, we use the card's accent color for text and lines, and a dark glass background.
     // In light mode, we use the vibrant solid background and the provided text color.
@@ -1933,10 +1692,42 @@ class _ReportScreenState extends State<ReportScreen>
                               ? spots.first.x + 1
                               : spots.last.x)
                           : 1,
-                      lineTouchData: labels != null && isWide
+                      lineTouchData: labels != null
                           ? LineTouchData(
                               enabled: true,
+                              handleBuiltInTouches: true,
+                              touchSpotThreshold: 28,
+                              getTouchedSpotIndicator: (barData, spotIndexes) =>
+                                  spotIndexes.map((index) {
+                                return TouchedSpotIndicatorData(
+                                  FlLine(
+                                    color:
+                                        chartLineColor.withValues(alpha: 0.9),
+                                    strokeWidth: 3.5,
+                                  ),
+                                  FlDotData(
+                                    getDotPainter:
+                                        (spot, percent, bar, index) =>
+                                            FlDotCirclePainter(
+                                      radius: 5.5,
+                                      color: chartLineColor,
+                                      strokeWidth: 2,
+                                      strokeColor:
+                                          Theme.of(context).colorScheme.surface,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                               touchTooltipData: LineTouchTooltipData(
+                                fitInsideHorizontally: true,
+                                fitInsideVertically: true,
+                                showOnTopOfTheChartBoxArea: true,
+                                tooltipRoundedRadius: 10,
+                                tooltipMargin: 28,
+                                tooltipPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                                 getTooltipItems: (touchedSpots) {
                                   return touchedSpots
                                       .map((LineBarSpot touchedSpot) {
@@ -1945,8 +1736,12 @@ class _ReportScreenState extends State<ReportScreen>
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     );
+                                    final idx = touchedSpot.x
+                                        .round()
+                                        .clamp(0, labels.length - 1);
+                                    final label = labels[idx];
                                     return LineTooltipItem(
-                                      '${touchedSpot.y.toStringAsFixed(2)} kW',
+                                      '$label\n${touchedSpot.y.toStringAsFixed(2)} kW',
                                       textStyle,
                                     );
                                   }).toList();
@@ -2330,12 +2125,6 @@ class _BatteryGaugeState extends State<_BatteryGauge>
     super.dispose();
   }
 
-  Color _getColor(double pct) {
-    if (pct >= 0.80) return const Color(0xFF4CAF50); // Green
-    if (pct >= 0.40) return const Color(0xFFE6A600); // Yellow/Orange
-    return const Color(0xFFE53935); // Red
-  }
-
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -2410,12 +2199,13 @@ class _BatteryPainter extends CustomPainter {
           fillRect, Radius.circular(size.height * 0.15));
 
       Color baseColor;
-      if (progress >= 0.80)
+      if (progress >= 0.80) {
         baseColor = const Color(0xFF4CAF50);
-      else if (progress >= 0.40)
+      } else if (progress >= 0.40) {
         baseColor = const Color(0xFFE6A600);
-      else
+      } else {
         baseColor = const Color(0xFFE53935);
+      }
 
       final fillPaint = Paint()
         ..style = PaintingStyle.fill

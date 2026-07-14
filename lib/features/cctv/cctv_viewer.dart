@@ -3,8 +3,6 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import '../../core/theme/app_theme.dart';
-
 class CctvFullScreenViewer extends StatefulWidget {
   final int channelId;
   final String streamUrl;

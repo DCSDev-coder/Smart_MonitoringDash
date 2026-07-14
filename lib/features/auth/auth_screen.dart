@@ -33,7 +33,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _userFieldKey = GlobalKey<AnimatedAuthFieldState>();
   final _passFieldKey = GlobalKey<AnimatedAuthFieldState>();
   bool _loading = false;
-  bool _obscure = true;
   bool _rememberMe = false;
   bool _autoLoginTried = false;
   bool _suppressLogoHero = false;
@@ -49,12 +48,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final sec = diff.inSeconds % 60;
     return 'TRY AGAIN IN $min:${sec.toString().padLeft(2, '0')}';
   }
-
-  TextStyle get _authFieldLabelStyle => GoogleFonts.manrope(
-        color: Colors.white70,
-        fontSize: 16,
-        letterSpacing: 0.4,
-      );
 
   bool get _isRackConsoleBuild => AppConfig.isRackConsoleBuild;
 
@@ -185,24 +178,6 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Widget _buildAuthFieldBlock({
-    required Duration delay,
-    required String label,
-    required Widget child,
-  }) {
-    return FadeInSlide(
-      delay: delay,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: _authFieldLabelStyle),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-
   Future<void> _signIn(
       {String? username, String? password, bool isAuto = false}) async {
     final u = (username ?? _userCtrl.text).trim();
@@ -304,33 +279,6 @@ class _AuthScreenState extends State<AuthScreen> {
         await rememberMeStore.clear();
       }
     }
-  }
-
-  void _showErrorDialog(String message) {
-    final safeMsg = AppToast.sanitizeErrorMessage(message);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E242B),
-        title: const Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.redAccent),
-            SizedBox(width: 8),
-            Text('Sign In Failed', style: TextStyle(color: Colors.white)),
-          ],
-        ),
-        content: Text(
-          safeMsg,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF00BD10))),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _openRequestAccess() async {
@@ -733,87 +681,6 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _buildGlassTextField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    String hint = '',
-    bool isPassword = false,
-    TextInputAction action = TextInputAction.done,
-    Function(String)? onSubmitted,
-  }) {
-    return SizedBox(
-      height: 58,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF5B6474).withValues(alpha: 0.28),
-              const Color(0xFF303747).withValues(alpha: 0.22),
-            ],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.16),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 18,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          obscureText: isPassword ? _obscure : false,
-          textInputAction: action,
-          onSubmitted: onSubmitted,
-          onTapOutside: (_) => focusNode.unfocus(),
-          enableInteractiveSelection: true,
-          autocorrect: !isPassword,
-          enableSuggestions: !isPassword,
-          cursorColor: Colors.white,
-          textAlignVertical: TextAlignVertical.center,
-          style: GoogleFonts.manrope(
-            color: Colors.white,
-            fontSize: 16,
-            letterSpacing: 0.2,
-          ),
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: Colors.transparent,
-            hintText: hint.isEmpty ? null : hint,
-            hintStyle: GoogleFonts.manrope(
-              color: Colors.white38,
-              fontSize: 14,
-              letterSpacing: 0.2,
-            ),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _obscure ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.white70,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  )
-                : null,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 18,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CustomRippleButton extends StatefulWidget {

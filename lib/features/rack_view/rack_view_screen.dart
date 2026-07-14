@@ -12,6 +12,7 @@ import '../../core/config/site_runtime_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/widgets/header_refresh_bar.dart';
+import '../../shared/utils/pull_to_refresh_gate.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/skeleton.dart';
@@ -38,6 +39,7 @@ class _RackViewScreenState extends State<RackViewScreen>
   RefreshIndicatorStatus? _refreshStatus;
   Timer? _refreshTimer;
   Duration _interval = SmartPollingSettings.instance.normalInterval();
+  final PullToRefreshGate _refreshGate = PullToRefreshGate();
 
   // PDU rated capacity for load calculation
   static const double _outletMaxWatts = 3600.0;
@@ -135,10 +137,12 @@ class _RackViewScreenState extends State<RackViewScreen>
 
   Future<void> _onRefresh() async {
     if (_refreshing) return;
+    _refreshGate.beginRefresh();
     setState(() => _refreshing = true);
     try {
       await _fetchRackData();
     } finally {
+      _refreshGate.endRefresh();
       if (mounted) setState(() => _refreshing = false);
     }
   }
@@ -150,8 +154,10 @@ class _RackViewScreenState extends State<RackViewScreen>
 
   bool get _showRefreshBar =>
       _refreshing ||
-      (_refreshStatus != null &&
-          _refreshStatus != RefreshIndicatorStatus.canceled);
+      _refreshStatus == RefreshIndicatorStatus.drag ||
+      _refreshStatus == RefreshIndicatorStatus.armed ||
+      _refreshStatus == RefreshIndicatorStatus.snap ||
+      _refreshStatus == RefreshIndicatorStatus.refresh;
 
   Future<void> _fetchRackData() async {
     try {
@@ -576,37 +582,42 @@ class _RackViewScreenState extends State<RackViewScreen>
         body: Stack(
           children: [
             Positioned.fill(
-              child: RefreshIndicator.noSpinner(
-                onRefresh: _onRefresh,
-                onStatusChange: _onRefreshStatusChanged,
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: ClampingScrollPhysics(),
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    hPadding,
-                    AppConstants.headerClearance(context),
-                    hPadding,
-                    AppSpacing.pageBottom(context),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      showSkeleton
-                          ? _buildInletCardSkeleton(uiScale)
-                          : _buildInletCard(uiScale),
-                      const SizedBox(height: 16),
-                      showSkeleton
-                          ? _buildOutletCardSkeleton(
-                              columns: effectivePduColumns,
-                              uiScale: uiScale,
-                              sideBySide: sideBySide)
-                          : _buildOutletCard(
-                              columns: effectivePduColumns,
-                              uiScale: uiScale,
-                              sideBySide: sideBySide),
-                    ],
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _refreshGate.handleNotification,
+                child: RefreshIndicator.noSpinner(
+                  triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                  notificationPredicate: _refreshGate.shouldProcess,
+                  onRefresh: _onRefresh,
+                  onStatusChange: _onRefreshStatusChanged,
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(
+                      hPadding,
+                      AppConstants.headerClearance(context),
+                      hPadding,
+                      AppSpacing.pageBottom(context),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        showSkeleton
+                            ? _buildInletCardSkeleton(uiScale)
+                            : _buildInletCard(uiScale),
+                        const SizedBox(height: 16),
+                        showSkeleton
+                            ? _buildOutletCardSkeleton(
+                                columns: effectivePduColumns,
+                                uiScale: uiScale,
+                                sideBySide: sideBySide)
+                            : _buildOutletCard(
+                                columns: effectivePduColumns,
+                                uiScale: uiScale,
+                                sideBySide: sideBySide),
+                      ],
+                    ),
                   ),
                 ),
               ),

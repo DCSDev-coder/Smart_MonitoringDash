@@ -9,6 +9,7 @@ import '../network/adapter_api_service.dart';
 import '../navigation/app_navigator.dart';
 import '../config/app_config.dart';
 import '../utils/app_log.dart';
+import '../../firebase_options.dart';
 
 const AndroidNotificationChannel _smartRackAlertsChannel =
     AndroidNotificationChannel(
@@ -22,6 +23,12 @@ final FlutterLocalNotificationsPlugin _backgroundLocalNotifications =
     FlutterLocalNotificationsPlugin();
 
 bool _backgroundLocalNotificationsInitialized = false;
+
+bool _isLocalWebDevHost() {
+  if (!kIsWeb) return false;
+  final host = Uri.base.host.trim().toLowerCase();
+  return host.isEmpty || host == 'localhost' || host == '127.0.0.1';
+}
 
 Future<void> _ensureBackgroundLocalNotificationsInitialized() async {
   if (_backgroundLocalNotificationsInitialized) return;
@@ -161,6 +168,12 @@ class PushNotificationService {
         _initialized = true;
         return;
       }
+      if (_isLocalWebDevHost()) {
+        AppLog.d('Push init skipped on local web dev host',
+            tag: 'Push', fields: {'host': Uri.base.host});
+        _initialized = true;
+        return;
+      }
 
       AppLog.d('Init start', tag: 'Push');
 
@@ -168,18 +181,12 @@ class PushNotificationService {
       // permissions).
       if (kIsWeb) {
         await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: "AIzaSyAnoPlaPA9kUOX5YIChT5M0_odKJQoD2us",
-            authDomain: "smartrack-f737a.firebaseapp.com",
-            projectId: "smartrack-f737a",
-            storageBucket: "smartrack-f737a.firebasestorage.app",
-            messagingSenderId: "1042621674847",
-            appId: "1:1042621674847:web:94c69b851c89a26f25f2ea",
-            measurementId: "G-XS3Z60L630",
-          ),
+          options: DefaultFirebaseOptions.currentPlatform,
         );
       } else {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
       }
       AppLog.d('Firebase initialized', tag: 'Push');
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -298,6 +305,30 @@ class PushNotificationService {
   }
 
   Future<void> _logCurrentToken() async {
+    if (_isLocalWebDevHost()) {
+      AppLog.d('FCM token sync skipped on local web dev host',
+          tag: 'Push',
+          fields: {
+            'host': Uri.base.host,
+          });
+      return;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      try {
+        final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        AppLog.d(
+          'APNs token state',
+          tag: 'Push',
+          fields: {
+            'hasApnsToken': apnsToken != null && apnsToken.isNotEmpty,
+          },
+        );
+      } catch (e) {
+        AppLog.w('APNs token check failed', tag: 'Push', error: e);
+      }
+    }
+
     final token = await FirebaseMessaging.instance.getToken(
       vapidKey: kIsWeb
           ? 'BGTU7jNSIgdc7NbBwemHlRvs6D-3HnytuCaoNYkjO917LboOG0yuQ3VL5G6x_AGhRoA6UcUuhsomLpo2-upTpXA'
@@ -311,8 +342,54 @@ class PushNotificationService {
     await syncTokenWithBackendIfPossible(token: token);
   }
 
+  Future<String?> _resolveDeviceToken({
+    String? token,
+    Duration timeout = const Duration(seconds: 8),
+    Duration retryInterval = const Duration(milliseconds: 500),
+  }) async {
+    if (token != null && token.isNotEmpty) return token;
+    if (kIsWeb) {
+      return FirebaseMessaging.instance.getToken(
+        vapidKey:
+            'BGTU7jNSIgdc7NbBwemHlRvs6D-3HnytuCaoNYkjO917LboOG0yuQ3VL5G6x_AGhRoA6UcUuhsomLpo2-upTpXA',
+      );
+    }
+
+    final deadline = DateTime.now().add(timeout);
+    String? resolved;
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        if (defaultTargetPlatform == TargetPlatform.iOS) {
+          final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+          AppLog.d(
+            'Resolve token attempt',
+            tag: 'Push',
+            fields: {
+              'platform': 'ios',
+              'hasApnsToken': apnsToken != null && apnsToken.isNotEmpty,
+            },
+          );
+        }
+        resolved = await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+        AppLog.w('Device token resolve attempt failed', tag: 'Push', error: e);
+      }
+      if (resolved != null && resolved.isNotEmpty) return resolved;
+      await Future.delayed(retryInterval);
+    }
+    return null;
+  }
+
   Future<bool> syncTokenWithBackendIfPossible({String? token}) async {
     if (AppConfig.isRackConsoleBuild) {
+      return true;
+    }
+    if (_isLocalWebDevHost()) {
+      AppLog.d('Token sync skipped on local web dev host',
+          tag: 'Push',
+          fields: {
+            'host': Uri.base.host,
+          });
       return true;
     }
     try {
@@ -331,12 +408,7 @@ class PushNotificationService {
         return false;
       }
 
-      final resolvedToken = token ??
-          await FirebaseMessaging.instance.getToken(
-            vapidKey: kIsWeb
-                ? 'BGTU7jNSIgdc7NbBwemHlRvs6D-3HnytuCaoNYkjO917LboOG0yuQ3VL5G6x_AGhRoA6UcUuhsomLpo2-upTpXA'
-                : null,
-          );
+      final resolvedToken = await _resolveDeviceToken(token: token);
       if (resolvedToken == null || resolvedToken.isEmpty) {
         AppLog.d('Token sync skipped: device token missing', tag: 'Push');
         return false;
@@ -383,8 +455,25 @@ class PushNotificationService {
     if (AppConfig.isRackConsoleBuild) {
       return true;
     }
+    if (_isLocalWebDevHost()) {
+      AppLog.d('Token registration skipped on local web dev host',
+          tag: 'Push',
+          fields: {
+            'host': Uri.base.host,
+          });
+      return true;
+    }
 
-    await init();
+    try {
+      await init();
+    } catch (e) {
+      AppLog.w(
+        'Token registration skipped: push init failed',
+        tag: 'Push',
+        error: e,
+      );
+      return false;
+    }
 
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
@@ -462,6 +551,14 @@ class PushNotificationService {
 
   Future<void> deactivateCurrentTokenIfPossible() async {
     if (AppConfig.isRackConsoleBuild) {
+      return;
+    }
+    if (_isLocalWebDevHost()) {
+      AppLog.d('Token removal skipped on local web dev host',
+          tag: 'Push',
+          fields: {
+            'host': Uri.base.host,
+          });
       return;
     }
     try {

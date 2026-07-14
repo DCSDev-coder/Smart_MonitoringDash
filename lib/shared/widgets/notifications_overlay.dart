@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/navigation/app_navigator.dart';
-import '../../features/dashboard/widgets/dashboard_typography.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/network/adapter_api_service.dart';
+import '../../core/security/secure_action_session.dart';
 import 'set_pin_dialog.dart';
 import '../utils/app_toast.dart';
 import '../../features/smart_rack_console/theme/console_theme.dart';
@@ -135,33 +134,49 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     final s = level.trim().toLowerCase();
     if (s.isEmpty) return const Color.fromARGB(255, 28, 78, 159);
     if (s.contains('info')) return const Color.fromARGB(255, 34, 94, 190);
-    if (s.contains('good') || s.contains('normal') || s.contains('ok'))
+    if (s.contains('good') || s.contains('normal') || s.contains('ok')) {
       return const Color.fromARGB(255, 0, 153, 36);
-    if (s.contains('moderate') || s.contains('warning') || s.contains('minor'))
+    }
+    if (s.contains('moderate') || s.contains('warning') || s.contains('minor')) {
       return const Color.fromARGB(255, 146, 122, 42);
-    if (s.contains('critical') || s.contains('major'))
+    }
+    if (s.contains('critical') || s.contains('major')) {
       return const Color.fromARGB(255, 145, 79, 25);
-    if (s.contains('red') || s.contains('emergency') || s.contains('severe'))
+    }
+    if (s.contains('red') || s.contains('emergency') || s.contains('severe')) {
       return const Color.fromARGB(255, 155, 33, 26);
+    }
     return const Color(0xFF2D7DFF);
   }
 
   static IconData _alarmIcon(String itemOrTitle) {
     final t = itemOrTitle.toUpperCase();
-    if (t.contains('TEMP')) return Icons.thermostat_rounded;
-    if (t.contains('HUM')) return Icons.water_drop_rounded;
-    if (t.contains('SMOKE') || t.contains('FIRE'))
+    if (t.contains('TEMP')) {
+      return Icons.thermostat_rounded;
+    }
+    if (t.contains('HUM')) {
+      return Icons.water_drop_rounded;
+    }
+    if (t.contains('SMOKE') || t.contains('FIRE')) {
       return Icons.local_fire_department_rounded;
-    if (t.contains('FLOOD') || t.contains('LEAK') || t.contains('WATER'))
+    }
+    if (t.contains('FLOOD') || t.contains('LEAK') || t.contains('WATER')) {
       return Icons.water_damage_rounded;
-    if (t.contains('UPS') || t.contains('BAT'))
+    }
+    if (t.contains('UPS') || t.contains('BAT')) {
       return Icons.battery_alert_rounded;
-    if (t.contains('PDU') || t.contains('POWER')) return Icons.bolt_rounded;
-    if (t.contains('SECURITY') || t.contains('DOOR') || t.contains('ACCESS'))
+    }
+    if (t.contains('PDU') || t.contains('POWER')) {
+      return Icons.bolt_rounded;
+    }
+    if (t.contains('SECURITY') || t.contains('DOOR') || t.contains('ACCESS')) {
       return Icons.security_rounded;
+    }
 
     // Use regex to match "AC" as a standalone word, so words like "ACTION" don't trigger it
-    if (RegExp(r'\bAC\b').hasMatch(t)) return Icons.ac_unit_rounded;
+    if (RegExp(r'\bAC\b').hasMatch(t)) {
+      return Icons.ac_unit_rounded;
+    }
 
     return Icons.notifications_rounded;
   }
@@ -176,8 +191,9 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
     if (candidate.isEmpty) return 'ALARM';
 
     final upper = candidate.toUpperCase();
-    if (upper.contains('TEMP') && upper.contains('HUM'))
+    if (upper.contains('TEMP') && upper.contains('HUM')) {
       return 'TEMP/HUM ISSUE';
+    }
     if (upper.contains('TEMP')) return 'TEMP ISSUE';
     if (upper.contains('HUM')) return 'HUMIDITY ISSUE';
     if (upper.contains('SMOKE')) return 'SMOKE ALERT';
@@ -376,19 +392,20 @@ class _NotificationsPanelState extends State<_NotificationsPanel> {
             builder: (_) => const SetPinDialog(showSkipOptions: false),
           );
           if (result != null && result != 'skipped' && result.length >= 4) {
-            final pinRes = await AdapterApiService.instance.setPinDetailed(result);
+            final pinRes =
+                await AdapterApiService.instance.setPinDetailed(result);
             final success = pinRes != null && pinRes['status'] == 'success';
-            if (context.mounted) {
-              AppToast.show(
-                context,
-                success
-                    ? 'PIN setup successfully.'
-                    : (pinRes?['message']?.toString() ?? 'Failed to set PIN.'),
-              );
-              if (success) {
-                CpanelApiService.instance.currentUser ??= {};
-                CpanelApiService.instance.currentUser!['has_pin'] = 1;
-              }
+            if (!mounted) return;
+            AppToast.show(
+              context,
+              success
+                  ? 'PIN setup successfully.'
+                  : (pinRes?['message']?.toString() ?? 'Failed to set PIN.'),
+            );
+            if (success) {
+              SecureActionSession.instance.clear();
+              CpanelApiService.instance.currentUser ??= {};
+              CpanelApiService.instance.currentUser!['has_pin'] = 1;
             }
           }
           return;

@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/config/site_runtime_config.dart';
+import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
 import '../dashboard/widgets/door_control_section.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
-
-const double _doorPanelBodyHeight = 220.0;
 
 class DoorConsoleScreen extends StatefulWidget {
   const DoorConsoleScreen({
@@ -104,6 +104,8 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     });
 
     try {
+      final siteId =
+          SiteRuntimeConfig.siteId(CpanelApiService.instance.currentSite);
       final authorized = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
@@ -112,6 +114,7 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
           doorId: id,
           doorName: name,
           isRackConsoleStyle: true,
+          siteId: siteId,
         ),
       );
 
@@ -523,93 +526,6 @@ class _DoorAccessPanel extends StatelessWidget {
   }
 }
 
-class _RackVisualPanel extends StatelessWidget {
-  const _RackVisualPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return ConsoleSectionCard(
-      title: 'Smart Rack',
-      minHeight: 260,
-      expand: true,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(ConsoleTheme.innerRadius),
-          gradient: LinearGradient(
-            colors: [
-              Colors.white.withValues(alpha: 0.02),
-              ConsoleTheme.cyan(context).withValues(alpha: 0.06),
-              Colors.white.withValues(alpha: 0.02),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          border: Border.all(
-            color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.8),
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 18,
-              child: Container(
-                height: 24,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: ConsoleTheme.cyan(context).withValues(alpha: 0.28),
-                      blurRadius: 26,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(ConsoleTheme.xl),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Image.asset(
-                      'assets/images/smart_rack_containment_logo.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: ConsoleTheme.md),
-                  Text(
-                    'INVT Rack Demo Layout',
-                    style: TextStyle(
-                      color: ConsoleTheme.textPrimary(context),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Front and back door control are presented around the rack view for event display.',
-                    style: TextStyle(
-                      color: ConsoleTheme.textSecondary(context),
-                      fontSize: 12,
-                      height: 1.45,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _DoorGlyph extends StatefulWidget {
   const _DoorGlyph({required this.isUnlocked, required this.accent});
 
@@ -683,52 +599,6 @@ class _DoorGlyphState extends State<_DoorGlyph>
           ),
         );
       },
-    );
-  }
-}
-
-class _DoorStatusPill extends StatelessWidget {
-  const _DoorStatusPill({
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: ConsoleTheme.textSecondary(context),
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

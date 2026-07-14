@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/auth/session_flow_service.dart';
 import '../../core/network/cpanel_api_service.dart';
+import '../../core/security/secure_action_session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass_confirm_dialog.dart';
 import '../../shared/widgets/reset_password_dialog.dart';
@@ -271,6 +272,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final success = res != null && res['status'] == 'success';
       if (context.mounted) {
         if (success) {
+          SecureActionSession.instance.clear();
           AppToast.showSuccess(context, 'Door Access PIN updated securely');
         } else {
           AppToast.showError(

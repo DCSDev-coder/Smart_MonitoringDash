@@ -154,6 +154,12 @@ class ApiService {
     await prefs.setString(_keyBaseUrl, ip);
   }
 
+  Future<void> clearLoginLockout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyLockoutUntil);
+    await prefs.remove(_keyFailedAttempts);
+  }
+
   static Object _coerceXSignValue(String value) {
     final v = value.trim().toLowerCase();
     if (v == 'true') return true;
@@ -177,7 +183,13 @@ class ApiService {
     return digest.toString().toUpperCase();
   }
 
-  Future<void> logout() async => _storage.clear();
+  Future<void> logout() async {
+    _storage.clear();
+    // This lockout belongs to the direct rack-login path, not the portal
+    // sign-in screen. Clear it on explicit sign-out so the auth UI does not
+    // show a stale countdown from a previous background rack session.
+    await clearLoginLockout();
+  }
 
   Future<String?> get _token async => _storage[AppConstants.keyAccessToken];
   Future<String?> getUsername() async => _storage[AppConstants.keyUsername];

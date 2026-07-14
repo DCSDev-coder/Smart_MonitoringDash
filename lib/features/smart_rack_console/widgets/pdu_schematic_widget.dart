@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/console_theme.dart';
 import '../../../core/theme/app_theme.dart';
 
 class PduSchematicWidget extends StatelessWidget {
@@ -17,14 +16,12 @@ class PduSchematicWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
     final isLight = Theme.of(context).brightness == Brightness.light;
     
     // Real values from PDU.har
-    final bool online = true;
     final double pKw = pduName == 'PDU 1' ? 0.47 : 0.68;
     final double pA = pduName == 'PDU 1' ? 2.2 : 3.1;
-    final int totalOutlets = 16;
+    const int totalOutlets = 16;
     
     // Active outlets for mock
     final List<int> activeOutlets = pduName == 'PDU 1' ? [11, 12, 13, 15] : [9, 10, 11, 12, 13, 14];
@@ -117,17 +114,29 @@ class PduSchematicWidget extends StatelessWidget {
                       double watts = 0.0;
                       if (isOn) {
                         if (pduName == 'PDU 1') {
-                          if (n == 11) watts = 209.0;
-                          else if (n == 12) watts = 76.0;
-                          else if (n == 13) watts = 99.0;
-                          else if (n == 15) watts = 66.0;
+                          if (n == 11) {
+                            watts = 209.0;
+                          } else if (n == 12) {
+                            watts = 76.0;
+                          } else if (n == 13) {
+                            watts = 99.0;
+                          } else if (n == 15) {
+                            watts = 66.0;
+                          }
                         } else {
-                          if (n == 9) watts = 109.0;
-                          else if (n == 10) watts = 114.0;
-                          else if (n == 11) watts = 149.0;
-                          else if (n == 12) watts = 115.0;
-                          else if (n == 13) watts = 71.0;
-                          else if (n == 14) watts = 81.0;
+                          if (n == 9) {
+                            watts = 109.0;
+                          } else if (n == 10) {
+                            watts = 114.0;
+                          } else if (n == 11) {
+                            watts = 149.0;
+                          } else if (n == 12) {
+                            watts = 115.0;
+                          } else if (n == 13) {
+                            watts = 71.0;
+                          } else if (n == 14) {
+                            watts = 81.0;
+                          }
                         }
                       }
                       return _buildOutletTile(context, n, isOn, watts);
@@ -188,7 +197,7 @@ class PduSchematicWidget extends StatelessWidget {
         ? Colors.black.withValues(alpha: 0.10)
         : Colors.white.withValues(alpha: 0.12);
 
-    final double maxWatts = 3000.0;
+    const double maxWatts = 3000.0;
     final pct = (watts / maxWatts).clamp(0.0, 1.0);
 
     return Container(

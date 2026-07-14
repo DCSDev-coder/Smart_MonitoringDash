@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/utils/alarm_payload.dart';
 import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../smart_rack_console/theme/console_theme.dart';
 import 'device_history_sheet.dart';
 
 class DeviceHealthSection extends StatelessWidget {

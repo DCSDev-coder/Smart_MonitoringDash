@@ -153,7 +153,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                   Expanded(
                     child: _MiniGaugeCard.placeholder(
                       title: 'HUMIDITY',
-                      accent: Color(0xFF00A3FF),
+                      accent: const Color(0xFF00A3FF),
                       minimalist: widget.minimalist,
                     ),
                   ),
@@ -241,17 +241,21 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                   } else if (msg.contains(cabLower)) {
                     // Or if it matches the cabinet, verify front/back constraints
                     bool frontBackMatch = true;
-                    if (wantFront && !msg.contains('front'))
+                    if (wantFront && !msg.contains('front')) {
                       frontBackMatch = false;
+                    }
                     if (wantBack &&
                         !(msg.contains('back') || msg.contains('rear'))) {
                       frontBackMatch = false;
                     }
-                    if (frontBackMatch) matchesSource = true;
+                    if (frontBackMatch) {
+                      matchesSource = true;
+                    }
                   }
 
-                  if (!matchesSource)
+                  if (!matchesSource) {
                     continue; // Alarm is for a different rack/sensor
+                  }
 
                   // Now check if the alarm is specifically about Temp or Hum
                   bool hasHumKeyword = msg.contains('hum') ||
@@ -1288,7 +1292,7 @@ class _GaugeStyleSwitch extends StatelessWidget {
     final isMeter = value == EnvironmentGaugeStyle.meter;
     final isLight = Theme.of(context).brightness == Brightness.light;
 
-    final activeColor = AppTheme.accentGreen;
+    const activeColor = AppTheme.accentGreen;
     final inactiveBorder = isLight ? AppTheme.lightTextPrimary : Colors.white;
     final inactiveKnob = (isLight ? AppTheme.lightTextPrimary : Colors.white)
         .withValues(alpha: 0.85);

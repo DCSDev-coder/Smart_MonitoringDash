@@ -39,6 +39,20 @@ Run on a connected iPhone:
 flutter run -d ios --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
+If you want to run on a physical iPhone from the terminal:
+
+1. Connect the iPhone by USB and unlock it.
+2. Tap `Trust This Computer` on the iPhone if prompted.
+3. Make sure Developer Mode is enabled on the phone.
+4. From `Smart_MonitoringDash`, run:
+
+```bash
+flutter devices
+flutter run -d <iphone-device-id> --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+```
+
+If the iPhone does not show up, run `flutter doctor -v` and confirm Xcode/iOS signing is ready.
+
 Run on a connected Android device:
 
 ```bash

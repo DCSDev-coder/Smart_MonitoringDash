@@ -23,6 +23,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/utils/app_toast.dart';
 import '../../shared/widgets/header_refresh_bar.dart';
+import '../../shared/utils/pull_to_refresh_gate.dart';
 
 /// Dashboard V2 (dark-only) matching `DashboardV2_Page.png`.
 ///
@@ -58,6 +59,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   bool _loading = true;
   bool _refreshing = false;
   RefreshIndicatorStatus? _refreshStatus;
+  final PullToRefreshGate _refreshGate = PullToRefreshGate();
 
   // Environment gauge source
   List<Map<String, dynamic>> _temperatures = [];
@@ -76,9 +78,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   double _pue = 0.0;
   String _pueStatus = 'down'; // ok | unavailable | error | down
   Map<String, double> _powerMonth = {};
-  double? _lastGoodPue;
-  DateTime? _lastGoodPueAt;
-  int _consecutiveBadPueSamples = 0;
 
   // Site Environment
   int _smokeStatus = -1;
@@ -188,11 +187,13 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   Future<void> _onRefresh() async {
     if (_refreshing) return;
+    _refreshGate.beginRefresh();
     setState(() => _refreshing = true);
     try {
       // Force a full refresh of all key dashboard endpoints.
       await _fetchAll(isInitial: true);
     } finally {
+      _refreshGate.endRefresh();
       if (mounted) setState(() => _refreshing = false);
     }
   }
@@ -204,8 +205,10 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   bool get _showRefreshBar =>
       _refreshing ||
-      (_refreshStatus != null &&
-          _refreshStatus != RefreshIndicatorStatus.canceled);
+      _refreshStatus == RefreshIndicatorStatus.drag ||
+      _refreshStatus == RefreshIndicatorStatus.armed ||
+      _refreshStatus == RefreshIndicatorStatus.snap ||
+      _refreshStatus == RefreshIndicatorStatus.refresh;
 
   Duration _desiredTickInterval() {
     if (_poller.emergencyMode) return const Duration(seconds: 5);
@@ -395,8 +398,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
           final derived = totalE / itE;
           if (derived.isFinite && derived > 0) {
             _pue = derived;
-            _lastGoodPue = derived;
-            _lastGoodPueAt = now;
             derivedPueThisCycle = true;
           }
         }
@@ -424,16 +425,11 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
         if (parsed != null && parsed > 0) {
           _pue = parsed;
-          _lastGoodPue = parsed;
-          _lastGoodPueAt = now;
-          _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
           if (derivedPueThisCycle) {
-            _consecutiveBadPueSamples = 0;
             _pueStatus = 'ok';
           } else {
-            _consecutiveBadPueSamples += 1;
             _pue = 0.0;
             _pueStatus = status == 'ok' ? 'down' : status;
           }
@@ -478,25 +474,18 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
         _pue = parsed > 0 ? parsed : 0.0;
         if (_pue > 0) {
-          _lastGoodPue = _pue;
-          _lastGoodPueAt = now;
-          _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
           if (derivedPueThisCycle) {
-            _consecutiveBadPueSamples = 0;
             _pueStatus = 'ok';
           } else {
-            _consecutiveBadPueSamples += 1;
             _pueStatus = 'down';
           }
         }
       } else {
         if (derivedPueThisCycle) {
-          _consecutiveBadPueSamples = 0;
           _pueStatus = 'ok';
         } else {
-          _consecutiveBadPueSamples += 1;
           _pue = 0.0;
           _pueStatus = 'down';
         }
@@ -629,166 +618,177 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
             children: [
               // Content
               Positioned.fill(
-                child: RefreshIndicator.noSpinner(
-                  onRefresh: _onRefresh,
-                  onStatusChange: _onRefreshStatusChanged,
-                  child: ListView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: ClampingScrollPhysics(),
-                    ),
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpacing.pageHorizontal(context),
-                      AppConstants.headerClearance(context),
-                      AppSpacing.pageHorizontal(context),
-                      AppSpacing.pageBottom(context),
-                    ),
-                    children: [
-                      Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          // Prevent ultra-wide stretching on big screens.
-                          constraints: BoxConstraints(
-                            maxWidth: wideLayout ? 1400 : double.infinity,
-                          ),
-                          child: Column(
-                            children: [
-                              if (wideLayout)
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // LEFT COLUMN
-                                    Expanded(
-                                      flex: 1,
-                                      child: Column(
-                                        children: [
-                                          SizedBox(
-                                            height: wideTopHeight,
-                                            child: PueHeroCard(
-                                              pue: _pue,
-                                              pueStatus: _pueStatus,
-                                              totalEnergyKwh: _powerMonth[
-                                                      'Total'] ??
-                                                  _powerMonth['TOTAL'] ??
-                                                  _powerMonth['total_power'] ??
-                                                  _powerMonth['totalPower'],
-                                              itEnergyKwh: _powerMonth[
-                                                      'IT Device'] ??
-                                                  _powerMonth['IT DEVICE'] ??
-                                                  _powerMonth['IT'] ??
-                                                  _powerMonth['it_power'] ??
-                                                  _powerMonth['itPower'] ??
-                                                  _powerMonth['IT_DEVICE'],
-                                              loading: _loading || _refreshing,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _refreshGate.handleNotification,
+                  child: RefreshIndicator.noSpinner(
+                    triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                    notificationPredicate: _refreshGate.shouldProcess,
+                    onRefresh: _onRefresh,
+                    onStatusChange: _onRefreshStatusChanged,
+                    child: ListView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: ClampingScrollPhysics(),
+                      ),
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.pageHorizontal(context),
+                        AppConstants.headerClearance(context),
+                        AppSpacing.pageHorizontal(context),
+                        AppSpacing.pageBottom(context),
+                      ),
+                      children: [
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            // Prevent ultra-wide stretching on big screens.
+                            constraints: BoxConstraints(
+                              maxWidth: wideLayout ? 1400 : double.infinity,
+                            ),
+                            child: Column(
+                              children: [
+                                if (wideLayout)
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // LEFT COLUMN
+                                      Expanded(
+                                        flex: 1,
+                                        child: Column(
+                                          children: [
+                                            SizedBox(
+                                              height: wideTopHeight,
+                                              child: PueHeroCard(
+                                                pue: _pue,
+                                                pueStatus: _pueStatus,
+                                                totalEnergyKwh: _powerMonth[
+                                                        'Total'] ??
+                                                    _powerMonth['TOTAL'] ??
+                                                    _powerMonth[
+                                                        'total_power'] ??
+                                                    _powerMonth['totalPower'],
+                                                itEnergyKwh: _powerMonth[
+                                                        'IT Device'] ??
+                                                    _powerMonth['IT DEVICE'] ??
+                                                    _powerMonth['IT'] ??
+                                                    _powerMonth['it_power'] ??
+                                                    _powerMonth['itPower'] ??
+                                                    _powerMonth['IT_DEVICE'],
+                                                loading:
+                                                    _loading || _refreshing,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          DoorControlSection(
-                                            doors: _doors ?? const [],
-                                            loading: _doors == null && _loading,
-                                            canUnlock: _canControlDoors,
-                                            onUnlock: _handleDoorUnlock,
-                                          ),
-                                          const SizedBox(height: 16),
-                                          ServiceNoticeCard(
-                                            lastService: _lastMaintenance,
-                                            cycleDays: 90,
-                                            onTap: () {
-                                              GlobalEventBus
-                                                  .targetMaintenancePage
-                                                  .value = true;
-                                              widget.onNavigateToReport?.call();
-                                            },
-                                          ),
-                                        ],
+                                            const SizedBox(height: 16),
+                                            DoorControlSection(
+                                              doors: _doors ?? const [],
+                                              loading:
+                                                  _doors == null && _loading,
+                                              canUnlock: _canControlDoors,
+                                              onUnlock: _handleDoorUnlock,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            ServiceNoticeCard(
+                                              lastService: _lastMaintenance,
+                                              cycleDays: 90,
+                                              onTap: () {
+                                                GlobalEventBus
+                                                    .targetMaintenancePage
+                                                    .value = true;
+                                                widget.onNavigateToReport
+                                                    ?.call();
+                                              },
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    // RIGHT COLUMN
-                                    Expanded(
-                                      flex: 1,
-                                      child: Column(
-                                        children: [
-                                          SizedBox(
-                                            height: wideTopHeight,
-                                            child: EnvironmentRow(
+                                      const SizedBox(width: 16),
+                                      // RIGHT COLUMN
+                                      Expanded(
+                                        flex: 1,
+                                        child: Column(
+                                          children: [
+                                            SizedBox(
+                                              height: wideTopHeight,
+                                              child: EnvironmentRow(
+                                                temperatures: _temperatures,
+                                                humidities: _humidities,
+                                                alarms: _poller.recentAlarms,
+                                                gaugeHeight:
+                                                    envGaugeHeight ?? 260,
+                                                loading:
+                                                    _loading || _refreshing,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            DeviceHealthSection(
+                                              smokeStatus: _smokeStatus,
+                                              floodStatus: _floodStatus,
+                                              alarms: _poller.recentAlarms,
+                                              devices: _devices,
                                               temperatures: _temperatures,
                                               humidities: _humidities,
-                                              alarms: _poller.recentAlarms,
-                                              gaugeHeight:
-                                                  envGaugeHeight ?? 260,
-                                              loading: _loading || _refreshing,
                                             ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          DeviceHealthSection(
-                                            smokeStatus: _smokeStatus,
-                                            floodStatus: _floodStatus,
-                                            alarms: _poller.recentAlarms,
-                                            devices: _devices,
-                                            temperatures: _temperatures,
-                                            humidities: _humidities,
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                )
-                              else ...[
-                                PueHeroCard(
-                                  pue: _pue,
-                                  pueStatus: _pueStatus,
-                                  totalEnergyKwh: _powerMonth['Total'] ??
-                                      _powerMonth['TOTAL'] ??
-                                      _powerMonth['total_power'] ??
-                                      _powerMonth['totalPower'],
-                                  itEnergyKwh: _powerMonth['IT Device'] ??
-                                      _powerMonth['IT DEVICE'] ??
-                                      _powerMonth['IT'] ??
-                                      _powerMonth['it_power'] ??
-                                      _powerMonth['itPower'] ??
-                                      _powerMonth['IT_DEVICE'],
-                                  loading: _loading || _refreshing,
-                                ),
-                                const SizedBox(height: 20),
-                                EnvironmentRow(
-                                  temperatures: _temperatures,
-                                  humidities: _humidities,
-                                  alarms: _poller.recentAlarms,
-                                  loading: _loading || _refreshing,
-                                ),
-                                const SizedBox(height: 16),
-                                DoorControlSection(
-                                  doors: _doors ?? const [],
-                                  loading: _doors == null && _loading,
-                                  canUnlock: _canControlDoors,
-                                  onUnlock: _handleDoorUnlock,
-                                ),
-                                const SizedBox(height: 16),
-                                ServiceNoticeCard(
-                                  lastService: _lastMaintenance,
-                                  cycleDays: 90,
-                                  onTap: () {
-                                    GlobalEventBus.targetMaintenancePage.value =
-                                        true;
-                                    widget.onNavigateToReport?.call();
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                DeviceHealthSection(
-                                  smokeStatus: _smokeStatus,
-                                  floodStatus: _floodStatus,
-                                  alarms: _poller.recentAlarms,
-                                  devices: _devices,
-                                  temperatures: _temperatures,
-                                  humidities: _humidities,
-                                ),
+                                    ],
+                                  )
+                                else ...[
+                                  PueHeroCard(
+                                    pue: _pue,
+                                    pueStatus: _pueStatus,
+                                    totalEnergyKwh: _powerMonth['Total'] ??
+                                        _powerMonth['TOTAL'] ??
+                                        _powerMonth['total_power'] ??
+                                        _powerMonth['totalPower'],
+                                    itEnergyKwh: _powerMonth['IT Device'] ??
+                                        _powerMonth['IT DEVICE'] ??
+                                        _powerMonth['IT'] ??
+                                        _powerMonth['it_power'] ??
+                                        _powerMonth['itPower'] ??
+                                        _powerMonth['IT_DEVICE'],
+                                    loading: _loading || _refreshing,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  EnvironmentRow(
+                                    temperatures: _temperatures,
+                                    humidities: _humidities,
+                                    alarms: _poller.recentAlarms,
+                                    loading: _loading || _refreshing,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  DoorControlSection(
+                                    doors: _doors ?? const [],
+                                    loading: _doors == null && _loading,
+                                    canUnlock: _canControlDoors,
+                                    onUnlock: _handleDoorUnlock,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ServiceNoticeCard(
+                                    lastService: _lastMaintenance,
+                                    cycleDays: 90,
+                                    onTap: () {
+                                      GlobalEventBus
+                                          .targetMaintenancePage.value = true;
+                                      widget.onNavigateToReport?.call();
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  DeviceHealthSection(
+                                    smokeStatus: _smokeStatus,
+                                    floodStatus: _floodStatus,
+                                    alarms: _poller.recentAlarms,
+                                    devices: _devices,
+                                    temperatures: _temperatures,
+                                    humidities: _humidities,
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -810,12 +810,12 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       return false;
     }
 
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = SiteRuntimeConfig.siteId(site);
+
     final hasSession = SecureActionSession.instance.isValid;
     if (hasSession) {
       try {
-        final site = CpanelApiService.instance.currentSite;
-        final siteId = SiteRuntimeConfig.siteId(site);
-
         Map<String, dynamic>? res;
         if (AdapterApiService.instance.isConfigured && siteId != null) {
           await PushNotificationService.instance.ensureTokenRegistered();
@@ -847,11 +847,27 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       }
     }
 
+    AppLog.d(
+      'Dashboard unlock requested',
+      tag: 'DoorUnlock',
+      fields: {
+        'doorId': id,
+        'doorName': name,
+        'siteId': siteId,
+        'hasTrustedSession': SecureActionSession.instance.isValid,
+        'adapterConfigured': AdapterApiService.instance.isConfigured,
+      },
+    );
+
     final authorized = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => UnlockDoorSheet(doorId: id, doorName: name),
+      builder: (ctx) => UnlockDoorSheet(
+        doorId: id,
+        doorName: name,
+        siteId: siteId,
+      ),
     );
 
     if (authorized == true) {

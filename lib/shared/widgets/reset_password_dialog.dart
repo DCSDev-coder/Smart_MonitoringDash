@@ -285,7 +285,7 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
                     letterSpacing: obscure ? 6.0 : 1.0,
                   ),
                   cursorColor: color,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -294,7 +294,7 @@ class _ResetPasswordGlassDialogState extends State<ResetPasswordGlassDialog> {
                     focusedErrorBorder: InputBorder.none,
                     filled: false,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    contentPadding: EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),

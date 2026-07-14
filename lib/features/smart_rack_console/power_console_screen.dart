@@ -193,20 +193,6 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
     ];
   }
 
-  List<TableRow> _buildOutletStatusRows(BuildContext context) {
-    return [
-      _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      _buildParamRow(context, 'Switch 1QF1 Status', 'On'),
-      _buildParamRow(context, 'Switch 1QF2 Status', 'On'),
-      _buildParamRow(context, 'Switch 1QF3 Status', 'On'),
-      _buildParamRow(context, 'Switch 2QF1 Status', 'On'),
-      _buildParamRow(context, 'Switch 2QF2 Status', 'On'),
-      _buildParamRow(context, 'Switch 2QF3 Status', 'On'),
-      _buildParamRow(context, 'Switch PDU 1 Status', 'On'),
-      _buildParamRow(context, 'Switch PDU 2 Status', 'On'),
-    ];
-  }
-
   TableRow _buildTableHeaderRow(BuildContext context, List<String> titles) {
     return TableRow(
       decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),

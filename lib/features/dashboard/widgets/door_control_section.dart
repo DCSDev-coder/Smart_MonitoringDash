@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:local_auth/local_auth.dart';
+import '../../../core/config/site_runtime_config.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/network/adapter_api_service.dart';
 import '../../../core/network/cpanel_api_service.dart';
 import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/app_log.dart';
 import '../../../shared/widgets/animated_gradient_fill.dart';
 import '../../../shared/utils/app_toast.dart';
 import '../../smart_rack_console/theme/console_theme.dart';
@@ -486,12 +488,14 @@ class UnlockDoorSheet extends StatefulWidget {
   final int doorId;
   final String doorName;
   final bool isRackConsoleStyle;
+  final int? siteId;
 
   const UnlockDoorSheet({
     super.key,
     required this.doorId,
     required this.doorName,
     this.isRackConsoleStyle = false,
+    this.siteId,
   });
 
   @override
@@ -520,15 +524,32 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       _availableBiometrics.contains(BiometricType.fingerprint);
   bool get _shouldShowBiometricPrompt =>
       !_showCredentialFallback && _hasBiometrics;
-  String get _biometricLabel =>
-      _hasFaceId ? 'Use Face ID' : (_hasFingerprint ? 'Use Fingerprint' : 'Use Biometrics');
+  String get _biometricLabel => _hasFaceId
+      ? 'Use Face ID'
+      : (_hasFingerprint ? 'Use Fingerprint' : 'Use Biometrics');
   String get _biometricHint =>
       _hasFaceId ? 'Face ID' : (_hasFingerprint ? 'Fingerprint' : 'biometrics');
+  int? get _effectiveSiteId =>
+      widget.siteId ??
+      SiteRuntimeConfig.siteId(CpanelApiService.instance.currentSite);
 
   @override
   void initState() {
     super.initState();
     _initUsername();
+    AppLog.d(
+      'Unlock sheet opened',
+      tag: 'DoorUnlock',
+      fields: {
+        'doorId': widget.doorId,
+        'doorName': widget.doorName,
+        'siteId': _effectiveSiteId,
+        'isRackConsoleStyle': widget.isRackConsoleStyle,
+        'isRackConsoleMode': _isRackConsoleMode,
+        'adapterConfigured': AdapterApiService.instance.isConfigured,
+        'kIsWeb': kIsWeb,
+      },
+    );
     if (!kIsWeb && !widget.isRackConsoleStyle) {
       _checkAndAutoPrompt();
     }
@@ -597,13 +618,16 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
     if (lower.contains('wrong account')) {
       return 'This PIN does not belong to the signed-in account.';
     }
-    if (lower.contains('invalid pin') || lower.contains('invalid username or pin')) {
+    if (lower.contains('invalid pin') ||
+        lower.contains('invalid username or pin')) {
       return 'Incorrect PIN.';
     }
     if (lower.contains('not allowed to unlock doors')) {
       return 'This account is not allowed to unlock doors.';
     }
-    if (lower.contains('invalid bearer token') || lower.contains('expired token') || lower.contains('session expired')) {
+    if (lower.contains('invalid bearer token') ||
+        lower.contains('expired token') ||
+        lower.contains('session expired')) {
       return 'Your session has expired. Please sign in again or use password unlock.';
     }
     if (lower.contains('user not found for this site')) {
@@ -636,13 +660,22 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         return;
       }
 
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
+      final siteId = _effectiveSiteId;
       final usedAdapter =
           AdapterApiService.instance.isConfigured && siteId != null;
+
+      AppLog.d(
+        'Door unlock via device auth',
+        tag: 'DoorUnlock',
+        fields: {
+          'doorId': widget.doorId,
+          'doorName': widget.doorName,
+          'siteId': siteId,
+          'adapterConfigured': AdapterApiService.instance.isConfigured,
+          'usedAdapter': usedAdapter,
+          'mode': _isRackConsoleMode ? 'rack_console' : 'standard',
+        },
+      );
 
       Map<String, dynamic>? res;
       if (usedAdapter) {
@@ -671,7 +704,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         AppToast.showError(
           context,
           _friendlyDoorUnlockError(
-            res?['message'] ?? 'Unlock failed. If your session expired, use password.',
+            res?['message'] ??
+                'Unlock failed. If your session expired, use password.',
           ),
         );
       }
@@ -682,7 +716,9 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         _showCredentialFallback = true;
       });
       AppToast.showError(
-          context, 'Biometric auth failed. Use fallback instead.');
+        context,
+        'Biometric authentication was not completed. Please use PIN or password.',
+      );
     }
   }
 
@@ -691,15 +727,40 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
   Future<void> _runPasswordUnlock() async {
     if (_isAuthenticating) return;
 
+    AppLog.d(
+      'Unlock submit tapped',
+      tag: 'DoorUnlock',
+      fields: {
+        'doorId': widget.doorId,
+        'doorName': widget.doorName,
+        'siteId': _effectiveSiteId,
+        'usePin': _usePin,
+        'isRackConsoleMode': _isRackConsoleMode,
+        'isRackConsoleStyle': widget.isRackConsoleStyle,
+        'adapterConfigured': AdapterApiService.instance.isConfigured,
+        'pinLength': _pwdCtrl.text.trim().length,
+        'hasPasswordValue': _pwdCtrl.text.isNotEmpty,
+      },
+    );
+
     setState(() => _isAuthenticating = true);
     try {
-      final site = CpanelApiService.instance.currentSite;
-      final siteId = site == null
-          ? null
-          : (int.tryParse(site['site_id']?.toString() ?? '') ??
-              int.tryParse(site['id']?.toString() ?? ''));
+      final siteId = _effectiveSiteId;
       final adapterAvailable =
           AdapterApiService.instance.isConfigured && siteId != null;
+
+      AppLog.d(
+        'Unlock path evaluation',
+        tag: 'DoorUnlock',
+        fields: {
+          'doorId': widget.doorId,
+          'doorName': widget.doorName,
+          'siteId': siteId,
+          'adapterAvailable': adapterAvailable,
+          'usePin': _usePin,
+          'isRackConsoleMode': _isRackConsoleMode,
+        },
+      );
 
       int? remoteLogOverrideUserId;
       Map<String, dynamic>? res;
@@ -714,6 +775,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
         final pin = _pwdCtrl.text.trim();
         if (pin.length < 4 || pin.length > 6) {
+          AppLog.w(
+            'Unlock validation failed',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'reason': 'rack_console_pin_length',
+              'pinLength': pin.length,
+            },
+          );
           setState(() => _isAuthenticating = false);
           AppToast.show(context, 'Enter a 4-6 digit PIN.');
           return;
@@ -721,6 +793,16 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
         if (adapterAvailable) {
           usedAdapter = true;
+          AppLog.d(
+            'Door unlock with user PIN via adapter',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'mode': 'rack_console',
+            },
+          );
           await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.unlockWithUserPin(
             siteId: siteId,
@@ -728,6 +810,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             pin: pin,
           );
         } else {
+          AppLog.w(
+            'Door unlock with user PIN fell back to legacy path',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'adapterConfigured': AdapterApiService.instance.isConfigured,
+              'mode': 'rack_console',
+            },
+          );
           final verifyRes = await CpanelApiService.instance.verifySiteUserPin(
             siteId: siteId,
             pin: pin,
@@ -742,7 +835,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             AppToast.showError(
               context,
               _friendlyDoorUnlockError(
-                verifyRes?['message']?.toString() ?? 'Invalid PIN or Access Denied',
+                verifyRes?['message']?.toString() ??
+                    'Invalid PIN or Access Denied',
               ),
             );
             return;
@@ -750,7 +844,18 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         }
       } else if (_usePin) {
         final pin = _pwdCtrl.text.trim();
-        if (!RegExp(r'^\\d{4,6}$').hasMatch(pin)) {
+        if (!RegExp(r'^\d{4,6}$').hasMatch(pin)) {
+          AppLog.w(
+            'Unlock validation failed',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'reason': 'standard_pin_format',
+              'pinLength': pin.length,
+            },
+          );
           AppToast.showError(context, 'Enter a 4-6 digit PIN.');
           setState(() => _isAuthenticating = false);
           return;
@@ -758,6 +863,16 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
         if (adapterAvailable) {
           usedAdapter = true;
+          AppLog.d(
+            'Door unlock with PIN via adapter',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'mode': 'standard',
+            },
+          );
           await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.unlockWithPin(
             siteId: siteId,
@@ -765,6 +880,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             pin: pin,
           );
         } else {
+          AppLog.w(
+            'Door unlock with PIN fell back to legacy path',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'adapterConfigured': AdapterApiService.instance.isConfigured,
+              'mode': 'standard',
+            },
+          );
           // Strictly verify PIN with our secure CPanel backend
           final verifyRes = await CpanelApiService.instance.verifyPin(pin);
           if (!mounted) return;
@@ -781,34 +907,84 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         // Try portal password check first
         final portalUsername = _userCtrl.text.trim();
         final pwd = _pwdCtrl.text;
+        AppLog.d(
+          'Password unlock login attempt',
+          tag: 'DoorUnlock',
+          fields: {
+            'doorId': widget.doorId,
+            'doorName': widget.doorName,
+            'siteId': siteId,
+            'username': portalUsername,
+            'adapterConfigured': AdapterApiService.instance.isConfigured,
+            'adapterAvailable': adapterAvailable,
+          },
+        );
         final loginRes =
             await CpanelApiService.instance.login(portalUsername, pwd);
         if (!mounted) return;
 
         bool loginSuccess = loginRes != null && loginRes['status'] == 'success';
+        AppLog.d(
+          'Password unlock login result',
+          tag: 'DoorUnlock',
+          fields: {
+            'doorId': widget.doorId,
+            'doorName': widget.doorName,
+            'siteId': siteId,
+            'username': portalUsername,
+            'loginSuccess': loginSuccess,
+            'loginStatus': loginRes?['status']?.toString(),
+            'loginMessage': loginRes?['message']?.toString(),
+            'adapterAvailable': adapterAvailable,
+          },
+        );
         if (!loginSuccess) {
-          // Fallback to old password login against physical Dahua
-          final dahuaUsername =
-              await ApiService.instance.getUsername() ?? 'admin';
-          final dahuaLoginSuccess =
-              await ApiService.instance.login(dahuaUsername, pwd);
-          if (!mounted) return;
-
-          if (!dahuaLoginSuccess) {
-            setState(() => _isAuthenticating = false);
-            AppToast.showError(context, 'Incorrect password');
-            return;
-          }
+          AppLog.w(
+            'Unlock validation failed',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'reason': 'password_login_failed',
+              'username': portalUsername,
+            },
+          );
+          setState(() => _isAuthenticating = false);
+          AppToast.showError(context, 'Incorrect password');
+          return;
         }
 
         if (adapterAvailable) {
           usedAdapter = true;
+          AppLog.d(
+            'Door unlock with password via adapter',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'mode': 'standard',
+            },
+          );
           await PushNotificationService.instance.ensureTokenRegistered();
           res = await AdapterApiService.instance.openCloseDoor(
             siteId: siteId,
             accessId: widget.doorId,
             status: 1,
             accessType: '1',
+          );
+        } else {
+          AppLog.w(
+            'Door unlock with password fell back to legacy path',
+            tag: 'DoorUnlock',
+            fields: {
+              'doorId': widget.doorId,
+              'doorName': widget.doorName,
+              'siteId': siteId,
+              'adapterConfigured': AdapterApiService.instance.isConfigured,
+              'mode': 'standard',
+            },
           );
         }
         res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
@@ -817,6 +993,17 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
+        AppLog.d(
+          'Door unlock succeeded',
+          tag: 'DoorUnlock',
+          fields: {
+            'doorId': widget.doorId,
+            'doorName': widget.doorName,
+            'siteId': siteId,
+            'usedAdapter': usedAdapter,
+            'mode': _isRackConsoleMode ? 'rack_console' : 'standard',
+          },
+        );
         if (!usedAdapter && siteId != null) {
           CpanelApiService.instance.logRemoteAccess(
             siteId: siteId,
@@ -827,6 +1014,18 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
         Navigator.pop(context, true);
         AppToast.showSuccess(context, '${widget.doorName} unlocked!');
       } else {
+        AppLog.w(
+          'Door unlock failed',
+          tag: 'DoorUnlock',
+          fields: {
+            'doorId': widget.doorId,
+            'doorName': widget.doorName,
+            'siteId': siteId,
+            'usedAdapter': usedAdapter,
+            'mode': _isRackConsoleMode ? 'rack_console' : 'standard',
+            'message': res?['message']?.toString(),
+          },
+        );
         Navigator.pop(context);
         AppToast.showError(
           context,
@@ -835,7 +1034,19 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           ),
         );
       }
-    } catch (_) {
+    } catch (error) {
+      AppLog.w(
+        'Unlock threw exception',
+        tag: 'DoorUnlock',
+        fields: {
+          'doorId': widget.doorId,
+          'doorName': widget.doorName,
+          'siteId': _effectiveSiteId,
+          'mode': _isRackConsoleMode ? 'rack_console' : 'standard',
+          'usePin': _usePin,
+          'error': error.toString(),
+        },
+      );
       if (!mounted) return;
       setState(() => _isAuthenticating = false);
       AppToast.showError(context, 'Unlock failed. Try again.');
@@ -912,176 +1123,225 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
               fontSize: 12,
             ),
           ),
-          if (showBiometricPath && !kIsWeb && _deviceAuthSupported) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.fingerprint_rounded, size: 18),
-                label: Text(_biometricLabel),
-                onPressed: _isAuthenticating ? null : _runDeviceAuthUnlock,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.orangeAccent.withValues(alpha: 0.85),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: Text(
-                _isAuthenticating
-                    ? 'Waiting for $_biometricHint...'
-                    : 'Use biometric unlock to continue',
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.65),
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isRack ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
-                  style: TextStyle(
-                    color: isRack
-                        ? ConsoleTheme.textPrimary(context)
-                        : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (!isRack)
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _usePin = !_usePin;
-                        _pwdCtrl.clear();
-                      });
-                    },
-                    child: Text(
-                      _usePin ? 'Use Password' : 'Use PIN',
-                      style: TextStyle(
-                        color: isLight
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            reverseDuration: const Duration(milliseconds: 160),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (currentChild, previousChildren) {
+              return Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              );
+            },
+            transitionBuilder: (child, animation) {
+              final slide = Tween<Offset>(
+                begin: const Offset(0, 0.08),
+                end: Offset.zero,
+              ).animate(animation);
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: slide, child: child),
+              );
+            },
+            child: showBiometricPath && !kIsWeb && _deviceAuthSupported
+                ? Column(
+                    key: const ValueKey('biometric-path'),
+                    children: [
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.fingerprint_rounded, size: 18),
+                          label: Text(_biometricLabel),
+                          onPressed:
+                              _isAuthenticating ? null : _runDeviceAuthUnlock,
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                Colors.orangeAccent.withValues(alpha: 0.85),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: Text(
+                          _isAuthenticating
+                              ? 'Waiting for $_biometricHint...'
+                              : 'Use biometric unlock to continue',
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    key: const ValueKey('credential-path'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            isRack ? 'PIN' : (_usePin ? 'PIN' : 'Password'),
+                            style: TextStyle(
+                              color: isRack
+                                  ? ConsoleTheme.textPrimary(context)
+                                  : (isLight
+                                      ? AppTheme.lightTextPrimary
+                                      : Colors.white),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (!isRack)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _usePin = !_usePin;
+                                  _pwdCtrl.clear();
+                                });
+                              },
+                              child: Text(
+                                _usePin ? 'Use Password' : 'Use PIN',
+                                style: TextStyle(
+                                  color: isLight
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _pwdCtrl,
+                        focusNode: _pwdFocus,
+                        obscureText: _obscurePwd,
+                        obscuringCharacter: '*',
+                        autofocus: false,
+                        keyboardType:
+                            _usePin ? TextInputType.number : TextInputType.text,
+                        style: TextStyle(
+                          color: isRack
+                              ? ConsoleTheme.textPrimary(context)
+                              : (isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white),
+                          fontSize: _usePin ? 24 : 16,
+                          letterSpacing: _usePin ? 8.0 : null,
+                        ),
+                        textAlign: _usePin ? TextAlign.center : TextAlign.start,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: isRack
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : (isLight
+                                  ? const Color(0xFFF3F4F7)
+                                  : Colors.white.withValues(alpha: 0.08)),
+                          hintText: _usePin ? '****' : 'Password',
+                          hintStyle: TextStyle(
+                            color: isRack
+                                ? ConsoleTheme.textSecondary(context)
+                                    .withValues(alpha: 0.5)
+                                : (isLight
+                                    ? AppTheme.lightTextSecondary
+                                    : Colors.white.withValues(alpha: 0.45)),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: isRack
+                                  ? ConsoleTheme.cardBorder(context)
+                                  : (isLight
+                                      ? const Color(0xFFD5DAE2)
+                                      : Colors.white.withValues(alpha: 0.18)),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: isRack
+                                  ? ConsoleTheme.cardBorder(context)
+                                  : (isLight
+                                      ? const Color(0xFFD5DAE2)
+                                      : Colors.white.withValues(alpha: 0.18)),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: isRack
+                                  ? ConsoleTheme.primaryBlue(context)
+                                  : Theme.of(context).colorScheme.primary,
+                              width: 1.4,
+                            ),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePwd
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: isRack
+                                  ? ConsoleTheme.textSecondary(context)
+                                  : (isLight
+                                      ? AppTheme.lightTextSecondary
+                                      : Colors.white.withValues(alpha: 0.75)),
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePwd = !_obscurePwd),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      if (_isAuthenticating)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: CircularProgressIndicator(
+                              color: isRack
+                                  ? ConsoleTheme.primaryBlue(context)
+                                  : Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.lock_open_rounded, size: 16),
+                            label: const Text('Unlock Door'),
+                            onPressed: _runPasswordUnlock,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isRack
+                                  ? const Color(0xFF109B5B)
+                                  : Theme.of(context).colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(isRack ? 24 : 16),
+                              ),
+                              padding: isRack
+                                  ? const EdgeInsets.symmetric(vertical: 16)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _pwdCtrl,
-              focusNode: _pwdFocus,
-              obscureText: _obscurePwd,
-              obscuringCharacter: '*',
-              autofocus: false,
-              keyboardType: _usePin ? TextInputType.number : TextInputType.text,
-              style: TextStyle(
-                color: isRack
-                    ? ConsoleTheme.textPrimary(context)
-                    : (isLight ? AppTheme.lightTextPrimary : Colors.white),
-                fontSize: _usePin ? 24 : 16,
-                letterSpacing: _usePin ? 8.0 : null,
-              ),
-              textAlign: _usePin ? TextAlign.center : TextAlign.start,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: isRack
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : (isLight
-                        ? const Color(0xFFF3F4F7)
-                        : Colors.white.withValues(alpha: 0.08)),
-                hintText: _usePin ? '****' : 'Password',
-                hintStyle: TextStyle(
-                  color: isRack
-                      ? ConsoleTheme.textSecondary(context).withValues(alpha: 0.5)
-                      : (isLight
-                          ? AppTheme.lightTextSecondary
-                          : Colors.white.withValues(alpha: 0.45)),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isRack
-                        ? ConsoleTheme.cardBorder(context)
-                        : (isLight
-                            ? const Color(0xFFD5DAE2)
-                            : Colors.white.withValues(alpha: 0.18)),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isRack
-                        ? ConsoleTheme.cardBorder(context)
-                        : (isLight
-                            ? const Color(0xFFD5DAE2)
-                            : Colors.white.withValues(alpha: 0.18)),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                      color: isRack
-                          ? ConsoleTheme.primaryBlue(context)
-                          : Theme.of(context).colorScheme.primary,
-                      width: 1.4),
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePwd ? Icons.visibility_off : Icons.visibility,
-                    color: isRack
-                        ? ConsoleTheme.textSecondary(context)
-                        : (isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.75)),
-                  ),
-                  onPressed: () => setState(() => _obscurePwd = !_obscurePwd),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            if (_isAuthenticating)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: CircularProgressIndicator(
-                      color: isRack
-                          ? ConsoleTheme.primaryBlue(context)
-                          : Theme.of(context).colorScheme.primary),
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.lock_open_rounded, size: 16),
-                  label: const Text('Unlock Door'),
-                  onPressed: _runPasswordUnlock,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isRack
-                        ? const Color(0xFF109B5B)
-                        : Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(isRack ? 24 : 16),
-                    ),
-                    padding:
-                        isRack ? const EdgeInsets.symmetric(vertical: 16) : null,
-                  ),
-                ),
-              ),
-          ],
+          ),
         ],
       ),
     );

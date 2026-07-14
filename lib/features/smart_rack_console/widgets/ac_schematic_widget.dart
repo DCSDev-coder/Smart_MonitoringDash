@@ -87,7 +87,7 @@ class AcPathCache {
     final double h = size.height;
     final Rect rect = Rect.fromLTRB(w * 0.15, h * 0.15, w * 0.85, h * 0.85);
 
-    final double cornerRadius = 20.0;
+    const double cornerRadius = 20.0;
     
     highPath = Path();
     highPath.moveTo(rect.center.dx, rect.top);
@@ -325,7 +325,7 @@ class RefrigerationCyclePainter extends CustomPainter {
     canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(8)), borderPaint);
 
     // Draw a spinning fan inside
-    final double fanRadius = 25.0;
+    const double fanRadius = 25.0;
     
     // Draw fan ring
     canvas.drawCircle(Offset.zero, fanRadius + 5, Paint()..color = Colors.white24..style = PaintingStyle.stroke..strokeWidth = 2);

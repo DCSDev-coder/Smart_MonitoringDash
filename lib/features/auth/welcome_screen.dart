@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/utils/global_video_background.dart';
 import 'auth_screen.dart';

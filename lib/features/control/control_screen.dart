@@ -14,6 +14,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/utils/app_toast.dart';
 import '../../shared/widgets/header_refresh_bar.dart';
+import '../../shared/utils/pull_to_refresh_gate.dart';
 
 class ControlScreen extends StatefulWidget {
   final bool isActive;
@@ -40,6 +41,7 @@ class _ControlScreenState extends State<ControlScreen>
   bool _refreshing = false;
   bool _writing = false;
   RefreshIndicatorStatus? _refreshStatus;
+  final PullToRefreshGate _refreshGate = PullToRefreshGate();
 
   _NodeMetrics? _pdu1;
   _NodeMetrics? _pdu2;
@@ -122,10 +124,12 @@ class _ControlScreenState extends State<ControlScreen>
 
   Future<void> _onRefresh() async {
     if (_refreshing) return;
+    _refreshGate.beginRefresh();
     setState(() => _refreshing = true);
     try {
       await _fetchAll();
     } finally {
+      _refreshGate.endRefresh();
       if (mounted) setState(() => _refreshing = false);
     }
   }
@@ -137,8 +141,10 @@ class _ControlScreenState extends State<ControlScreen>
 
   bool get _showRefreshBar =>
       _refreshing ||
-      (_refreshStatus != null &&
-          _refreshStatus != RefreshIndicatorStatus.canceled);
+      _refreshStatus == RefreshIndicatorStatus.drag ||
+      _refreshStatus == RefreshIndicatorStatus.armed ||
+      _refreshStatus == RefreshIndicatorStatus.snap ||
+      _refreshStatus == RefreshIndicatorStatus.refresh;
 
   Future<void> _fetchAll() async {
     try {
@@ -376,80 +382,80 @@ class _ControlScreenState extends State<ControlScreen>
         body: Stack(
           children: [
             Positioned.fill(
-              child: RefreshIndicator.noSpinner(
-                onRefresh: _onRefresh,
-                onStatusChange: _onRefreshStatusChanged,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: ClampingScrollPhysics(),
-                  ),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: AppConstants.headerClearance(context),
-                      ),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _refreshGate.handleNotification,
+                child: RefreshIndicator.noSpinner(
+                  triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                  notificationPredicate: _refreshGate.shouldProcess,
+                  onRefresh: _onRefresh,
+                  onStatusChange: _onRefreshStatusChanged,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
                     ),
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _ControlTabsHeaderDelegate(
-                        height: 144,
-                        child: Container(
-                          color: Colors.transparent,
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: AppConstants.headerClearance(context),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
                           padding:
                               EdgeInsets.fromLTRB(hPadding, 12, hPadding, 16),
                           child: _buildTabs(isLight, onSurface),
                         ),
                       ),
-                    ),
-                    SliverPadding(
-                      padding: EdgeInsets.symmetric(horizontal: hPadding),
-                      sliver: SliverToBoxAdapter(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 16),
-                            if (_writing)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.only(bottom: 25, left: 4),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.orangeAccent
-                                            .withValues(alpha: 0.9),
+                      SliverPadding(
+                        padding: EdgeInsets.symmetric(horizontal: hPadding),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              if (_writing)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                      bottom: 25, left: 4),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.orangeAccent
+                                              .withValues(alpha: 0.9),
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Applying change...',
-                                      style: TextStyle(
-                                        color: subTextColor,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Applying change...',
+                                        style: TextStyle(
+                                          color: subTextColor,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            if (_loading)
-                              _tableSkeleton()
-                            else if (_mainTab == _MainTab.pdu)
-                              _nodeTable(node, hint: hint)
-                            else
-                              _buildAcContent(isLight, onSurface, node),
-                            SizedBox(
-                              height: AppSpacing.pageBottom(context),
-                            ), // Bottom padding
-                          ],
+                              if (_loading)
+                                _tableSkeleton()
+                              else if (_mainTab == _MainTab.pdu)
+                                _nodeTable(node, hint: hint)
+                              else
+                                _buildAcContent(isLight, onSurface, node),
+                              SizedBox(
+                                height: AppSpacing.pageBottom(context),
+                              ), // Bottom padding
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1791,36 +1797,6 @@ class _MetricRow {
       acSection: acSection,
       sortIndex: sortIndex,
     );
-  }
-}
-
-class _ControlTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double height;
-  final Widget child;
-
-  const _ControlTabsHeaderDelegate({
-    required this.height,
-    required this.child,
-  });
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return child;
-  }
-
-  @override
-  bool shouldRebuild(covariant _ControlTabsHeaderDelegate oldDelegate) {
-    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }
 

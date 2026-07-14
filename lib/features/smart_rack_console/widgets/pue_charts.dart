@@ -147,7 +147,7 @@ class PueTrendLineChart extends StatelessWidget {
               width: 40,
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: false),
+                  gridData: const FlGridData(show: false),
                   borderData: FlBorderData(show: false),
                   titlesData: FlTitlesData(
                     show: true,
@@ -197,7 +197,9 @@ class PueTrendLineChart extends StatelessWidget {
                         ),
                       ),
                       minX: 0,
-                      maxX: bottomTitles.length > 0 ? bottomTitles.length.toDouble() - 1 : 0,
+                      maxX: bottomTitles.isNotEmpty
+                          ? bottomTitles.length.toDouble() - 1
+                          : 0,
                       minY: 0,
                       maxY: calculatedMaxY,
                       lineBarsData: [

@@ -203,7 +203,11 @@ class PowerSchematicPainter extends CustomPainter {
   }
 
   void _drawComponents(Canvas canvas, double w, double h, Rect b) {
-    final TextStyle textStyle = TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold);
+    const TextStyle textStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 10,
+      fontWeight: FontWeight.bold,
+    );
 
     final double spineX = b.left + w * 0.25;
     final double branchSpacing = (h * 0.8) / 6;

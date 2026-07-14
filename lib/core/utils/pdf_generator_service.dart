@@ -170,8 +170,9 @@ class PdfGeneratorService {
                 ?.toString()
                 .toLowerCase() ??
             '';
-        if (u == 'superadmin' || u == 'admin' || u == 'remote open')
+        if (u == 'superadmin' || u == 'admin' || u == 'remote open') {
           return false;
+        }
         return true;
       }).toList();
 
@@ -343,10 +344,9 @@ class PdfGeneratorService {
               pw.SizedBox(height: 8),
               pw.Container(
                   padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
+                  decoration: const pw.BoxDecoration(
                       color: PdfColors.grey100,
-                      borderRadius:
-                          const pw.BorderRadius.all(pw.Radius.circular(8))),
+                      borderRadius: pw.BorderRadius.all(pw.Radius.circular(8))),
                   child: pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
                       children: [

@@ -18,14 +18,12 @@ class AppToast {
 
   static void setReconnecting(BuildContext context, bool isReconnecting) {
     if (isReconnecting) {
-      if (_reconnectingToastId == null) {
-        _reconnectingToastId = show(
-          context,
-          'Data source reconnecting...',
-          type: ToastType.warning,
-          duration: null,
-        );
-      }
+      _reconnectingToastId ??= show(
+        context,
+        'Data source reconnecting...',
+        type: ToastType.warning,
+        duration: null,
+      );
     } else {
       if (_reconnectingToastId != null) {
         remove(_reconnectingToastId!);
@@ -210,7 +208,6 @@ class _ToastItemWidget extends StatelessWidget {
         iconData = Icons.warning_amber_rounded;
         break;
       case ToastType.info:
-      default:
         bgColor = const Color(0xFFE3F2FD);
         iconColor = const Color(0xFF1565C0);
         iconData = Icons.info_outline;
@@ -233,7 +230,6 @@ class _ToastItemWidget extends StatelessWidget {
           iconColor = const Color(0xFFFFCC80);
           break;
         case ToastType.info:
-        default:
           bgColor = const Color(0xFF0D47A1);
           iconColor = const Color(0xFF90CAF9);
           break;
@@ -262,7 +258,7 @@ class _ToastItemWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
+                    color: Colors.black.withValues(alpha: 0.15),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

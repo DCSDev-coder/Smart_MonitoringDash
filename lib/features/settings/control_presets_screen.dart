@@ -10,6 +10,7 @@ import '../../shared/widgets/dashboard_glass.dart';
 import '../../shared/widgets/kiosk_user_pin_sheet.dart';
 import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
+import '../../shared/utils/pull_to_refresh_gate.dart';
 
 class ControlPresetsScreen extends StatefulWidget {
   const ControlPresetsScreen({super.key});
@@ -24,6 +25,7 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
   String? _error;
   int? _portalUserId;
   RefreshIndicatorStatus? _refreshStatus;
+  final PullToRefreshGate _refreshGate = PullToRefreshGate();
 
   _LiveControlSnapshot? _live;
   String? _defaultPresetKey;
@@ -125,6 +127,16 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
     }
   }
 
+  Future<void> _onRefresh() async {
+    if (_loading || _saving) return;
+    _refreshGate.beginRefresh();
+    try {
+      await _reload();
+    } finally {
+      _refreshGate.endRefresh();
+    }
+  }
+
   void _onRefreshStatusChanged(RefreshIndicatorStatus? status) {
     if (!mounted || _refreshStatus == status) return;
     setState(() => _refreshStatus = status);
@@ -133,8 +145,10 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
   bool get _showRefreshBar =>
       _loading ||
       _saving ||
-      (_refreshStatus != null &&
-          _refreshStatus != RefreshIndicatorStatus.canceled);
+      _refreshStatus == RefreshIndicatorStatus.drag ||
+      _refreshStatus == RefreshIndicatorStatus.armed ||
+      _refreshStatus == RefreshIndicatorStatus.snap ||
+      _refreshStatus == RefreshIndicatorStatus.refresh;
 
   Future<_LiveControlSnapshot?> _fetchLiveSnapshot() async {
     final candidates = <Map<String, dynamic>>[];
@@ -538,113 +552,118 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: RefreshIndicator.noSpinner(
-              onRefresh: _reload,
-              onStatusChange: _onRefreshStatusChanged,
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                    16, MediaQuery.of(context).padding.top + 70, 16, 16),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 24),
-                    child: Text(
-                      'AC Control Presets',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: textPrimary,
-                        letterSpacing: 0.5,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _refreshGate.handleNotification,
+              child: RefreshIndicator.noSpinner(
+                triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                notificationPredicate: _refreshGate.shouldProcess,
+                onRefresh: _onRefresh,
+                onStatusChange: _onRefreshStatusChanged,
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                      16, MediaQuery.of(context).padding.top + 70, 16, 16),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 24),
+                      child: Text(
+                        'AC Control Presets',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: textPrimary,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
-                  ),
-                  DashboardGlass(
-                    radius: 20,
-                    padding: const EdgeInsets.all(16),
-                    tint: isLight ? Colors.white : const Color(0xFF10161D),
-                    borderColor: Colors.transparent,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Site State',
-                          style: TextStyle(
-                            color: textPrimary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Current state: $_currentStateLabel',
-                          style: TextStyle(color: textSecondary),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Default preset: $_defaultStateLabel',
-                          style: TextStyle(color: textSecondary),
-                        ),
-                        if (_isRackConsoleMode) ...[
-                          const SizedBox(height: 10),
+                    DashboardGlass(
+                      radius: 20,
+                      padding: const EdgeInsets.all(16),
+                      tint: isLight ? Colors.white : const Color(0xFF10161D),
+                      borderColor: Colors.transparent,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            'Rack Console mode is active. Applying a preset will require the approving user PIN.',
-                            style:
-                                TextStyle(color: textSecondary, fontSize: 13),
+                            'Site State',
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Current state: $_currentStateLabel',
+                            style: TextStyle(color: textSecondary),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Default preset: $_defaultStateLabel',
+                            style: TextStyle(color: textSecondary),
+                          ),
+                          if (_isRackConsoleMode) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              'Rack Console mode is active. Applying a preset will require the approving user PIN.',
+                              style:
+                                  TextStyle(color: textSecondary, fontSize: 13),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_loading)
-                    _buildLoadingSkeleton()
-                  else if (_error != null)
-                    Center(
-                      child: Padding(
+                    const SizedBox(height: 16),
+                    if (_loading)
+                      _buildLoadingSkeleton()
+                    else if (_error != null)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Text(_error!,
+                              style: TextStyle(color: textSecondary)),
+                        ),
+                      )
+                    else if (!_canUseControlPresets)
+                      Padding(
                         padding: const EdgeInsets.symmetric(vertical: 40),
-                        child: Text(_error!,
-                            style: TextStyle(color: textSecondary)),
-                      ),
-                    )
-                  else if (!_canUseControlPresets)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: Text(
-                          'Your account does not have permission to use control presets.',
-                          style: TextStyle(color: textSecondary),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                  else if (_live == null || _live!.writableRows.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: Text(
-                          'Live AC control values are unavailable for this site.',
-                          style: TextStyle(color: textSecondary),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                  else
-                    ..._presetKeys.map((key) => Padding(
-                          key: ValueKey(key),
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _PresetCardWidget(
-                            key: ValueKey('card_$key'),
-                            preset: _presets[key]!,
-                            textPrimary: textPrimary,
-                            textSecondary: textSecondary,
-                            isDefault: _defaultPresetKey == key,
-                            isActive: _live != null &&
-                                _doesPresetMatchLive(_presets[key]!, _live!),
-                            isSaving: _saving,
-                            onApply: () => _applyPreset(key),
-                            onSaveCurrent: () => _saveCurrentToPreset(key),
-                            onSetDefault: () => _setDefaultPreset(key),
+                        child: Center(
+                          child: Text(
+                            'Your account does not have permission to use control presets.',
+                            style: TextStyle(color: textSecondary),
+                            textAlign: TextAlign.center,
                           ),
-                        )),
-                ],
+                        ),
+                      )
+                    else if (_live == null || _live!.writableRows.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: Text(
+                            'Live AC control values are unavailable for this site.',
+                            style: TextStyle(color: textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else
+                      ..._presetKeys.map((key) => Padding(
+                            key: ValueKey(key),
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _PresetCardWidget(
+                              key: ValueKey('card_$key'),
+                              preset: _presets[key]!,
+                              textPrimary: textPrimary,
+                              textSecondary: textSecondary,
+                              isDefault: _defaultPresetKey == key,
+                              isActive: _live != null &&
+                                  _doesPresetMatchLive(_presets[key]!, _live!),
+                              isSaving: _saving,
+                              onApply: () => _applyPreset(key),
+                              onSaveCurrent: () => _saveCurrentToPreset(key),
+                              onSetDefault: () => _setDefaultPreset(key),
+                            ),
+                          )),
+                  ],
+                ),
               ),
             ),
           ),
@@ -779,24 +798,6 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
     );
   }
 
-  Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
 }
 
 class _PresetCardWidget extends StatefulWidget {

@@ -710,8 +710,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       
       final v = m['is_kiosk'];
       bool isKiosk = false;
-      if (v is bool) isKiosk = v;
-      else if (v is num) isKiosk = v != 0;
+      if (v is bool) {
+        isKiosk = v;
+      } else if (v is num) {
+        isKiosk = v != 0;
+      }
       else if (v != null) {
         final s = v.toString().trim().toLowerCase();
         isKiosk = s == '1' || s == 'true' || s == 'yes';

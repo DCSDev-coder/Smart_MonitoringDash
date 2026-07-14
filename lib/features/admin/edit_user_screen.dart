@@ -194,8 +194,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                           'USERNAME',
                           style: TextStyle(
                             color: isLight
-                                ? AppTheme.lightTextPrimary.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.5),
+                                ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                : Colors.white.withValues(alpha: 0.5),
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
@@ -217,8 +217,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                           'ACCOUNT MODE',
                           style: TextStyle(
                             color: isLight
-                                ? AppTheme.lightTextPrimary.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.5),
+                                ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                : Colors.white.withValues(alpha: 0.5),
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
@@ -234,8 +234,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                             'PERMISSIONS',
                             style: TextStyle(
                               color: isLight
-                                  ? AppTheme.lightTextPrimary.withOpacity(0.5)
-                                  : Colors.white.withOpacity(0.5),
+                                  ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                  : Colors.white.withValues(alpha: 0.5),
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -277,8 +277,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                     end: Alignment.bottomCenter,
                     colors: [
                       isLight
-                          ? const Color(0xFFF7FBFF).withOpacity(0.0)
-                          : const Color(0xFF060B11).withOpacity(0.0),
+                          ? const Color(0xFFF7FBFF).withValues(alpha: 0.0)
+                          : const Color(0xFF060B11).withValues(alpha: 0.0),
                       isLight
                           ? const Color(0xFFF7FBFF)
                           : const Color(0xFF060B11),
@@ -348,10 +348,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
             activeTrackColor: Theme.of(context).colorScheme.primary,
             inactiveThumbColor: isLight
                 ? const Color(0xFFEDEDED)
-                : Colors.white.withOpacity(0.85),
+                : Colors.white.withValues(alpha: 0.85),
             inactiveTrackColor: isLight
                 ? const Color(0xFF3F3F3F)
-                : Colors.white.withOpacity(0.18),
+                : Colors.white.withValues(alpha: 0.18),
           ),
         ],
       ),

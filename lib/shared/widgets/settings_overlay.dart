@@ -4,6 +4,7 @@ import '../../core/auth/session_flow_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/controllers/app_theme_controller.dart';
 import '../../core/security/app_lock_controller.dart';
+import '../../core/security/secure_action_session.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
 import '../../features/settings/control_presets_screen.dart';
@@ -417,7 +418,8 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       String? failureMessage;
       bool success = false;
       if (AdapterApiService.instance.isConfigured) {
-        final adapterRes = await AdapterApiService.instance.setPinDetailed(result);
+        final adapterRes =
+            await AdapterApiService.instance.setPinDetailed(result);
         success = adapterRes != null && adapterRes['status'] == 'success';
         failureMessage = adapterRes?['message']?.toString();
       }
@@ -428,6 +430,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
 
       if (mounted) {
         if (success) {
+          SecureActionSession.instance.clear();
           AppToast.showSuccess(context, 'Door Access PIN updated securely');
         } else {
           AppToast.showError(
