@@ -56,7 +56,7 @@ If the iPhone does not show up, run `flutter doctor -v` and confirm Xcode/iOS si
 Run on a connected Android device:
 
 ```bash
-flutter run -d android --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+flutter run -d android --flavor standard --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
 ## Build Examples
@@ -64,13 +64,17 @@ flutter run -d android --dart-define-from-file=.env.json --dart-define=APP_VARIA
 Android APK for the standard / main app:
 
 ```bash
-flutter build apk --release --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+flutter clean
+flutter pub get
+flutter build apk --release --flavor standard --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
 iOS build for the standard / main app:
 
 ```bash
-flutter build ios --release --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+flutter clean
+flutter pub get
+flutter build ipa --release --build-number=11 --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main --dart-define=ADAPTER_BASE_URL=https://adapter.dcstack.my
 ```
 
 ## Variant Notes
@@ -93,8 +97,25 @@ This behavior comes from [`lib/core/config/app_config.dart`](</Users/marketingde
   - `https://adapter.dcstack.my` = adapter API
 - For Flutter Web, the browser origin must be included in the adapter's `CORS_ALLOWED_ORIGINS` value or the dashboard/API reads will fail and the app may appear offline.
 
-## Current App Version
+## Current Release State
 
-The current Flutter app version in [`pubspec.yaml`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash/pubspec.yaml>) is:
+The current Flutter source version in [`pubspec.yaml`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash/pubspec.yaml>) is:
 
 - `1.0.1+8`
+
+Recent release status:
+
+- latest iOS TestFlight upload: `1.0.1 (11)`
+- iOS scheme: `Runner`
+- Android standard/main release output:
+  - `build/app/outputs/flutter-apk/app-standard-release.apk`
+
+## Final Release Checklist
+
+- Confirm `.env.json` points to `https://adapter.dcstack.my`
+- Confirm login works
+- Confirm door unlock works using biometric, PIN, and password
+- Confirm push notifications arrive on Android and iOS
+- Confirm pull-to-refresh only activates from the top of the page
+- Confirm report charts show readable values when pressed
+- Confirm sign out returns cleanly to login
