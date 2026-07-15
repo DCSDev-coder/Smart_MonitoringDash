@@ -36,6 +36,8 @@ class AppConstants {
       '/itom/monitor/collectControlNode/byTypeForStatus';
   static const String getWithMetricPath =
       '/itom/monitor/collectControlNode/getWithMetric';
+  static const String getStatusPath =
+      '/itom/monitor/collectControlNode/getStatus';
   static const String listMetricPath =
       '/itom/monitor/collectControlNode/listMetric';
   static const String writeMetricPath =

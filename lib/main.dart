@@ -175,11 +175,13 @@ Future<void> main() async {
     }
   }
 
-  // MediaKit needs native libs (e.g. `libmpv.so`) bundled in the APK on Android.
-  // If they're missing, it can throw and prevent app startup.
-  await safeInit(() async {
-    MediaKit.ensureInitialized();
-  });
+  // MediaKit is only needed for the non-rack-console video surfaces.
+  // Skip it on rack-console builds to avoid the startup/decode overhead.
+  if (!AppConfig.isRackConsoleBuild) {
+    await safeInit(() async {
+      MediaKit.ensureInitialized();
+    });
+  }
 
   // Initialize ApiService to load stored Server IP.
   await safeInit(ApiService.instance.init);

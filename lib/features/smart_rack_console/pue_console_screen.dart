@@ -207,9 +207,11 @@ class PueConsoleScreen extends StatelessWidget {
     const q2 = EightHoursQuadrant();
     const q3 = EnergyQuadrant(
       title: 'Current Energy Consumption Statistics',
+      powerType: 0,
     );
     const q4 = EnergyQuadrant(
       title: 'Total For The Month Statistics',
+      powerType: 1,
     );
 
     return SingleChildScrollView(
@@ -297,7 +299,7 @@ class PueConsoleScreen extends StatelessWidget {
 
   Widget _buildCurrentPueQuadrant(BuildContext context) {
     final pueValue = snapshot.pue;
-    final pueColor = _getPueColor(pueValue);
+    final pueColor = _getPueColor(pueValue ?? 0);
 
     return ConsoleSectionCard(
       title: 'Current PUE',
@@ -315,7 +317,9 @@ class PueConsoleScreen extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   ArcGauge(
-                    progress: ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
+                    progress: pueValue == null
+                        ? 0
+                        : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
                     glowColor: pueColor,
                     baseColor: ConsoleTheme.isDark(context)
                         ? const Color(0xFF3A3A3A)
@@ -323,14 +327,14 @@ class PueConsoleScreen extends StatelessWidget {
                     strokeWidth: 16.0,
                     sweepDegrees: 255,
                     startDegrees: 145,
-                    glowIntensity: 1.0,
+                    glowIntensity: ConsoleTheme.isRackConsoleLite ? 0.18 : 1.0,
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 16),
                       Text(
-                        pueValue.toStringAsFixed(2),
+                        pueValue?.toStringAsFixed(2) ?? '--',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -582,9 +586,14 @@ class _EightHoursQuadrantState extends State<EightHoursQuadrant> {
 }
 
 class EnergyQuadrant extends StatefulWidget {
-  const EnergyQuadrant({super.key, required this.title});
+  const EnergyQuadrant({
+    super.key,
+    required this.title,
+    required this.powerType,
+  });
 
   final String title;
+  final int powerType;
 
   @override
   State<EnergyQuadrant> createState() => _EnergyQuadrantState();
@@ -616,9 +625,13 @@ class _EnergyQuadrantState extends State<EnergyQuadrant> {
     });
 
     try {
-      final data = await AdapterApiService.instance.fetchPowerMonth(
-        siteId: _currentSiteId(),
-      );
+      final data = widget.powerType == 0
+          ? await AdapterApiService.instance.fetchPowerToday(
+              siteId: _currentSiteId(),
+            )
+          : await AdapterApiService.instance.fetchPowerMonth(
+              siteId: _currentSiteId(),
+            );
       final result = (data?['result'] as Map?)?.cast<String, dynamic>() ??
           (data?['data'] as Map?)?.cast<String, dynamic>() ??
           const <String, dynamic>{};
@@ -734,12 +747,14 @@ class _TotalMonthEnergyTextState extends State<TotalMonthEnergyText> {
         color: ConsoleTheme.cyan(context),
         fontSize: 32,
         fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            color: ConsoleTheme.cyan(context).withValues(alpha: 0.5),
-            blurRadius: 10,
-          ),
-        ],
+        shadows: ConsoleTheme.isRackConsoleLite
+            ? const []
+            : [
+                Shadow(
+                  color: ConsoleTheme.cyan(context).withValues(alpha: 0.5),
+                  blurRadius: 10,
+                ),
+              ],
       ),
     );
   }
@@ -1235,6 +1250,48 @@ class _AnnualPueTrendQuadrantState extends State<AnnualPueTrendQuadrant> {
     }
   }
 
+  List<DataRow> _buildAnnualRows() {
+    List<String> seriesCells(List<FlSpot> points) {
+      return List<String>.generate(_bottomTitles.length, (index) {
+        return index < points.length ? points[index].y.toStringAsFixed(2) : '-';
+      });
+    }
+
+    final pueCells = seriesCells(_puePoints);
+    final lowCells = seriesCells(_lowBaseline);
+    final runCells = List<String>.filled(
+      _bottomTitles.length,
+      '1.50',
+      growable: false,
+    );
+    final bestCells = seriesCells(_bestBaseline);
+
+    DataRow rowFrom(String label, List<String> values, {bool bold = false}) {
+      return DataRow(
+        cells: [
+          DataCell(
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ),
+          ...values.map(
+            (value) => DataCell(Text(value)),
+          ),
+        ],
+      );
+    }
+
+    return [
+      rowFrom('PUE', pueCells, bold: true),
+      rowFrom('Lower Baseline', lowCells),
+      rowFrom('Run Baseline', runCells),
+      rowFrom('Best Baseline', bestCells),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return ConsoleSectionCard(
@@ -1261,7 +1318,7 @@ class _AnnualPueTrendQuadrantState extends State<AnnualPueTrendQuadrant> {
         ],
       ),
       child: SizedBox(
-        height: 420,
+        height: 560,
         child: Padding(
           padding: const EdgeInsets.only(top: 24, right: 16),
           child: _isLoading
@@ -1273,27 +1330,67 @@ class _AnnualPueTrendQuadrantState extends State<AnnualPueTrendQuadrant> {
                         style: const TextStyle(color: Colors.red),
                       ),
                     )
-                  : PueTrendLineChart(
-                      puePoints: _puePoints,
-                      itEnergyPoints: _lowBaseline,
-                      totalEnergyPoints: _bestBaseline,
-                      bottomTitles: _bottomTitles,
-                      baselines: [
-                        HorizontalLine(
-                          y: _lowBaseline.isNotEmpty ? _lowBaseline.first.y : 1,
-                          color: ConsoleTheme.cyan(context),
-                          strokeWidth: 2,
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: PueTrendLineChart(
+                            puePoints: _puePoints,
+                            itEnergyPoints: _lowBaseline,
+                            totalEnergyPoints: _bestBaseline,
+                            bottomTitles: _bottomTitles,
+                            baselines: [
+                              HorizontalLine(
+                                y: _lowBaseline.isNotEmpty
+                                    ? _lowBaseline.first.y
+                                    : 1,
+                                color: ConsoleTheme.cyan(context),
+                                strokeWidth: 2,
+                              ),
+                              HorizontalLine(
+                                y: 1.5,
+                                color: ConsoleTheme.primaryBlue(context),
+                                strokeWidth: 2,
+                              ),
+                              HorizontalLine(
+                                y: _bestBaseline.isNotEmpty
+                                    ? _bestBaseline.first.y
+                                    : 1.2,
+                                color: const Color(0xFFF59E0B),
+                                strokeWidth: 2,
+                              ),
+                            ],
+                          ),
                         ),
-                        HorizontalLine(
-                          y: 1.5,
-                          color: ConsoleTheme.primaryBlue(context),
-                          strokeWidth: 2,
-                        ),
-                        HorizontalLine(
-                          y:
-                              _bestBaseline.isNotEmpty ? _bestBaseline.first.y : 1.2,
-                          color: const Color(0xFFF59E0B),
-                          strokeWidth: 2,
+                        const SizedBox(height: 12),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowHeight: 36,
+                            dataRowMinHeight: 34,
+                            dataRowMaxHeight: 34,
+                            columnSpacing: 20,
+                            horizontalMargin: 16,
+                            headingRowColor: WidgetStateProperty.all(
+                              ConsoleTheme.primaryBlue(context)
+                                  .withValues(alpha: 0.2),
+                            ),
+                            headingTextStyle: TextStyle(
+                              color: ConsoleTheme.textSecondary(context),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            dataTextStyle: TextStyle(
+                              color: ConsoleTheme.textPrimary(context),
+                              fontSize: 11,
+                            ),
+                            dividerThickness: 0.5,
+                            columns: [
+                              const DataColumn(label: Text('Series')),
+                              ..._bottomTitles
+                                  .map((c) => DataColumn(label: Text(c))),
+                            ],
+                            rows: _buildAnnualRows(),
+                          ),
                         ),
                       ],
                     ),

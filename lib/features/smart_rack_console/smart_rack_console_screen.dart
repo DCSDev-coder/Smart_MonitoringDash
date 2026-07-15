@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/controllers/global_status_poller.dart';
 import '../dashboard/widgets/device_health_section.dart';
 import '../dashboard/widgets/environment_gauges.dart';
 import 'models/smart_rack_console_snapshot.dart';
@@ -22,7 +21,7 @@ class SmartRackConsoleScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: GlobalStatusPoller.instance,
+      animation: SmartRackConsoleRepository.instance,
       builder: (context, _) {
         final snapshot =
             SmartRackConsoleRepository.instance.currentSnapshot();
@@ -226,7 +225,8 @@ class _MainGrid extends StatelessWidget {
   Widget _buildCurrentPuePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     final isWide = MediaQuery.of(context).size.width > 1200;
     final chartSize = isWide ? 160.0 : 120.0;
-    final pueColor = _getPueColor(snapshot.pue);
+    final pueValue = snapshot.pue;
+    final pueColor = _getPueColor(pueValue ?? 0);
 
     return ConsoleSectionCard(
       title: 'Current PUE',
@@ -242,7 +242,9 @@ class _MainGrid extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 ArcGauge(
-                  progress: ((snapshot.pue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
+                  progress: pueValue == null
+                      ? 0
+                      : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
                   glowColor: pueColor,
                   baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
                   strokeWidth: isWide ? 16.0 : 12.0,
@@ -255,7 +257,7 @@ class _MainGrid extends StatelessWidget {
                   children: [
                     const SizedBox(height: 16),
                     Text(
-                      snapshot.pue.toStringAsFixed(2),
+                      pueValue?.toStringAsFixed(2) ?? '--',
                       style: TextStyle(
                         fontSize: isWide ? 32 : 24,
                         fontWeight: FontWeight.bold,
@@ -291,7 +293,7 @@ class _MainGrid extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '850.72',
+                snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
                 style: TextStyle(
                   color: ConsoleTheme.cyan(context),
                   fontSize: isWide ? 32 : 24,
@@ -361,7 +363,7 @@ class _MainGrid extends StatelessWidget {
   }
 
   Widget _buildCapacityPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    final usedRate = snapshot.capacityUsedPct ?? 29.76;
+    final usedRate = snapshot.capacityUsedPct;
 
     return ConsoleSectionCard(
       title: 'Space Capacity',
@@ -375,39 +377,56 @@ class _MainGrid extends StatelessWidget {
           final chart = SizedBox(
             height: chartSize,
             width: chartSize,
-            child: _buildRadialGauge(
-              context: context,
-              min: 0,
-              max: 100,
-              value: usedRate,
-              unit: '%',
-              label: 'Used Rate',
-              accentColor: ConsoleTheme.primaryBlue(context),
-            ),
+            child: usedRate == null
+                ? _buildNoDataGauge(context)
+                : _buildRadialGauge(
+                    context: context,
+                    min: 0,
+                    max: 100,
+                    value: usedRate,
+                    unit: '%',
+                    label: 'Used Rate',
+                    accentColor: ConsoleTheme.primaryBlue(context),
+                  ),
           );
 
-          final legend = Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _SensorRow(
-                icon: Icons.dns_rounded,
-                label: 'Cabinet Item 1',
-                value: '45%',
-                color: ConsoleTheme.primaryBlue(context),
-              ),
-              const SizedBox(height: 8),
-              _buildResourceProgressBar(context, 45.0),
-              const SizedBox(height: 16),
-              _SensorRow(
-                icon: Icons.dns_rounded,
-                label: 'Cabinet Item 2',
-                value: '14%',
-                color: ConsoleTheme.primaryBlue(context),
-              ),
-              const SizedBox(height: 8),
-              _buildResourceProgressBar(context, 14.0),
-            ],
-          );
+          final legend = snapshot.capacityBreakdown.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No capacity breakdown available.',
+                    style: TextStyle(
+                      color: ConsoleTheme.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: snapshot.capacityBreakdown
+                      .take(3)
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            children: [
+                              _SensorRow(
+                                icon: Icons.dns_rounded,
+                                label: item.label,
+                                value: '${item.percentage.toStringAsFixed(0)}%',
+                                color: ConsoleTheme.primaryBlue(context),
+                              ),
+                              const SizedBox(height: 8),
+                              _buildResourceProgressBar(
+                                context,
+                                item.percentage,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
 
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -422,6 +441,28 @@ class _MainGrid extends StatelessWidget {
   }
 
   // Removed unused _buildResourcePanel
+
+  Widget _buildNoDataGauge(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: ConsoleTheme.cardBorder(context),
+          width: 12,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          '--',
+          style: TextStyle(
+            color: ConsoleTheme.textSecondary(context),
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
 
   // Helper widget to build premium radial gauges using Syncfusion Gauge library
   Widget _buildRadialGauge({

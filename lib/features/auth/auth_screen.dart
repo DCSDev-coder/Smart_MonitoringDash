@@ -69,7 +69,9 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
-    GlobalVideoBackground.auth.player?.play();
+    if (!AppConfig.isRackConsoleBuild) {
+      GlobalVideoBackground.auth.player?.play();
+    }
     _tryAutoLogin();
     _startLockoutChecker();
   }

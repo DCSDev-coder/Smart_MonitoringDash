@@ -215,6 +215,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   void initState() {
     super.initState();
     _poller.start();
+    SmartRackConsoleRepository.instance.start();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _enforceRackConsoleAccess();
     });
@@ -222,6 +223,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
 
   @override
   void dispose() {
+    SmartRackConsoleRepository.instance.stop();
     _poller.stop();
     super.dispose();
   }
@@ -408,7 +410,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: ListenableBuilder(
-                          listenable: _poller,
+                          listenable: SmartRackConsoleRepository.instance,
                           builder: (context, _) => _buildMainContent(_selectedIndex, false),
                         ),
                       ),
@@ -480,7 +482,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: ListenableBuilder(
-                  listenable: _poller,
+                  listenable: SmartRackConsoleRepository.instance,
                   builder: (context, _) => _buildMainContent(_selectedIndex, true),
                 ),
               ),

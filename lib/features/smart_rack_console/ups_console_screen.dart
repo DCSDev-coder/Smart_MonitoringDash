@@ -53,14 +53,7 @@ class UpsConsoleScreen extends StatelessWidget {
                         1: FlexColumnWidth(1),
                       },
                       border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                      children: [
-                        _buildTableHeaderRow(context, ['Parameter Item', 'Value']),
-                        _buildParamRow(context, 'Output Voltage', '221 V'),
-                        _buildParamRow(context, 'Output Load Ratio', '11 %'),
-                        _buildParamRow(context, 'Offline State', 'Normal'),
-                        _buildParamRow(context, 'Input Voltage', '241.70 V'),
-                        _buildParamRow(context, 'Input Frequency', '50 Hz'),
-                      ],
+                      children: _buildParameterRows(context),
                     ),
                     const SizedBox(height: ConsoleTheme.lg),
                     _buildSectionHeader(context, 'Status'),
@@ -70,16 +63,7 @@ class UpsConsoleScreen extends StatelessWidget {
                         1: FlexColumnWidth(1),
                       },
                       border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                      children: [
-                        _buildStatusRow(context, 'Working mode', 'Online'),
-                        _buildStatusRow(context, 'UPS status', 'Normal'),
-                        _buildStatusRow(context, 'Working condition', 'Normal'),
-                        _buildStatusRow(context, 'Self inspection', 'Normal'),
-                        _buildStatusRow(context, 'Prompt sound', 'Close'),
-                        _buildStatusRow(context, 'Mains power', 'Normal'),
-                        _buildStatusRow(context, 'Power on', 'Normal'),
-                        _buildStatusRow(context, 'Battery', 'Normal'),
-                      ],
+                      children: _buildStatusRows(context),
                     ),
                   ],
                 ),
@@ -102,6 +86,34 @@ class UpsConsoleScreen extends StatelessWidget {
     );
   }
 
+  List<TableRow> _buildParameterRows(BuildContext context) {
+    final rows = snapshot.upsParameterRows;
+    if (rows.isEmpty) {
+      return [
+        _buildTableHeaderRow(context, ['Parameter Item', 'Value']),
+        _buildParamRow(context, 'Status', 'No data'),
+      ];
+    }
+    return [
+      _buildTableHeaderRow(context, ['Parameter Item', 'Value']),
+      ...rows.map((row) => _buildConsoleMetricRow(context, row)),
+    ];
+  }
+
+  List<TableRow> _buildStatusRows(BuildContext context) {
+    final rows = snapshot.upsStatusRows;
+    if (rows.isEmpty) {
+      return [
+        _buildTableHeaderRow(context, ['Status Item', 'Value']),
+        _buildStatusRow(context, 'Status', 'No data'),
+      ];
+    }
+    return [
+      _buildTableHeaderRow(context, ['Status Item', 'Value']),
+      ...rows.map((row) => _buildConsoleMetricRow(context, row)),
+    ];
+  }
+
   TableRow _buildStatusRow(BuildContext context, String label, String value) {
     return TableRow(
       children: [
@@ -116,6 +128,20 @@ class UpsConsoleScreen extends StatelessWidget {
       children: [
         _buildTableCell(context, label, isLabel: true),
         _buildTableCell(context, value, isLabel: false),
+      ],
+    );
+  }
+
+  TableRow _buildConsoleMetricRow(BuildContext context, ConsoleMetricRow row) {
+    return TableRow(
+      children: [
+        _buildTableCell(context, row.label, isLabel: true),
+        _buildTableCell(
+          context,
+          row.value,
+          isLabel: false,
+          isNormal: row.isNormal,
+        ),
       ],
     );
   }

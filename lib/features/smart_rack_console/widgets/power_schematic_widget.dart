@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+import '../../../core/config/app_config.dart';
 import '../models/smart_rack_console_snapshot.dart';
 
 class PowerSchematicWidget extends StatefulWidget {
@@ -63,7 +64,7 @@ class PowerPathCache {
     final double branchSpacing = (h * 0.8) / 6;
     final double topY = b.top + h * 0.1;
     final double bottomY = topY + branchSpacing * 6;
-    
+
     circuitPath.moveTo(spineX, topY);
     circuitPath.lineTo(spineX, bottomY);
 
@@ -174,29 +175,35 @@ class PowerSchematicPainter extends CustomPainter {
     final double h = size.height;
     final Rect b = Rect.fromLTRB(w * 0.05, h * 0.05, w * 0.95, h * 0.95);
 
-    // Base background gradient like other schematics
-    final paint = Paint()
-      ..shader = ui.Gradient.radial(
-        Offset(size.width / 2, size.height / 2),
-        size.width * 0.8,
-        [
-          const Color(0xFF1E3A8A).withValues(alpha: 0.2),
-          Colors.transparent,
-        ],
-      );
-    canvas.drawRect(Offset.zero & size, paint);
+    if (!AppConfig.isRackConsoleBuild) {
+      // Base background gradient like other schematics
+      final paint = Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(size.width / 2, size.height / 2),
+          size.width * 0.8,
+          [
+            const Color(0xFF1E3A8A).withValues(alpha: 0.2),
+            Colors.transparent,
+          ],
+        );
+      canvas.drawRect(Offset.zero & size, paint);
+    }
 
     // Draw the cyan circuit lines
     final Paint linePaint = Paint()
       ..color = const Color(0xFF67E8F9) // Bright cyan
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = AppConfig.isRackConsoleBuild ? 2 : 3;
     final Paint glowPaint = Paint()
-      ..color = const Color(0xFF06B6D4).withValues(alpha: 0.4)
+      ..color = const Color(0xFF06B6D4).withValues(
+        alpha: AppConfig.isRackConsoleBuild ? 0.16 : 0.4,
+      )
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8;
+      ..strokeWidth = AppConfig.isRackConsoleBuild ? 0 : 8;
 
-    canvas.drawPath(pathCache.circuitPath, glowPaint);
+    if (!AppConfig.isRackConsoleBuild) {
+      canvas.drawPath(pathCache.circuitPath, glowPaint);
+    }
     canvas.drawPath(pathCache.circuitPath, linePaint);
 
     _drawComponents(canvas, w, h, b);
@@ -217,7 +224,8 @@ class PowerSchematicPainter extends CustomPainter {
     // Main Input Node
     _drawNode(canvas, Offset(b.left + 20, mainY));
     if (showLabels) {
-      _drawLabel(canvas, Offset(b.left + 20, mainY - 20), 'Main input', textStyle);
+      _drawLabel(
+          canvas, Offset(b.left + 20, mainY - 20), 'Main input', textStyle);
     }
     _drawSwitch(canvas, Offset(b.left + 20 + w * 0.08, mainY), '');
 
@@ -231,7 +239,8 @@ class PowerSchematicPainter extends CustomPainter {
     final double y2 = topY + branchSpacing * 1;
     _drawSwitch(canvas, Offset(spineX + 20, y2), showLabels ? '1QF2' : '');
     if (showLabels) {
-      _drawLabel(canvas, Offset(spineX + w * 0.15 + 40, y2), 'Locking device', textStyle);
+      _drawLabel(canvas, Offset(spineX + w * 0.15 + 40, y2), 'Locking device',
+          textStyle);
     }
 
     // Branch 3: PDU1S
@@ -239,9 +248,15 @@ class PowerSchematicPainter extends CustomPainter {
     _drawSwitch(canvas, Offset(spineX + 20, y3), showLabels ? '1QF3' : '');
     _drawNode(canvas, Offset(spineX + w * 0.25, y3));
     if (showLabels) {
-      _drawLabel(canvas, Offset(spineX + w * 0.25 + 30, y3), 'PDU1S', textStyle);
-      _drawLabel(canvas, Offset(spineX + 40, y3 + branchSpacing * 0.5), '......', textStyle);
-      _drawLabel(canvas, Offset(spineX + w * 0.25 + 20, y3 + branchSpacing * 0.5), '......', textStyle);
+      _drawLabel(
+          canvas, Offset(spineX + w * 0.25 + 30, y3), 'PDU1S', textStyle);
+      _drawLabel(canvas, Offset(spineX + 40, y3 + branchSpacing * 0.5),
+          '......', textStyle);
+      _drawLabel(
+          canvas,
+          Offset(spineX + w * 0.25 + 20, y3 + branchSpacing * 0.5),
+          '......',
+          textStyle);
     }
 
     // Branch 4: PDUnS
@@ -249,7 +264,8 @@ class PowerSchematicPainter extends CustomPainter {
     _drawSwitch(canvas, Offset(spineX + 20, y4), showLabels ? '1QFn' : '');
     _drawNode(canvas, Offset(spineX + w * 0.25, y4));
     if (showLabels) {
-      _drawLabel(canvas, Offset(spineX + w * 0.25 + 30, y4), 'PDUnS', textStyle);
+      _drawLabel(
+          canvas, Offset(spineX + w * 0.25 + 30, y4), 'PDUnS', textStyle);
     }
 
     // Branch 5: Aircon1
@@ -257,9 +273,15 @@ class PowerSchematicPainter extends CustomPainter {
     _drawSwitch(canvas, Offset(spineX + 20, y5), showLabels ? '1QFn' : '');
     _drawNode(canvas, Offset(spineX + w * 0.25, y5));
     if (showLabels) {
-      _drawLabel(canvas, Offset(spineX + w * 0.25 + 30, y5), 'Aircon1', textStyle);
-      _drawLabel(canvas, Offset(spineX + 40, y5 + branchSpacing * 0.5), '......', textStyle);
-      _drawLabel(canvas, Offset(spineX + w * 0.25 + 20, y5 + branchSpacing * 0.5), '......', textStyle);
+      _drawLabel(
+          canvas, Offset(spineX + w * 0.25 + 30, y5), 'Aircon1', textStyle);
+      _drawLabel(canvas, Offset(spineX + 40, y5 + branchSpacing * 0.5),
+          '......', textStyle);
+      _drawLabel(
+          canvas,
+          Offset(spineX + w * 0.25 + 20, y5 + branchSpacing * 0.5),
+          '......',
+          textStyle);
     }
 
     // Branch 6: Aircon2
@@ -267,52 +289,65 @@ class PowerSchematicPainter extends CustomPainter {
     _drawSwitch(canvas, Offset(spineX + 20, y6), showLabels ? '1QFn' : '');
     _drawNode(canvas, Offset(spineX + w * 0.25, y6));
     if (showLabels) {
-      _drawLabel(canvas, Offset(spineX + w * 0.25 + 30, y6), 'Aircon2', textStyle);
+      _drawLabel(
+          canvas, Offset(spineX + w * 0.25 + 30, y6), 'Aircon2', textStyle);
     }
 
     // Branch 7: Lightning protection
     final double y7 = topY + branchSpacing * 6;
     _drawLightningModule(canvas, Offset(spineX + w * 0.15, y7));
     if (showLabels) {
-      _drawLabel(canvas, Offset(spineX + w * 0.15, y7 + 25), 'Lightning protection module', textStyle);
+      _drawLabel(canvas, Offset(spineX + w * 0.15, y7 + 25),
+          'Lightning protection module', textStyle);
     }
     _drawGround(canvas, Offset(spineX + w * 0.15 + 40, y7 + 20));
-
 
     // SUB-BRANCHES (Right Side)
     final double subSpineX = spineX + w * 0.35;
     final double subTopY = topY;
-    
+
     // Sub 1.1: PDU1U
-    _drawSwitch(canvas, Offset(subSpineX + 20, subTopY), showLabels ? '2QF1' : '');
+    _drawSwitch(
+        canvas, Offset(subSpineX + 20, subTopY), showLabels ? '2QF1' : '');
     _drawNode(canvas, Offset(subSpineX + w * 0.2, subTopY));
     if (showLabels) {
-      _drawLabel(canvas, Offset(subSpineX + w * 0.2 + 30, subTopY), 'PDU1U', textStyle);
-      _drawLabel(canvas, Offset(subSpineX + 40, subTopY + branchSpacing * 0.5), '......', textStyle);
-      _drawLabel(canvas, Offset(subSpineX + w * 0.2 + 20, subTopY + branchSpacing * 0.5), '......', textStyle);
+      _drawLabel(canvas, Offset(subSpineX + w * 0.2 + 30, subTopY), 'PDU1U',
+          textStyle);
+      _drawLabel(canvas, Offset(subSpineX + 40, subTopY + branchSpacing * 0.5),
+          '......', textStyle);
+      _drawLabel(
+          canvas,
+          Offset(subSpineX + w * 0.2 + 20, subTopY + branchSpacing * 0.5),
+          '......',
+          textStyle);
     }
 
     // Sub 1.2: PDUnU
     final double subY2 = topY + branchSpacing * 1;
-    _drawSwitch(canvas, Offset(subSpineX + 20, subY2), showLabels ? '2QFn' : '');
+    _drawSwitch(
+        canvas, Offset(subSpineX + 20, subY2), showLabels ? '2QFn' : '');
     _drawNode(canvas, Offset(subSpineX + w * 0.2, subY2));
     if (showLabels) {
-      _drawLabel(canvas, Offset(subSpineX + w * 0.2 + 30, subY2), 'PDUnU', textStyle);
+      _drawLabel(
+          canvas, Offset(subSpineX + w * 0.2 + 30, subY2), 'PDUnU', textStyle);
     }
 
     // Sub 1.3 Hub
     final double subY3 = topY + branchSpacing * 2.5;
-    _drawSwitch(canvas, Offset(subSpineX + 20, subY3), showLabels ? '2QF4' : '');
-    
+    _drawSwitch(
+        canvas, Offset(subSpineX + 20, subY3), showLabels ? '2QF4' : '');
+
     final double hubSpineX = subSpineX + w * 0.1;
     final double hubTopY = subY3 - branchSpacing * 0.6;
     final double hubBottomY = subY3 + branchSpacing * 1.2;
 
     // Fan1
-    _drawSwitch(canvas, Offset(hubSpineX + 20, hubTopY), showLabels ? 'KA1' : '');
+    _drawSwitch(
+        canvas, Offset(hubSpineX + 20, hubTopY), showLabels ? 'KA1' : '');
     _drawNode(canvas, Offset(hubSpineX + w * 0.1, hubTopY));
     if (showLabels) {
-      _drawLabel(canvas, Offset(hubSpineX + w * 0.1 + 30, hubTopY), 'Fan1', textStyle);
+      _drawLabel(
+          canvas, Offset(hubSpineX + w * 0.1 + 30, hubTopY), 'Fan1', textStyle);
     }
 
     // Fan2
@@ -320,7 +355,8 @@ class PowerSchematicPainter extends CustomPainter {
     _drawSwitch(canvas, Offset(hubSpineX + 20, hubY2), showLabels ? 'KA2' : '');
     _drawNode(canvas, Offset(hubSpineX + w * 0.1, hubY2));
     if (showLabels) {
-      _drawLabel(canvas, Offset(hubSpineX + w * 0.1 + 30, hubY2), 'Fan2', textStyle);
+      _drawLabel(
+          canvas, Offset(hubSpineX + w * 0.1 + 30, hubY2), 'Fan2', textStyle);
     }
 
     // Lighting1
@@ -330,19 +366,22 @@ class PowerSchematicPainter extends CustomPainter {
     }
     _drawNode(canvas, Offset(hubSpineX + w * 0.1, hubY3));
     if (showLabels) {
-      _drawLabel(canvas, Offset(hubSpineX + w * 0.1 + 30, hubY3), 'Lighting1', textStyle);
+      _drawLabel(canvas, Offset(hubSpineX + w * 0.1 + 30, hubY3), 'Lighting1',
+          textStyle);
     }
 
     // Lighting2
     final double hubY4 = hubBottomY;
     _drawNode(canvas, Offset(hubSpineX + w * 0.1, hubY4));
     if (showLabels) {
-      _drawLabel(canvas, Offset(hubSpineX + w * 0.1 + 30, hubY4), 'Lighting2', textStyle);
+      _drawLabel(canvas, Offset(hubSpineX + w * 0.1 + 30, hubY4), 'Lighting2',
+          textStyle);
     }
   }
 
   void _drawUPSBlock(Canvas canvas, Offset center) {
-    final Paint fill = Paint()..color = const Color(0xFF3B82F6).withValues(alpha: 0.8);
+    final Paint fill = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.8);
     final Paint border = Paint()
       ..color = const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
@@ -353,12 +392,18 @@ class PowerSchematicPainter extends CustomPainter {
     canvas.drawRect(box, border);
 
     if (showLabels) {
-      _drawLabel(canvas, center, 'UPS', const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+      _drawLabel(
+          canvas,
+          center,
+          'UPS',
+          const TextStyle(
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
     }
   }
 
   void _drawLightningModule(Canvas canvas, Offset center) {
-    final Paint fill = Paint()..color = const Color(0xFF3B82F6).withValues(alpha: 0.5);
+    final Paint fill = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.5);
     final Paint border = Paint()
       ..color = const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
@@ -383,15 +428,24 @@ class PowerSchematicPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
-    canvas.drawLine(Offset(center.dx - 10, center.dy), Offset(center.dx + 10, center.dy), paint);
-    canvas.drawLine(Offset(center.dx - 6, center.dy + 4), Offset(center.dx + 6, center.dy + 4), paint);
-    canvas.drawLine(Offset(center.dx - 2, center.dy + 8), Offset(center.dx + 2, center.dy + 8), paint);
+    canvas.drawLine(Offset(center.dx - 10, center.dy),
+        Offset(center.dx + 10, center.dy), paint);
+    canvas.drawLine(Offset(center.dx - 6, center.dy + 4),
+        Offset(center.dx + 6, center.dy + 4), paint);
+    canvas.drawLine(Offset(center.dx - 2, center.dy + 8),
+        Offset(center.dx + 2, center.dy + 8), paint);
   }
 
   void _drawNode(Canvas canvas, Offset center) {
     final Paint paint = Paint()..color = const Color(0xFF06B6D4);
     canvas.drawCircle(center, 4, paint);
-    canvas.drawCircle(center, 8, Paint()..color = const Color(0xFF06B6D4).withValues(alpha: 0.3)..style = PaintingStyle.stroke..strokeWidth = 2);
+    canvas.drawCircle(
+        center,
+        8,
+        Paint()
+          ..color = const Color(0xFF06B6D4).withValues(alpha: 0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
   }
 
   void _drawSwitch(Canvas canvas, Offset center, String label) {
@@ -401,12 +455,20 @@ class PowerSchematicPainter extends CustomPainter {
       ..strokeWidth = 2;
 
     // Draw the switch diagonal line
-    canvas.drawLine(Offset(center.dx - 6, center.dy), Offset(center.dx + 6, center.dy - 8), paint);
-    canvas.drawCircle(Offset(center.dx - 6, center.dy), 2, Paint()..color = Colors.white);
-    canvas.drawCircle(Offset(center.dx + 6, center.dy), 2, Paint()..color = Colors.white);
+    canvas.drawLine(Offset(center.dx - 6, center.dy),
+        Offset(center.dx + 6, center.dy - 8), paint);
+    canvas.drawCircle(
+        Offset(center.dx - 6, center.dy), 2, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        Offset(center.dx + 6, center.dy), 2, Paint()..color = Colors.white);
 
     if (showLabels && label.isNotEmpty) {
-      _drawLabel(canvas, Offset(center.dx, center.dy - 15), label, const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+      _drawLabel(
+          canvas,
+          Offset(center.dx, center.dy - 15),
+          label,
+          const TextStyle(
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
     }
   }
 
@@ -417,7 +479,8 @@ class PowerSchematicPainter extends CustomPainter {
       textAlign: TextAlign.center,
     );
     tp.layout();
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    tp.paint(
+        canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
   }
 
   @override

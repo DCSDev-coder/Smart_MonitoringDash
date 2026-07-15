@@ -18,6 +18,17 @@ class PueTrendLineChart extends StatelessWidget {
   final List<String> bottomTitles;
   final List<HorizontalLine>? baselines;
 
+  String _seriesLabel(int index) {
+    switch (index) {
+      case 0:
+        return 'PUE';
+      case 1:
+        return 'IT Energy';
+      default:
+        return 'Total Energy';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     double maxDataVal = 0;
@@ -53,8 +64,12 @@ class PueTrendLineChart extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Minimum width per data point to maintain a suitable gap
-        const double minWidthPerPoint = 45.0;
+        final isLite = ConsoleTheme.isRackConsoleLite;
+        final bottomLabelStep =
+            bottomTitles.length > 24 ? (bottomTitles.length / 8).ceil() : 1;
+
+        // Keep the chart readable, but reduce the canvas footprint on rack-console builds.
+        final double minWidthPerPoint = isLite ? 28.0 : 45.0;
         final double calculatedWidth = bottomTitles.length * minWidthPerPoint;
         
         // Use a minimum of the available width so it doesn't shrink when data is small
@@ -96,17 +111,23 @@ class PueTrendLineChart extends StatelessWidget {
             reservedSize: 30,
             interval: 1,
             getTitlesWidget: (value, meta) {
-              if (value.toInt() >= 0 && value.toInt() < bottomTitles.length) {
+              final index = value.toInt();
+              final showLabel = index >= 0 &&
+                  index < bottomTitles.length &&
+                  (index % bottomLabelStep == 0 ||
+                      index == bottomTitles.length - 1 ||
+                      index == 0);
+              if (showLabel) {
                 double shiftX = 0;
                 // Shift the first label to the right so it doesn't clip
-                if (value.toInt() == 0) shiftX = 14.0;
+                if (index == 0) shiftX = 14.0;
                 // Shift the last label to the left so it doesn't clip
-                if (value.toInt() == bottomTitles.length - 1) shiftX = -14.0;
+                if (index == bottomTitles.length - 1) shiftX = -14.0;
 
                 return Transform.translate(
                   offset: Offset(shiftX, 8.0),
                   child: Text(
-                    bottomTitles[value.toInt()],
+                    bottomTitles[index],
                     style: TextStyle(
                       color: ConsoleTheme.textSecondary(context),
                       fontSize: 10,
@@ -122,17 +143,23 @@ class PueTrendLineChart extends StatelessWidget {
 
         final gridData = FlGridData(
           show: true,
-          drawVerticalLine: true,
+          drawVerticalLine: !isLite,
           horizontalInterval: calculatedInterval,
           verticalInterval: 1,
           getDrawingHorizontalLine: (value) {
             return FlLine(
               color: ConsoleTheme.divider(context).withValues(alpha: 0.3),
               strokeWidth: 1,
-              dashArray: [4, 4],
+              dashArray: isLite ? null : [4, 4],
             );
           },
           getDrawingVerticalLine: (value) {
+            if (isLite) {
+              return const FlLine(
+                color: Colors.transparent,
+                strokeWidth: 0,
+              );
+            }
             return FlLine(
               color: ConsoleTheme.divider(context).withValues(alpha: 0.3),
               strokeWidth: 1,
@@ -202,39 +229,67 @@ class PueTrendLineChart extends StatelessWidget {
                           : 0,
                       minY: 0,
                       maxY: calculatedMaxY,
+                      lineTouchData: LineTouchData(
+                        enabled: true,
+                        handleBuiltInTouches: true,
+                        touchTooltipData: LineTouchTooltipData(
+                          tooltipRoundedRadius: 8,
+                          getTooltipColor: (_) => ConsoleTheme.cardBg(context),
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((spot) {
+                              final label = _seriesLabel(spot.barIndex);
+                              return LineTooltipItem(
+                                '$label\n${spot.y.toStringAsFixed(2)}',
+                                TextStyle(
+                                  color: ConsoleTheme.textPrimary(context),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ),
                       lineBarsData: [
                         LineChartBarData(
                           spots: puePoints,
                           isCurved: true,
+                          curveSmoothness: isLite ? 0.35 : 0.45,
                           color: ConsoleTheme.cyan(context),
-                          barWidth: 3,
+                          barWidth: isLite ? 2 : 3,
                           isStrokeCapRound: true,
                           dotData: const FlDotData(show: false),
                           belowBarData: BarAreaData(
-                            show: true,
-                            gradient: LinearGradient(
-                              colors: [
-                                ConsoleTheme.cyan(context).withValues(alpha: 0.3),
-                                ConsoleTheme.cyan(context).withValues(alpha: 0.0),
-                              ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
+                            show: !isLite,
+                            gradient: isLite
+                                ? null
+                                : LinearGradient(
+                                    colors: [
+                                      ConsoleTheme.cyan(context)
+                                          .withValues(alpha: 0.3),
+                                      ConsoleTheme.cyan(context)
+                                          .withValues(alpha: 0.0),
+                                    ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
                           ),
                         ),
                         LineChartBarData(
                           spots: itEnergyPoints,
                           isCurved: true,
+                          curveSmoothness: isLite ? 0.35 : 0.45,
                           color: ConsoleTheme.primaryBlue(context),
-                          barWidth: 2,
+                          barWidth: isLite ? 1.5 : 2,
                           isStrokeCapRound: true,
                           dotData: const FlDotData(show: false),
                         ),
                         LineChartBarData(
                           spots: totalEnergyPoints,
                           isCurved: true,
+                          curveSmoothness: isLite ? 0.35 : 0.45,
                           color: ConsoleTheme.purple(context),
-                          barWidth: 2,
+                          barWidth: isLite ? 1.5 : 2,
                           isStrokeCapRound: true,
                           dotData: const FlDotData(show: false),
                         ),
@@ -288,7 +343,27 @@ class PueConsumptionBarChart extends StatelessWidget {
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: calculatedMaxY,
-        barTouchData: BarTouchData(enabled: false),
+        barTouchData: BarTouchData(
+          enabled: true,
+          handleBuiltInTouches: true,
+          touchTooltipData: BarTouchTooltipData(
+            tooltipRoundedRadius: 8,
+            getTooltipColor: (_) => ConsoleTheme.cardBg(context),
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final label = group.x.toInt() >= 0 && group.x.toInt() < labels.length
+                  ? labels[group.x.toInt()]
+                  : 'Value';
+              return BarTooltipItem(
+                '$label\n${rod.toY.toStringAsFixed(2)}',
+                TextStyle(
+                  color: ConsoleTheme.textPrimary(context),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            },
+          ),
+        ),
         titlesData: FlTitlesData(
           show: true,
           bottomTitles: AxisTitles(
@@ -341,7 +416,7 @@ class PueConsumptionBarChart extends StatelessWidget {
             return FlLine(
               color: ConsoleTheme.divider(context).withValues(alpha: 0.3),
               strokeWidth: 1,
-              dashArray: [4, 4],
+              dashArray: ConsoleTheme.isRackConsoleLite ? null : [4, 4],
             );
           },
         ),
@@ -359,7 +434,7 @@ class PueConsumptionBarChart extends StatelessWidget {
             barRods: [
               BarChartRodData(
                 toY: values[index],
-                width: 14,
+                width: ConsoleTheme.isRackConsoleLite ? 10 : 14,
                 color: index == 0
                     ? ConsoleTheme.cyan(context)
                     : index == 1

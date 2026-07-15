@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/app_config.dart';
+
 class ConsoleTheme {
   ConsoleTheme._();
 
   static bool isDark(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
+
+  static bool get isRackConsoleLite => AppConfig.isRackConsoleBuild;
 
   // ─── Spacing Tokens (8px system) ──────────────────────────────────────────
   static const double xs = 4.0;
@@ -126,8 +130,9 @@ class ConsoleTheme {
 
   static Gradient activeAccentGradient(BuildContext context) {
     final glow = tealGlow(context);
+    final alpha = isRackConsoleLite ? 0.18 : 0.35;
     return LinearGradient(
-      colors: [glow.withValues(alpha: 0.35), glow.withValues(alpha: 0.0)],
+      colors: [glow.withValues(alpha: alpha), glow.withValues(alpha: 0.0)],
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
     );
@@ -135,6 +140,15 @@ class ConsoleTheme {
 
   // ─── Glow & Shadows ────────────────────────────────────────────────────────
   static List<BoxShadow> glowShadow(BuildContext context, {Color? color}) {
+    if (isRackConsoleLite) {
+      return [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.14),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ];
+    }
     if (isDark(context)) {
       return [
         BoxShadow(

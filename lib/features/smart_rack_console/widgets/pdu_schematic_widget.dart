@@ -1,33 +1,55 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../models/smart_rack_console_snapshot.dart';
 
 class PduSchematicWidget extends StatelessWidget {
   const PduSchematicWidget({
     super.key,
     required this.pduName,
     required this.expanded,
+    required this.summaryRows,
+    required this.outlets,
     required this.onToggleExpand,
   });
 
   final String pduName;
   final bool expanded;
+  final List<ConsoleMetricRow> summaryRows;
+  final List<Map<String, dynamic>> outlets;
   final VoidCallback onToggleExpand;
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
-    // Real values from PDU.har
-    final double pKw = pduName == 'PDU 1' ? 0.47 : 0.68;
-    final double pA = pduName == 'PDU 1' ? 2.2 : 3.1;
+    final powerText = _rowValue(summaryRows, ['total power', 'load']) ??
+        (pduName == 'PDU 1' ? '0.47 kW' : '0.68 kW');
+    final currentText =
+        _rowValue(summaryRows, ['total current', 'current']) ??
+            (pduName == 'PDU 1' ? '2.2 A' : '3.1 A');
+
+    final normalizedOutlets = outlets
+        .where((item) => item['index'] != null)
+        .map((item) => <String, dynamic>{
+              'index': (item['index'] as num).toInt(),
+              'isOn': item['isOn'] == true,
+              'watts': (item['watts'] is num)
+                  ? (item['watts'] as num).toDouble()
+                  : double.tryParse(item['watts']?.toString() ?? '') ?? 0.0,
+            })
+        .toList()
+      ..sort((a, b) => (a['index'] as int).compareTo(b['index'] as int));
+
+    final activeOutlets = normalizedOutlets
+        .where((item) => item['isOn'] == true)
+        .map((item) => item['index'] as int)
+        .toList();
+
     const int totalOutlets = 16;
-    
-    // Active outlets for mock
-    final List<int> activeOutlets = pduName == 'PDU 1' ? [11, 12, 13, 15] : [9, 10, 11, 12, 13, 14];
-    
-    final List<int> allOutlets = List.generate(totalOutlets, (i) => i + 1);
-    final List<int> showing = expanded ? allOutlets : (activeOutlets.isNotEmpty ? activeOutlets : allOutlets);
+    final allOutlets = List.generate(totalOutlets, (i) => i + 1);
+    final showing = expanded
+        ? allOutlets
+        : (activeOutlets.isNotEmpty ? activeOutlets : allOutlets);
 
     return Column(
       children: [
@@ -61,7 +83,7 @@ class PduSchematicWidget extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                '${pKw.toStringAsFixed(2)} kW',
+                powerText,
                 style: TextStyle(
                   color: isLight ? AppTheme.lightTextSecondary : Colors.white.withValues(alpha: 0.85),
                   fontWeight: FontWeight.w900,
@@ -76,7 +98,7 @@ class PduSchematicWidget extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                '${pA.toStringAsFixed(1)} A',
+                currentText,
                 style: TextStyle(
                   color: isLight ? AppTheme.lightTextSecondary : Colors.white.withValues(alpha: 0.85),
                   fontWeight: FontWeight.w900,
@@ -111,34 +133,7 @@ class PduSchematicWidget extends StatelessWidget {
                     itemBuilder: (context, idx) {
                       final n = showing[idx];
                       final isOn = activeOutlets.contains(n);
-                      double watts = 0.0;
-                      if (isOn) {
-                        if (pduName == 'PDU 1') {
-                          if (n == 11) {
-                            watts = 209.0;
-                          } else if (n == 12) {
-                            watts = 76.0;
-                          } else if (n == 13) {
-                            watts = 99.0;
-                          } else if (n == 15) {
-                            watts = 66.0;
-                          }
-                        } else {
-                          if (n == 9) {
-                            watts = 109.0;
-                          } else if (n == 10) {
-                            watts = 114.0;
-                          } else if (n == 11) {
-                            watts = 149.0;
-                          } else if (n == 12) {
-                            watts = 115.0;
-                          } else if (n == 13) {
-                            watts = 71.0;
-                          } else if (n == 14) {
-                            watts = 81.0;
-                          }
-                        }
-                      }
+                      final watts = _wattsForOutlet(normalizedOutlets, n);
                       return _buildOutletTile(context, n, isOn, watts);
                     },
                   ),
@@ -179,6 +174,27 @@ class PduSchematicWidget extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String? _rowValue(List<ConsoleMetricRow> rows, List<String> needles) {
+    for (final row in rows) {
+      final label = row.label.toLowerCase();
+      if (needles.any(label.contains)) {
+        return row.value;
+      }
+    }
+    return null;
+  }
+
+  double _wattsForOutlet(List<Map<String, dynamic>> outlets, int index) {
+    for (final outlet in outlets) {
+      if (outlet['index'] == index) {
+        final watts = outlet['watts'];
+        if (watts is num) return watts.toDouble();
+        return double.tryParse(watts?.toString() ?? '') ?? 0.0;
+      }
+    }
+    return 0.0;
   }
 
   Widget _buildOutletTile(BuildContext context, int outletNum, bool isOn, double watts) {

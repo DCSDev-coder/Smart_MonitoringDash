@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../core/config/app_config.dart';
 import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/utils/global_video_background.dart';
 import 'auth_screen.dart';
@@ -24,7 +25,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   void initState() {
     super.initState();
     // Pre-warm and start the auth background video
-    GlobalVideoBackground.auth.player?.play();
+    if (!AppConfig.isRackConsoleBuild) {
+      GlobalVideoBackground.auth.player?.play();
+    }
 
     // Faster intro: title + buttons appear together.
     _introController = AnimationController(

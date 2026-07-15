@@ -145,52 +145,45 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
   }
 
   List<TableRow> _buildInletRows(BuildContext context) {
+    final rows = widget.snapshot.powerInletRows;
+    if (rows.isEmpty) {
+      return [
+        _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
+        _buildParamRow(context, 'Status', 'No data'),
+      ];
+    }
     return [
       _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      _buildParamRow(context, 'Offline State', 'Normal'),
-      _buildParamRow(context, 'Phase A Voltage (Incoming Line 1)', '241.88 V'),
-      _buildParamRow(context, 'Phase B Voltage (Incoming Line 1)', '241.97 V'),
-      _buildParamRow(context, 'Phase C Voltage (Incoming Line 1)', '241.97 V'),
-      _buildParamRow(context, 'AB Line Voltage (Incoming Line 1)', '419.02 V'),
-      _buildParamRow(context, 'BC Line Voltage (Incoming Line 1)', '419.10 V'),
-      _buildParamRow(context, 'CA Line Voltage (Incoming Line 1)', '419.02 V'),
-      _buildParamRow(context, 'Frequency (Incoming Line 1)', '50.02 Hz'),
-      _buildParamRow(context, 'Phase A Current (Incoming Line 1)', '0.10 A'),
-      _buildParamRow(context, 'Phase B Current (Incoming Line 1)', '0 A'),
-      _buildParamRow(context, 'Phase C Current (Incoming Line 1)', '0.29 A'),
-      _buildParamRow(context, 'Phase A Active Power (Incoming Line 1)', '0.02 kW'),
-      _buildParamRow(context, 'Phase B Active Power (Incoming Line 1)', '0 kW'),
-      _buildParamRow(context, 'Phase C Active Power (Incoming Line 1)', '0.07 kW'),
-      _buildParamRow(context, 'Total Active Power (Incoming Line 1)', '0.08 kW'),
-      _buildParamRow(context, 'Phase A Reactive Power (Incoming Line 1)', '0 kvar'),
-      _buildParamRow(context, 'Phase B Reactive Power (Incoming Line 1)', '0 kvar'),
-      _buildParamRow(context, 'Phase C Reactive Power (Incoming Line 1)', '-0.02 kvar'),
+      ...rows.map((row) => _buildConsoleMetricRow(context, row)),
     ];
   }
 
   List<TableRow> _buildOutletRows(BuildContext context) {
+    final rows = widget.snapshot.powerOutletRows;
+    if (rows.isEmpty) {
+      return [
+        _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
+        _buildParamRow(context, 'Status', 'No data'),
+      ];
+    }
     return [
       _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      _buildParamRow(context, 'Offline State', 'Normal'),
-      _buildParamRow(context, 'Phase A Voltage (Incoming Line 2)', '221.12 V'),
-      _buildParamRow(context, 'Phase B Voltage (Incoming Line 2)', '0.0 V'),
-      _buildParamRow(context, 'Phase C Voltage (Incoming Line 2)', '0.0 V'),
-      _buildParamRow(context, 'AB Line Voltage (Incoming Line 2)', '221.12 V'),
-      _buildParamRow(context, 'BC Line Voltage (Incoming Line 2)', '0.0 V'),
-      _buildParamRow(context, 'CA Line Voltage (Incoming Line 2)', '221.12 V'),
-      _buildParamRow(context, 'Frequency (Incoming Line 2)', '50.02 Hz'),
-      _buildParamRow(context, 'Phase A Current (Incoming Line 2)', '0.28 A'),
-      _buildParamRow(context, 'Phase B Current (Incoming Line 2)', '0.0 A'),
-      _buildParamRow(context, 'Phase C Current (Incoming Line 2)', '0.0 A'),
-      _buildParamRow(context, 'Phase A Active Power (Incoming Line 2)', '0.06 kW'),
-      _buildParamRow(context, 'Phase B Active Power (Incoming Line 2)', '0.0 kW'),
-      _buildParamRow(context, 'Phase C Active Power (Incoming Line 2)', '0.0 kW'),
-      _buildParamRow(context, 'Total Active Power (Incoming Line 2)', '0.06 kW'),
-      _buildParamRow(context, 'Phase A Reactive Power (Incoming Line 2)', '-0.01 kvar'),
-      _buildParamRow(context, 'Phase B Reactive Power (Incoming Line 2)', '0.0 kvar'),
-      _buildParamRow(context, 'Phase C Reactive Power (Incoming Line 2)', '0.0 kvar'),
-      _buildParamRow(context, 'Total Reactive Power (Incoming Line 2)', '-0.01 kvar'),
+      ...rows.map((row) => _buildConsoleMetricRow(context, row)),
     ];
+  }
+
+  TableRow _buildConsoleMetricRow(BuildContext context, ConsoleMetricRow row) {
+    return TableRow(
+      children: [
+        _buildTableCell(context, row.label, isLabel: true),
+        _buildTableCell(
+          context,
+          row.value,
+          isLabel: false,
+          isNormal: row.isNormal,
+        ),
+      ],
+    );
   }
 
   TableRow _buildTableHeaderRow(BuildContext context, List<String> titles) {

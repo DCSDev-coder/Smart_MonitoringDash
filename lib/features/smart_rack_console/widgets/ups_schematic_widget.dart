@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+import '../../../core/config/app_config.dart';
 import '../models/smart_rack_console_snapshot.dart';
 
 class UpsSchematicWidget extends StatefulWidget {
@@ -35,7 +36,8 @@ class _UpsSchematicWidgetState extends State<UpsSchematicWidget>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       _controller.stop();
     } else if (state == AppLifecycleState.resumed) {
       _controller.repeat();
@@ -73,19 +75,19 @@ class _UpsSchematicWidgetState extends State<UpsSchematicWidget>
 
 class UpsPathCache {
   Size? _lastSize;
-  
+
   late Path bypassPath;
   late Path inputPath;
   late Path batteryPath;
   late Path dashedRepairPath;
-  
+
   ui.PathMetric? bypassMetric;
   ui.PathMetric? inputMetric;
 
   void update(Size size) {
     if (_lastSize == size) return;
     _lastSize = size;
-    
+
     final double w = size.width;
     final double h = size.height;
     final Rect b = Rect.fromLTRB(w * 0.1, h * 0.1, w * 0.9, h * 0.9);
@@ -99,12 +101,14 @@ class UpsPathCache {
     repairPath.lineTo(b.right - 40, b.top + 30);
 
     final ui.PathMetrics metrics = repairPath.computeMetrics();
-    final ui.PathMetric? metric = metrics.iterator.moveNext() ? metrics.iterator.current : null;
+    final ui.PathMetric? metric =
+        metrics.iterator.moveNext() ? metrics.iterator.current : null;
     dashedRepairPath = Path();
     if (metric != null) {
       double distance = 0;
       while (distance < metric.length) {
-        dashedRepairPath.addPath(metric.extractPath(distance, distance + 10), Offset.zero);
+        dashedRepairPath.addPath(
+            metric.extractPath(distance, distance + 10), Offset.zero);
         distance += 20;
       }
     }
@@ -113,9 +117,11 @@ class UpsPathCache {
     bypassPath = Path();
     bypassPath.moveTo(b.left, b.top + 30);
     bypassPath.lineTo(b.right, b.top + 30);
-    
+
     final bypassMetrics = bypassPath.computeMetrics();
-    bypassMetric = bypassMetrics.iterator.moveNext() ? bypassMetrics.iterator.current : null;
+    bypassMetric = bypassMetrics.iterator.moveNext()
+        ? bypassMetrics.iterator.current
+        : null;
 
     // 3. Input Path
     inputPath = Path();
@@ -124,7 +130,8 @@ class UpsPathCache {
     inputPath.lineTo(b.right - 60, b.top + 30);
 
     final inputMetrics = inputPath.computeMetrics();
-    inputMetric = inputMetrics.iterator.moveNext() ? inputMetrics.iterator.current : null;
+    inputMetric =
+        inputMetrics.iterator.moveNext() ? inputMetrics.iterator.current : null;
 
     // 4. Battery Path
     batteryPath = Path();
@@ -185,15 +192,18 @@ class UpsSchematicPainter extends CustomPainter {
     final Paint dotPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 3); // Glow effect
+      ..maskFilter = AppConfig.isRackConsoleBuild
+          ? null
+          : const MaskFilter.blur(BlurStyle.solid, 3); // Glow effect
 
     _animateDotsOnPath(canvas, pathCache.bypassMetric, dotPaint, 8);
     _animateDotsOnPath(canvas, pathCache.inputMetric, dotPaint, 12);
   }
 
-  void _animateDotsOnPath(Canvas canvas, ui.PathMetric? metric, Paint paint, int dotCount) {
+  void _animateDotsOnPath(
+      Canvas canvas, ui.PathMetric? metric, Paint paint, int dotCount) {
     if (metric == null) return;
-    
+
     final double length = metric.length;
     final double spacing = length / dotCount;
 
@@ -208,7 +218,8 @@ class UpsSchematicPainter extends CustomPainter {
 
   void _drawNodes(Canvas canvas, Rect b) {
     // Text style
-    const TextStyle textStyle = TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold);
+    const TextStyle textStyle = TextStyle(
+        color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold);
 
     // Input/Output Nodes
     _drawInputNode(canvas, Offset(b.left, b.top + 30));
@@ -216,14 +227,20 @@ class UpsSchematicPainter extends CustomPainter {
     _drawOutputNode(canvas, Offset(b.right, b.top + 30));
 
     // Switches
-    _drawSwitch(canvas, Offset(b.left + 120, b.top - 30), 'Repair Bypass Switch', isVertical: false);
-    _drawSwitch(canvas, Offset(b.left + 100, b.top + 30), 'Bypass Switch', isVertical: false);
-    _drawSwitch(canvas, Offset(b.left + 100, b.bottom - 60), 'Input Switch', isVertical: false);
-    
+    _drawSwitch(
+        canvas, Offset(b.left + 120, b.top - 30), 'Repair Bypass Switch',
+        isVertical: false);
+    _drawSwitch(canvas, Offset(b.left + 100, b.top + 30), 'Bypass Switch',
+        isVertical: false);
+    _drawSwitch(canvas, Offset(b.left + 100, b.bottom - 60), 'Input Switch',
+        isVertical: false);
+
     // Labels for inputs
     if (showLabels) {
-      _drawLabel(canvas, Offset(b.left + 30, b.top + 10), 'Bypass Mains', textStyle);
-      _drawLabel(canvas, Offset(b.left + 30, b.bottom - 80), 'Bypass Mains', textStyle);
+      _drawLabel(
+          canvas, Offset(b.left + 30, b.top + 10), 'Bypass Mains', textStyle);
+      _drawLabel(canvas, Offset(b.left + 30, b.bottom - 80), 'Bypass Mains',
+          textStyle);
     }
 
     // Components (Rectifier, Inverter, Static Switch, Battery)
@@ -234,34 +251,61 @@ class UpsSchematicPainter extends CustomPainter {
   }
 
   void _drawInputNode(Canvas canvas, Offset center) {
-    final Paint stroke = Paint()..color = const Color(0xFF93C5FD)..style = PaintingStyle.stroke..strokeWidth = 2;
+    final Paint stroke = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     canvas.drawCircle(center, 8, stroke);
     canvas.drawCircle(center, 3, stroke);
   }
 
   void _drawOutputNode(Canvas canvas, Offset center) {
-    final Paint stroke = Paint()..color = const Color(0xFF93C5FD)..style = PaintingStyle.stroke..strokeWidth = 2;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: 8), -math.pi / 2, math.pi, false, stroke);
-    canvas.drawLine(Offset(center.dx - 10, center.dy), Offset(center.dx, center.dy), stroke);
+    final Paint stroke = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawArc(Rect.fromCircle(center: center, radius: 8), -math.pi / 2,
+        math.pi, false, stroke);
+    canvas.drawLine(Offset(center.dx - 10, center.dy),
+        Offset(center.dx, center.dy), stroke);
   }
 
-  void _drawSwitch(Canvas canvas, Offset center, String label, {bool isVertical = false}) {
-    final Paint bgPaint = Paint()..color = const Color(0xFF071B3A); // match panel bg to cut the line
-    final Paint borderPaint = Paint()..color = const Color(0xFF93C5FD)..style = PaintingStyle.stroke..strokeWidth = 2;
+  void _drawSwitch(Canvas canvas, Offset center, String label,
+      {bool isVertical = false}) {
+    final Paint bgPaint = Paint()
+      ..color = const Color(0xFF071B3A); // match panel bg to cut the line
+    final Paint borderPaint = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
 
-    canvas.drawRect(Rect.fromCenter(center: center, width: 20, height: 10), bgPaint);
-    canvas.drawLine(Offset(center.dx - 10, center.dy), Offset(center.dx + 8, center.dy - 10), borderPaint);
-    canvas.drawCircle(Offset(center.dx - 10, center.dy), 3, Paint()..color = Colors.white);
-    canvas.drawCircle(Offset(center.dx + 10, center.dy), 3, Paint()..color = Colors.white);
+    canvas.drawRect(
+        Rect.fromCenter(center: center, width: 20, height: 10), bgPaint);
+    canvas.drawLine(Offset(center.dx - 10, center.dy),
+        Offset(center.dx + 8, center.dy - 10), borderPaint);
+    canvas.drawCircle(
+        Offset(center.dx - 10, center.dy), 3, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        Offset(center.dx + 10, center.dy), 3, Paint()..color = Colors.white);
 
     if (showLabels) {
-      _drawLabel(canvas, Offset(center.dx, center.dy - 20), label, const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+      _drawLabel(
+          canvas,
+          Offset(center.dx, center.dy - 20),
+          label,
+          const TextStyle(
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
     }
   }
 
   void _drawStaticSwitch(Canvas canvas, Offset center) {
-    final Paint fill = Paint()..color = const Color(0xFF3B82F6).withValues(alpha: 0.3)..style = PaintingStyle.fill;
-    final Paint border = Paint()..color = const Color(0xFF93C5FD)..style = PaintingStyle.stroke..strokeWidth = 2;
+    final Paint fill = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+    final Paint border = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
 
     final Rect box = Rect.fromCenter(center: center, width: 60, height: 30);
     canvas.drawRect(box, fill);
@@ -272,14 +316,22 @@ class UpsSchematicPainter extends CustomPainter {
     _drawDiode(canvas, Offset(center.dx, center.dy + 15), isUp: false);
 
     if (showLabels) {
-      _drawLabel(canvas, Offset(center.dx, center.dy - 25), 'Static Switch', const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+      _drawLabel(
+          canvas,
+          Offset(center.dx, center.dy - 25),
+          'Static Switch',
+          const TextStyle(
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
     }
   }
 
   void _drawDiode(Canvas canvas, Offset center, {required bool isUp}) {
-    final Paint stroke = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2;
+    final Paint stroke = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     final int dir = isUp ? -1 : 1;
-    
+
     // Circle
     canvas.drawCircle(Offset(center.dx, center.dy + (6 * dir)), 3, stroke);
     // Triangle
@@ -299,33 +351,68 @@ class UpsSchematicPainter extends CustomPainter {
     _drawPowerBox(canvas, center, 'Inverter', '=', '~');
   }
 
-  void _drawPowerBox(Canvas canvas, Offset center, String label, String topSymbol, String bottomSymbol) {
-    final Paint fill = Paint()..color = const Color(0xFF3B82F6).withValues(alpha: 0.3)..style = PaintingStyle.fill;
-    final Paint border = Paint()..color = const Color(0xFF93C5FD)..style = PaintingStyle.stroke..strokeWidth = 2;
+  void _drawPowerBox(Canvas canvas, Offset center, String label,
+      String topSymbol, String bottomSymbol) {
+    final Paint fill = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+    final Paint border = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
 
     final Rect box = Rect.fromCenter(center: center, width: 60, height: 30);
     canvas.drawRect(box, fill);
     canvas.drawRect(box, border);
     canvas.drawLine(box.bottomLeft, box.topRight, border);
 
-    _drawLabel(canvas, Offset(center.dx - 12, center.dy - 5), topSymbol, const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold));
-    _drawLabel(canvas, Offset(center.dx + 12, center.dy + 5), bottomSymbol, const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold));
+    _drawLabel(
+        canvas,
+        Offset(center.dx - 12, center.dy - 5),
+        topSymbol,
+        const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold));
+    _drawLabel(
+        canvas,
+        Offset(center.dx + 12, center.dy + 5),
+        bottomSymbol,
+        const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold));
 
     if (showLabels) {
-      _drawLabel(canvas, Offset(center.dx, center.dy - 25), label, const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+      _drawLabel(
+          canvas,
+          Offset(center.dx, center.dy - 25),
+          label,
+          const TextStyle(
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
     }
   }
 
   void _drawBattery(Canvas canvas, Offset center) {
-    final Paint fill = Paint()..color = Colors.white..style = PaintingStyle.fill;
-    final Paint border = Paint()..color = const Color(0xFF22C55E)..style = PaintingStyle.stroke..strokeWidth = 2;
+    final Paint fill = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final Paint border = Paint()
+      ..color = const Color(0xFF22C55E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
 
     final Rect box = Rect.fromCenter(center: center, width: 50, height: 24);
-    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4)), fill);
-    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4)), border);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(4)), fill);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(4)), border);
 
     if (showLabels) {
-      _drawLabel(canvas, center, 'Battery', const TextStyle(color: Color(0xFF22C55E), fontSize: 10, fontWeight: FontWeight.bold));
+      _drawLabel(
+          canvas,
+          center,
+          'Battery',
+          const TextStyle(
+              color: Color(0xFF22C55E),
+              fontSize: 10,
+              fontWeight: FontWeight.bold));
     }
   }
 
@@ -336,7 +423,8 @@ class UpsSchematicPainter extends CustomPainter {
       textAlign: TextAlign.center,
     );
     tp.layout();
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    tp.paint(
+        canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
   }
 
   @override

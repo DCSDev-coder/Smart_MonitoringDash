@@ -160,6 +160,10 @@ class AdapterApiService {
     );
   }
 
+  Future<Map<String, dynamic>?> fetchPowerToday({required int siteId}) async {
+    return _getJson('/v1/sites/$siteId/pue/power', query: {'powerType': '0'});
+  }
+
   Future<Map<String, dynamic>?> fetchYearTrendForCabinet({
     required int siteId,
     required int trendType,
@@ -225,7 +229,7 @@ class AdapterApiService {
   }
 
   Future<Map<String, dynamic>?> fetchPowerMonth({required int siteId}) async {
-    return _getJson('/v1/sites/$siteId/pue/power', query: {'powerType': '0'});
+    return _getJson('/v1/sites/$siteId/pue/power', query: {'powerType': '1'});
   }
 
   Future<Map<String, dynamic>?> fetchCabinetStats({required int siteId}) async {
@@ -752,8 +756,10 @@ class AdapterApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchRackTelemetry(
-      {required int siteId}) async {
+  Future<Map<String, dynamic>?> fetchRackTelemetry({
+    required int siteId,
+    bool includeRaw = false,
+  }) async {
     if (!isConfigured) return null;
 
     final token = _tokenOrNull();
@@ -762,7 +768,9 @@ class AdapterApiService {
       return null;
     }
 
-    final url = Uri.parse('$_base/v1/sites/$siteId/rack-telemetry');
+    final url = Uri.parse('$_base/v1/sites/$siteId/rack-telemetry').replace(
+      queryParameters: includeRaw ? const {'raw': '1'} : null,
+    );
     try {
       final res = await http.get(url, headers: {
         'Authorization': 'Bearer $token',
@@ -816,6 +824,47 @@ class AdapterApiService {
       return _decodeMap(res);
     } catch (e) {
       AppLog.w('fetchNodeWithMetric error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchPowerEnvNodes({
+    required int siteId,
+    int page = 1,
+    int pageSize = 100,
+    String? name,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      _logMissingPortalTokenIfNeeded();
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/power-env-nodes').replace(
+      queryParameters: <String, String>{
+        'pageNo': page.toString(),
+        'pageSize': pageSize.toString(),
+        if (name != null && name.isNotEmpty) 'name': name,
+      },
+    );
+    try {
+      final res = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchPowerEnvNodes non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchPowerEnvNodes error', tag: 'AdapterApi', error: e);
       return null;
     }
   }

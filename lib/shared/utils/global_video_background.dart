@@ -1,3 +1,4 @@
+import '../../core/config/app_config.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -24,8 +25,9 @@ class GlobalVideoBackground {
   /// Post-login video background is intentionally disabled for performance.
   /// The UI uses a solid-color background via `BackgroundLayer(staticForApp: true)`.
   static const String appAssetUri = '';
-  static const String authAssetUri =
-      'asset:///assets/background/14900-259623335_medium.mp4';
+  static String get authAssetUri => AppConfig.isRackConsoleBuild
+      ? ''
+      : 'asset:///assets/background/14900-259623335_medium.mp4';
 
   Player? player;
   VideoController? controller;

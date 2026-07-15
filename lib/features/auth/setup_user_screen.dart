@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../shared/utils/global_video_background.dart';
 import '../../shared/widgets/animated_dcs_logo.dart';
@@ -155,7 +156,7 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: bg.controller == null
+                child: AppConfig.isRackConsoleBuild || bg.controller == null
                     ? Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(

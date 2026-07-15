@@ -48,6 +48,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   double? itCpuUsage;
   double? itMemoryUsage;
   double? itDiskUsage;
+  double? itResponseMs;
+  double? itPacketLossPct;
   List<Map<String, dynamic>> networkInterfaces = const [];
   List<Map<String, dynamic>> doors = const [];
   List<Map<String, dynamic>> recentDoorLogs = const [];
@@ -620,8 +622,21 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
               if (code == 'cpu_usage') itCpuUsage = val;
               if (code == 'mem_usage') itMemoryUsage = val;
               if (code == 'host_disk_usage') itDiskUsage = val;
+              if (code == 'device_delay') itResponseMs = val;
+              if (code == 'percent_packet_loss') itPacketLossPct = val;
             }
           }
+          AppLog.d(
+            'RackConsoleIT: IT parse snapshot',
+            fields: {
+              'recordCount': list.length,
+              'cpuUsage': itCpuUsage,
+              'memoryUsage': itMemoryUsage,
+              'diskUsage': itDiskUsage,
+              'responseMs': itResponseMs,
+              'packetLossPct': itPacketLossPct,
+            },
+          );
         }
       }
 

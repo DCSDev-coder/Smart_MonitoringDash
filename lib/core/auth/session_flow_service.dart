@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
 import '../network/adapter_api_service.dart';
 import '../network/api_service.dart';
 import '../network/cpanel_api_service.dart';
@@ -118,7 +119,9 @@ class SessionFlowService {
 
     if (AdapterApiService.instance.isConfigured && allowBackgroundLogin) {
       ok = true;
-      ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
+      if (!AppConfig.isRackConsoleBuild) {
+        ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
+      }
     } else {
       ok = await ApiService.instance.login(
         siteUser,

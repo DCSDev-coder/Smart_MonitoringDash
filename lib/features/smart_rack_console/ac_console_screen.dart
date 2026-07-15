@@ -8,7 +8,13 @@ import 'widgets/console_section_card.dart';
 import 'widgets/console_metric_card.dart';
 import 'widgets/ac_schematic_widget.dart';
 
-class AcConsoleScreen extends StatelessWidget {
+enum _AcPanel {
+  metric,
+  setting,
+  status,
+}
+
+class AcConsoleScreen extends StatefulWidget {
   const AcConsoleScreen({
     super.key,
     this.compact = false,
@@ -17,19 +23,26 @@ class AcConsoleScreen extends StatelessWidget {
   final bool compact;
 
   @override
+  State<AcConsoleScreen> createState() => _AcConsoleScreenState();
+}
+
+class _AcConsoleScreenState extends State<AcConsoleScreen> {
+  _AcPanel _selectedPanel = _AcPanel.metric;
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: GlobalStatusPoller.instance,
       builder: (context, _) {
-        final snapshot =
-            SmartRackConsoleRepository.instance.currentSnapshot();
+        final snapshot = SmartRackConsoleRepository.instance.currentSnapshot();
 
         return Container(
           decoration: BoxDecoration(
             gradient: ConsoleTheme.pageBgGradient(context),
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: compact ? ConsoleTheme.md : ConsoleTheme.lg),
+            padding: EdgeInsets.symmetric(
+                vertical: widget.compact ? ConsoleTheme.md : ConsoleTheme.lg),
             child: _buildAcContent(context, snapshot),
           ),
         );
@@ -37,21 +50,24 @@ class AcConsoleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAcContent(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+  Widget _buildAcContent(
+      BuildContext context, SmartRackConsoleSnapshot snapshot) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
           flex: 5,
           child: Padding(
-            padding: const EdgeInsets.only(left: ConsoleTheme.lg, right: ConsoleTheme.md),
+            padding: const EdgeInsets.only(
+                left: ConsoleTheme.lg, right: ConsoleTheme.md),
             child: _buildSchematicPanel(context, snapshot, true),
           ),
         ),
         Expanded(
           flex: 4,
           child: Padding(
-            padding: const EdgeInsets.only(left: ConsoleTheme.md, right: ConsoleTheme.lg),
+            padding: const EdgeInsets.only(
+                left: ConsoleTheme.md, right: ConsoleTheme.lg),
             child: _buildControlsAndTelemetry(context, snapshot, true),
           ),
         ),
@@ -59,7 +75,8 @@ class AcConsoleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSchematicPanel(BuildContext context, SmartRackConsoleSnapshot snapshot, bool expand) {
+  Widget _buildSchematicPanel(
+      BuildContext context, SmartRackConsoleSnapshot snapshot, bool expand) {
     final schematicCard = ConsoleSectionCard(
       title: 'System Schematic',
       expand: expand,
@@ -84,18 +101,22 @@ class AcConsoleScreen extends StatelessWidget {
             Expanded(
               child: ConsoleMetricCard(
                 label: 'Unit Status',
-                value: 'Running',
+                value: snapshot.acUnitStatus ?? '--',
                 icon: Icons.power_settings_new_rounded,
-                accentColor: ConsoleTheme.success(context),
+                accentColor: _isPositiveStatus(snapshot.acUnitStatus)
+                    ? ConsoleTheme.success(context)
+                    : ConsoleTheme.danger(context),
               ),
             ),
             const SizedBox(width: ConsoleTheme.lg),
             Expanded(
               child: ConsoleMetricCard(
                 label: 'Compressor',
-                value: 'Running',
+                value: snapshot.acCompressorStatus ?? '--',
                 icon: Icons.ac_unit_rounded,
-                accentColor: ConsoleTheme.success(context),
+                accentColor: _isPositiveStatus(snapshot.acCompressorStatus)
+                    ? ConsoleTheme.success(context)
+                    : ConsoleTheme.danger(context),
               ),
             ),
           ],
@@ -104,8 +125,156 @@ class AcConsoleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildControlsAndTelemetry(BuildContext context, SmartRackConsoleSnapshot snapshot, bool expand) {
-    final settingCard = ConsoleSectionCard(
+  Widget _buildControlsAndTelemetry(
+      BuildContext context, SmartRackConsoleSnapshot snapshot, bool expand) {
+    return Column(
+      children: [
+        _buildPanelToggleRow(context),
+        const SizedBox(height: ConsoleTheme.lg),
+        Expanded(
+          child: _buildSelectedPanel(context, snapshot, expand),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanelToggleRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildPanelButton(
+            context,
+            label: 'Metric',
+            selected: _selectedPanel == _AcPanel.metric,
+            onTap: () => setState(() => _selectedPanel = _AcPanel.metric),
+          ),
+        ),
+        const SizedBox(width: ConsoleTheme.sm),
+        Expanded(
+          child: _buildPanelButton(
+            context,
+            label: 'Setting',
+            selected: _selectedPanel == _AcPanel.setting,
+            onTap: () => setState(() => _selectedPanel = _AcPanel.setting),
+          ),
+        ),
+        const SizedBox(width: ConsoleTheme.sm),
+        Expanded(
+          child: _buildPanelButton(
+            context,
+            label: 'Status',
+            selected: _selectedPanel == _AcPanel.status,
+            onTap: () => setState(() => _selectedPanel = _AcPanel.status),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanelButton(
+    BuildContext context, {
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final activeColor = ConsoleTheme.primaryBlue(context);
+    final inactiveColor = Colors.white.withValues(alpha: 0.08);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? activeColor : inactiveColor,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? activeColor.withValues(alpha: 0.9)
+                : Colors.white.withValues(alpha: 0.14),
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : const [],
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white70,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedPanel(
+    BuildContext context,
+    SmartRackConsoleSnapshot snapshot,
+    bool expand,
+  ) {
+    switch (_selectedPanel) {
+      case _AcPanel.metric:
+        return _buildMetricCard(context, snapshot, expand);
+      case _AcPanel.setting:
+        return _buildSettingCard(context, snapshot, expand);
+      case _AcPanel.status:
+        return _buildStatusCard(context, snapshot, expand);
+    }
+  }
+
+  Widget _buildMetricCard(
+    BuildContext context,
+    SmartRackConsoleSnapshot snapshot,
+    bool expand,
+  ) {
+    return ConsoleSectionCard(
+      title: 'Air Conditioning Metric',
+      expand: expand,
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(2),
+            1: FlexColumnWidth(1),
+          },
+          border: TableBorder.all(
+              color: Colors.white.withValues(alpha: 0.15), width: 1),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                  color:
+                      ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
+              children: [
+                _buildTableHeader('Metric Item'),
+                _buildTableHeader('Value'),
+              ],
+            ),
+            ...snapshot.acMetricRows.map(
+              (row) => _buildMetricTableRow(context, row.label, row.value),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingCard(
+    BuildContext context,
+    SmartRackConsoleSnapshot snapshot,
+    bool expand,
+  ) {
+    return ConsoleSectionCard(
       title: 'Air Conditioning Setting',
       expand: expand,
       padding: const EdgeInsets.all(16),
@@ -115,26 +284,33 @@ class AcConsoleScreen extends StatelessWidget {
             0: FlexColumnWidth(2),
             1: FlexColumnWidth(1),
           },
-          border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+          border: TableBorder.all(
+              color: Colors.white.withValues(alpha: 0.15), width: 1),
           children: [
             TableRow(
-              decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
+              decoration: BoxDecoration(
+                  color:
+                      ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
               children: [
                 _buildTableHeader('Parameter Item'),
                 _buildTableHeader('Set Value'),
               ],
             ),
-            _buildSettingTableRow(context, 'Reset', 'OFF'),
-            _buildSettingTableRow(context, 'Power on/off', 'on'),
-            _buildSettingTableRow(context, 'Temperature Setpoint', '24.0 °C'),
-            _buildSettingTableRow(context, 'Humidity Setpoint', '45.0 %RH'),
-            _buildSettingTableRow(context, 'Supply Air High Humd Alarm', '80 %RH'),
+            ...snapshot.acSettingRows.map(
+              (row) => _buildSettingTableRow(context, row.label, row.value),
+            ),
           ],
         ),
       ),
     );
+  }
 
-    final statusCard = ConsoleSectionCard(
+  Widget _buildStatusCard(
+    BuildContext context,
+    SmartRackConsoleSnapshot snapshot,
+    bool expand,
+  ) {
+    return ConsoleSectionCard(
       title: 'Air Conditioning Status',
       expand: expand,
       padding: const EdgeInsets.all(16),
@@ -144,32 +320,29 @@ class AcConsoleScreen extends StatelessWidget {
             0: FlexColumnWidth(1),
             1: FlexColumnWidth(1),
           },
-          border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+          border: TableBorder.all(
+              color: Colors.white.withValues(alpha: 0.15), width: 1),
           children: [
             TableRow(
-              decoration: BoxDecoration(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
+              decoration: BoxDecoration(
+                  color:
+                      ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
               children: [
                 _buildTableHeader('Status Item'),
                 _buildTableHeader('Status'),
               ],
             ),
-            _buildStatusTableRow(context, 'Electric Heater Status', 'Stopped', false),
-            _buildStatusTableRow(context, 'Electric Heater', 'Stopped', false),
-            _buildStatusTableRow(context, 'Current operating state', 'Cooling', true),
-            _buildStatusTableRow(context, 'Compressor Status', 'Running', true),
-            _buildStatusTableRow(context, 'Water pump', 'Stopped', false),
-            _buildStatusTableRow(context, 'Temp control', 'Return air', true),
+            ...snapshot.acStatusRows.map(
+              (row) => _buildStatusTableRow(
+                context,
+                row.label,
+                row.value,
+                row.isNormal,
+              ),
+            ),
           ],
         ),
       ),
-    );
-
-    return Column(
-      children: [
-        expand ? Expanded(child: settingCard) : settingCard,
-        const SizedBox(height: ConsoleTheme.lg),
-        expand ? Expanded(child: statusCard) : statusCard,
-      ],
     );
   }
 
@@ -188,41 +361,40 @@ class AcConsoleScreen extends StatelessWidget {
     );
   }
 
-  TableRow _buildSettingTableRow(BuildContext context, String label, String value) {
+  TableRow _buildSettingTableRow(
+      BuildContext context, String label, String value) {
     return TableRow(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
           child: Text(
             label,
-            style: const TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500),
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
           child: Center(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _showMockInputDialog(context, label, value),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.1),
+                border: Border.all(
+                    color: ConsoleTheme.primaryBlue(context)
+                        .withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.1),
-                    border: Border.all(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.5)),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              ),
+              child: Text(
+                value,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -232,76 +404,35 @@ class AcConsoleScreen extends StatelessWidget {
     );
   }
 
-  void _showMockInputDialog(BuildContext context, String label, String currentValue) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0B1426),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.3)),
+  TableRow _buildMetricTableRow(
+      BuildContext context, String label, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Text(
+            label,
+            style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500),
+          ),
         ),
-        title: Text(
-          'Change $label',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600),
+          ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Current value: $currentValue',
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Enter new value',
-                hintStyle: const TextStyle(color: Colors.white24),
-                filled: true,
-                fillColor: Colors.black.withValues(alpha: 0.3),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: ConsoleTheme.primaryBlue(context)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ConsoleTheme.primaryBlue(context),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: ConsoleTheme.danger(context),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(color: ConsoleTheme.danger(context).withValues(alpha: 0.5)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
-  TableRow _buildStatusTableRow(BuildContext context, String label, String status, bool isRunning) {
+  TableRow _buildStatusTableRow(
+      BuildContext context, String label, String status, bool isRunning) {
     Color statusColor = Colors.white;
     if (isRunning || status.toLowerCase() == 'stopped') {
       statusColor = ConsoleTheme.success(context);
@@ -313,7 +444,10 @@ class AcConsoleScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
           child: Text(
             label,
-            style: const TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500),
           ),
         ),
         Padding(
@@ -321,14 +455,25 @@ class AcConsoleScreen extends StatelessWidget {
           child: Text(
             status,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: statusColor, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 14, color: statusColor, fontWeight: FontWeight.w600),
           ),
         ),
       ],
     );
   }
 
-  void _showFullscreenSchematic(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+  bool _isPositiveStatus(String? value) {
+    final normalized = value?.trim().toLowerCase();
+    return normalized == 'running' ||
+        normalized == 'normal' ||
+        normalized == 'on' ||
+        normalized == 'cooling' ||
+        normalized == 'return air';
+  }
+
+  void _showFullscreenSchematic(
+      BuildContext context, SmartRackConsoleSnapshot snapshot) {
     showDialog(
       context: context,
       builder: (context) {
@@ -336,7 +481,9 @@ class AcConsoleScreen extends StatelessWidget {
           backgroundColor: ConsoleTheme.panelBg(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.5)),
+            side: BorderSide(
+                color:
+                    ConsoleTheme.primaryBlue(context).withValues(alpha: 0.5)),
           ),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.8,

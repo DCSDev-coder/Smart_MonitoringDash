@@ -4,6 +4,30 @@ import '../../../core/controllers/global_status_poller.dart';
 import '../../../core/network/cpanel_api_service.dart';
 
 @immutable
+class ConsoleBreakdownItem {
+  const ConsoleBreakdownItem({
+    required this.label,
+    required this.percentage,
+  });
+
+  final String label;
+  final double percentage;
+}
+
+@immutable
+class ConsoleMetricRow {
+  const ConsoleMetricRow({
+    required this.label,
+    required this.value,
+    this.isNormal = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isNormal;
+}
+
+@immutable
 class SmartRackConsoleSnapshot {
   const SmartRackConsoleSnapshot({
     required this.siteName,
@@ -22,7 +46,28 @@ class SmartRackConsoleSnapshot {
     required this.memoryUsedPct,
     required this.cpuUsedPct,
     required this.diskUsedPct,
+    this.responseTimeMs,
+    this.packetLossPct,
     required this.pue,
+    this.totalMonthEnergyKwh,
+    this.capacityBreakdown = const [],
+    this.powerInletRows = const [],
+    this.powerOutletRows = const [],
+    this.powerPdu1Outlets = const [],
+    this.powerPdu2Outlets = const [],
+    this.powerPdu1MetricRows = const [],
+    this.powerPdu1StatusRows = const [],
+    this.powerPdu1SettingRows = const [],
+    this.powerPdu2MetricRows = const [],
+    this.powerPdu2StatusRows = const [],
+    this.powerPdu2SettingRows = const [],
+    this.acMetricRows = const [],
+    this.acSettingRows = const [],
+    this.acStatusRows = const [],
+    this.acUnitStatus,
+    this.acCompressorStatus,
+    this.upsParameterRows = const [],
+    this.upsStatusRows = const [],
     this.temperatures = const [],
     this.humidities = const [],
     this.alarms = const [],
@@ -50,7 +95,28 @@ class SmartRackConsoleSnapshot {
   final double? memoryUsedPct;
   final double? cpuUsedPct;
   final double? diskUsedPct;
-  final double pue;
+  final double? responseTimeMs;
+  final double? packetLossPct;
+  final double? pue;
+  final double? totalMonthEnergyKwh;
+  final List<ConsoleBreakdownItem> capacityBreakdown;
+  final List<ConsoleMetricRow> powerInletRows;
+  final List<ConsoleMetricRow> powerOutletRows;
+  final List<Map<String, dynamic>> powerPdu1Outlets;
+  final List<Map<String, dynamic>> powerPdu2Outlets;
+  final List<ConsoleMetricRow> powerPdu1MetricRows;
+  final List<ConsoleMetricRow> powerPdu1StatusRows;
+  final List<ConsoleMetricRow> powerPdu1SettingRows;
+  final List<ConsoleMetricRow> powerPdu2MetricRows;
+  final List<ConsoleMetricRow> powerPdu2StatusRows;
+  final List<ConsoleMetricRow> powerPdu2SettingRows;
+  final List<ConsoleMetricRow> acMetricRows;
+  final List<ConsoleMetricRow> acSettingRows;
+  final List<ConsoleMetricRow> acStatusRows;
+  final String? acUnitStatus;
+  final String? acCompressorStatus;
+  final List<ConsoleMetricRow> upsParameterRows;
+  final List<ConsoleMetricRow> upsStatusRows;
   final List<Map<String, dynamic>> temperatures;
   final List<Map<String, dynamic>> humidities;
   final List<dynamic> alarms;
@@ -130,8 +196,7 @@ class SmartRackConsoleSnapshot {
         _extractDouble(
           sysData,
           const ['pue', 'currentPue', 'current_pue'],
-        ) ??
-        2.25;
+        );
 
     return SmartRackConsoleSnapshot(
       siteName: siteName,
@@ -161,6 +226,8 @@ class SmartRackConsoleSnapshot {
       memoryUsedPct: memoryUsedPct,
       cpuUsedPct: cpuUsedPct,
       diskUsedPct: diskUsedPct,
+      responseTimeMs: poller.itResponseMs,
+      packetLossPct: poller.itPacketLossPct,
       pue: pueVal,
       temperatures: poller.rawTemperatures,
       humidities: poller.rawHumidities,
@@ -171,6 +238,106 @@ class SmartRackConsoleSnapshot {
       networkInterfaces: poller.networkInterfaces,
       doors: poller.doors,
       recentDoorLogs: poller.recentDoorLogs,
+    );
+  }
+
+  SmartRackConsoleSnapshot copyWith({
+    String? siteName,
+    String? healthLabel,
+    Color? healthColor,
+    int? totalDevices,
+    int? issueCount,
+    String? smokeLabel,
+    String? waterLeakLabel,
+    double? temperatureC,
+    double? humidityPct,
+    DateTime? lastUpdatedUtc,
+    int? maintenanceDaysLeft,
+    int? systemUptimeDays,
+    double? capacityUsedPct,
+    double? memoryUsedPct,
+    double? cpuUsedPct,
+    double? diskUsedPct,
+    double? responseTimeMs,
+    double? packetLossPct,
+    double? pue,
+    double? totalMonthEnergyKwh,
+    List<ConsoleBreakdownItem>? capacityBreakdown,
+    List<ConsoleMetricRow>? powerInletRows,
+    List<ConsoleMetricRow>? powerOutletRows,
+    List<Map<String, dynamic>>? powerPdu1Outlets,
+    List<Map<String, dynamic>>? powerPdu2Outlets,
+    List<ConsoleMetricRow>? powerPdu1MetricRows,
+    List<ConsoleMetricRow>? powerPdu1StatusRows,
+    List<ConsoleMetricRow>? powerPdu1SettingRows,
+    List<ConsoleMetricRow>? powerPdu2MetricRows,
+    List<ConsoleMetricRow>? powerPdu2StatusRows,
+    List<ConsoleMetricRow>? powerPdu2SettingRows,
+    List<ConsoleMetricRow>? acMetricRows,
+    List<ConsoleMetricRow>? acSettingRows,
+    List<ConsoleMetricRow>? acStatusRows,
+    String? acUnitStatus,
+    String? acCompressorStatus,
+    List<ConsoleMetricRow>? upsParameterRows,
+    List<ConsoleMetricRow>? upsStatusRows,
+    List<Map<String, dynamic>>? temperatures,
+    List<Map<String, dynamic>>? humidities,
+    List<dynamic>? alarms,
+    List<Map<String, dynamic>>? devices,
+    int? smokeStatus,
+    int? floodStatus,
+    List<Map<String, dynamic>>? networkInterfaces,
+    List<Map<String, dynamic>>? doors,
+    List<Map<String, dynamic>>? recentDoorLogs,
+  }) {
+    return SmartRackConsoleSnapshot(
+      siteName: siteName ?? this.siteName,
+      healthLabel: healthLabel ?? this.healthLabel,
+      healthColor: healthColor ?? this.healthColor,
+      totalDevices: totalDevices ?? this.totalDevices,
+      issueCount: issueCount ?? this.issueCount,
+      smokeLabel: smokeLabel ?? this.smokeLabel,
+      waterLeakLabel: waterLeakLabel ?? this.waterLeakLabel,
+      temperatureC: temperatureC ?? this.temperatureC,
+      humidityPct: humidityPct ?? this.humidityPct,
+      lastUpdatedUtc: lastUpdatedUtc ?? this.lastUpdatedUtc,
+      maintenanceDaysLeft: maintenanceDaysLeft ?? this.maintenanceDaysLeft,
+      systemUptimeDays: systemUptimeDays ?? this.systemUptimeDays,
+      capacityUsedPct: capacityUsedPct ?? this.capacityUsedPct,
+      memoryUsedPct: memoryUsedPct ?? this.memoryUsedPct,
+      cpuUsedPct: cpuUsedPct ?? this.cpuUsedPct,
+      diskUsedPct: diskUsedPct ?? this.diskUsedPct,
+      responseTimeMs: responseTimeMs ?? this.responseTimeMs,
+      packetLossPct: packetLossPct ?? this.packetLossPct,
+      pue: pue ?? this.pue,
+      totalMonthEnergyKwh: totalMonthEnergyKwh ?? this.totalMonthEnergyKwh,
+      capacityBreakdown: capacityBreakdown ?? this.capacityBreakdown,
+      powerInletRows: powerInletRows ?? this.powerInletRows,
+      powerOutletRows: powerOutletRows ?? this.powerOutletRows,
+      powerPdu1Outlets: powerPdu1Outlets ?? this.powerPdu1Outlets,
+      powerPdu2Outlets: powerPdu2Outlets ?? this.powerPdu2Outlets,
+      powerPdu1MetricRows: powerPdu1MetricRows ?? this.powerPdu1MetricRows,
+      powerPdu1StatusRows: powerPdu1StatusRows ?? this.powerPdu1StatusRows,
+      powerPdu1SettingRows: powerPdu1SettingRows ?? this.powerPdu1SettingRows,
+      powerPdu2MetricRows: powerPdu2MetricRows ?? this.powerPdu2MetricRows,
+      powerPdu2StatusRows: powerPdu2StatusRows ?? this.powerPdu2StatusRows,
+      powerPdu2SettingRows: powerPdu2SettingRows ?? this.powerPdu2SettingRows,
+      acMetricRows: acMetricRows ?? this.acMetricRows,
+      acSettingRows: acSettingRows ?? this.acSettingRows,
+      acStatusRows: acStatusRows ?? this.acStatusRows,
+      acUnitStatus: acUnitStatus ?? this.acUnitStatus,
+      acCompressorStatus: acCompressorStatus ?? this.acCompressorStatus,
+      upsParameterRows: upsParameterRows ?? this.upsParameterRows,
+      upsStatusRows: upsStatusRows ?? this.upsStatusRows,
+      temperatures: temperatures ?? this.temperatures,
+      humidities: humidities ?? this.humidities,
+      alarms: alarms ?? this.alarms,
+      devices: devices ?? this.devices,
+      smokeStatus: smokeStatus ?? this.smokeStatus,
+      floodStatus: floodStatus ?? this.floodStatus,
+      networkInterfaces: networkInterfaces ?? this.networkInterfaces,
+      doors: doors ?? this.doors,
+      recentDoorLogs: recentDoorLogs ?? this.recentDoorLogs,
     );
   }
 

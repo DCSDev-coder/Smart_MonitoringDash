@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/controllers/global_status_poller.dart';
 import '../../../core/network/cpanel_api_service.dart';
 import '../../../shared/widgets/safe_network_image.dart';
 import '../models/smart_rack_device_profile.dart';
@@ -38,7 +37,7 @@ class ConsoleHeader extends StatelessWidget {
     final logoUrl = _companyLogoUrl();
 
     return AnimatedBuilder(
-      animation: GlobalStatusPoller.instance,
+      animation: SmartRackConsoleRepository.instance,
       builder: (context, _) {
         final snapshot =
             SmartRackConsoleRepository.instance.currentSnapshot();

@@ -494,6 +494,13 @@ class ApiService {
         query: {'id': nodeId.toString()},
       );
 
+  /// Fetches the current status/control list for a node.
+  /// Response: { result: [{ name, status, view, statusType }, ...] }
+  Future<Map<String, dynamic>?> fetchNodeStatus(int nodeId) => _get(
+        AppConstants.getStatusPath,
+        query: {'id': nodeId.toString()},
+      );
+
   /// Fetches paginated metrics for a node. Use page=1 for the first set.
   /// Response: { result: { records: [{ code, value, codeUnit, ... }], total, pages } }
   Future<Map<String, dynamic>?> fetchNodeMetrics(int nodeId, {int page = 1}) =>

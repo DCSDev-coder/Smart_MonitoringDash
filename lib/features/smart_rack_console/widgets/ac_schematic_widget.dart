@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
+import '../../../core/config/app_config.dart';
 import '../models/smart_rack_console_snapshot.dart';
 
 class AcSchematicWidget extends StatefulWidget {
@@ -35,7 +36,8 @@ class _AcSchematicWidgetState extends State<AcSchematicWidget>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       _controller.stop();
     } else if (state == AppLifecycleState.resumed) {
       _controller.repeat();
@@ -88,37 +90,46 @@ class AcPathCache {
     final Rect rect = Rect.fromLTRB(w * 0.15, h * 0.15, w * 0.85, h * 0.85);
 
     const double cornerRadius = 20.0;
-    
+
     highPath = Path();
     highPath.moveTo(rect.center.dx, rect.top);
     highPath.lineTo(rect.right - cornerRadius, rect.top);
-    highPath.quadraticBezierTo(rect.right, rect.top, rect.right, rect.top + cornerRadius);
+    highPath.quadraticBezierTo(
+        rect.right, rect.top, rect.right, rect.top + cornerRadius);
     highPath.lineTo(rect.right, rect.bottom - cornerRadius);
-    highPath.quadraticBezierTo(rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
+    highPath.quadraticBezierTo(
+        rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
     highPath.lineTo(rect.center.dx, rect.bottom);
 
     lowPath = Path();
     lowPath.moveTo(rect.center.dx, rect.bottom);
     lowPath.lineTo(rect.left + cornerRadius, rect.bottom);
-    lowPath.quadraticBezierTo(rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
+    lowPath.quadraticBezierTo(
+        rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
     lowPath.lineTo(rect.left, rect.top + cornerRadius);
-    lowPath.quadraticBezierTo(rect.left, rect.top, rect.left + cornerRadius, rect.top);
+    lowPath.quadraticBezierTo(
+        rect.left, rect.top, rect.left + cornerRadius, rect.top);
     lowPath.lineTo(rect.center.dx, rect.top);
 
     final Path fullPath = Path();
     fullPath.moveTo(rect.center.dx, rect.top); // Start at top center
     fullPath.lineTo(rect.right - cornerRadius, rect.top);
-    fullPath.quadraticBezierTo(rect.right, rect.top, rect.right, rect.top + cornerRadius);
+    fullPath.quadraticBezierTo(
+        rect.right, rect.top, rect.right, rect.top + cornerRadius);
     fullPath.lineTo(rect.right, rect.bottom - cornerRadius);
-    fullPath.quadraticBezierTo(rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
+    fullPath.quadraticBezierTo(
+        rect.right, rect.bottom, rect.right - cornerRadius, rect.bottom);
     fullPath.lineTo(rect.left + cornerRadius, rect.bottom);
-    fullPath.quadraticBezierTo(rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
+    fullPath.quadraticBezierTo(
+        rect.left, rect.bottom, rect.left, rect.bottom - cornerRadius);
     fullPath.lineTo(rect.left, rect.top + cornerRadius);
-    fullPath.quadraticBezierTo(rect.left, rect.top, rect.left + cornerRadius, rect.top);
+    fullPath.quadraticBezierTo(
+        rect.left, rect.top, rect.left + cornerRadius, rect.top);
     fullPath.close();
 
     final ui.PathMetrics metrics = fullPath.computeMetrics();
-    fullPathMetric = metrics.iterator.moveNext() ? metrics.iterator.current : null;
+    fullPathMetric =
+        metrics.iterator.moveNext() ? metrics.iterator.current : null;
   }
 }
 
@@ -163,6 +174,9 @@ class RefrigerationCyclePainter extends CustomPainter {
   }
 
   void _drawBackground(Canvas canvas, Size size) {
+    if (AppConfig.isRackConsoleBuild) {
+      return;
+    }
     // Subtle gradient matching the image's deep blue background
     final paint = Paint()
       ..shader = ui.Gradient.radial(
@@ -177,44 +191,46 @@ class RefrigerationCyclePainter extends CustomPainter {
   }
 
   void _drawPipes(Canvas canvas, Rect rect) {
-    // Glowing stroke effect
-    final Paint highGlow = Paint()
-      ..color = const Color(0xFFEF4444).withValues(alpha: 0.4) // Red glow
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round;
-      
+    final bool lite = AppConfig.isRackConsoleBuild;
     final Paint highCore = Paint()
       ..color = const Color(0xFFFCA5A5) // Light red core
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
 
-    final Paint lowGlow = Paint()
-      ..color = const Color(0xFF06B6D4).withValues(alpha: 0.4) // Cyan glow
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round;
-      
     final Paint lowCore = Paint()
       ..color = const Color(0xFF67E8F9) // Light cyan core
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawPath(pathCache.highPath, highGlow);
+    if (!lite) {
+      final Paint highGlow = Paint()
+        ..color = const Color(0xFFEF4444).withValues(alpha: 0.24)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(pathCache.highPath, highGlow);
+    }
     canvas.drawPath(pathCache.highPath, highCore);
 
-    canvas.drawPath(pathCache.lowPath, lowGlow);
+    if (!lite) {
+      final Paint lowGlow = Paint()
+        ..color = const Color(0xFF06B6D4).withValues(alpha: 0.24)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(pathCache.lowPath, lowGlow);
+    }
     canvas.drawPath(pathCache.lowPath, lowCore);
   }
 
   void _drawFlowArrows(Canvas canvas, Rect rect) {
     final ui.PathMetric? metric = pathCache.fullPathMetric;
     if (metric == null) return;
-    
+
     final double pathLength = metric.length;
-    
+
     // Number of arrows
     const int arrowCount = 12;
     final double spacing = pathLength / arrowCount;
@@ -226,7 +242,7 @@ class RefrigerationCyclePainter extends CustomPainter {
     for (int i = 0; i < arrowCount; i++) {
       // Calculate position with animation offset
       double distance = (i * spacing + animationValue * spacing) % pathLength;
-      
+
       final ui.Tangent? tangent = metric.getTangentForOffset(distance);
       if (tangent != null) {
         canvas.save();
@@ -241,7 +257,7 @@ class RefrigerationCyclePainter extends CustomPainter {
         arrowHead.lineTo(-6, 5);
         arrowHead.lineTo(-6, -5);
         arrowHead.close();
-        
+
         canvas.drawPath(arrowHead, arrowPaint);
         canvas.restore();
       }
@@ -269,18 +285,23 @@ class RefrigerationCyclePainter extends CustomPainter {
     final Paint paint = Paint()
       ..color = const Color(0xFF3B82F6) // Bright blue
       ..style = PaintingStyle.fill;
-    
+
     final Paint borderPaint = Paint()
       ..color = const Color(0xFF93C5FD) // Light blue border
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
     // A detailed compressor shape: a central cylinder with a domed top and wider base
-    final Rect baseRect = Rect.fromCenter(center: const Offset(0, 30), width: 60, height: 10);
-    canvas.drawRRect(RRect.fromRectAndRadius(baseRect, const Radius.circular(2)), paint);
-    canvas.drawRRect(RRect.fromRectAndRadius(baseRect, const Radius.circular(2)), borderPaint);
+    final Rect baseRect =
+        Rect.fromCenter(center: const Offset(0, 30), width: 60, height: 10);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(baseRect, const Radius.circular(2)), paint);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(baseRect, const Radius.circular(2)),
+        borderPaint);
 
-    final Rect bodyRect = Rect.fromCenter(center: const Offset(0, 0), width: 40, height: 60);
+    final Rect bodyRect =
+        Rect.fromCenter(center: const Offset(0, 0), width: 40, height: 60);
     canvas.drawRect(bodyRect, paint);
     canvas.drawRect(bodyRect, borderPaint);
 
@@ -293,10 +314,15 @@ class RefrigerationCyclePainter extends CustomPainter {
     canvas.drawPath(dome, borderPaint);
 
     // Internal motor detail (white block)
-    final Paint detailPaint = Paint()..color = Colors.white.withValues(alpha: 0.8);
-    canvas.drawRect(Rect.fromCenter(center: const Offset(0, -20), width: 20, height: 10), detailPaint);
+    final Paint detailPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8);
+    canvas.drawRect(
+        Rect.fromCenter(center: const Offset(0, -20), width: 20, height: 10),
+        detailPaint);
     // Internal shaft
-    canvas.drawRect(Rect.fromCenter(center: const Offset(0, 10), width: 6, height: 30), detailPaint);
+    canvas.drawRect(
+        Rect.fromCenter(center: const Offset(0, 10), width: 6, height: 30),
+        detailPaint);
 
     if (showLabels) {
       _drawText(canvas, 'Compressor', const Offset(0, 45));
@@ -311,29 +337,40 @@ class RefrigerationCyclePainter extends CustomPainter {
 
     final bool isEvap = label == 'Evaporator';
     final Paint paint = Paint()
-      ..color = const Color(0xFF0EA5E9).withValues(alpha: 0.6) // Cyan transparent block
+      ..color = const Color(0xFF0EA5E9)
+          .withValues(alpha: 0.6) // Cyan transparent block
       ..style = PaintingStyle.fill;
-    
+
     final Paint borderPaint = Paint()
       ..color = const Color(0xFF7DD3FC)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
     // Draw the box
-    final Rect box = Rect.fromCenter(center: Offset.zero, width: 80, height: 80);
-    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(8)), paint);
-    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(8)), borderPaint);
+    final Rect box =
+        Rect.fromCenter(center: Offset.zero, width: 80, height: 80);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(8)), paint);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(8)), borderPaint);
 
     // Draw a spinning fan inside
     const double fanRadius = 25.0;
-    
+
     // Draw fan ring
-    canvas.drawCircle(Offset.zero, fanRadius + 5, Paint()..color = Colors.white24..style = PaintingStyle.stroke..strokeWidth = 2);
+    canvas.drawCircle(
+        Offset.zero,
+        fanRadius + 5,
+        Paint()
+          ..color = Colors.white24
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
 
     // Spinning blades
     canvas.save();
-    // Fast spin for animation
-    canvas.rotate(animationValue * 2 * math.pi * 10);
+    // Keep animation, but reduce the spin density on rack-console builds.
+    canvas.rotate(
+        animationValue * 2 * math.pi * (AppConfig.isRackConsoleBuild ? 4 : 10));
     final Paint bladePaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.9)
       ..style = PaintingStyle.fill;
@@ -341,7 +378,8 @@ class RefrigerationCyclePainter extends CustomPainter {
     for (int i = 0; i < 4; i++) {
       final Path blade = Path();
       blade.moveTo(0, -2);
-      blade.quadraticBezierTo(fanRadius * 0.5, -fanRadius * 0.8, fanRadius * 0.9, 0);
+      blade.quadraticBezierTo(
+          fanRadius * 0.5, -fanRadius * 0.8, fanRadius * 0.9, 0);
       blade.quadraticBezierTo(fanRadius * 0.5, fanRadius * 0.3, 0, 2);
       blade.close();
       canvas.drawPath(blade, bladePaint);
@@ -355,7 +393,8 @@ class RefrigerationCyclePainter extends CustomPainter {
     // Label Text (offset differently based on left/right side)
     if (showLabels) {
       final textOffset = isEvap ? const Offset(50, 0) : const Offset(-50, 0);
-      _drawText(canvas, label, textOffset, align: isEvap ? TextAlign.left : TextAlign.right);
+      _drawText(canvas, label, textOffset,
+          align: isEvap ? TextAlign.left : TextAlign.right);
     }
 
     canvas.restore();
@@ -368,7 +407,7 @@ class RefrigerationCyclePainter extends CustomPainter {
     final Paint paint = Paint()
       ..color = const Color(0xFF3B82F6)
       ..style = PaintingStyle.fill;
-    
+
     final Paint borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
@@ -381,16 +420,21 @@ class RefrigerationCyclePainter extends CustomPainter {
     hourglass.lineTo(15, -10);
     hourglass.lineTo(-15, 10);
     hourglass.close();
-    
+
     canvas.drawPath(hourglass, paint);
     canvas.drawPath(hourglass, borderPaint);
 
     // Small actuator on top
-    canvas.drawRect(Rect.fromCenter(center: const Offset(0, -12), width: 10, height: 8), paint);
-    canvas.drawRect(Rect.fromCenter(center: const Offset(0, -12), width: 10, height: 8), borderPaint);
+    canvas.drawRect(
+        Rect.fromCenter(center: const Offset(0, -12), width: 10, height: 8),
+        paint);
+    canvas.drawRect(
+        Rect.fromCenter(center: const Offset(0, -12), width: 10, height: 8),
+        borderPaint);
 
     if (showLabels) {
-      _drawText(canvas, 'Expansion Valve Liquid Tube Ball Valve', const Offset(0, 25));
+      _drawText(canvas, 'Expansion Valve Liquid Tube Ball Valve',
+          const Offset(0, 25));
     }
 
     canvas.restore();
@@ -398,27 +442,39 @@ class RefrigerationCyclePainter extends CustomPainter {
 
   void _drawSensorsAndLabels(Canvas canvas, Rect rect) {
     // We draw little cyan squares along the pipes with labels
-    
+
     // Low Voltage Switch (Top Left)
-    _drawSensor(canvas, Offset(rect.left + rect.width * 0.25, rect.top), 'Low Voltage Switch', const Offset(0, -25));
-    
+    _drawSensor(canvas, Offset(rect.left + rect.width * 0.25, rect.top),
+        'Low Voltage Switch', const Offset(0, -25));
+
     // High Voltage Switch (Top Right)
-    _drawSensor(canvas, Offset(rect.right - rect.width * 0.25, rect.top), 'High Voltage Switch', const Offset(0, -25));
+    _drawSensor(canvas, Offset(rect.right - rect.width * 0.25, rect.top),
+        'High Voltage Switch', const Offset(0, -25));
 
     // Return Air Temperature Sensor (Left, above Evaporator)
-    _drawSensor(canvas, Offset(rect.left, rect.top + rect.height * 0.25), 'Return Air Temperature Sensor', const Offset(-15, -15), align: TextAlign.right);
+    _drawSensor(canvas, Offset(rect.left, rect.top + rect.height * 0.25),
+        'Return Air Temperature Sensor', const Offset(-15, -15),
+        align: TextAlign.right);
 
     // Supply Air Temperature Sensor (Left, below Evaporator)
-    _drawSensor(canvas, Offset(rect.left, rect.bottom - rect.height * 0.25), 'Supply Air Temperature Sensor', const Offset(-15, -15), align: TextAlign.right);
+    _drawSensor(canvas, Offset(rect.left, rect.bottom - rect.height * 0.25),
+        'Supply Air Temperature Sensor', const Offset(-15, -15),
+        align: TextAlign.right);
 
     // Condensing Fan Speed Control Unit (Right, above Expansion valve side)
-    _drawSensor(canvas, Offset(rect.right, rect.bottom - rect.height * 0.35), 'Condensing Fan Speed Control Unit', const Offset(15, -15), align: TextAlign.left);
+    _drawSensor(canvas, Offset(rect.right, rect.bottom - rect.height * 0.35),
+        'Condensing Fan Speed Control Unit', const Offset(15, -15),
+        align: TextAlign.left);
 
     // High Pressure Sensor (Right, below fan speed unit)
-    _drawSensor(canvas, Offset(rect.right, rect.bottom - rect.height * 0.15), 'High Pressure Sensor', const Offset(15, -15), align: TextAlign.left);
+    _drawSensor(canvas, Offset(rect.right, rect.bottom - rect.height * 0.15),
+        'High Pressure Sensor', const Offset(15, -15),
+        align: TextAlign.left);
   }
 
-  void _drawSensor(Canvas canvas, Offset center, String label, Offset textOffset, {TextAlign align = TextAlign.center}) {
+  void _drawSensor(
+      Canvas canvas, Offset center, String label, Offset textOffset,
+      {TextAlign align = TextAlign.center}) {
     canvas.save();
     canvas.translate(center.dx, center.dy);
 
@@ -431,7 +487,8 @@ class RefrigerationCyclePainter extends CustomPainter {
       ..strokeWidth = 1.5;
 
     // Small square body
-    final Rect box = Rect.fromCenter(center: Offset.zero, width: 12, height: 12);
+    final Rect box =
+        Rect.fromCenter(center: Offset.zero, width: 12, height: 12);
     canvas.drawRect(box, paint);
     canvas.drawRect(box, borderPaint);
 
@@ -445,7 +502,8 @@ class RefrigerationCyclePainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawText(Canvas canvas, String text, Offset center, {TextAlign align = TextAlign.center}) {
+  void _drawText(Canvas canvas, String text, Offset center,
+      {TextAlign align = TextAlign.center}) {
     final TextSpan span = TextSpan(
       text: text,
       style: const TextStyle(
@@ -470,7 +528,7 @@ class RefrigerationCyclePainter extends CustomPainter {
     } else if (align == TextAlign.right) {
       dx -= tp.width;
     } // if left, dx is fine
-    
+
     final double dy = center.dy - tp.height / 2;
 
     tp.paint(canvas, Offset(dx, dy));

@@ -52,5 +52,50 @@ class SiteRuntimeConfig {
     }
     return fallback;
   }
+
+  static int? nodeIdForType(
+    Map<String, dynamic>? site, {
+    required String type,
+    int? fallbackNodeId,
+  }) {
+    final nodes = nodesConfig(site);
+    if (nodes == null || nodes.isEmpty) return fallbackNodeId;
+
+    final wanted = type.trim().toLowerCase();
+    for (final entry in nodes.entries) {
+      final cfg = entry.value;
+      if (cfg is! Map) continue;
+      final map = Map<String, dynamic>.from(cfg);
+      final candidates = <String>[
+        map['nodeTypeName']?.toString() ?? '',
+        map['node_type_name']?.toString() ?? '',
+        map['nodeTypeCode']?.toString() ?? '',
+        map['node_type_code']?.toString() ?? '',
+        map['typeName']?.toString() ?? '',
+        map['type_name']?.toString() ?? '',
+        map['type']?.toString() ?? '',
+        map['name']?.toString() ?? '',
+        map['label']?.toString() ?? '',
+      ].map((v) => v.trim().toLowerCase()).where((v) => v.isNotEmpty);
+
+      final matched = candidates.any(
+        (value) => value == wanted || value.contains(wanted),
+      );
+      if (!matched) continue;
+
+      final id = int.tryParse(entry.key);
+      if (id != null) return id;
+
+      final explicitId = int.tryParse(
+        map['id']?.toString() ??
+            map['nodeId']?.toString() ??
+            map['node_id']?.toString() ??
+            '',
+      );
+      if (explicitId != null) return explicitId;
+    }
+
+    return fallbackNodeId;
+  }
 }
 

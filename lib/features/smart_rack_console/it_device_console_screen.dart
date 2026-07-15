@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/site_runtime_config.dart';
+import '../../core/network/cpanel_api_service.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'theme/console_theme.dart';
 import '../../core/theme/app_theme.dart';
@@ -20,6 +22,111 @@ class ItDeviceConsoleScreen extends StatefulWidget {
 
 class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
   bool _isIpHidden = true;
+
+  Map<String, dynamic>? get _site => CpanelApiService.instance.currentSite;
+
+  String _firstNonEmpty(List<String?> values, {String fallback = '--'}) {
+    for (final value in values) {
+      final next = value?.trim();
+      if (next != null && next.isNotEmpty) return next;
+    }
+    return fallback;
+  }
+
+  String? _siteValue(List<String> keys) {
+    final site = _site;
+    if (site == null) return null;
+    for (final key in keys) {
+      final value = site[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  String _deviceName() {
+    return _firstNonEmpty([
+      _siteValue(const ['device_name', 'deviceName']),
+      'Monitor',
+    ]);
+  }
+
+  String _deviceType() {
+    return _firstNonEmpty([
+      _siteValue(const ['device_type', 'deviceType']),
+      'Monitor',
+    ]);
+  }
+
+  String _ipAddress() {
+    final firstInterface =
+        widget.snapshot.networkInterfaces.isNotEmpty ? widget.snapshot.networkInterfaces.first : null;
+    return _firstNonEmpty([
+      firstInterface?['ip']?.toString(),
+      firstInterface?['interface_ip']?.toString(),
+      firstInterface?['ipv4']?.toString(),
+      _siteValue(const ['open_ip', 'ip', 'ip_address']),
+    ]);
+  }
+
+  String _deviceStatus() {
+    final interfaces = widget.snapshot.networkInterfaces;
+    final anyOnline = interfaces.any(
+      (iface) =>
+          iface['interface_status']?.toString() == '1' ||
+          iface['interface_status']?.toString() == '1.0',
+    );
+    if (anyOnline || widget.snapshot.cpuUsedPct != null) return 'Normal';
+    return '--';
+  }
+
+  String _locationLabel() {
+    return _firstNonEmpty([
+      _siteValue(const ['location_name', 'deviceLocationName', 'location']),
+      'Default location',
+    ]);
+  }
+
+  String _cabinetLabel() {
+    final cabinetId = SiteRuntimeConfig.cabinetId(_site);
+    final derivedCabinetLabel = cabinetId == null ? null : 'DCS-Cabinet Item $cabinetId';
+    return _firstNonEmpty([
+      _siteValue(const [
+        'cabinet_item_name',
+        'cabinetItemName',
+        'deviceCabinetItemName',
+        'cabinet_name',
+        'cabinetName',
+      ]),
+      derivedCabinetLabel,
+      cabinetId,
+    ]);
+  }
+
+  int get _activeInterfaceCount => widget.snapshot.networkInterfaces
+      .where(
+        (iface) =>
+            iface['interface_status']?.toString() == '1' ||
+            iface['interface_status']?.toString() == '1.0',
+      )
+      .length;
+
+  int get _totalInterfaceCount => widget.snapshot.networkInterfaces.length;
+
+  String _formatResponseTime() {
+    final value = widget.snapshot.responseTimeMs;
+    if (value == null) return '--';
+    if (value >= 100) return value.toStringAsFixed(0);
+    if (value >= 10) return value.toStringAsFixed(1);
+    return value.toStringAsFixed(2);
+  }
+
+  String _formatPacketLoss() {
+    final value = widget.snapshot.packetLossPct;
+    if (value == null) return '--';
+    if (value >= 10) return value.toStringAsFixed(0);
+    if (value >= 1) return value.toStringAsFixed(1);
+    return value.toStringAsFixed(2);
+  }
 
   Widget _buildInfoGrid(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
@@ -89,11 +196,11 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
         if (isSmall) {
           return Column(
             children: [
-              buildItem('Name', 'Monitor'),
+              buildItem('Name', _deviceName()),
               const SizedBox(height: 8),
-              buildItem('Device Type', 'Monitor'),
+              buildItem('Device Type', _deviceType()),
               const SizedBox(height: 8),
-              buildItem('IP Addr.', '127.0.0.1', isHidden: _isIpHidden, onToggleHide: () async {
+              buildItem('IP Addr.', _ipAddress(), isHidden: _isIpHidden, onToggleHide: () async {
                 if (_isIpHidden) {
                   final ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
                   if (ok == true) {
@@ -104,11 +211,11 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
                 }
               }),
               const SizedBox(height: 8),
-              buildItem('Status', 'Normal'),
+              buildItem('Status', _deviceStatus()),
               const SizedBox(height: 8),
-              buildItem('Location', 'Default location'),
+              buildItem('Location', _locationLabel()),
               const SizedBox(height: 8),
-              buildItem('Cabinet', 'DCS-Cabinet Item 1'),
+              buildItem('Cabinet', _cabinetLabel()),
             ],
           );
         }
@@ -117,16 +224,16 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
           children: [
             Row(
               children: [
-                Expanded(child: buildItem('Name', 'Monitor')),
+                Expanded(child: buildItem('Name', _deviceName())),
                 const SizedBox(width: 8),
-                Expanded(child: buildItem('Device Type', 'Monitor')),
+                Expanded(child: buildItem('Device Type', _deviceType())),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
-                  child: buildItem('IP Addr.', '127.0.0.1', isHidden: _isIpHidden, onToggleHide: () async {
+                  child: buildItem('IP Addr.', _ipAddress(), isHidden: _isIpHidden, onToggleHide: () async {
                     if (_isIpHidden) {
                       final ok = await SecureActionGuard.ensureAuthorized(context, reason: 'View IP Address');
                       if (ok == true) {
@@ -138,15 +245,15 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
                   }),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: buildItem('Status', 'Normal')),
+                Expanded(child: buildItem('Status', _deviceStatus())),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: buildItem('Location', 'Default location')),
+                Expanded(child: buildItem('Location', _locationLabel())),
                 const SizedBox(width: 8),
-                Expanded(child: buildItem('Cabinet', 'DCS-Cabinet Item 1')),
+                Expanded(child: buildItem('Cabinet', _cabinetLabel())),
               ],
             ),
           ],
@@ -441,8 +548,7 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
     final rows = <TableRow>[buildHeader()];
     
     if (diskUsage != null) {
-      // Disk capacity isn't fully exposed in topMetrics, so we'll leave it as N/A or keep the previous mock representation
-      rows.add(buildRow('/', '14.10GB', '${diskUsage.toStringAsFixed(2)}%'));
+      rows.add(buildRow('/', '--', '${diskUsage.toStringAsFixed(2)}%'));
     } else {
       rows.add(buildRow('-', '-', '-'));
     }
@@ -488,8 +594,8 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
                           _buildGauge(context, 'CPU Usage', widget.snapshot.cpuUsedPct ?? 0.0, const Color(0xFF3B82F6)),
                           _buildGauge(context, 'Memory Usage', widget.snapshot.memoryUsedPct ?? 0.0, const Color(0xFF8B5CF6)),
                           _buildGauge(context, 'Disk Usage', widget.snapshot.diskUsedPct ?? 0.0, const Color(0xFF00C896)),
-                          _buildSmallMetric(context, 'Packet Loss Rate', '0%'),
-                          _buildSmallMetric(context, 'Response Time', '0.15ms'),
+                          _buildSmallMetric(context, 'Response Time', _formatResponseTime()),
+                          _buildSmallMetric(context, 'Packet Loss', _formatPacketLoss()),
                         ],
                       ),
                     ),
@@ -520,7 +626,27 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
                   expand: false,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: _buildEthernetTable(context),
+                    child: Column(
+                      children: [
+                        _buildEthernetTable(context),
+                        if (_totalInterfaceCount > 0) ...[
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              'Active Ports: $_activeInterfaceCount / $_totalInterfaceCount',
+                              style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.light
+                                    ? AppTheme.lightTextSecondary
+                                    : Colors.white70,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: ConsoleTheme.lg),

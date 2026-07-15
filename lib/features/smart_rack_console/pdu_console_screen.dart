@@ -6,6 +6,12 @@ import '../../core/theme/app_theme.dart';
 import 'widgets/console_section_card.dart';
 import 'widgets/pdu_schematic_widget.dart';
 
+enum _PduPanel {
+  metric,
+  status,
+  setting,
+}
+
 class PduConsoleScreen extends StatefulWidget {
   const PduConsoleScreen({
     super.key,
@@ -19,29 +25,116 @@ class PduConsoleScreen extends StatefulWidget {
 }
 
 class _PduConsoleScreenState extends State<PduConsoleScreen> {
-  String _selectedTab = 'PDU 1';
+  String _selectedPdu = 'PDU 1';
+  _PduPanel _selectedPanel = _PduPanel.metric;
   bool _pduExpanded = false;
 
-  Widget _buildTabBar() {
+  List<ConsoleMetricRow> _selectedSummaryRows() {
+    return _selectedPdu == 'PDU 1'
+        ? widget.snapshot.powerInletRows
+        : widget.snapshot.powerOutletRows;
+  }
+
+  List<Map<String, dynamic>> _selectedOutlets() {
+    return _selectedPdu == 'PDU 1'
+        ? widget.snapshot.powerPdu1Outlets
+        : widget.snapshot.powerPdu2Outlets;
+  }
+
+  List<ConsoleMetricRow> _selectedMetricRows() {
+    return _selectedPdu == 'PDU 1'
+        ? widget.snapshot.powerPdu1MetricRows
+        : widget.snapshot.powerPdu2MetricRows;
+  }
+
+  List<ConsoleMetricRow> _selectedStatusRows() {
+    return _selectedPdu == 'PDU 1'
+        ? widget.snapshot.powerPdu1StatusRows
+        : widget.snapshot.powerPdu2StatusRows;
+  }
+
+  List<ConsoleMetricRow> _selectedSettingRows() {
+    return _selectedPdu == 'PDU 1'
+        ? widget.snapshot.powerPdu1SettingRows
+        : widget.snapshot.powerPdu2SettingRows;
+  }
+
+  List<TableRow> _buildPduRows(BuildContext context) {
+    final rows = switch (_selectedPanel) {
+      _PduPanel.metric => _selectedMetricRows(),
+      _PduPanel.status => _selectedStatusRows(),
+      _PduPanel.setting => _selectedSettingRows(),
+    };
+    if (rows.isEmpty) {
+      return [
+        _buildTableHeaderRow(context, const ['Parameter Items', 'Value']),
+        _buildParamRow(context, 'Status', 'No data'),
+      ];
+    }
+    return [
+      _buildTableHeaderRow(context, const ['Parameter Items', 'Value']),
+      ...rows.map((row) => _buildParamRow(context, row.label, row.value)),
+    ];
+  }
+
+  String _selectedPanelLabel() {
+    return switch (_selectedPanel) {
+      _PduPanel.metric => 'Metric',
+      _PduPanel.status => 'Status',
+      _PduPanel.setting => 'Setting',
+    };
+  }
+
+  Widget _buildPduTabs() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildPillButton('PDU 1'),
+          _buildPduButton('PDU 1'),
           const SizedBox(width: 16),
-          _buildPillButton('PDU 2'),
+          _buildPduButton('PDU 2'),
         ],
       ),
     );
   }
 
-  Widget _buildPillButton(String title) {
-    final bool isSelected = _selectedTab == title;
+  Widget _buildPanelTabs() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildPanelButton(
+            label: 'Metric',
+            selected: _selectedPanel == _PduPanel.metric,
+            onTap: () => setState(() => _selectedPanel = _PduPanel.metric),
+          ),
+        ),
+        const SizedBox(width: ConsoleTheme.sm),
+        Expanded(
+          child: _buildPanelButton(
+            label: 'Status',
+            selected: _selectedPanel == _PduPanel.status,
+            onTap: () => setState(() => _selectedPanel = _PduPanel.status),
+          ),
+        ),
+        const SizedBox(width: ConsoleTheme.sm),
+        Expanded(
+          child: _buildPanelButton(
+            label: 'Setting',
+            selected: _selectedPanel == _PduPanel.setting,
+            onTap: () => setState(() => _selectedPanel = _PduPanel.setting),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPduButton(String title) {
+    final bool isSelected = _selectedPdu == title;
     return InkWell(
       onTap: () {
         setState(() {
-          _selectedTab = title;
+          _selectedPdu = title;
           _pduExpanded = false; // Reset expand state when switching
         });
       },
@@ -60,6 +153,35 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
           style: TextStyle(
             color: isSelected ? Colors.white : Colors.white70,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanelButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF3B82F6) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? const Color(0xFF3B82F6) : Colors.white24,
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white70,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
@@ -119,38 +241,6 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
     );
   }
 
-  List<TableRow> _buildPdu1Rows(BuildContext context) {
-    return [
-      _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      _buildParamRow(context, 'Voltage', '220 V'),
-      _buildParamRow(context, 'Current', '2.2 A'),
-      _buildParamRow(context, 'Active Power (Single-Phase)', '0.47 kW'),
-      _buildParamRow(context, 'Reactive Power (Single-Phase)', '47 VAR'),
-      _buildParamRow(context, 'Power Factor (Single-Phase)', '1.0'),
-      _buildParamRow(context, 'Total Energy', '7387.8 kWh'),
-      _buildParamRow(context, 'Frequency', '50 Hz'),
-      _buildParamRow(context, 'Rated Voltage', '220 V'),
-      _buildParamRow(context, 'Rated Current', '32 A'),
-      _buildParamRow(context, 'Rated Frequency', '50 Hz'),
-    ];
-  }
-
-  List<TableRow> _buildPdu2Rows(BuildContext context) {
-    return [
-      _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      _buildParamRow(context, 'Voltage', '224 V'),
-      _buildParamRow(context, 'Current', '3.1 A'),
-      _buildParamRow(context, 'Active Power (Single-Phase)', '0.68 kW'),
-      _buildParamRow(context, 'Reactive Power (Single-Phase)', '142 VAR'),
-      _buildParamRow(context, 'Power Factor (Single-Phase)', '0.98'),
-      _buildParamRow(context, 'Total Energy', '14645.2 kWh'),
-      _buildParamRow(context, 'Frequency', '50 Hz'),
-      _buildParamRow(context, 'Rated Voltage', '220 V'),
-      _buildParamRow(context, 'Rated Current', '32 A'),
-      _buildParamRow(context, 'Rated Frequency', '50 Hz'),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -166,11 +256,13 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
               expand: true,
               child: Column(
                 children: [
-                  _buildTabBar(),
+                  _buildPduTabs(),
                   Expanded(
                     child: PduSchematicWidget(
-                      pduName: _selectedTab,
+                      pduName: _selectedPdu,
                       expanded: _pduExpanded,
+                      summaryRows: _selectedSummaryRows(),
+                      outlets: _selectedOutlets(),
                       onToggleExpand: () {
                         setState(() {
                           _pduExpanded = !_pduExpanded;
@@ -193,11 +285,13 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _buildPanelTabs(),
+                    const SizedBox(height: ConsoleTheme.sm),
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                       color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2),
                       child: Text(
-                        'Current Parameter ($_selectedTab)',
+                        'Current Parameter ($_selectedPdu - ${_selectedPanelLabel()})',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -207,7 +301,7 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
                         1: FlexColumnWidth(1),
                       },
                       border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                      children: _selectedTab == 'PDU 1' ? _buildPdu1Rows(context) : _buildPdu2Rows(context),
+                      children: _buildPduRows(context),
                     ),
                   ],
                 ),
