@@ -26,19 +26,37 @@ class SmartRackConsoleScreen extends StatelessWidget {
         final snapshot =
             SmartRackConsoleRepository.instance.currentSnapshot();
 
-        return Container(
-          decoration: BoxDecoration(
-            gradient: ConsoleTheme.pageBgGradient(context),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(ConsoleTheme.sm),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _MainGrid(snapshot: snapshot, compact: compact),
-              ],
-            ),
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = compact || constraints.maxWidth < 400;
+
+            return Container(
+              decoration: BoxDecoration(
+                gradient: ConsoleTheme.pageBgGradient(context),
+              ),
+              child: isNarrow
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.all(ConsoleTheme.sm),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _MainGrid(snapshot: snapshot, compact: compact),
+                        ],
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: SizedBox(
+                        height: constraints.maxHeight - 12,
+                        child: _MainGrid(
+                          snapshot: snapshot,
+                          compact: compact,
+                          viewportHeight: constraints.maxHeight - 12,
+                        ),
+                      ),
+                    ),
+            );
+          },
         );
       },
     );
@@ -49,10 +67,12 @@ class _MainGrid extends StatelessWidget {
   const _MainGrid({
     required this.snapshot,
     required this.compact,
+    this.viewportHeight,
   });
 
   final SmartRackConsoleSnapshot snapshot;
   final bool compact;
+  final double? viewportHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -67,34 +87,42 @@ class _MainGrid extends StatelessWidget {
       return Column(
         children: [
           left,
-          const SizedBox(height: ConsoleTheme.lg),
+          const SizedBox(height: ConsoleTheme.md),
           middle,
-          const SizedBox(height: ConsoleTheme.lg),
+          const SizedBox(height: ConsoleTheme.md),
           right,
-          const SizedBox(height: ConsoleTheme.lg),
+          const SizedBox(height: ConsoleTheme.md),
           _buildMonitoringStatisticsPanel(context, snapshot, twoColumn: false),
-          const SizedBox(height: ConsoleTheme.lg),
+          const SizedBox(height: ConsoleTheme.md),
           _buildCapacityPanel(context, snapshot),
         ],
       );
     }
 
+    const rowGap = ConsoleTheme.sm;
+    const columnGap = ConsoleTheme.sm;
+    final usableHeight = (viewportHeight ?? 620).clamp(520.0, 1200.0);
+    final topRowHeight = (usableHeight * 0.56).clamp(272.0, 320.0);
+    final bottomRowHeight = usableHeight - topRowHeight - rowGap;
+
     return Column(
       children: [
-        IntrinsicHeight(
+        SizedBox(
+          height: topRowHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: left),
-              const SizedBox(width: ConsoleTheme.lg),
+              const SizedBox(width: columnGap),
               Expanded(child: middle),
-              const SizedBox(width: ConsoleTheme.lg),
+              const SizedBox(width: columnGap),
               Expanded(child: right),
             ],
           ),
         ),
-        const SizedBox(height: ConsoleTheme.lg),
-        IntrinsicHeight(
+        const SizedBox(height: rowGap),
+        SizedBox(
+          height: bottomRowHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -102,7 +130,7 @@ class _MainGrid extends StatelessWidget {
                 flex: 2,
                 child: _buildMonitoringStatisticsPanel(context, snapshot, twoColumn: true),
               ),
-              const SizedBox(width: ConsoleTheme.lg),
+              const SizedBox(width: columnGap),
               Expanded(
                 flex: 1,
                 child: _buildCapacityPanel(context, snapshot),
@@ -121,10 +149,11 @@ class _MainGrid extends StatelessWidget {
 
     return ConsoleSectionCard(
       title: 'Rack Overview',
-      minHeight: 200,
+      minHeight: 170,
       expand: true,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: Padding(
-        padding: const EdgeInsets.only(top: 8.0),
+        padding: const EdgeInsets.only(top: 2.0),
         child: isSuperWide
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -136,13 +165,13 @@ class _MainGrid extends StatelessWidget {
                       children: [
                         Image.asset(
                           'assets/images/smart_rack_containment_logo.png',
-                          height: 180,
+                          height: 152,
                           fit: BoxFit.contain,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 24),
+                  const SizedBox(width: 12),
                   Expanded(
                     flex: 4,
                     child: Column(
@@ -169,10 +198,10 @@ class _MainGrid extends StatelessWidget {
                   children: [
                     Image.asset(
                       'assets/images/smart_rack_containment_logo.png',
-                      height: 180,
+                      height: 148,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 10),
                     _VerticalStatItem(
                       label: 'Maintenance\nDays Left',
                       value: '${snapshot.maintenanceDaysLeft ?? '--'}',
@@ -192,10 +221,11 @@ class _MainGrid extends StatelessWidget {
 
     return ConsoleSectionCard(
       title: 'Temperature & Humidity',
-      minHeight: 200,
+      minHeight: 170,
       expand: true,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: Padding(
-        padding: const EdgeInsets.only(top: 8.0),
+        padding: const EdgeInsets.only(top: 2.0),
         child: EnvironmentRow(
           temperatures: snapshot.temperatures,
           humidities: snapshot.humidities,
@@ -203,7 +233,7 @@ class _MainGrid extends StatelessWidget {
           initialStyle: EnvironmentGaugeStyle.meter,
           minimalist: true,
           isVertical: !isSuperWide,
-          gaugeHeight: isSuperWide ? 160 : 240,
+          gaugeHeight: isSuperWide ? 150 : 200,
         ),
       ),
     );
@@ -224,14 +254,15 @@ class _MainGrid extends StatelessWidget {
 
   Widget _buildCurrentPuePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     final isWide = MediaQuery.of(context).size.width > 1200;
-    final chartSize = isWide ? 160.0 : 120.0;
+    final chartSize = isWide ? 150.0 : 132.0;
     final pueValue = snapshot.pue;
     final pueColor = _getPueColor(pueValue ?? 0);
 
     return ConsoleSectionCard(
       title: 'Current PUE',
-      minHeight: 200,
+      minHeight: 190,
       expand: true,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -247,7 +278,7 @@ class _MainGrid extends StatelessWidget {
                       : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
                   glowColor: pueColor,
                   baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
-                  strokeWidth: isWide ? 16.0 : 12.0,
+                  strokeWidth: isWide ? 14.0 : 12.0,
                   sweepDegrees: 255,
                   startDegrees: 145,
                   glowIntensity: 1.0,
@@ -259,7 +290,7 @@ class _MainGrid extends StatelessWidget {
                     Text(
                       pueValue?.toStringAsFixed(2) ?? '--',
                       style: TextStyle(
-                        fontSize: isWide ? 32 : 24,
+                        fontSize: isWide ? 30 : 24,
                         fontWeight: FontWeight.bold,
                         color: ConsoleTheme.textPrimary(context),
                       ),
@@ -267,7 +298,7 @@ class _MainGrid extends StatelessWidget {
                     Text(
                       'PUE',
                       style: TextStyle(
-                        fontSize: isWide ? 14 : 11,
+                        fontSize: isWide ? 13 : 11,
                         color: pueColor,
                         fontWeight: FontWeight.w600,
                       ),
@@ -277,17 +308,17 @@ class _MainGrid extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           Text(
             'Total Energy Consumption Of The Month',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: ConsoleTheme.textPrimary(context),
-              fontSize: isWide ? 13 : 11,
+              fontSize: isWide ? 12 : 11,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 0),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -296,7 +327,7 @@ class _MainGrid extends StatelessWidget {
                 snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
                 style: TextStyle(
                   color: ConsoleTheme.cyan(context),
-                  fontSize: isWide ? 32 : 24,
+                  fontSize: isWide ? 26 : 22,
                   fontWeight: FontWeight.bold,
                   shadows: [
                     Shadow(
@@ -313,7 +344,7 @@ class _MainGrid extends StatelessWidget {
                   'kW·h',
                   style: TextStyle(
                     color: ConsoleTheme.textPrimary(context),
-                    fontSize: isWide ? 14 : 11,
+                    fontSize: isWide ? 10 : 9,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -327,35 +358,26 @@ class _MainGrid extends StatelessWidget {
 
   Widget _buildMonitoringStatisticsPanel(BuildContext context, SmartRackConsoleSnapshot snapshot, {bool twoColumn = false}) {
     return ConsoleSectionCard(
-      title: 'Monitoring Statistics',
-      minHeight: 200,
+      minHeight: 150,
       expand: true,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'PE Monitoring',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 16),
           Expanded(
             child: SizedBox(
               width: double.infinity,
-            child: DeviceHealthSection(
-              devices: snapshot.devices,
-              alarms: snapshot.alarms,
-              temperatures: snapshot.temperatures,
-              humidities: snapshot.humidities,
-              smokeStatus: snapshot.smokeStatus,
-              floodStatus: snapshot.floodStatus,
-              minimalist: true,
-              twoColumn: twoColumn,
+              child: DeviceHealthSection(
+                devices: snapshot.devices,
+                alarms: snapshot.alarms,
+                temperatures: snapshot.temperatures,
+                humidities: snapshot.humidities,
+                smokeStatus: snapshot.smokeStatus,
+                floodStatus: snapshot.floodStatus,
+                minimalist: true,
+                twoColumn: twoColumn,
+              ),
             ),
-          ),
           ),
         ],
       ),
@@ -363,199 +385,105 @@ class _MainGrid extends StatelessWidget {
   }
 
   Widget _buildCapacityPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    final usedRate = snapshot.capacityUsedPct;
-
     return ConsoleSectionCard(
-      title: 'Space Capacity',
-      minHeight: 200,
+      title: '',
+      minHeight: 140,
       expand: true,
-      child: Builder(
-        builder: (context) {
-          final isWide = MediaQuery.of(context).size.width > 1200;
-          final chartSize = isWide ? 160.0 : 120.0;
-          
-          final chart = SizedBox(
-            height: chartSize,
-            width: chartSize,
-            child: usedRate == null
-                ? _buildNoDataGauge(context)
-                : _buildRadialGauge(
-                    context: context,
-                    min: 0,
-                    max: 100,
-                    value: usedRate,
-                    unit: '%',
-                    label: 'Used Rate',
-                    accentColor: ConsoleTheme.primaryBlue(context),
-                  ),
-          );
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+      child: _CapacityItems(snapshot: snapshot),
+    );
+  }
 
-          final legend = snapshot.capacityBreakdown.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'No capacity breakdown available.',
-                    style: TextStyle(
-                      color: ConsoleTheme.textSecondary(context),
-                      fontSize: 12,
+}
+
+class _CapacityItems extends StatelessWidget {
+  const _CapacityItems({
+    required this.snapshot,
+  });
+
+  final SmartRackConsoleSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final breakdown = snapshot.capacityBreakdown;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+             child: breakdown.isEmpty
+                 ? Center(
+                     child: Text(
+                      'No capacity breakdown available.',
+                      style: TextStyle(
+                        color: ConsoleTheme.textSecondary(context),
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: snapshot.capacityBreakdown
-                      .take(3)
-                      .map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Column(
-                            children: [
-                              _SensorRow(
-                                icon: Icons.dns_rounded,
-                                label: item.label,
-                                value: '${item.percentage.toStringAsFixed(0)}%',
-                                color: ConsoleTheme.primaryBlue(context),
-                              ),
-                              const SizedBox(height: 8),
-                              _buildResourceProgressBar(
-                                context,
-                                item.percentage,
-                              ),
-                            ],
+                  )
+                 : ListView.separated(
+                     padding: EdgeInsets.zero,
+                     itemCount: breakdown.length,
+                     separatorBuilder: (_, __) => const SizedBox(height: 4),
+                     itemBuilder: (context, index) {
+                      final item = breakdown[index];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SensorRow(
+                            icon: Icons.dns_rounded,
+                            label: item.label,
+                            value: '${item.percentage.toStringAsFixed(0)}%',
+                            color: ConsoleTheme.primaryBlue(context),
                           ),
-                        ),
-                      )
-                      .toList(),
-                );
-
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              chart,
-              legend,
-            ],
-          );
-        },
+                          const SizedBox(height: 6),
+                          _buildCapacityProgressBar(
+                             context,
+                             item.percentage,
+                           ),
+                         ],
+                       );
+                     },
+                   ),
+           ),
+        ],
       ),
     );
   }
+}
 
-  // Removed unused _buildResourcePanel
+Widget _buildCapacityProgressBar(BuildContext context, double percentage, {Color? color}) {
+  final isDark = ConsoleTheme.isDark(context);
+  final trackColor = isDark
+      ? const Color(0xFF091A35)
+      : const Color(0xFFEAF3FF);
+  final accent = color ?? ConsoleTheme.primaryBlue(context);
 
-  Widget _buildNoDataGauge(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: ConsoleTheme.cardBorder(context),
-          width: 12,
-        ),
+  return Container(
+    height: 8,
+    width: double.infinity,
+    decoration: BoxDecoration(
+      color: trackColor,
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(
+        color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.5),
       ),
-      child: Center(
-        child: Text(
-          '--',
-          style: TextStyle(
-            color: ConsoleTheme.textSecondary(context),
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: (percentage / 100).clamp(0.0, 1.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: accent,
           ),
         ),
       ),
-    );
-  }
-
-  // Helper widget to build premium radial gauges using Syncfusion Gauge library
-  Widget _buildRadialGauge({
-    required BuildContext context,
-    required double min,
-    required double max,
-    required double value,
-    required String unit,
-    required String label,
-    required Color accentColor,
-  }) {
-    final isDark = ConsoleTheme.isDark(context);
-    final valueTextColor = ConsoleTheme.textPrimary(context);
-    final labelTextColor = ConsoleTheme.textSecondary(context);
-    final trackColor = isDark
-        ? const Color(0xFF3A3A3A) // Darker grey track to make it more distinct but subtle
-        : const Color(0xFFC0D3EB); // Darker gray-blue track for light mode
-
-    final isSuperWide = MediaQuery.of(context).size.width >= 1100;
-    final strokeWidth = isSuperWide ? 16.0 : 12.0;
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        ArcGauge(
-          progress: (value - min) / (max - min),
-          glowColor: accentColor,
-          baseColor: trackColor,
-          strokeWidth: strokeWidth,
-          sweepDegrees: 255,
-          startDegrees: 145,
-          glowIntensity: 1.0,
-        ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 16), // Push text slightly down to center inside the arc
-            Text(
-              '${value.toInt()}$unit',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: valueTextColor,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: labelTextColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // Custom linear progress bar for resource usage
-  Widget _buildResourceProgressBar(BuildContext context, double percentage, {Color? color}) {
-    final isDark = ConsoleTheme.isDark(context);
-    final trackColor = isDark
-        ? const Color(0xFF091A35)
-        : const Color(0xFFEAF3FF);
-        
-    final accent = color ?? ConsoleTheme.primaryBlue(context);
-
-    return Container(
-      height: 8,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: trackColor,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.5),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: (percentage / 100).clamp(0.0, 1.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: accent,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _SensorRow extends StatelessWidget {

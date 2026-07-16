@@ -20,11 +20,43 @@ class ConsoleMetricRow {
     required this.label,
     required this.value,
     this.isNormal = false,
+    this.metricCode,
+    this.nodeId,
+    this.rawValue,
+    this.writeMap,
+    this.isEditable = false,
   });
 
   final String label;
   final String value;
   final bool isNormal;
+  final String? metricCode;
+  final int? nodeId;
+  final String? rawValue;
+  final Map<String, String>? writeMap;
+  final bool isEditable;
+
+  ConsoleMetricRow copyWith({
+    String? label,
+    String? value,
+    bool? isNormal,
+    String? metricCode,
+    int? nodeId,
+    String? rawValue,
+    Map<String, String>? writeMap,
+    bool? isEditable,
+  }) {
+    return ConsoleMetricRow(
+      label: label ?? this.label,
+      value: value ?? this.value,
+      isNormal: isNormal ?? this.isNormal,
+      metricCode: metricCode ?? this.metricCode,
+      nodeId: nodeId ?? this.nodeId,
+      rawValue: rawValue ?? this.rawValue,
+      writeMap: writeMap ?? this.writeMap,
+      isEditable: isEditable ?? this.isEditable,
+    );
+  }
 }
 
 @immutable

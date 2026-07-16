@@ -828,6 +828,43 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchNodeStatus({
+    required int siteId,
+    required int nodeId,
+  }) async {
+    if (!isConfigured) return null;
+
+    final token = _tokenOrNull();
+    if (token == null) {
+      _logMissingPortalTokenIfNeeded();
+      return null;
+    }
+
+    final url = Uri.parse('$_base/v1/sites/$siteId/node-status').replace(
+      queryParameters: <String, String>{
+        'nodeId': nodeId.toString(),
+      },
+    );
+    try {
+      final res = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode != 200) {
+        AppLog.w('fetchNodeStatus non-200', tag: 'AdapterApi', fields: {
+          'status': res.statusCode,
+        });
+        return null;
+      }
+
+      return _decodeMap(res);
+    } catch (e) {
+      AppLog.w('fetchNodeStatus error', tag: 'AdapterApi', error: e);
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> fetchPowerEnvNodes({
     required int siteId,
     int page = 1,

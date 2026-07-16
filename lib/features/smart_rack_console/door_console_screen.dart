@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/config/site_runtime_config.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
@@ -538,29 +539,58 @@ class _DoorGlyph extends StatefulWidget {
 
 class _DoorGlyphState extends State<_DoorGlyph>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  AnimationController? _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    if (!AppConfig.isRackConsoleBuild) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 2),
+      )..repeat(reverse: true);
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (AppConfig.isRackConsoleBuild) {
+      return Container(
+        width: 88,
+        height: 88,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              widget.accent.withValues(alpha: 0.24),
+              widget.accent.withValues(alpha: 0.10),
+              Colors.transparent,
+            ],
+          ),
+          border: Border.all(
+            color: widget.accent.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Icon(
+          widget.isUnlocked
+              ? Icons.lock_open_rounded
+              : Icons.lock_outline_rounded,
+          color: Colors.white,
+          size: 38,
+        ),
+      );
+    }
+
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _controller!,
       builder: (context, _) {
-        final pulse = 0.14 + (_controller.value * 0.16);
+        final pulse = 0.14 + (_controller!.value * 0.16);
         return Container(
           width: 88,
           height: 88,
@@ -585,7 +615,7 @@ class _DoorGlyphState extends State<_DoorGlyph>
             ],
           ),
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
+            duration: const Duration(milliseconds: 160),
             transitionBuilder: (child, animation) =>
                 ScaleTransition(scale: animation, child: child),
             child: Icon(
@@ -620,20 +650,22 @@ class _ConsoleUnlockButton extends StatefulWidget {
 
 class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  AnimationController? _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 5),
-    )..repeat();
+    if (!AppConfig.isRackConsoleBuild) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 5),
+      )..repeat();
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -641,8 +673,44 @@ class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
   Widget build(BuildContext context) {
     final disabled = !widget.enabled || widget.onPressed == null;
 
+    if (AppConfig.isRackConsoleBuild) {
+      return Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(999),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: disabled ? Colors.white.withValues(alpha: 0.08) : null,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: disabled
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : ConsoleTheme.cyan(context).withValues(alpha: 0.30),
+              ),
+            ),
+            child: Center(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  color: disabled
+                      ? Colors.white54
+                      : ConsoleTheme.textInverse(context),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _controller!,
       builder: (context, _) {
         return Material(
           color: Colors.transparent,
@@ -681,7 +749,7 @@ class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
                         alignment: Alignment.centerLeft,
                         widthFactor: 0.32,
                         child: Transform.translate(
-                          offset: Offset(_controller.value * 240 - 90, 0),
+                          offset: Offset(_controller!.value * 240 - 90, 0),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -710,10 +778,10 @@ class _ConsoleUnlockButtonState extends State<_ConsoleUnlockButton>
                     ),
                   ),
                 ],
+                ),
               ),
             ),
-          ),
-        );
+          );
       },
     );
   }
@@ -748,13 +816,19 @@ class _HoldToConfirmButtonState extends State<_HoldToConfirmButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: AppConfig.isRackConsoleBuild
+          ? const Duration(milliseconds: 450)
+          : const Duration(milliseconds: 650),
     );
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         setState(() => _successFlash = true);
         widget.onUnlock();
-        Future.delayed(const Duration(milliseconds: 300), () {
+        Future.delayed(
+          AppConfig.isRackConsoleBuild
+              ? const Duration(milliseconds: 60)
+              : const Duration(milliseconds: 120),
+          () {
           if (mounted) {
             setState(() => _successFlash = false);
             _controller.reset();
@@ -812,7 +886,9 @@ class _HoldToConfirmButtonState extends State<_HoldToConfirmButton>
                 child: widget.busy
                     ? const CircularProgressIndicator()
                     : AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 500),
+                        duration: AppConfig.isRackConsoleBuild
+                            ? const Duration(milliseconds: 180)
+                            : const Duration(milliseconds: 500),
                         transitionBuilder: (child, animation) =>
                             ScaleTransition(scale: animation, child: child),
                         child: Icon(

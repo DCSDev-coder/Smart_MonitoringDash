@@ -30,7 +30,7 @@ class _AcSchematicWidgetState extends State<AcSchematicWidget>
     WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2), // Fan rotation & airflow speed
+      duration: const Duration(seconds: 3), // Fan rotation & airflow speed
     )..repeat();
   }
 
@@ -232,7 +232,7 @@ class RefrigerationCyclePainter extends CustomPainter {
     final double pathLength = metric.length;
 
     // Number of arrows
-    const int arrowCount = 12;
+    final int arrowCount = AppConfig.isRackConsoleBuild ? 8 : 12;
     final double spacing = pathLength / arrowCount;
 
     final Paint arrowPaint = Paint()

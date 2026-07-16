@@ -42,21 +42,9 @@ class SmartRackConsoleShell extends StatefulWidget {
 
 class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   int _selectedIndex = 0;
-  bool _sidebarHovered = false;
-  bool _sidebarSwiped = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
   bool _accessGuardHandled = false;
-
-  void _setSidebarHovered(bool value) {
-    if (_sidebarHovered == value) return;
-    setState(() => _sidebarHovered = value);
-  }
-
-  void _setSidebarSwiped(bool value) {
-    if (_sidebarSwiped == value) return;
-    setState(() => _sidebarSwiped = value);
-  }
 
   bool _hasPinNotification() {
     final api = CpanelApiService.instance;
@@ -214,10 +202,8 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
   @override
   void initState() {
     super.initState();
-    _poller.start();
-    SmartRackConsoleRepository.instance.start();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _enforceRackConsoleAccess();
+      _bootstrapRackConsole();
     });
   }
 
@@ -249,6 +235,27 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
       'Wrong account',
     );
     Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+  }
+
+  Future<void> _bootstrapRackConsole() async {
+    if (!mounted) return;
+    if (_accessGuardHandled) return;
+
+    final site = CpanelApiService.instance.currentSite;
+    final allowed =
+        site != null && CpanelApiService.instance.isCurrentSiteRackConsole(site);
+    if (!allowed) {
+      await _enforceRackConsoleAccess();
+      return;
+    }
+
+    // Let the first frame land before we kick off polling and supplemental
+    // fetches. This keeps startup smoother on lower-spec rack tablets.
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+
+    _poller.start();
+    SmartRackConsoleRepository.instance.start();
   }
 
   String _pageTitle(int index) {
@@ -338,6 +345,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         CpanelApiService.instance.isCurrentSiteRackConsole(site);
     if (!hasAccess) {
       return Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: ConsoleTheme.appBg(context),
         body: const Center(
           child: CircularProgressIndicator(),
@@ -350,6 +358,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
 
     if (isWide) {
       return Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: ConsoleTheme.appBg(context),
         body: SafeArea(
           child: Column(
@@ -373,29 +382,14 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
               Expanded(
                 child: Row(
                   children: [
-                    MouseRegion(
-                      onEnter: (_) => _setSidebarHovered(true),
-                      onExit: (_) => _setSidebarHovered(false),
-                      child: GestureDetector(
-                        onHorizontalDragUpdate: (details) {
-                          if (details.primaryDelta! > 5) {
-                            _setSidebarSwiped(true);
-                          } else if (details.primaryDelta! < -5) {
-                            _setSidebarSwiped(false);
-                          }
-                        },
-                        child: ConsoleSidebar(
-                          profile: widget.profile,
-                          selectedIndex: _selectedIndex,
-                          isCollapsed: !(_sidebarHovered || _sidebarSwiped),
-                          onItemSelected: (index) {
-                            _setSidebarSwiped(false);
-                            setState(() {
-                              _selectedIndex = index;
-                            });
-                          },
-                        ),
-                      ),
+                    ConsoleSidebar(
+                      profile: widget.profile,
+                      selectedIndex: _selectedIndex,
+                      onItemSelected: (index) {
+                        setState(() {
+                          _selectedIndex = index;
+                        });
+                      },
                     ),
                     Expanded(
                       child: Container(
@@ -427,6 +421,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
     // Responsive tablet/mobile layout
     return Scaffold(
       key: _scaffoldKey,
+      resizeToAvoidBottomInset: false,
       backgroundColor: ConsoleTheme.appBg(context),
       drawer: Drawer(
         backgroundColor: ConsoleTheme.panelBg(context),

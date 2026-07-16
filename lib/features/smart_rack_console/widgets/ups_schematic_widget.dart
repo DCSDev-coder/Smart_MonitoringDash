@@ -30,7 +30,7 @@ class _UpsSchematicWidgetState extends State<UpsSchematicWidget>
     WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2), // Speed of electricity flow
+      duration: const Duration(seconds: 3), // Speed of electricity flow
     )..repeat();
   }
 
@@ -196,8 +196,10 @@ class UpsSchematicPainter extends CustomPainter {
           ? null
           : const MaskFilter.blur(BlurStyle.solid, 3); // Glow effect
 
-    _animateDotsOnPath(canvas, pathCache.bypassMetric, dotPaint, 8);
-    _animateDotsOnPath(canvas, pathCache.inputMetric, dotPaint, 12);
+    final int bypassDots = AppConfig.isRackConsoleBuild ? 6 : 8;
+    final int inputDots = AppConfig.isRackConsoleBuild ? 8 : 12;
+    _animateDotsOnPath(canvas, pathCache.bypassMetric, dotPaint, bypassDots);
+    _animateDotsOnPath(canvas, pathCache.inputMetric, dotPaint, inputDots);
   }
 
   void _animateDotsOnPath(

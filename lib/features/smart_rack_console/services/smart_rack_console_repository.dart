@@ -149,7 +149,6 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         includeRaw: true,
       );
       final powerRows = _parsePowerRows(rackTelemetry);
-      final powerOutlets = _parsePowerOutlets(rackTelemetry);
       final site = CpanelApiService.instance.currentSite;
       final upsNodeId = await _resolveUpsNodeId(siteId, site);
       Map<String, dynamic>? upsPayload;
@@ -178,13 +177,14 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       final pduBundles = <(
         List<ConsoleMetricRow>,
         List<ConsoleMetricRow>,
-        List<ConsoleMetricRow>
+        List<ConsoleMetricRow>,
+        List<Map<String, dynamic>>
       )>[];
       for (final nodeId in pduNodeIds.take(2)) {
         pduBundles.add(await _fetchPduSectionRows(siteId, nodeId));
       }
       while (pduBundles.length < 2) {
-        pduBundles.add((const [], const [], const []));
+        pduBundles.add((const [], const [], const [], const []));
       }
 
       _totalMonthEnergyKwh =
@@ -192,14 +192,14 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       _capacityBreakdown = capacityBreakdown;
       _powerInletRows = powerRows.$1;
       _powerOutletRows = powerRows.$2;
-      _powerPdu1Outlets = powerOutlets.$1;
-      _powerPdu2Outlets = powerOutlets.$2;
       _powerPdu1MetricRows = pduBundles[0].$1;
       _powerPdu1StatusRows = pduBundles[0].$2;
       _powerPdu1SettingRows = pduBundles[0].$3;
+      _powerPdu1Outlets = pduBundles[0].$4;
       _powerPdu2MetricRows = pduBundles[1].$1;
       _powerPdu2StatusRows = pduBundles[1].$2;
       _powerPdu2SettingRows = pduBundles[1].$3;
+      _powerPdu2Outlets = pduBundles[1].$4;
       _acMetricRows = acRows.$1;
       _acSettingRows = acRows.$2;
       _acStatusRows = acRows.$3;
@@ -214,34 +214,6 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     } finally {
       _fetchingSupplemental = false;
     }
-  }
-
-  (List<Map<String, dynamic>>, List<Map<String, dynamic>>)
-      _parsePowerOutlets(Map<String, dynamic>? telemetry) {
-    final pdu1 = (telemetry?['pdu1'] as Map?)?.cast<String, dynamic>() ??
-        const <String, dynamic>{};
-    final pdu2 = (telemetry?['pdu2'] as Map?)?.cast<String, dynamic>() ??
-        const <String, dynamic>{};
-
-    List<Map<String, dynamic>> normalizeOutlets(List outlets) {
-      return outlets.whereType<Map>().map((item) {
-        final map = item.cast<String, dynamic>();
-        final index = map['index'] is num
-            ? (map['index'] as num).toInt()
-            : int.tryParse(map['index']?.toString() ?? '');
-        final watts = _readDouble(map, const ['watts', 'power']);
-        return <String, dynamic>{
-          'index': index,
-          'isOn': map['isOn'] == true,
-          'watts': watts,
-        };
-      }).where((item) => item['index'] != null).toList();
-    }
-
-    return (
-      normalizeOutlets((pdu1['outlets'] as List?) ?? const []),
-      normalizeOutlets((pdu2['outlets'] as List?) ?? const []),
-    );
   }
 
   Future<List<int>> _resolvePduNodeIds(
@@ -300,7 +272,8 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   Future<(
     List<ConsoleMetricRow>,
     List<ConsoleMetricRow>,
-    List<ConsoleMetricRow>
+    List<ConsoleMetricRow>,
+    List<Map<String, dynamic>>
   )> _fetchPduSectionRows(
     int siteId,
     int nodeId,
@@ -311,11 +284,25 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     );
     final metricPayload = adapterPayload ??
         await ApiService.instance.fetchNodeWithMetric(nodeId);
-    final statusPayload = await ApiService.instance.fetchNodeStatus(nodeId);
+    final statusPayload = await AdapterApiService.instance.fetchNodeStatus(
+          siteId: siteId,
+          nodeId: nodeId,
+        ) ??
+        await ApiService.instance.fetchNodeStatus(nodeId);
 
-    final metricRows = _parsePduMetricRows(metricPayload);
-    final statusRows = _parsePduStatusRows(statusPayload, view: false);
-    final settingRows = _parsePduStatusRows(statusPayload, view: true);
+    final metricRows = _parsePduMetricRows(metricPayload)
+        .map((row) => row.copyWith(nodeId: nodeId))
+        .toList();
+    final statusRows = _parsePduStatusRows(
+      statusPayload,
+      view: false,
+      nodeId: nodeId,
+    );
+    final settingRows = _parsePduSettingRows(
+      metricPayload,
+      nodeId: nodeId,
+    );
+    final outlets = _parsePduOutlets(metricPayload, statusPayload);
 
     AppLog.d(
       'PDU parse snapshot',
@@ -326,6 +313,10 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         'metricCount': metricRows.length,
         'statusCount': statusRows.length,
         'settingCount': settingRows.length,
+        'outletCount': outlets.length,
+        'readingOutlets':
+            outlets.where((item) => item['hasReading'] == true).length,
+        'activeOutlets': outlets.where((item) => item['isOn'] == true).length,
         'sampleMetricNames':
             metricRows.take(8).map((row) => row.label).toList(),
         'sampleStatusNames':
@@ -335,7 +326,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       },
     );
 
-    return (metricRows, statusRows, settingRows);
+    return (metricRows, statusRows, settingRows, outlets);
   }
 
   List<ConsoleMetricRow> _parsePduMetricRows(
@@ -359,24 +350,24 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['Rated Voltage'],
-          contains: const ['rated voltage'],
+          exactNames: const ['Rated Voltage', 'Voltage'],
+          contains: const ['rated voltage', 'voltage'],
         ),
         fallbackLabel: 'Rated Voltage',
       ),
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['Rated Current'],
-          contains: const ['rated current'],
+          exactNames: const ['Rated Current', 'Current'],
+          contains: const ['rated current', 'current'],
         ),
         fallbackLabel: 'Rated Current',
       ),
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['Rated Frequency'],
-          contains: const ['rated frequency'],
+          exactNames: const ['Rated Frequency', 'Frequency'],
+          contains: const ['rated frequency', 'frequency'],
         ),
         fallbackLabel: 'Rated Frequency',
       ),
@@ -391,23 +382,23 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['Voltage'],
-          contains: const ['dianyazhidanxiang'],
+          exactNames: const ['Output Voltage', 'Voltage'],
+          contains: const ['output voltage', 'dianyazhidanxiang'],
         ),
         fallbackLabel: 'Voltage',
       ),
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['Current'],
-          contains: const ['dianliuzhidanxiang'],
+          exactNames: const ['Output Current', 'Current'],
+          contains: const ['output current', 'dianliuzhidanxiang'],
         ),
         fallbackLabel: 'Current',
       ),
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['active power(single-phase)'],
+          exactNames: const ['Active Power', 'active power(single-phase)'],
           contains: const ['active power'],
         ),
         fallbackLabel: 'Active Power',
@@ -431,15 +422,15 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['Total Energy'],
-          contains: const ['total energy'],
+          exactNames: const ['Total Energy', 'Energy'],
+          contains: const ['total energy', 'energy'],
         ),
         fallbackLabel: 'Total Energy',
       ),
       _consoleMetricFromRow(
         _findNormalizedRow(
           records,
-          exactNames: const ['frequency'],
+          exactNames: const ['Frequency'],
           contains: const ['frequency'],
         ),
         fallbackLabel: 'frequency',
@@ -452,15 +443,21 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   List<ConsoleMetricRow> _parsePduStatusRows(
     Map<String, dynamic>? payload, {
     required bool view,
+    int? nodeId,
   }) {
     final records = _recordsFromPayload(payload)
         .whereType<Map>()
         .map((item) => item.cast<String, dynamic>())
-        .where((row) => row['view'] == view)
         .toList();
     if (records.isEmpty) return const [];
 
-    final rows = records
+    final filtered = records.where((row) => _matchesPduSection(row, view)).toList();
+    final chosen = filtered.isNotEmpty
+        ? filtered
+        : records.where((row) => _looksLikePduSectionRow(row, view)).toList();
+    final resolved = chosen.isNotEmpty ? chosen : records;
+
+    final rows = resolved
         .map(
           (row) => ConsoleMetricRow(
             label: row['name']?.toString().trim().isNotEmpty == true
@@ -470,12 +467,194 @@ class SmartRackConsoleRepository extends ChangeNotifier {
                     : 'Status'),
             value: _displayStatusValue(row),
             isNormal: _isNormalStatus(_displayStatusValue(row)),
+            metricCode: _rowMetricCode(row),
+            nodeId: nodeId,
+            rawValue: _rawValueForRow(row),
+            writeMap: _rowWriteMap(row),
+            isEditable: view && _isWritableRow(row),
           ),
         )
         .where((row) => row.value != '--')
         .toList();
 
     return rows;
+  }
+
+  List<ConsoleMetricRow> _parsePduSettingRows(
+    Map<String, dynamic>? payload, {
+    int? nodeId,
+  }) {
+    final records = _recordsFromPayload(payload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    if (records.isEmpty) return const [];
+
+    final resolved = records.where((row) {
+      final label = [
+        row['name'],
+        row['code'],
+        row['metricTypeLibCode'],
+      ]
+          .where((item) => item != null)
+          .map((item) => item.toString().toLowerCase())
+          .join(' ');
+      final hasWriteMap = _rowWriteMap(row)?.isNotEmpty == true;
+      final writable = row['write'] == true || row['writable'] == true;
+      return (hasWriteMap || writable) &&
+          (label.contains('output control') ||
+              label.contains('power on') ||
+              label.contains('power off') ||
+              label.contains('switch') ||
+              label.contains('control') ||
+              label.contains('setting') ||
+              label.contains('reset'));
+    }).toList();
+
+    return resolved
+        .map(
+          (row) => ConsoleMetricRow(
+            label: row['name']?.toString().trim().isNotEmpty == true
+                ? row['name'].toString().trim()
+                : 'Setting',
+            value: _displayValueForRow(row) ?? '--',
+            isNormal: _isNormalStatus(_displayValueForRow(row) ?? '--'),
+            metricCode: _rowMetricCode(row),
+            nodeId: nodeId,
+            rawValue: _rawValueForRow(row),
+            writeMap: _rowWriteMap(row),
+            isEditable: _isWritableRow(row),
+          ),
+        )
+        .where((row) => row.value != '--')
+        .toList();
+  }
+
+  bool _matchesPduSection(Map<String, dynamic> row, bool view) {
+    final rawView = row['view'];
+    if (rawView is bool) {
+      return rawView == view;
+    }
+
+    final viewText = rawView?.toString().trim().toLowerCase();
+    if (viewText != null && viewText.isNotEmpty) {
+      if (viewText == view.toString().toLowerCase()) {
+        return true;
+      }
+      if (viewText == '1' || viewText == 'yes' || viewText == 'on') {
+        return view;
+      }
+      if (viewText == '0' || viewText == 'no' || viewText == 'off') {
+        return !view;
+      }
+    }
+
+    return _looksLikePduSectionRow(row, view);
+  }
+
+  bool _looksLikePduSectionRow(Map<String, dynamic> row, bool view) {
+    final label = [
+      row['name'],
+      row['statusType'],
+      row['code'],
+    ].where((item) => item != null).map((item) => item.toString().toLowerCase()).join(' ');
+
+    if (view) {
+      return label.contains('control') ||
+          label.contains('setting') ||
+          label.contains('reset') ||
+          label.contains('power on') ||
+          label.contains('power off') ||
+          label.contains('enable') ||
+          label.contains('switch');
+    }
+
+    return label.contains('status') ||
+        label.contains('alarm') ||
+        label.contains('breaker') ||
+        label.contains('error') ||
+        label.contains('warning') ||
+        label.contains('normal');
+  }
+
+  List<Map<String, dynamic>> _parsePduOutlets(
+    Map<String, dynamic>? metricPayload,
+    Map<String, dynamic>? statusPayload,
+  ) {
+    final metricRecords = _recordsFromPayload(metricPayload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    final statusRecords = _recordsFromPayload(statusPayload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    if (metricRecords.isEmpty && statusRecords.isEmpty) {
+      return const [];
+    }
+
+    final totalOutlets = _getMetricValue(
+          metricRecords,
+          exactNames: const ['Outlets'],
+          contains: const ['outlets'],
+        )
+            ?.round() ??
+        16;
+
+    final wattsByIndex = <int, double>{};
+    final ampsByIndex = <int, double>{};
+    final energyByIndex = <int, double>{};
+    final isOnByIndex = <int, bool>{};
+
+    for (final record in metricRecords) {
+      final index = _extractOutletIndex(record);
+      if (index == null) continue;
+      final label = (record['name'] ?? record['code'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      final value = _readRecordDouble(record);
+      if (label.contains('active power')) {
+        wattsByIndex[index] = value;
+      } else if (label.contains('current')) {
+        ampsByIndex[index] = value;
+      } else if (label.contains('energy')) {
+        energyByIndex[index] = value;
+      }
+    }
+
+    for (final record in statusRecords) {
+      final index = _extractOutletIndex(record);
+      if (index == null) continue;
+      final label = (record['name'] ?? record['statusType'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      if (!label.contains('output control')) continue;
+      final status = _displayValueForRow(record)?.trim().toLowerCase();
+      if (status == null || status.isEmpty) continue;
+      isOnByIndex[index] = status == 'on' || status == '1' || status == 'enable';
+    }
+
+    final outlets = <Map<String, dynamic>>[];
+    for (var index = 1; index <= totalOutlets; index++) {
+      final watts = wattsByIndex[index] ??
+          (ampsByIndex[index] ?? 0.0) * 220.0;
+      final amps = ampsByIndex[index] ?? 0.0;
+      final hasReading = (watts > 0) || (amps > 0);
+      final isOn = isOnByIndex[index] ?? hasReading;
+      final energy = energyByIndex[index] ?? 0.0;
+      outlets.add({
+        'index': index,
+        'isOn': isOn,
+        'hasReading': hasReading,
+        'watts': watts,
+        'amps': amps,
+        'energy': energy,
+      });
+    }
+
+    return outlets;
   }
 
   String _displayStatusValue(Map<String, dynamic> row) {
@@ -1267,14 +1446,21 @@ class SmartRackConsoleRepository extends ChangeNotifier {
           fallback: null,
         );
 
+    final nodeScopedMetricRows =
+        metricRows.map((row) => row.copyWith(nodeId: acNodeId)).toList();
+    final nodeScopedSettingRows =
+        settingRows.map((row) => row.copyWith(nodeId: acNodeId)).toList();
+    final nodeScopedStatusRows =
+        statusRows.map((row) => row.copyWith(nodeId: acNodeId)).toList();
+
     return (metricRowsRaw.isEmpty &&
             statusRowsRaw.isEmpty &&
             settingRowsRaw.isEmpty)
         ? (const [], const [], const [], null, null)
         : (
-            metricRows,
-            settingRows,
-            statusRows,
+            nodeScopedMetricRows,
+            nodeScopedSettingRows,
+            nodeScopedStatusRows,
             unitStatus,
             compressorStatus,
           );
@@ -1349,11 +1535,15 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   List<dynamic> _recordsFromPayload(Map<String, dynamic>? payload) {
     if (payload == null) return const [];
     final result = payload['result'];
-    if (result is! Map) return const [];
-    final map = result.cast<String, dynamic>();
-    for (final key in const ['metrics', 'records', 'list', 'data']) {
-      final value = map[key];
-      if (value is List) return List<dynamic>.from(value);
+    if (result is List) {
+      return List<dynamic>.from(result);
+    }
+    if (result is Map) {
+      final map = result.cast<String, dynamic>();
+      for (final key in const ['metrics', 'records', 'list', 'data']) {
+        final value = map[key];
+        if (value is List) return List<dynamic>.from(value);
+      }
     }
     return const [];
   }
@@ -1407,7 +1597,75 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       label: (label == null || label.isEmpty) ? fallbackLabel : label,
       value: value,
       isNormal: _isNormalStatus(value),
+      metricCode: row == null ? null : _rowMetricCode(row),
+      rawValue: row == null ? null : _rawValueForRow(row),
+      writeMap: row == null ? null : _rowWriteMap(row),
+      isEditable: _isWritableRow(row),
     );
+  }
+
+  String? _rowMetricCode(Map<String, dynamic> row) {
+    final code =
+        (row['code'] ??
+                row['metricTypeLibCode'] ??
+                row['statusTypeCode'] ??
+                row['statusType'] ??
+                row['name'] ??
+                '')
+            .toString()
+            .trim();
+    return code.isEmpty ? null : code;
+  }
+
+  String? _rawValueForRow(Map<String, dynamic> row) {
+    final raw = row['value'] ?? row['val'] ?? row['writerVal'];
+    if (raw is num) return raw.toString();
+    final text = raw?.toString().trim();
+    if (text != null && text.isNotEmpty && text.toLowerCase() != 'null') {
+      return text;
+    }
+    final valueStr = row['valueStr']?.toString().trim();
+    if (valueStr != null &&
+        valueStr.isNotEmpty &&
+        valueStr.toLowerCase() != 'null') {
+      return valueStr;
+    }
+    return null;
+  }
+
+  Map<String, String>? _rowWriteMap(Map<String, dynamic> row) {
+    final raw = row['writeMap'];
+    if (raw is! Map) return null;
+    final map = <String, String>{};
+    raw.forEach((key, value) {
+      final k = key?.toString().trim();
+      final v = value?.toString().trim();
+      if (k != null && k.isNotEmpty && v != null && v.isNotEmpty) {
+        map[k] = v;
+      }
+    });
+    return map.isEmpty ? null : map;
+  }
+
+  bool _isWritableRow(Map<String, dynamic>? row) {
+    if (row == null) return false;
+    if (row['write'] == true || row['writable'] == true) return true;
+    final text = [
+      row['code'],
+      row['metricTypeLibCode'],
+      row['statusTypeCode'],
+      row['name'],
+      row['statusType'],
+    ].where((item) => item != null).map((item) => item.toString().toLowerCase()).join(' ');
+    return text.contains('control') ||
+        text.contains('setting') ||
+        text.contains('reset') ||
+        text.contains('enable') ||
+        text.contains('disable') ||
+        text.contains('power on') ||
+        text.contains('power off') ||
+        text.contains('switch') ||
+        text.contains('mode');
   }
 
   String? _displayValueForRow(Map<String, dynamic> row) {
@@ -1432,15 +1690,35 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     return null;
   }
 
+  double _readRecordDouble(Map<String, dynamic> record) {
+    final value = record['value'] ?? record['val'] ?? record['writerVal'];
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
+  int? _extractOutletIndex(Map<String, dynamic> record) {
+    final label = (record['name'] ?? record['statusType'] ?? record['code'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final match = RegExp(r'outlet\s*(\d+)').firstMatch(label);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '');
+    }
+    return null;
+  }
+
   double? _getMetricValue(
     List<Map<String, dynamic>> records, {
     List<String> prefixes = const [],
     List<String> exactNames = const [],
+    List<String> contains = const [],
   }) {
     final record = _findRecord(
       records,
       prefixes: prefixes,
       exactNames: exactNames,
+      contains: contains,
     );
     if (record == null) return null;
     final value = record['value'] ?? record['val'] ?? record['writerVal'];
@@ -1542,6 +1820,51 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         normalized == 'on' ||
         normalized == 'yes' ||
         normalized == 'enabled';
+  }
+
+  Future<Map<String, dynamic>?> writeSetting({
+    required ConsoleMetricRow row,
+    required Object value,
+    String? pin,
+  }) async {
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = SiteRuntimeConfig.siteId(site);
+    final nodeId = row.nodeId;
+    final metricCode = row.metricCode?.trim() ?? '';
+    if (siteId == null || nodeId == null || metricCode.isEmpty) {
+      return null;
+    }
+
+    if (AdapterApiService.instance.isConfigured) {
+      if (pin != null && pin.trim().isNotEmpty) {
+        return AdapterApiService.instance.writeNodeMetricWithUserPin(
+          siteId: siteId,
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: value,
+          pin: pin.trim(),
+        );
+      }
+      return AdapterApiService.instance.writeNodeMetric(
+        siteId: siteId,
+        nodeId: nodeId,
+        metricTypeLibCode: metricCode,
+        value: value,
+      );
+    }
+
+    return ApiService.instance.writeNodeMetric(
+      nodeId: nodeId,
+      metricTypeLibCode: metricCode,
+      value: value,
+    );
+  }
+
+  Future<void> refreshNow() async {
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = SiteRuntimeConfig.siteId(site);
+    if (siteId == null || !AdapterApiService.instance.isConfigured) return;
+    await _refreshSupplemental(siteId);
   }
 
   SmartRackConsoleSnapshot currentSnapshot() {

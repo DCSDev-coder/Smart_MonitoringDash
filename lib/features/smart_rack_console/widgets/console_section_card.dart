@@ -27,6 +27,11 @@ class ConsoleSectionCard extends StatelessWidget {
     final cardBorder = ConsoleTheme.cardBorder(context);
     final textPrimary = ConsoleTheme.textPrimary(context);
     final textSecondary = ConsoleTheme.textSecondary(context);
+    final resolvedPadding = padding ??
+        EdgeInsets.all(ConsoleTheme.isRackConsoleLite ? 14.0 : 20.0);
+    final titleGap = ConsoleTheme.isRackConsoleLite
+        ? ConsoleTheme.md
+        : ConsoleTheme.lg;
 
     return Container(
       constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
@@ -37,7 +42,7 @@ class ConsoleSectionCard extends StatelessWidget {
         boxShadow: ConsoleTheme.glowShadow(context),
       ),
       child: Padding(
-        padding: padding ?? const EdgeInsets.all(20.0), // 20px - 24px padding matching design guidelines
+        padding: resolvedPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -74,7 +79,7 @@ class ConsoleSectionCard extends StatelessWidget {
                   if (trailing != null) trailing!,
                 ],
               ),
-              const SizedBox(height: ConsoleTheme.lg),
+              SizedBox(height: titleGap),
             ],
             expand ? Expanded(child: child) : child,
           ],

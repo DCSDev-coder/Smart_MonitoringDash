@@ -195,6 +195,9 @@ class PueTrendLineChart extends StatelessWidget {
                     )
                   ],
                 ),
+                duration: isLite
+                    ? Duration.zero
+                    : const Duration(milliseconds: 150),
               ),
             ),
             // Scrollable Data Chart
@@ -295,6 +298,9 @@ class PueTrendLineChart extends StatelessWidget {
                         ),
                       ],
                     ),
+                    duration: isLite
+                        ? Duration.zero
+                        : const Duration(milliseconds: 150),
                   ),
                 ),
               ),
@@ -322,10 +328,10 @@ class PueConsumptionBarChart extends StatelessWidget {
     for (final val in values) {
       if (val > maxDataVal) maxDataVal = val;
     }
-    
+
     // Add 20% headroom, default to 450 if all 0
     double calculatedMaxY = maxDataVal > 0 ? (maxDataVal * 1.2) : 450;
-    
+
     // Calculate interval for ~5 horizontal grid lines
     double calculatedInterval = (calculatedMaxY / 5).ceilToDouble();
     // Snap to a clean nice number
@@ -438,9 +444,9 @@ class PueConsumptionBarChart extends StatelessWidget {
                 color: index == 0
                     ? ConsoleTheme.cyan(context)
                     : index == 1
-                        ? const Color(0xFFFACC15) // Yellow/Gold for IT Device
+                        ? const Color(0xFFFACC15)
                         : index == 4
-                            ? const Color(0xFFF43F5E) // Red/Pink for Lighting
+                            ? const Color(0xFFF43F5E)
                             : ConsoleTheme.primaryBlue(context),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(2),
@@ -451,6 +457,9 @@ class PueConsumptionBarChart extends StatelessWidget {
           ),
         ),
       ),
+      swapAnimationDuration: ConsoleTheme.isRackConsoleLite
+          ? Duration.zero
+          : const Duration(milliseconds: 150),
     );
   }
 }
