@@ -284,13 +284,17 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
           color: isSelected ? const Color(0xFF3B82F6) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF3B82F6) : Colors.white24,
+            color: isSelected
+                ? const Color(0xFF3B82F6)
+                : ConsoleTheme.cardBorder(context),
           ),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected
+                ? ConsoleTheme.textInverse(context)
+                : ConsoleTheme.textSecondary(context),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -312,14 +316,18 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
           color: selected ? const Color(0xFF3B82F6) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? const Color(0xFF3B82F6) : Colors.white24,
+            color: selected
+                ? const Color(0xFF3B82F6)
+                : ConsoleTheme.cardBorder(context),
           ),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: selected ? Colors.white : Colors.white70,
+            color: selected
+                ? ConsoleTheme.textInverse(context)
+                : ConsoleTheme.textSecondary(context),
             fontWeight: selected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -406,9 +414,9 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
           isExpanded: true,
           value: currentLabel,
           dropdownColor: ConsoleTheme.panelBg(context),
-          iconEnabledColor: Colors.white70,
-          style: const TextStyle(
-            color: Colors.white,
+          iconEnabledColor: ConsoleTheme.textSecondary(context),
+          style: TextStyle(
+            color: ConsoleTheme.textPrimary(context),
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -460,7 +468,9 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
               textAlign: alignCenter ? TextAlign.center : TextAlign.start,
               style: TextStyle(
                 fontSize: 14,
-                color: editable ? Colors.white : Colors.white70,
+                color: editable
+                    ? ConsoleTheme.textPrimary(context)
+                    : ConsoleTheme.textSecondary(context),
                 fontWeight: editable ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
@@ -468,7 +478,7 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
           if (editable) ...[
             const SizedBox(width: 6),
             Icon(Icons.edit_rounded,
-                size: 14, color: Colors.white.withValues(alpha: 0.8)),
+                size: 14, color: ConsoleTheme.textMuted(context)),
           ],
         ],
       ),

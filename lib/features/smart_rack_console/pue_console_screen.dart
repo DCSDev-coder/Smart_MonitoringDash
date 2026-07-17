@@ -5,6 +5,7 @@ import '../../../core/network/adapter_api_service.dart';
 import '../../../core/network/cpanel_api_service.dart';
 import '../dashboard/widgets/environment_gauges.dart';
 import 'models/smart_rack_console_snapshot.dart';
+import 'services/rack_console_preferences.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
 import 'widgets/pue_charts.dart';
@@ -71,7 +72,7 @@ List<String> _titlesFromTrend(List<dynamic> points, {bool useMonth = false}) {
             point['date'] ??
             '')
         .toString();
-    titles.add(stamp.length > 5 ? stamp.substring(stamp.length - 5) : stamp);
+    titles.add(RackConsolePreferences.instance.formatTrendLabel(stamp));
   }
   return titles;
 }
@@ -462,11 +463,26 @@ class _EightHoursQuadrantState extends State<EightHoursQuadrant> {
   List<FlSpot> _itEnergyPoints = [];
   List<FlSpot> _totalEnergyPoints = [];
   List<String> _bottomTitles = [];
+  List<dynamic> _trendTitleSource = const [];
+
+  void _handleTimeFormatChange() {
+    if (!mounted) return;
+    setState(() {
+      _bottomTitles = _titlesFromTrend(_trendTitleSource);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    RackConsolePreferences.instance.addListener(_handleTimeFormatChange);
     _fetchData();
+  }
+
+  @override
+  void dispose() {
+    RackConsolePreferences.instance.removeListener(_handleTimeFormatChange);
+    super.dispose();
   }
 
   Future<void> _fetchData() async {
@@ -505,16 +521,16 @@ class _EightHoursQuadrantState extends State<EightHoursQuadrant> {
           _spotsFromTrend((totalRes?['result'] as List?) ?? const []);
 
       if (!mounted) return;
+      final trendTitleSource = (pueRes?['result'] as List?) ??
+          (itRes?['result'] as List?) ??
+          (totalRes?['result'] as List?) ??
+          const [];
       setState(() {
         _puePoints = puePoints;
         _itEnergyPoints = itPoints;
         _totalEnergyPoints = totalPoints;
-        _bottomTitles = _titlesFromTrend(
-          (pueRes?['result'] as List?) ??
-              (itRes?['result'] as List?) ??
-              (totalRes?['result'] as List?) ??
-              const [],
-        );
+        _trendTitleSource = List<dynamic>.from(trendTitleSource);
+        _bottomTitles = _titlesFromTrend(_trendTitleSource);
         _error = (puePoints.isEmpty && itPoints.isEmpty && totalPoints.isEmpty)
             ? 'No adapter trend data returned.'
             : null;
@@ -777,11 +793,26 @@ class _HistoricalTrendAnalysisQuadrantState
   List<FlSpot> _puePoints = [];
   List<FlSpot> _powerPoints = [];
   List<String> _bottomTitles = [];
+  List<dynamic> _trendTitleSource = const [];
+
+  void _handleTimeFormatChange() {
+    if (!mounted) return;
+    setState(() {
+      _bottomTitles = _titlesFromTrend(_trendTitleSource);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    RackConsolePreferences.instance.addListener(_handleTimeFormatChange);
     _fetchData();
+  }
+
+  @override
+  void dispose() {
+    RackConsolePreferences.instance.removeListener(_handleTimeFormatChange);
+    super.dispose();
   }
 
   int _hoursValue() {
@@ -828,14 +859,14 @@ class _HistoricalTrendAnalysisQuadrantState
           _spotsFromTrend((powerRes?['result'] as List?) ?? const []);
 
       if (!mounted) return;
+      final trendTitleSource = (pueRes?['result'] as List?) ??
+          (powerRes?['result'] as List?) ??
+          const [];
       setState(() {
         _puePoints = puePoints;
         _powerPoints = powerPoints;
-        _bottomTitles = _titlesFromTrend(
-          (pueRes?['result'] as List?) ??
-              (powerRes?['result'] as List?) ??
-              const [],
-        );
+        _trendTitleSource = List<dynamic>.from(trendTitleSource);
+        _bottomTitles = _titlesFromTrend(_trendTitleSource);
         _error = (puePoints.isEmpty && powerPoints.isEmpty)
             ? 'No adapter trend data returned.'
             : null;

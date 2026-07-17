@@ -8,7 +8,7 @@ import 'services/smart_rack_console_repository.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
 
-class SmartRackConsoleScreen extends StatelessWidget {
+class SmartRackConsoleScreen extends StatefulWidget {
   const SmartRackConsoleScreen({
     super.key,
     required this.profile,
@@ -17,6 +17,104 @@ class SmartRackConsoleScreen extends StatelessWidget {
 
   final SmartRackDeviceProfile profile;
   final bool compact;
+
+  @override
+  State<SmartRackConsoleScreen> createState() => _SmartRackConsoleScreenState();
+}
+
+class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
+  static const List<String> _rackImageOptions = [
+    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-02.png',
+    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-03.png',
+    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-04.png',
+    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-05.png',
+  ];
+
+  String _selectedRackImage = 'assets/images/smart_rack_containment_logo.png';
+
+  Future<void> _showRackImagePicker(BuildContext context) async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: ConsoleTheme.panelBg(context),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Smart Rack Image',
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 14,
+                    children: _rackImageOptions.map((assetPath) {
+                      final isSelected = assetPath == _selectedRackImage;
+                      return InkWell(
+                        onTap: () => Navigator.of(context).pop(assetPath),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          width: 200,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: ConsoleTheme.innerSurface(context),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? ConsoleTheme.primaryBlue(context)
+                                  : ConsoleTheme.cardBorder(context),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                height: 132,
+                                child: Image.asset(assetPath, fit: BoxFit.contain),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                assetPath.split('/').last.replaceAll('.png', ''),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? ConsoleTheme.textPrimary(context)
+                                      : ConsoleTheme.textSecondary(context),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selected == null || selected == _selectedRackImage) return;
+    setState(() {
+      _selectedRackImage = selected;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +126,7 @@ class SmartRackConsoleScreen extends StatelessWidget {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final isNarrow = compact || constraints.maxWidth < 400;
+            final isNarrow = widget.compact || constraints.maxWidth < 400;
 
             return Container(
               decoration: BoxDecoration(
@@ -40,7 +138,12 @@ class SmartRackConsoleScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _MainGrid(snapshot: snapshot, compact: compact),
+                          _MainGrid(
+                            snapshot: snapshot,
+                            compact: widget.compact,
+                            rackImageAssetPath: _selectedRackImage,
+                            onChangeRackImage: () => _showRackImagePicker(context),
+                          ),
                         ],
                       ),
                     )
@@ -50,8 +153,10 @@ class SmartRackConsoleScreen extends StatelessWidget {
                         height: constraints.maxHeight - 12,
                         child: _MainGrid(
                           snapshot: snapshot,
-                          compact: compact,
+                          compact: widget.compact,
                           viewportHeight: constraints.maxHeight - 12,
+                          rackImageAssetPath: _selectedRackImage,
+                          onChangeRackImage: () => _showRackImagePicker(context),
                         ),
                       ),
                     ),
@@ -67,12 +172,16 @@ class _MainGrid extends StatelessWidget {
   const _MainGrid({
     required this.snapshot,
     required this.compact,
+    required this.rackImageAssetPath,
+    required this.onChangeRackImage,
     this.viewportHeight,
   });
 
   final SmartRackConsoleSnapshot snapshot;
   final bool compact;
   final double? viewportHeight;
+  final String rackImageAssetPath;
+  final VoidCallback onChangeRackImage;
 
   @override
   Widget build(BuildContext context) {
@@ -151,67 +260,105 @@ class _MainGrid extends StatelessWidget {
       title: 'Rack Overview',
       minHeight: 170,
       expand: true,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 2.0),
-        child: isSuperWide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          'assets/images/smart_rack_containment_logo.png',
-                          height: 152,
-                          fit: BoxFit.contain,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.center,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+                child: isSuperWide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  rackImageAssetPath,
+                                  height: 168,
+                                  fit: BoxFit.contain,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 4,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _VerticalStatItem(
+                                  label: 'Maintenance\nDays Left',
+                                  value: '${snapshot.maintenanceDaysLeft ?? '--'}',
+                                  subValue: 'Days Left',
+                                  valueColor: ConsoleTheme.primaryBlue(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              rackImageAssetPath,
+                              height: 160,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(height: 8),
+                            _VerticalStatItem(
+                              label: 'Maintenance\nDays Left',
+                              value: '${snapshot.maintenanceDaysLeft ?? '--'}',
+                              subValue: 'Days Left',
+                              valueColor: ConsoleTheme.primaryBlue(context),
+                              centered: true,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 4,
+            bottom: 2,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onChangeRackImage,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: ConsoleTheme.primaryBlue(context),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _VerticalStatItem(
-                          label: 'Maintenance\nDays Left',
-                          value: '${snapshot.maintenanceDaysLeft ?? '--'}',
-                          subValue: 'Days Left',
-                          valueColor: ConsoleTheme.primaryBlue(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : SizedBox(
-                width: double.infinity,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/smart_rack_containment_logo.png',
-                      height: 148,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(height: 10),
-                    _VerticalStatItem(
-                      label: 'Maintenance\nDays Left',
-                      value: '${snapshot.maintenanceDaysLeft ?? '--'}',
-                      subValue: 'Days Left',
-                      valueColor: ConsoleTheme.primaryBlue(context),
-                      centered: true,
-                    ),
-                  ],
+                  child: const Icon(Icons.edit, color: Colors.white, size: 14),
                 ),
               ),
+            ),
+          ),
+        ],
       ),
     );
   }

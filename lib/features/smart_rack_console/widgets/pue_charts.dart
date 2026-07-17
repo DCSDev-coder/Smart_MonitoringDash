@@ -67,31 +67,40 @@ class PueTrendLineChart extends StatelessWidget {
         final isLite = ConsoleTheme.isRackConsoleLite;
         final bottomLabelStep =
             bottomTitles.length > 24 ? (bottomTitles.length / 8).ceil() : 1;
+        final bool hasMultiplePoints = bottomTitles.length > 1;
+        final double chartMinX = hasMultiplePoints ? -0.5 : 0;
+        final double chartMaxX = hasMultiplePoints
+            ? bottomTitles.length.toDouble() - 0.5
+            : 0;
 
         // Keep the chart readable, but reduce the canvas footprint on rack-console builds.
         final double minWidthPerPoint = isLite ? 28.0 : 45.0;
         final double calculatedWidth = bottomTitles.length * minWidthPerPoint;
         
-        // Use a minimum of the available width so it doesn't shrink when data is small
-        // We reserve 40 pixels for the sticky Y-axis on the left
-        final double availableChartWidth = constraints.maxWidth - 40; 
+        // Use a minimum of the available width so it doesn't shrink when data is small.
+        // Reserve a little more width for the sticky Y-axis so labels do not clip.
+        final double availableChartWidth = constraints.maxWidth - 48;
         final double chartWidth = calculatedWidth > availableChartWidth ? calculatedWidth : availableChartWidth;
 
         final leftTitlesWidget = AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
             interval: calculatedInterval,
-            reservedSize: 40,
+            reservedSize: 48,
             getTitlesWidget: (value, meta) {
               // Don't show labels that exceed our max
               if (value > calculatedMaxY) return const SizedBox.shrink();
-              return Text(
-                value.toInt().toString(),
-                style: TextStyle(
-                  color: ConsoleTheme.textSecondary(context),
-                  fontSize: 10,
+              return SideTitleWidget(
+                axisSide: meta.axisSide,
+                space: 6,
+                child: Text(
+                  value.toInt().toString(),
+                  style: TextStyle(
+                    color: ConsoleTheme.textSecondary(context),
+                    fontSize: 10,
+                  ),
+                  textAlign: TextAlign.right,
                 ),
-                textAlign: TextAlign.right,
               );
             },
           ),
@@ -108,7 +117,7 @@ class PueTrendLineChart extends StatelessWidget {
         final realBottomTitlesWidget = AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 30,
+            reservedSize: 40,
             interval: 1,
             getTitlesWidget: (value, meta) {
               final index = value.toInt();
@@ -118,20 +127,37 @@ class PueTrendLineChart extends StatelessWidget {
                       index == bottomTitles.length - 1 ||
                       index == 0);
               if (showLabel) {
-                double shiftX = 0;
-                // Shift the first label to the right so it doesn't clip
-                if (index == 0) shiftX = 14.0;
-                // Shift the last label to the left so it doesn't clip
-                if (index == bottomTitles.length - 1) shiftX = -14.0;
-
-                return Transform.translate(
-                  offset: Offset(shiftX, 8.0),
-                  child: Text(
-                    bottomTitles[index],
-                    style: TextStyle(
-                      color: ConsoleTheme.textSecondary(context),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                final isFirst = index == 0;
+                final isLast = index == bottomTitles.length - 1;
+                return SideTitleWidget(
+                  axisSide: meta.axisSide,
+                  space: 10,
+                  child: Align(
+                    alignment: isFirst
+                        ? Alignment.centerLeft
+                        : isLast
+                            ? Alignment.centerRight
+                            : Alignment.center,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: isFirst ? 12 : 0,
+                        right: isLast ? 12 : 0,
+                      ),
+                      child: Text(
+                        bottomTitles[index],
+                        style: TextStyle(
+                          color: ConsoleTheme.textSecondary(context),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: isFirst
+                            ? TextAlign.left
+                            : isLast
+                                ? TextAlign.right
+                                : TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
+                      ),
                     ),
                   ),
                 );
@@ -171,7 +197,7 @@ class PueTrendLineChart extends StatelessWidget {
           children: [
             // Sticky Y-Axis Chart
             SizedBox(
-              width: 40,
+              width: 48,
               child: LineChart(
                 LineChartData(
                   gridData: const FlGridData(show: false),
@@ -226,10 +252,8 @@ class PueTrendLineChart extends StatelessWidget {
                           left: BorderSide(color: ConsoleTheme.divider(context), width: 1),
                         ),
                       ),
-                      minX: 0,
-                      maxX: bottomTitles.isNotEmpty
-                          ? bottomTitles.length.toDouble() - 1
-                          : 0,
+                      minX: chartMinX,
+                      maxX: chartMaxX,
                       minY: 0,
                       maxY: calculatedMaxY,
                       lineTouchData: LineTouchData(

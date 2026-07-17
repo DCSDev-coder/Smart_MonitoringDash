@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/network/cpanel_api_service.dart';
 import '../../../shared/widgets/safe_network_image.dart';
 import '../models/smart_rack_device_profile.dart';
+import '../services/rack_console_preferences.dart';
 import '../services/smart_rack_console_repository.dart';
 import '../theme/console_theme.dart';
 
@@ -286,10 +287,16 @@ class _LiveTimeDisplayState extends State<_LiveTimeDisplay> {
   late Timer _timer;
   late DateTime _currentTime;
 
+  void _handlePreferenceChange() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     _currentTime = DateTime.now();
+    RackConsolePreferences.instance.addListener(_handlePreferenceChange);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -302,20 +309,21 @@ class _LiveTimeDisplayState extends State<_LiveTimeDisplay> {
   @override
   void dispose() {
     _timer.cancel();
+    RackConsolePreferences.instance.removeListener(_handlePreferenceChange);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final formatTime = DateFormat('HH:mm:ss');
     final formatDate = DateFormat('yyyy-MM-dd');
+    final prefs = RackConsolePreferences.instance;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          formatTime.format(_currentTime),
+          prefs.formatClock(_currentTime),
           style: TextStyle(
             color: ConsoleTheme.textPrimary(context),
             fontSize: 14,

@@ -22,6 +22,8 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   int? _activeSiteId;
   final Map<int, int> _upsNodeIdBySite = <int, int>{};
   final Map<int, int> _acNodeIdBySite = <int, int>{};
+  final Map<int, int> _inletNodeIdBySite = <int, int>{};
+  final Map<int, int> _outletNodeIdBySite = <int, int>{};
   DateTime? _lastSupplementalFetchAt;
   double? _totalMonthEnergyKwh;
   List<ConsoleBreakdownItem> _capacityBreakdown = const [];
@@ -107,6 +109,8 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         _upsStatusRows = const [];
         _upsNodeIdBySite.clear();
         _acNodeIdBySite.clear();
+        _inletNodeIdBySite.clear();
+        _outletNodeIdBySite.clear();
         notifyListeners();
       }
       return;
@@ -148,8 +152,34 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         siteId: siteId,
         includeRaw: true,
       );
-      final powerRows = _parsePowerRows(rackTelemetry);
       final site = CpanelApiService.instance.currentSite;
+      final inletNodeId = await _resolveInletNodeId(siteId, site);
+      Map<String, dynamic>? inletPayload;
+      if (inletNodeId != null) {
+        inletPayload = await AdapterApiService.instance.fetchNodeWithMetric(
+          siteId: siteId,
+          nodeId: inletNodeId,
+        );
+      }
+      final outletNodeId = await _resolveOutletNodeId(
+        siteId,
+        site,
+        inletNodeId: inletNodeId,
+      );
+      Map<String, dynamic>? outletPayload;
+      if (outletNodeId != null) {
+        outletPayload = await AdapterApiService.instance.fetchNodeWithMetric(
+          siteId: siteId,
+          nodeId: outletNodeId,
+        );
+      }
+      final powerRows = _parsePowerRows(
+        rackTelemetry,
+        inletPayload: inletPayload,
+        inletNodeId: inletNodeId,
+        outletPayload: outletPayload,
+        outletNodeId: outletNodeId,
+      );
       final upsNodeId = await _resolveUpsNodeId(siteId, site);
       Map<String, dynamic>? upsPayload;
       if (upsNodeId != null) {
@@ -765,6 +795,95 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     return null;
   }
 
+  Future<int?> _resolveInletNodeId(
+    int siteId,
+    Map<String, dynamic>? site,
+  ) async {
+    final cached = _inletNodeIdBySite[siteId];
+    if (cached != null) return cached;
+
+    final configured = SiteRuntimeConfig.nodeIdForType(site, type: 'power');
+    if (configured != null) {
+      final payload = await AdapterApiService.instance.fetchNodeWithMetric(
+        siteId: siteId,
+        nodeId: configured,
+      );
+      if (_looksLikeInletPayload(payload)) {
+        _inletNodeIdBySite[siteId] = configured;
+        return configured;
+      }
+    }
+
+    final candidates = await _discoverPowerEnvCandidates(siteId);
+    candidates.sort(
+      (a, b) => _inletCandidateScore(b).compareTo(_inletCandidateScore(a)),
+    );
+    for (final candidate in candidates) {
+      final nodeId = _nodeIdFromCandidate(candidate);
+      if (nodeId == null) continue;
+      final payload = await AdapterApiService.instance.fetchNodeWithMetric(
+        siteId: siteId,
+        nodeId: nodeId,
+      );
+      if (!_looksLikeInletPayload(payload)) continue;
+      _inletNodeIdBySite[siteId] = nodeId;
+      AppLog.d(
+        'Inlet node discovered',
+        tag: 'RackConsolePower',
+        fields: {
+          'siteId': siteId,
+          'nodeId': nodeId,
+          'name': candidate['name'],
+          'nodeTypeName': candidate['nodeTypeName'],
+          'nodeTypeCode': candidate['nodeTypeCode'],
+          'nodeTypeId': candidate['nodeTypeId'],
+        },
+      );
+      return nodeId;
+    }
+
+    return null;
+  }
+
+  Future<int?> _resolveOutletNodeId(
+    int siteId,
+    Map<String, dynamic>? site, {
+    int? inletNodeId,
+  }) async {
+    final cached = _outletNodeIdBySite[siteId];
+    if (cached != null) return cached;
+
+    final candidates = await _discoverPowerEnvCandidates(siteId);
+    candidates.sort(
+      (a, b) => _outletCandidateScore(b).compareTo(_outletCandidateScore(a)),
+    );
+    for (final candidate in candidates) {
+      final nodeId = _nodeIdFromCandidate(candidate);
+      if (nodeId == null || nodeId == inletNodeId) continue;
+      final payload = await AdapterApiService.instance.fetchNodeWithMetric(
+        siteId: siteId,
+        nodeId: nodeId,
+      );
+      if (!_looksLikeOutletPayload(payload)) continue;
+      _outletNodeIdBySite[siteId] = nodeId;
+      AppLog.d(
+        'Outlet node discovered',
+        tag: 'RackConsolePower',
+        fields: {
+          'siteId': siteId,
+          'nodeId': nodeId,
+          'name': candidate['name'],
+          'nodeTypeName': candidate['nodeTypeName'],
+          'nodeTypeCode': candidate['nodeTypeCode'],
+          'nodeTypeId': candidate['nodeTypeId'],
+        },
+      );
+      return nodeId;
+    }
+
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> _discoverPowerEnvCandidates(
       int siteId) async {
     final candidates = <Map<String, dynamic>>[];
@@ -834,6 +953,37 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     return score;
   }
 
+  int _inletCandidateScore(Map<String, dynamic> record) {
+    final name = (record['name'] ?? '').toString().toLowerCase();
+    final typeName = (record['nodeTypeName'] ?? '').toString().toLowerCase();
+    final typeCode = (record['nodeTypeCode'] ?? '').toString().toLowerCase();
+    final typeId = int.tryParse(record['nodeTypeId']?.toString() ?? '');
+    int score = 0;
+    if (typeId == 14) score += 40;
+    if (name == 'inlet') score += 60;
+    if (name.contains('inlet')) score += 40;
+    if (name.contains('incoming')) score += 20;
+    if (typeName.contains('power')) score += 20;
+    if (typeCode.contains('power')) score += 20;
+    return score;
+  }
+
+  int _outletCandidateScore(Map<String, dynamic> record) {
+    final name = (record['name'] ?? '').toString().toLowerCase();
+    final typeName = (record['nodeTypeName'] ?? '').toString().toLowerCase();
+    final typeCode = (record['nodeTypeCode'] ?? '').toString().toLowerCase();
+    final typeId = int.tryParse(record['nodeTypeId']?.toString() ?? '');
+    int score = 0;
+    if (typeId == 14) score += 40;
+    if (name == 'outlet') score += 60;
+    if (name.contains('outlet')) score += 40;
+    if (name.contains('output')) score += 24;
+    if (name.contains('outgoing')) score += 20;
+    if (typeName.contains('power')) score += 20;
+    if (typeCode.contains('power')) score += 20;
+    return score;
+  }
+
   bool _looksLikeUpsPayload(Map<String, dynamic>? payload) {
     final records = _recordsFromPayload(payload)
         .whereType<Map>()
@@ -900,8 +1050,74 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         code.contains('fengji'));
   }
 
+  bool _looksLikeInletPayload(Map<String, dynamic>? payload) {
+    if (payload == null) return false;
+    final result = payload['result'];
+    if (result is Map) {
+      final name = (result['name'] ?? '').toString().trim().toLowerCase();
+      if (name == 'inlet' || name.contains('inlet')) return true;
+    }
+
+    final records = _recordsFromPayload(payload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    if (records.isEmpty) return false;
+
+    final codes = records
+        .map((record) => (record['code'] ?? record['metricTypeLibCode'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+
+    return codes.any((code) =>
+        code.contains('incomingline1') ||
+        code.contains('incomingline2') ||
+        code.contains('totalactivepowerincomingline') ||
+        code.contains('phaseavoltageincomingline'));
+  }
+
+  bool _looksLikeOutletPayload(Map<String, dynamic>? payload) {
+    if (payload == null) return false;
+    final result = payload['result'];
+    if (result is Map) {
+      final name = (result['name'] ?? '').toString().trim().toLowerCase();
+      if (name == 'outlet' || name.contains('outlet')) return true;
+    }
+
+    final records = _recordsFromPayload(payload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    if (records.isEmpty) return false;
+
+    final codes = records
+        .map((record) => (record['code'] ?? record['metricTypeLibCode'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase())
+        .where((code) => code.isNotEmpty)
+        .toSet();
+
+    return codes.any((code) =>
+        code.contains('outgoingline1') ||
+        code.contains('outgoingline2') ||
+        code.contains('totalactivepoweroutgoingline') ||
+        code.contains('phaseavoltageoutgoingline') ||
+        code.contains('outputvoltage') ||
+        code.contains('outputcurrent') ||
+        code.contains('outputfrequency'));
+  }
+
   (List<ConsoleMetricRow>, List<ConsoleMetricRow>) _parsePowerRows(
-    Map<String, dynamic>? telemetry,
+    Map<String, dynamic>? telemetry, {
+    Map<String, dynamic>? inletPayload,
+    int? inletNodeId,
+    Map<String, dynamic>? outletPayload,
+    int? outletNodeId,
+  }
   ) {
     final inlet = (telemetry?['inlet'] as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
@@ -911,47 +1127,73 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         const <String, dynamic>{};
 
     final inletKw = _readDouble(inlet, const ['kw']);
-    final pdu1Kw = _readDouble(pdu1, const ['kw']);
-    final pdu2Kw = _readDouble(pdu2, const ['kw']);
-    final pdu1Amps = _readDouble(pdu1, const ['amps']);
-    final pdu2Amps = _readDouble(pdu2, const ['amps']);
     final pdu1Online = pdu1['online'] == true;
     final pdu2Online = pdu2['online'] == true;
 
-    final pdu1Outlets = (pdu1['outlets'] as List?) ?? const [];
-    final pdu2Outlets = (pdu2['outlets'] as List?) ?? const [];
-    final pdu1OnCount =
-        pdu1Outlets.where((e) => e is Map && e['isOn'] == true).length;
-    final pdu2OnCount =
-        pdu2Outlets.where((e) => e is Map && e['isOn'] == true).length;
+    final inletRows = _parseInletRows(
+      inletPayload,
+      telemetry: telemetry,
+      inletNodeId: inletNodeId,
+    );
 
-    final inletRows = <ConsoleMetricRow>[
-      ConsoleMetricRow(
-        label: 'Offline State',
-        value: (inlet['online'] == true) ? 'Normal' : 'Offline',
-        isNormal: inlet['online'] == true,
-      ),
-      ConsoleMetricRow(
-        label: 'Total Input Power',
-        value: inletKw > 0 ? '${inletKw.toStringAsFixed(2)} kW' : '--',
-      ),
-      ConsoleMetricRow(
-        label: 'PDU 1 Load',
-        value: pdu1Kw > 0 ? '${pdu1Kw.toStringAsFixed(2)} kW' : '--',
-      ),
-      ConsoleMetricRow(
-        label: 'PDU 2 Load',
-        value: pdu2Kw > 0 ? '${pdu2Kw.toStringAsFixed(2)} kW' : '--',
-      ),
-      ConsoleMetricRow(
-        label: 'PDU 1 Current',
-        value: pdu1Amps > 0 ? '${pdu1Amps.toStringAsFixed(2)} A' : '--',
-      ),
-      ConsoleMetricRow(
-        label: 'PDU 2 Current',
-        value: pdu2Amps > 0 ? '${pdu2Amps.toStringAsFixed(2)} A' : '--',
-      ),
-    ];
+    final outletRows = _parseOutletRows(
+      outletPayload,
+      telemetry: telemetry,
+      outletNodeId: outletNodeId,
+    );
+
+    if (!pdu1Online && !pdu2Online && inletKw <= 0) {
+      return (inletRows, const []);
+    }
+
+    return (inletRows, outletRows);
+  }
+
+  List<ConsoleMetricRow> _parseOutletRows(
+    Map<String, dynamic>? outletPayload, {
+    required Map<String, dynamic>? telemetry,
+    int? outletNodeId,
+  }) {
+    final payloadRecords = _recordsFromPayload(outletPayload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+
+    if (payloadRecords.isNotEmpty) {
+      AppLog.d(
+        'Outlet parse snapshot',
+        tag: 'RackConsolePower',
+        fields: {
+          'outletNodeId': outletNodeId,
+          'recordCount': payloadRecords.length,
+          'sampleNames': payloadRecords.take(8).map((r) => r['name']).toList(),
+          'sampleCodes': payloadRecords
+              .take(8)
+              .map((r) => r['code'] ?? r['metricTypeLibCode'])
+              .toList(),
+        },
+      );
+
+      final sorted = [...payloadRecords]..sort(_compareNormalizedRows);
+      return sorted
+          .where((row) {
+            final view = row['view'];
+            return view == null || view == true;
+          })
+          .map(
+            (row) => _consoleMetricFromRow(
+              row,
+              fallbackLabel: _fallbackLabelForRow(row, 'Parameter'),
+            ).copyWith(nodeId: outletNodeId),
+          )
+          .where((row) => row.value != '--')
+          .toList();
+    }
+
+    final pdu1 = (telemetry?['pdu1'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final pdu2 = (telemetry?['pdu2'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
 
     List<ConsoleMetricRow> outletSummaryRows(
       String label,
@@ -988,16 +1230,97 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       ];
     }
 
-    final outletRows = <ConsoleMetricRow>[
+    final pdu1Outlets = (pdu1['outlets'] as List?) ?? const [];
+    final pdu2Outlets = (pdu2['outlets'] as List?) ?? const [];
+    final pdu1OnCount =
+        pdu1Outlets.where((e) => e is Map && e['isOn'] == true).length;
+    final pdu2OnCount =
+        pdu2Outlets.where((e) => e is Map && e['isOn'] == true).length;
+
+    return <ConsoleMetricRow>[
       ...outletSummaryRows('PDU 1', pdu1, pdu1OnCount),
       ...outletSummaryRows('PDU 2', pdu2, pdu2OnCount),
     ];
+  }
 
-    if (!pdu1Online && !pdu2Online && inletKw <= 0) {
-      return (const [], const []);
+  List<ConsoleMetricRow> _parseInletRows(
+    Map<String, dynamic>? inletPayload, {
+    required Map<String, dynamic>? telemetry,
+    int? inletNodeId,
+  }) {
+    final payloadRecords = _recordsFromPayload(inletPayload)
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+    final inlet = (telemetry?['inlet'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final rawRecords = (inlet['records'] as List?) ?? const [];
+    final records = payloadRecords.isNotEmpty
+        ? payloadRecords
+        : rawRecords
+            .whereType<Map>()
+            .map((item) => item.cast<String, dynamic>())
+            .toList();
+
+    if (records.isEmpty) {
+      final inletKw = _readDouble(inlet, const ['kw']);
+      final pdu1 = (telemetry?['pdu1'] as Map?)?.cast<String, dynamic>() ??
+          const <String, dynamic>{};
+      final pdu2 = (telemetry?['pdu2'] as Map?)?.cast<String, dynamic>() ??
+          const <String, dynamic>{};
+      return <ConsoleMetricRow>[
+        ConsoleMetricRow(
+          label: 'Offline State',
+          value: (inlet['online'] == true) ? 'Normal' : 'Offline',
+          isNormal: inlet['online'] == true,
+        ),
+        ConsoleMetricRow(
+          label: 'Total Input Power',
+          value: inletKw > 0 ? '${inletKw.toStringAsFixed(2)} kW' : '--',
+        ),
+        ConsoleMetricRow(
+          label: 'PDU 1 Load',
+          value: _readDouble(pdu1, const ['kw']) > 0
+              ? '${_readDouble(pdu1, const ['kw']).toStringAsFixed(2)} kW'
+              : '--',
+        ),
+        ConsoleMetricRow(
+          label: 'PDU 2 Load',
+          value: _readDouble(pdu2, const ['kw']) > 0
+              ? '${_readDouble(pdu2, const ['kw']).toStringAsFixed(2)} kW'
+              : '--',
+        ),
+      ].where((row) => row.value != '--').toList();
     }
 
-    return (inletRows, outletRows);
+    AppLog.d(
+      'Inlet parse snapshot',
+      tag: 'RackConsolePower',
+      fields: {
+        'inletNodeId': inletNodeId,
+        'recordCount': records.length,
+        'sampleNames': records.take(8).map((r) => r['name']).toList(),
+        'sampleCodes': records
+            .take(8)
+            .map((r) => r['code'] ?? r['metricTypeLibCode'])
+            .toList(),
+      },
+    );
+
+    final sorted = [...records]..sort(_compareNormalizedRows);
+    return sorted
+        .where((row) {
+          final view = row['view'];
+          return view == null || view == true;
+        })
+        .map(
+          (row) => _consoleMetricFromRow(
+            row,
+            fallbackLabel: _fallbackLabelForRow(row, 'Parameter'),
+          ).copyWith(nodeId: inletNodeId),
+        )
+        .where((row) => row.value != '--')
+        .toList();
   }
 
   (List<ConsoleMetricRow>, List<ConsoleMetricRow>) _parseUpsRows(
@@ -1274,172 +1597,23 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       },
     );
 
-    final metricRows = <ConsoleMetricRow>[
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          metricRowsRaw,
-          exactNames: const ['Supply air temp'],
-          contains: const ['supply air temp', 'outlet temperature'],
-        ),
-        fallbackLabel: 'Supply air temp',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          metricRowsRaw,
-          exactNames: const ['Return air temp'],
-          contains: const ['return air temp', 'return temperature'],
-        ),
-        fallbackLabel: 'Return air temp',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          metricRowsRaw,
-          exactNames: const ['Return air humidity'],
-          contains: const ['return air humidity', 'return humidity'],
-        ),
-        fallbackLabel: 'Return air humidity',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          metricRowsRaw,
-          exactNames: const ['Compressor speed'],
-          contains: const ['compressor speed'],
-        ),
-        fallbackLabel: 'Compressor speed',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          metricRowsRaw,
-          exactNames: const ['Indoor fan speed'],
-          contains: const ['indoor fan speed', 'fan speed'],
-        ),
-        fallbackLabel: 'Indoor fan speed',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          metricRowsRaw,
-          exactNames: const ['Outdoor fan speed'],
-          contains: const ['outdoor fan speed'],
-        ),
-        fallbackLabel: 'Outdoor fan speed',
-      ),
-    ].where((row) => row.value != '--').toList();
+    final metricRows = _mapAcMetricLikeRows(metricRowsRaw);
+    final settingRows = _mapAcMetricLikeRows(settingRowsRaw);
+    final statusRows = _mapAcStatusRows(statusRowsRaw);
 
-    final settingRows = <ConsoleMetricRow>[
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          settingRowsRaw,
-          exactNames: const ['Reset'],
-          contains: const ['reset'],
-        ),
-        fallbackLabel: 'Reset',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          settingRowsRaw,
-          exactNames: const ['Power on/off'],
-          contains: const ['power on/off'],
-        ),
-        fallbackLabel: 'Power on/off',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          settingRowsRaw,
-          exactNames: const ['Supply air temp setting'],
-          contains: const ['supply air temp setting'],
-        ),
-        fallbackLabel: 'Supply air temp setting',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          settingRowsRaw,
-          exactNames: const ['Return air temp setting'],
-          contains: const ['return air temp setting'],
-        ),
-        fallbackLabel: 'Return air temp setting',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          settingRowsRaw,
-          exactNames: const ['Humd setting'],
-          contains: const ['humd setting', 'humidity setting'],
-        ),
-        fallbackLabel: 'Humd setting',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          settingRowsRaw,
-          exactNames: const ['Supply Air High Humd Alarm'],
-          contains: const ['supply air high humd alarm'],
-        ),
-        fallbackLabel: 'Supply Air High Humd Alarm',
-      ),
-    ].where((row) => row.value != '--').toList();
-
-    final statusRows = <ConsoleMetricRow>[
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          statusRowsRaw,
-          exactNames: const ['Electric Heater Status'],
-          contains: const ['electric heater status'],
-        ),
-        fallbackLabel: 'Electric Heater Status',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          statusRowsRaw,
-          exactNames: const ['Electric Heater'],
-          contains: const ['electric heater'],
-        ),
-        fallbackLabel: 'Electric Heater',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          statusRowsRaw,
-          exactNames: const ['Current operating state'],
-          contains: const ['current operating state'],
-        ),
-        fallbackLabel: 'Current operating state',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          statusRowsRaw,
-          exactNames: const ['Compressor Status'],
-          contains: const ['compressor status'],
-        ),
-        fallbackLabel: 'Compressor Status',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          statusRowsRaw,
-          exactNames: const ['Water pump'],
-          contains: const ['water pump'],
-        ),
-        fallbackLabel: 'Water pump',
-      ),
-      _consoleMetricFromRow(
-        _findNormalizedRow(
-          statusRowsRaw,
-          exactNames: const ['Temp control'],
-          contains: const ['temp control'],
-        ),
-        fallbackLabel: 'Temp control',
-      ),
-    ].where((row) => row.value != '--').toList();
-
-    final unitStatus = _readNormalizedText(
+    final unitStatus = _readNormalizedStatusText(
       statusRowsRaw,
       exactNames: const ['Unit Status'],
       contains: const ['unit status'],
       fallback: null,
     );
-    final compressorStatus = _readNormalizedText(
+    final compressorStatus = _readNormalizedStatusText(
           statusRowsRaw,
           exactNames: const ['Compressor'],
           contains: const ['compressor'],
           fallback: null,
         ) ??
-        _readNormalizedText(
+        _readNormalizedStatusText(
           statusRowsRaw,
           exactNames: const ['Compressor Status'],
           contains: const ['compressor status'],
@@ -1464,6 +1638,64 @@ class SmartRackConsoleRepository extends ChangeNotifier {
             unitStatus,
             compressorStatus,
           );
+  }
+
+  List<ConsoleMetricRow> _mapAcMetricLikeRows(
+    List<Map<String, dynamic>> rows,
+  ) {
+    final sorted = [...rows]..sort(_compareNormalizedRows);
+    return sorted
+        .map(
+          (row) => _consoleMetricFromRow(
+            row,
+            fallbackLabel: _fallbackLabelForRow(row, 'Parameter'),
+          ),
+        )
+        .where((row) => row.value != '--')
+        .toList();
+  }
+
+  List<ConsoleMetricRow> _mapAcStatusRows(
+    List<Map<String, dynamic>> rows,
+  ) {
+    final sorted = [...rows]..sort(_compareNormalizedRows);
+    return sorted
+        .map(
+          (row) => ConsoleMetricRow(
+            label: _fallbackLabelForRow(row, 'Status'),
+            value: _displayStatusValue(row),
+            isNormal: _isNormalStatus(_displayStatusValue(row)),
+            metricCode: _rowMetricCode(row),
+            rawValue: _rawValueForRow(row),
+            writeMap: _rowWriteMap(row),
+            isEditable: _isWritableRow(row),
+          ),
+        )
+        .where((row) => row.value != '--')
+        .toList();
+  }
+
+  int _compareNormalizedRows(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    final aOrder = (a['orderNo'] is num) ? (a['orderNo'] as num).toDouble() : double.infinity;
+    final bOrder = (b['orderNo'] is num) ? (b['orderNo'] as num).toDouble() : double.infinity;
+    if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+    final aName = _fallbackLabelForRow(a, '').toLowerCase();
+    final bName = _fallbackLabelForRow(b, '').toLowerCase();
+    return aName.compareTo(bName);
+  }
+
+  String _fallbackLabelForRow(
+    Map<String, dynamic>? row,
+    String fallback,
+  ) {
+    if (row == null) return fallback;
+    final label = (row['name'] ?? row['statusType'] ?? row['code'] ?? '')
+        .toString()
+        .trim();
+    return label.isEmpty ? fallback : label;
   }
 
   String? _topOutlet(List outlets) {
@@ -1572,7 +1804,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     return null;
   }
 
-  String? _readNormalizedText(
+  String? _readNormalizedStatusText(
     List<Map<String, dynamic>> rows, {
     List<String> exactNames = const [],
     List<String> contains = const [],
@@ -1584,7 +1816,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       contains: contains,
     );
     if (row == null) return fallback;
-    return _displayValueForRow(row) ?? fallback;
+    return _displayStatusValue(row);
   }
 
   ConsoleMetricRow _consoleMetricFromRow(

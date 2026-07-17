@@ -88,7 +88,10 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
       title: 'System Schematic',
       expand: expand,
       trailing: IconButton(
-        icon: const Icon(Icons.info_outline, color: Colors.white70),
+        icon: Icon(
+          Icons.info_outline,
+          color: ConsoleTheme.textSecondary(context),
+        ),
         tooltip: 'View Full Diagram',
         onPressed: () => _showFullscreenSchematic(context, snapshot),
       ),
@@ -185,7 +188,7 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
     required VoidCallback onTap,
   }) {
     final activeColor = ConsoleTheme.primaryBlue(context);
-    final inactiveColor = Colors.white.withValues(alpha: 0.08);
+    final inactiveColor = ConsoleTheme.innerSurface(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -201,7 +204,7 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           border: Border.all(
             color: selected
                 ? activeColor.withValues(alpha: 0.9)
-                : Colors.white.withValues(alpha: 0.14),
+                : ConsoleTheme.cardBorder(context),
           ),
           boxShadow: selected && !AppConfig.isRackConsoleBuild
               ? [
@@ -217,7 +220,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: selected ? Colors.white : Colors.white70,
+            color: selected
+                ? ConsoleTheme.textInverse(context)
+                : ConsoleTheme.textSecondary(context),
             fontSize: 13,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.4,

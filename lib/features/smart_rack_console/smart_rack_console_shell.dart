@@ -85,10 +85,15 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF0B0F14),
-          title: const Text('No Site', style: TextStyle(color: Colors.white)),
-          content: const Text('No active site selected.',
-              style: TextStyle(color: Colors.white70)),
+          backgroundColor: ConsoleTheme.cardBg(ctx),
+          title: Text(
+            'No Site',
+            style: TextStyle(color: ConsoleTheme.textPrimary(ctx)),
+          ),
+          content: Text(
+            'No active site selected.',
+            style: TextStyle(color: ConsoleTheme.textSecondary(ctx)),
+          ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
@@ -143,11 +148,11 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF0B0F14),
+            backgroundColor: ConsoleTheme.cardBg(ctx),
             title: Text('Success',
                 style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-            content: const Text('Logo uploaded successfully!',
-                style: TextStyle(color: Colors.white)),
+            content: Text('Logo uploaded successfully!',
+                style: TextStyle(color: ConsoleTheme.textPrimary(ctx))),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -163,15 +168,16 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF0B0F14),
+            backgroundColor: ConsoleTheme.cardBg(ctx),
             title: const Text('Upload Failed',
                 style: TextStyle(color: AppTheme.statusError)),
-            content: Text(msg, style: const TextStyle(color: Colors.white)),
+            content:
+                Text(msg, style: TextStyle(color: ConsoleTheme.textPrimary(ctx))),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK',
-                      style: TextStyle(color: Colors.white70))),
+                  child: Text('OK',
+                      style: TextStyle(color: ConsoleTheme.textSecondary(ctx)))),
             ],
           ),
         );
@@ -182,16 +188,16 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF0B0F14),
+            backgroundColor: ConsoleTheme.cardBg(ctx),
             title: const Text('Upload Failed',
                 style: TextStyle(color: AppTheme.statusError)),
             content: Text('An unexpected error occurred: $e',
-                style: const TextStyle(color: Colors.white)),
+                style: TextStyle(color: ConsoleTheme.textPrimary(ctx))),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK',
-                      style: TextStyle(color: Colors.white70))),
+                  child: Text('OK',
+                      style: TextStyle(color: ConsoleTheme.textSecondary(ctx)))),
             ],
           ),
         );

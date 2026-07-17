@@ -19,9 +19,28 @@ class PowerConsoleScreen extends StatefulWidget {
 
 class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
   String _selectedTab = 'Inlet';
+  int _selectedInletSectionIndex = 0;
+  int _selectedOutletSectionIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final inletSections = _buildInletSections();
+    final selectedInletSection =
+        inletSections.isEmpty
+            ? null
+            : inletSections[_selectedInletSectionIndex.clamp(
+              0,
+              inletSections.length - 1,
+            )];
+    final outletSections = _buildOutletSections();
+    final selectedOutletSection =
+        outletSections.isEmpty
+            ? null
+            : outletSections[_selectedOutletSectionIndex.clamp(
+              0,
+              outletSections.length - 1,
+            )];
+
     return Padding(
       padding: const EdgeInsets.all(ConsoleTheme.lg),
       child: Row(
@@ -34,7 +53,10 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
               title: 'System Schematic',
               expand: true,
               trailing: IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white54),
+                icon: Icon(
+                  Icons.info_outline,
+                  color: ConsoleTheme.textMuted(context),
+                ),
                 tooltip: 'Show Labels',
                 onPressed: () => _showFullscreenSchematic(context),
               ),
@@ -56,19 +78,55 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
           Expanded(
             flex: 5,
             child: ConsoleSectionCard(
-              title: 'Parameter Status',
               expand: true,
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildSectionHeader(context, 'Current Parameter ($_selectedTab)'),
+                    _buildSectionHeader(
+                      context,
+                      _selectedTab == 'Inlet' && selectedInletSection != null
+                          ? 'Current Parameter (Inlet / ${selectedInletSection.title})'
+                          : _selectedTab == 'Outlet' &&
+                                  selectedOutletSection != null
+                              ? 'Current Parameter (Outlet / ${selectedOutletSection.title})'
+                              : 'Current Parameter ($_selectedTab)',
+                    ),
+                    if (_selectedTab == 'Inlet' && inletSections.length > 1) ...[
+                      const SizedBox(height: 12),
+                      _buildSectionNavigator(
+                        sections: inletSections,
+                        selectedIndex: _selectedInletSectionIndex,
+                        onSelected: (index) {
+                          setState(() {
+                            _selectedInletSectionIndex = index;
+                          });
+                        },
+                      ),
+                    ],
+                    if (_selectedTab == 'Outlet' &&
+                        outletSections.length > 1) ...[
+                      const SizedBox(height: 12),
+                      _buildSectionNavigator(
+                        sections: outletSections,
+                        selectedIndex: _selectedOutletSectionIndex,
+                        onSelected: (index) {
+                          setState(() {
+                            _selectedOutletSectionIndex = index;
+                          });
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     Table(
                       columnWidths: const {
                         0: FlexColumnWidth(1),
                         1: FlexColumnWidth(1),
                       },
-                      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      border: TableBorder.all(
+                        color: ConsoleTheme.strongDivider(context),
+                        width: 1,
+                      ),
                       children: _selectedTab == 'Inlet' ? _buildInletRows(context) : _buildOutletRows(context),
                     ),
                   ],
@@ -101,6 +159,12 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
       onTap: () {
         setState(() {
           _selectedTab = title;
+          if (title == 'Inlet') {
+            _selectedInletSectionIndex = 0;
+          }
+          if (title == 'Outlet') {
+            _selectedOutletSectionIndex = 0;
+          }
         });
       },
       borderRadius: BorderRadius.circular(20),
@@ -110,13 +174,17 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
           color: isSelected ? const Color(0xFF3B82F6) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF3B82F6) : Colors.white24,
+            color: isSelected
+                ? const Color(0xFF3B82F6)
+                : ConsoleTheme.cardBorder(context),
           ),
         ),
         child: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected
+                ? ConsoleTheme.textInverse(context)
+                : ConsoleTheme.textSecondary(context),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -130,7 +198,10 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
       color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2),
       child: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: ConsoleTheme.textPrimary(context),
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -145,37 +216,50 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
   }
 
   List<TableRow> _buildInletRows(BuildContext context) {
-    final rows = widget.snapshot.powerInletRows;
-    if (rows.isEmpty) {
+    final sections = _buildInletSections();
+    if (sections.isEmpty) {
       return [
         _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
         _buildParamRow(context, 'Status', 'No data'),
       ];
     }
+    final currentSection = sections[_selectedInletSectionIndex.clamp(
+      0,
+      sections.length - 1,
+    )];
     return [
       _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      ...rows.map((row) => _buildConsoleMetricRow(context, row)),
+      ...currentSection.rows.map((row) => _buildConsoleMetricRow(context, row)),
     ];
   }
 
   List<TableRow> _buildOutletRows(BuildContext context) {
-    final rows = widget.snapshot.powerOutletRows;
-    if (rows.isEmpty) {
+    final sections = _buildOutletSections();
+    if (sections.isEmpty) {
       return [
         _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
         _buildParamRow(context, 'Status', 'No data'),
       ];
     }
+    final currentSection = sections[_selectedOutletSectionIndex.clamp(
+      0,
+      sections.length - 1,
+    )];
     return [
       _buildTableHeaderRow(context, ['Parameter Items', 'Value']),
-      ...rows.map((row) => _buildConsoleMetricRow(context, row)),
+      ...currentSection.rows.map((row) => _buildConsoleMetricRow(context, row)),
     ];
   }
 
   TableRow _buildConsoleMetricRow(BuildContext context, ConsoleMetricRow row) {
+    final displayLabel =
+        row.metricCode == 'device_online' &&
+                row.label.toLowerCase() == 'offline state'
+            ? 'Status'
+            : row.label;
     return TableRow(
       children: [
-        _buildTableCell(context, row.label, isLabel: true),
+        _buildTableCell(context, displayLabel, isLabel: true),
         _buildTableCell(
           context,
           row.value,
@@ -210,6 +294,191 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildSectionNavigator({
+    required List<_MetricSection> sections,
+    required int selectedIndex,
+    required ValueChanged<int> onSelected,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(sections.length, (index) {
+        final section = sections[index];
+        final isSelected = index == selectedIndex;
+        return InkWell(
+          onTap: () => onSelected(index),
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color:
+                  isSelected
+                      ? const Color(0xFF3B82F6)
+                      : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color:
+                    isSelected
+                        ? const Color(0xFF3B82F6)
+                        : Colors.white24,
+              ),
+            ),
+            child: Text(
+              section.title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  List<_MetricSection> _buildInletSections() {
+    final rows = widget.snapshot.powerInletRows;
+    if (rows.isEmpty) return const [];
+
+    final overview = <ConsoleMetricRow>[];
+    final line1 = <ConsoleMetricRow>[];
+    final line2 = <ConsoleMetricRow>[];
+    final energy = <ConsoleMetricRow>[];
+
+    for (final row in rows) {
+      final label = row.label.toLowerCase();
+      if (_isInletEnergyRow(label)) {
+        energy.add(row);
+      } else if (_isInletLine1Row(label)) {
+        line1.add(row);
+      } else if (_isInletLine2Row(label)) {
+        line2.add(row);
+      } else {
+        overview.add(row);
+      }
+    }
+
+    final sections = <_MetricSection>[
+      if (overview.isNotEmpty) _MetricSection(title: 'Overview', rows: overview),
+      if (line1.isNotEmpty) _MetricSection(title: 'Line 1', rows: line1),
+      if (line2.isNotEmpty) _MetricSection(title: 'Line 2', rows: line2),
+      if (energy.isNotEmpty) _MetricSection(title: 'Energy', rows: energy),
+    ];
+
+    return sections.isNotEmpty
+        ? sections
+        : [_MetricSection(title: 'Overview', rows: rows)];
+  }
+
+  List<_MetricSection> _buildOutletSections() {
+    final rows = widget.snapshot.powerOutletRows;
+    if (rows.isEmpty) return const [];
+
+    final status = <ConsoleMetricRow>[];
+    final overview = <ConsoleMetricRow>[];
+    final sectionI = <ConsoleMetricRow>[];
+    final sectionII = <ConsoleMetricRow>[];
+    final energy = <ConsoleMetricRow>[];
+
+    for (final row in rows) {
+      if (_isOutletStatusRow(row)) {
+        status.add(row);
+      } else if (_isOutletEnergyRow(row)) {
+        energy.add(row);
+      } else if (_isOutletSectionIRow(row)) {
+        sectionI.add(row);
+      } else if (_isOutletSectionIIRow(row)) {
+        sectionII.add(row);
+      } else {
+        overview.add(row);
+      }
+    }
+
+    final sections = <_MetricSection>[
+      if (status.isNotEmpty) _MetricSection(title: 'Status', rows: status),
+      if (overview.isNotEmpty) _MetricSection(title: 'Overview', rows: overview),
+      if (sectionI.isNotEmpty) _MetricSection(title: 'Line 1', rows: sectionI),
+      if (sectionII.isNotEmpty) _MetricSection(title: 'Line 2', rows: sectionII),
+      if (energy.isNotEmpty) _MetricSection(title: 'Energy', rows: energy),
+    ];
+
+    return sections.isNotEmpty
+        ? sections
+        : [_MetricSection(title: 'Overview', rows: rows)];
+  }
+
+  bool _isInletLine1Row(String label) {
+    return label.contains('line 1') ||
+        label.contains('line1') ||
+        label.contains('l1') ||
+        label.contains('phase a');
+  }
+
+  bool _isInletLine2Row(String label) {
+    return label.contains('line 2') ||
+        label.contains('line2') ||
+        label.contains('l2') ||
+        label.contains('phase b');
+  }
+
+  bool _isInletEnergyRow(String label) {
+    return label.contains('energy') ||
+        label.contains('kwh') ||
+        label.contains('active power') ||
+        label.contains('reactive power') ||
+        label.contains('apparent power');
+  }
+
+  bool _isOutletSectionIRow(ConsoleMetricRow row) {
+    final label = row.label.toLowerCase();
+    final code = (row.metricCode ?? '').toLowerCase();
+    return code.startsWith('section_i_') ||
+        code.contains('section_i_outlet') ||
+        RegExp(r'\bsection i\b').hasMatch(label) ||
+        RegExp(r'\bsection 1\b').hasMatch(label);
+  }
+
+  bool _isOutletSectionIIRow(ConsoleMetricRow row) {
+    final label = row.label.toLowerCase();
+    final code = (row.metricCode ?? '').toLowerCase();
+    return code.startsWith('section_ii_') ||
+        code.contains('section_ii_outlet') ||
+        RegExp(r'\bsection ii\b').hasMatch(label) ||
+        RegExp(r'\bsection 2\b').hasMatch(label);
+  }
+
+  bool _isOutletEnergyRow(ConsoleMetricRow row) {
+    final label = row.label.toLowerCase();
+    final code = (row.metricCode ?? '').toLowerCase();
+    return label.contains('energy') ||
+        label.contains('kwh') ||
+        label.contains('active power') ||
+        label.contains('reactive power') ||
+        label.contains('apparent power') ||
+        label.contains('power factor') ||
+        code.contains('energy') ||
+        code.contains('activepower') ||
+        code.contains('reactivepower') ||
+        code.contains('apparentpower') ||
+        code.contains('powerfactor');
+  }
+
+  bool _isOutletStatusRow(ConsoleMetricRow row) {
+    final label = row.label.toLowerCase();
+    final code = (row.metricCode ?? '').toLowerCase();
+    return label == 'offline state' ||
+        code == 'device_online' ||
+        label.contains('status') ||
+        label.contains('alarm') ||
+        label.contains('phase sequence') ||
+        label.contains('phase-sequence') ||
+        label.contains('health') ||
+        code.contains('status') ||
+        code.contains('alarm') ||
+        code.contains('phasesequence');
   }
 
   void _showFullscreenSchematic(BuildContext context) {
@@ -261,4 +530,14 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
       },
     );
   }
+}
+
+class _MetricSection {
+  const _MetricSection({
+    required this.title,
+    required this.rows,
+  });
+
+  final String title;
+  final List<ConsoleMetricRow> rows;
 }

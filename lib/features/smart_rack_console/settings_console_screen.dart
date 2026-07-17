@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/widgets/secure_action_guard.dart';
+import 'services/rack_console_preferences.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
 
@@ -290,6 +291,70 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
     );
   }
 
+  Widget _buildDisplaySettings() {
+    return AnimatedBuilder(
+      animation: RackConsolePreferences.instance,
+      builder: (context, _) {
+        final prefs = RackConsolePreferences.instance;
+        return ConsoleSectionCard(
+          title: 'Display Settings',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F2648).withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: ConsoleTheme.divider(context)),
+                ),
+                child: SwitchListTile(
+                  value: prefs.use24HourTime,
+                  onChanged: (value) {
+                    prefs.setUse24HourTime(value);
+                  },
+                  thumbColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return ConsoleTheme.primaryBlue(context);
+                    }
+                    return Colors.white70;
+                  }),
+                  trackColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return ConsoleTheme.primaryBlue(context)
+                          .withValues(alpha: 0.35);
+                    }
+                    return Colors.white24;
+                  }),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  title: Text(
+                    'Use 24-Hour Time',
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    prefs.use24HourTime
+                        ? 'Header clock and trend charts use 24-hour labels.'
+                        : 'Header clock and trend charts use 12-hour labels.',
+                    style: TextStyle(
+                      color: ConsoleTheme.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -304,6 +369,8 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
             Text('Settings & Configuration', style: TextStyle(color: ConsoleTheme.textPrimary(context), fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
             _buildIpConfiguration(),
+            const SizedBox(height: 24),
+            _buildDisplaySettings(),
             const SizedBox(height: 24),
             _buildAboutUs(),
           ],

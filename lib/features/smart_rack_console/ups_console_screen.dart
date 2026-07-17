@@ -28,7 +28,10 @@ class UpsConsoleScreen extends StatelessWidget {
               title: 'System Schematic',
               expand: true,
               trailing: IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white54),
+                icon: Icon(
+                  Icons.info_outline,
+                  color: ConsoleTheme.textMuted(context),
+                ),
                 tooltip: 'Show Labels',
                 onPressed: () => _showFullscreenSchematic(context, snapshot),
               ),
@@ -52,7 +55,10 @@ class UpsConsoleScreen extends StatelessWidget {
                         0: FlexColumnWidth(1),
                         1: FlexColumnWidth(1),
                       },
-                      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      border: TableBorder.all(
+                        color: ConsoleTheme.strongDivider(context),
+                        width: 1,
+                      ),
                       children: _buildParameterRows(context),
                     ),
                     const SizedBox(height: ConsoleTheme.lg),
@@ -62,7 +68,10 @@ class UpsConsoleScreen extends StatelessWidget {
                         0: FlexColumnWidth(1),
                         1: FlexColumnWidth(1),
                       },
-                      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      border: TableBorder.all(
+                        color: ConsoleTheme.strongDivider(context),
+                        width: 1,
+                      ),
                       children: _buildStatusRows(context),
                     ),
                   ],
@@ -81,7 +90,10 @@ class UpsConsoleScreen extends StatelessWidget {
       color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2),
       child: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: ConsoleTheme.textPrimary(context),
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -154,8 +166,8 @@ class UpsConsoleScreen extends StatelessWidget {
   }
 
   Widget _buildTableCell(BuildContext context, String text, {bool isLabel = false, bool isHeader = false, bool isNormal = false}) {
-    Color textColor = Colors.white;
-    if (isLabel) textColor = Colors.white70;
+    Color textColor = ConsoleTheme.textPrimary(context);
+    if (isLabel) textColor = ConsoleTheme.textSecondary(context);
     if (isNormal) textColor = ConsoleTheme.success(context);
 
     return Padding(
@@ -197,12 +209,19 @@ class UpsConsoleScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'UPS Schematic (Detailed)',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: ConsoleTheme.textPrimary(context),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54),
+                      icon: Icon(
+                        Icons.close,
+                        color: ConsoleTheme.textMuted(context),
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],

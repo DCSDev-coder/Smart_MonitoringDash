@@ -75,6 +75,15 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
   Widget build(BuildContext context) {
     final dividerColor = ConsoleTheme.divider(context);
     final textSecondary = ConsoleTheme.textSecondary(context);
+    final accentBlue = ConsoleTheme.primaryBlue(context);
+    final selectedGradient = LinearGradient(
+      colors: [
+        accentBlue.withValues(alpha: 0.24),
+        accentBlue.withValues(alpha: 0.0),
+      ],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
@@ -104,7 +113,7 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
               child: Center(
                 child: Icon(
                   Icons.keyboard_arrow_up_rounded,
-                  color: ConsoleTheme.tealGlow(context),
+                  color: accentBlue,
                   size: 22,
                 ),
               ),
@@ -140,7 +149,7 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
                       ),
                       decoration: BoxDecoration(
                         gradient: selected
-                            ? ConsoleTheme.activeAccentGradient(context)
+                            ? selectedGradient
                             : null,
                         color: selected
                             ? null
@@ -158,7 +167,7 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
                           Icon(
                             item.icon,
                             color: selected
-                                ? ConsoleTheme.tealGlow(context)
+                                ? accentBlue
                                 : textSecondary,
                             size: 20,
                           ),
@@ -167,7 +176,9 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
                             child: Text(
                               item.label,
                               style: TextStyle(
-                                color: selected ? Colors.white : textSecondary,
+                                color: selected
+                                    ? ConsoleTheme.textInverse(context)
+                                    : textSecondary,
                                 fontSize: 13,
                                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                               ),
@@ -195,7 +206,7 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
               child: Center(
                 child: Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: ConsoleTheme.tealGlow(context),
+                  color: accentBlue,
                   size: 22,
                 ),
               ),
