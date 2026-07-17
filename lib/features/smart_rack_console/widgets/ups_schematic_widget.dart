@@ -58,12 +58,14 @@ class _UpsSchematicWidgetState extends State<UpsSchematicWidget>
         return AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
+            final isLight = Theme.of(context).brightness == Brightness.light;
             return CustomPaint(
               size: Size(constraints.maxWidth, constraints.maxHeight),
               painter: UpsSchematicPainter(
                 animationValue: _controller.value,
                 pathCache: _pathCache,
                 showLabels: widget.showLabels,
+                isLight: isLight,
               ),
             );
           },
@@ -145,11 +147,13 @@ class UpsSchematicPainter extends CustomPainter {
     required this.animationValue,
     required this.pathCache,
     required this.showLabels,
+    required this.isLight,
   });
 
   final double animationValue;
   final UpsPathCache pathCache;
   final bool showLabels;
+  final bool isLight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -190,7 +194,7 @@ class UpsSchematicPainter extends CustomPainter {
 
   void _drawElectricity(Canvas canvas, Rect b) {
     final Paint dotPaint = Paint()
-      ..color = Colors.white
+      ..color = isLight ? const Color(0xFF1E3A8A) : Colors.white
       ..style = PaintingStyle.fill
       ..maskFilter = AppConfig.isRackConsoleBuild
           ? null
@@ -220,8 +224,10 @@ class UpsSchematicPainter extends CustomPainter {
 
   void _drawNodes(Canvas canvas, Rect b) {
     // Text style
-    const TextStyle textStyle = TextStyle(
-        color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold);
+    final TextStyle textStyle = TextStyle(
+        color: isLight ? const Color(0xFF183153) : Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.bold);
 
     // Input/Output Nodes
     _drawInputNode(canvas, Offset(b.left, b.top + 30));
@@ -254,7 +260,7 @@ class UpsSchematicPainter extends CustomPainter {
 
   void _drawInputNode(Canvas canvas, Offset center) {
     final Paint stroke = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(center, 8, stroke);
@@ -263,7 +269,7 @@ class UpsSchematicPainter extends CustomPainter {
 
   void _drawOutputNode(Canvas canvas, Offset center) {
     final Paint stroke = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawArc(Rect.fromCircle(center: center, radius: 8), -math.pi / 2,
@@ -275,9 +281,9 @@ class UpsSchematicPainter extends CustomPainter {
   void _drawSwitch(Canvas canvas, Offset center, String label,
       {bool isVertical = false}) {
     final Paint bgPaint = Paint()
-      ..color = const Color(0xFF071B3A); // match panel bg to cut the line
+      ..color = isLight ? Colors.white : const Color(0xFF071B3A); // match panel bg to cut the line
     final Paint borderPaint = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -286,26 +292,30 @@ class UpsSchematicPainter extends CustomPainter {
     canvas.drawLine(Offset(center.dx - 10, center.dy),
         Offset(center.dx + 8, center.dy - 10), borderPaint);
     canvas.drawCircle(
-        Offset(center.dx - 10, center.dy), 3, Paint()..color = Colors.white);
+        Offset(center.dx - 10, center.dy), 3, Paint()..color = isLight ? const Color(0xFF1E3A8A) : Colors.white);
     canvas.drawCircle(
-        Offset(center.dx + 10, center.dy), 3, Paint()..color = Colors.white);
+        Offset(center.dx + 10, center.dy), 3, Paint()..color = isLight ? const Color(0xFF1E3A8A) : Colors.white);
 
     if (showLabels) {
       _drawLabel(
           canvas,
           Offset(center.dx, center.dy - 20),
           label,
-          const TextStyle(
-              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+          TextStyle(
+              color: isLight ? const Color(0xFF183153) : Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold));
     }
   }
 
   void _drawStaticSwitch(Canvas canvas, Offset center) {
     final Paint fill = Paint()
-      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.3)
+      ..color = isLight
+          ? const Color(0xFF1E90FF).withValues(alpha: 0.15)
+          : const Color(0xFF3B82F6).withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
     final Paint border = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -322,14 +332,16 @@ class UpsSchematicPainter extends CustomPainter {
           canvas,
           Offset(center.dx, center.dy - 25),
           'Static Switch',
-          const TextStyle(
-              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+          TextStyle(
+              color: isLight ? const Color(0xFF183153) : Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold));
     }
   }
 
   void _drawDiode(Canvas canvas, Offset center, {required bool isUp}) {
     final Paint stroke = Paint()
-      ..color = Colors.white
+      ..color = isLight ? const Color(0xFF1E3A8A) : Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     final int dir = isUp ? -1 : 1;
@@ -356,10 +368,12 @@ class UpsSchematicPainter extends CustomPainter {
   void _drawPowerBox(Canvas canvas, Offset center, String label,
       String topSymbol, String bottomSymbol) {
     final Paint fill = Paint()
-      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.3)
+      ..color = isLight
+          ? const Color(0xFF1E90FF).withValues(alpha: 0.15)
+          : const Color(0xFF3B82F6).withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
     final Paint border = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -372,22 +386,28 @@ class UpsSchematicPainter extends CustomPainter {
         canvas,
         Offset(center.dx - 12, center.dy - 5),
         topSymbol,
-        const TextStyle(
-            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold));
+        TextStyle(
+            color: isLight ? const Color(0xFF183153) : Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold));
     _drawLabel(
         canvas,
         Offset(center.dx + 12, center.dy + 5),
         bottomSymbol,
-        const TextStyle(
-            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold));
+        TextStyle(
+            color: isLight ? const Color(0xFF183153) : Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold));
 
     if (showLabels) {
       _drawLabel(
           canvas,
           Offset(center.dx, center.dy - 25),
           label,
-          const TextStyle(
-              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+          TextStyle(
+              color: isLight ? const Color(0xFF183153) : Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold));
     }
   }
 

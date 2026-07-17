@@ -56,7 +56,7 @@ class UpsConsoleScreen extends StatelessWidget {
                         1: FlexColumnWidth(1),
                       },
                       border: TableBorder.all(
-                        color: ConsoleTheme.strongDivider(context),
+                        color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3),
                         width: 1,
                       ),
                       children: _buildParameterRows(context),
@@ -69,7 +69,7 @@ class UpsConsoleScreen extends StatelessWidget {
                         1: FlexColumnWidth(1),
                       },
                       border: TableBorder.all(
-                        color: ConsoleTheme.strongDivider(context),
+                        color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3),
                         width: 1,
                       ),
                       children: _buildStatusRows(context),

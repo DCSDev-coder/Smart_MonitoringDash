@@ -58,6 +58,7 @@ class _AcSchematicWidgetState extends State<AcSchematicWidget>
         return AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
+            final isLight = Theme.of(context).brightness == Brightness.light;
             return CustomPaint(
               size: Size(constraints.maxWidth, constraints.maxHeight),
               painter: RefrigerationCyclePainter(
@@ -65,6 +66,7 @@ class _AcSchematicWidgetState extends State<AcSchematicWidget>
                 snapshot: widget.snapshot,
                 showLabels: widget.showLabels,
                 pathCache: _pathCache,
+                isLight: isLight,
               ),
             );
           },
@@ -139,12 +141,14 @@ class RefrigerationCyclePainter extends CustomPainter {
     required this.snapshot,
     required this.showLabels,
     required this.pathCache,
+    required this.isLight,
   });
 
   final double animationValue;
   final SmartRackConsoleSnapshot snapshot;
   final bool showLabels;
   final AcPathCache pathCache;
+  final bool isLight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -236,7 +240,7 @@ class RefrigerationCyclePainter extends CustomPainter {
     final double spacing = pathLength / arrowCount;
 
     final Paint arrowPaint = Paint()
-      ..color = Colors.white
+      ..color = isLight ? const Color(0xFF1E3A8A) : Colors.white
       ..style = PaintingStyle.fill;
 
     for (int i = 0; i < arrowCount; i++) {
@@ -362,7 +366,7 @@ class RefrigerationCyclePainter extends CustomPainter {
         Offset.zero,
         fanRadius + 5,
         Paint()
-          ..color = Colors.white24
+          ..color = isLight ? Colors.black.withValues(alpha: 0.15) : Colors.white24
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2);
 
@@ -409,7 +413,7 @@ class RefrigerationCyclePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Paint borderPaint = Paint()
-      ..color = Colors.white
+      ..color = isLight ? const Color(0xFF1E3A8A) : Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -482,7 +486,7 @@ class RefrigerationCyclePainter extends CustomPainter {
       ..color = const Color(0xFF60A5FA) // Light blue box
       ..style = PaintingStyle.fill;
     final Paint borderPaint = Paint()
-      ..color = Colors.white
+      ..color = isLight ? const Color(0xFF1E3A8A) : Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -493,7 +497,13 @@ class RefrigerationCyclePainter extends CustomPainter {
     canvas.drawRect(box, borderPaint);
 
     // Little line connecting to pipe
-    canvas.drawLine(const Offset(0, 6), const Offset(0, 10), borderPaint);
+    canvas.drawLine(
+        const Offset(0, 6),
+        const Offset(0, 10),
+        Paint()
+          ..color = isLight ? const Color(0xFF94A3B8) : Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
 
     if (showLabels) {
       _drawText(canvas, label, textOffset, align: align);
@@ -506,13 +516,15 @@ class RefrigerationCyclePainter extends CustomPainter {
       {TextAlign align = TextAlign.center}) {
     final TextSpan span = TextSpan(
       text: text,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: isLight ? const Color(0xFF0F172A) : Colors.white,
         fontSize: 11,
         fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(1, 1)),
-        ],
+        shadows: isLight
+            ? null
+            : const [
+                Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(1, 1)),
+              ],
       ),
     );
     final TextPainter tp = TextPainter(

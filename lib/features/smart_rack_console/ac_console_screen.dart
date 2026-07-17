@@ -389,15 +389,15 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
             1: FlexColumnWidth(1),
           },
           border: TableBorder.all(
-              color: Colors.white.withValues(alpha: 0.15), width: 1),
+              color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3), width: 1),
           children: [
             TableRow(
               decoration: BoxDecoration(
                   color:
                       ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
               children: [
-                _buildTableHeader('Metric Item'),
-                _buildTableHeader('Value'),
+                _buildTableHeader(context, 'Metric Item'),
+                _buildTableHeader(context, 'Value'),
               ],
             ),
             ...snapshot.acMetricRows.map(
@@ -425,15 +425,15 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
             1: FlexColumnWidth(1),
           },
           border: TableBorder.all(
-              color: Colors.white.withValues(alpha: 0.15), width: 1),
+              color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3), width: 1),
           children: [
             TableRow(
               decoration: BoxDecoration(
                   color:
                       ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
               children: [
-                _buildTableHeader('Parameter Item'),
-                _buildTableHeader('Set Value'),
+                _buildTableHeader(context, 'Parameter Item'),
+                _buildTableHeader(context, 'Set Value'),
               ],
             ),
             ...snapshot.acSettingRows.map(
@@ -461,15 +461,15 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
             1: FlexColumnWidth(1),
           },
           border: TableBorder.all(
-              color: Colors.white.withValues(alpha: 0.15), width: 1),
+              color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3), width: 1),
           children: [
             TableRow(
               decoration: BoxDecoration(
                   color:
                       ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2)),
               children: [
-                _buildTableHeader('Status Item'),
-                _buildTableHeader('Status'),
+                _buildTableHeader(context, 'Status Item'),
+                _buildTableHeader(context, 'Status'),
               ],
             ),
             ...snapshot.acStatusRows.map(
@@ -486,15 +486,15 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
     );
   }
 
-  Widget _buildTableHeader(String text) {
+  Widget _buildTableHeader(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
-          color: Colors.white,
+          color: ConsoleTheme.textPrimary(context),
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -555,9 +555,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           isExpanded: true,
           value: currentValue,
           dropdownColor: ConsoleTheme.panelBg(context),
-          iconEnabledColor: Colors.white70,
-          style: const TextStyle(
-            color: Colors.white,
+          iconEnabledColor: ConsoleTheme.textSecondary(context),
+          style: TextStyle(
+            color: ConsoleTheme.textPrimary(context),
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -608,7 +608,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
               textAlign: alignCenter ? TextAlign.center : TextAlign.start,
               style: TextStyle(
                 fontSize: 14,
-                color: editable ? Colors.white : Colors.white70,
+                color: editable
+                    ? ConsoleTheme.textPrimary(context)
+                    : ConsoleTheme.textSecondary(context),
                 fontWeight: editable ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
@@ -618,7 +620,7 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
             Icon(
               Icons.edit_rounded,
               size: 14,
-              color: Colors.white.withValues(alpha: 0.8),
+              color: ConsoleTheme.textPrimary(context).withValues(alpha: 0.8),
             ),
           ],
         ],
@@ -641,9 +643,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14,
-                color: Colors.white70,
+                color: ConsoleTheme.textSecondary(context),
                 fontWeight: FontWeight.w500),
           ),
         ),
@@ -652,8 +654,10 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           child: Text(
             value,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 14,
+                color: ConsoleTheme.textPrimary(context),
+                fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -662,7 +666,7 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
 
   TableRow _buildStatusTableRow(
       BuildContext context, String label, String status, bool isRunning) {
-    Color statusColor = Colors.white;
+    Color statusColor = ConsoleTheme.textPrimary(context);
     if (isRunning || status.toLowerCase() == 'stopped') {
       statusColor = ConsoleTheme.success(context);
     }
@@ -673,9 +677,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14,
-                color: Colors.white70,
+                color: ConsoleTheme.textSecondary(context),
                 fontWeight: FontWeight.w500),
           ),
         ),
@@ -685,7 +689,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
             status,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 14, color: statusColor, fontWeight: FontWeight.w600),
+                fontSize: 14,
+                color: statusColor,
+                fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -793,16 +799,16 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'System Schematic',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: ConsoleTheme.textPrimary(context),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: Icon(Icons.close, color: ConsoleTheme.textSecondary(context)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],

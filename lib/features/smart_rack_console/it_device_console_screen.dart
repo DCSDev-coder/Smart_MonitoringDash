@@ -465,7 +465,7 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
     }
 
     return Table(
-      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+      border: TableBorder.all(color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3), width: 1),
       columnWidths: const {
         0: FlexColumnWidth(2),
         1: FlexColumnWidth(1),
@@ -554,7 +554,7 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
     }
 
     return Table(
-      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+      border: TableBorder.all(color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3), width: 1),
       columnWidths: const {
         0: FlexColumnWidth(2),
         1: FlexColumnWidth(2),

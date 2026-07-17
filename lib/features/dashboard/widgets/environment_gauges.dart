@@ -369,7 +369,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                         accent: humIsAlert
                             ? alertRed
                             : (Theme.of(context).brightness == Brightness.light
-                                ? const Color(0xFF00E5FF)
+                                ? const Color(0xFF009CB3)
                                 : const Color(0xFF00A3FF)),
                         valueText: '${humVal.toStringAsFixed(0)}%',
                         progress: (humVal / 100).clamp(0.0, 1.0),
@@ -612,7 +612,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                   builder: (context, v, _) => _DialMeterGauge(
                                     progress: v,
                                     glowColor: accent,
-                                    glowIntensity: minimalist ? 0.4 : 1.0,
+                                    glowIntensity: 1.0,
                                     warningStops: [
                                       if (warnLow != null)
                                         (warnLow! / maxScale).clamp(0.0, 1.0),
@@ -633,11 +633,13 @@ class _MiniGaugeCard extends StatelessWidget {
                                   builder: (context, v, _) => ArcGauge(
                                     progress: v,
                                     glowColor: accent,
-                                    baseColor: const Color(0xFF5A5A5A),
+                                    baseColor: Theme.of(context).brightness == Brightness.light
+                                        ? const Color(0xFFC0D3EB)
+                                        : const Color(0xFF5A5A5A),
                                     strokeWidth: isWide ? 15 : 8,
                                     sweepDegrees: 255,
                                     startDegrees: 145,
-                                    glowIntensity: minimalist ? 0.4 : 1.0,
+                                    glowIntensity: 1.0,
                                     warningStops: [
                                       if (warnLow != null)
                                         (warnLow! / maxScale).clamp(0.0, 1.0),
@@ -960,7 +962,7 @@ class _ArcGaugePainterV2 extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..color = brightness == Brightness.light
-          ? baseColor.withValues(alpha: 0.55)
+          ? baseColor.withValues(alpha: 0.85)
           : baseColor.withValues(alpha: 0.20);
     canvas.drawArc(rect, start, sweep, false, trackPaint);
 
@@ -1002,11 +1004,14 @@ class _ArcGaugePainterV2 extends CustomPainter {
     }
 
     if (prog > 0 && gi > 0) {
+      final ambientAlpha = brightness == Brightness.light ? 0.08 * gi : 0.16 * gi;
+      final haloAlpha = brightness == Brightness.light ? 0.20 * gi : 0.34 * gi;
+
       final ambientGlow = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth + 16
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: 0.16 * gi)
+        ..color = glowColor.withValues(alpha: ambientAlpha)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 26 * gi);
       canvas.drawArc(rect, start, prog, false, ambientGlow);
 
@@ -1014,7 +1019,7 @@ class _ArcGaugePainterV2 extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth + 10
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: 0.34 * gi)
+        ..color = glowColor.withValues(alpha: haloAlpha)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 16 * gi);
       canvas.drawArc(rect, start, prog, false, haloGlow);
 
@@ -1023,7 +1028,7 @@ class _ArcGaugePainterV2 extends CustomPainter {
         ..strokeWidth = strokeWidth + 4
         ..strokeCap = StrokeCap.round
         ..color = (brightness == Brightness.light
-            ? AppTheme.lightTextSecondary.withValues(alpha: 0.4 * gi)
+            ? Colors.white.withValues(alpha: 0.45 * gi)
             : Colors.white.withValues(alpha: 0.22 * gi))
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * gi);
       canvas.drawArc(rect, start, prog, false, coreGlow);
@@ -1035,11 +1040,13 @@ class _ArcGaugePainterV2 extends CustomPainter {
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
+      final highlightColor = Color.lerp(glowColor, Colors.white, 0.7) ?? Colors.white;
+
       progPaint.shader = SweepGradient(
         colors: [
           glowColor.withValues(alpha: 0.80),
           glowColor,
-          const Color(0xFFD4FFDC),
+          highlightColor,
           glowColor,
           glowColor.withValues(alpha: 0.80),
         ],
@@ -1058,10 +1065,7 @@ class _ArcGaugePainterV2 extends CustomPainter {
     final capAlpha = prog > 0 ? 0.7 : 0.18;
     if (gi > 0) {
       final sparkGlow = Paint()
-        ..color = (brightness == Brightness.light
-                ? AppTheme.lightTextPrimary
-                : Colors.white)
-            .withValues(alpha: capAlpha * gi)
+        ..color = Colors.white.withValues(alpha: capAlpha * gi)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * gi);
       canvas.drawCircle(cap, 7, sparkGlow);
     }
@@ -1069,10 +1073,7 @@ class _ArcGaugePainterV2 extends CustomPainter {
       cap,
       4,
       Paint()
-        ..color = (brightness == Brightness.light
-                ? AppTheme.lightTextPrimary
-                : Colors.white)
-            .withValues(alpha: prog > 0 ? 1.0 : 0.35),
+        ..color = Colors.white.withValues(alpha: prog > 0 ? 1.0 : 0.35),
     );
   }
 
@@ -1211,7 +1212,7 @@ class _DialMeterGaugePainter extends CustomPainter {
           ? glowColor.withValues(alpha: isMajor ? 0.95 : 0.78)
           : (brightness == Brightness.light
               ? AppTheme.lightTextSecondary
-                  .withValues(alpha: isMajor ? 0.38 : 0.24)
+                  .withValues(alpha: isMajor ? 0.70 : 0.40)
               : Colors.white.withValues(alpha: isMajor ? 0.18 : 0.12));
 
       final paint = Paint()
@@ -1224,41 +1225,47 @@ class _DialMeterGaugePainter extends CustomPainter {
     }
 
     if (prog > 0 && gi > 0) {
+      final ambientAlpha = brightness == Brightness.light ? 0.08 * gi : 0.16 * gi;
+      final haloAlpha = brightness == Brightness.light ? 0.20 * gi : 0.34 * gi;
+
       final ambientGlow = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 18
+        ..strokeWidth = 20
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: 0.16 * gi)
+        ..color = glowColor.withValues(alpha: ambientAlpha)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 26 * gi);
       canvas.drawArc(rect, start, prog, false, ambientGlow);
 
       final haloGlow = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 14
+        ..strokeWidth = 16
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: 0.34 * gi)
+        ..color = glowColor.withValues(alpha: haloAlpha)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 16 * gi);
       canvas.drawArc(rect, start, prog, false, haloGlow);
 
       final coreGlow = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
+        ..strokeWidth = 12
         ..strokeCap = StrokeCap.round
         ..color = (brightness == Brightness.light
-            ? AppTheme.lightTextSecondary.withValues(alpha: 0.4 * gi)
+            ? Colors.white.withValues(alpha: 0.45 * gi)
             : Colors.white.withValues(alpha: 0.22 * gi))
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * gi);
       canvas.drawArc(rect, start, prog, false, coreGlow);
 
       final progPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 8
+        ..strokeWidth = 10
         ..strokeCap = StrokeCap.round;
+
+      final highlightColor = Color.lerp(glowColor, Colors.white, 0.7) ?? Colors.white;
+
       progPaint.shader = SweepGradient(
         colors: [
           glowColor.withValues(alpha: 0.80),
           glowColor,
-          const Color(0xFFD4FFDC),
+          highlightColor,
           glowColor,
           glowColor.withValues(alpha: 0.80),
         ],
@@ -1274,10 +1281,7 @@ class _DialMeterGaugePainter extends CustomPainter {
       );
       if (gi > 0) {
         final sparkGlow = Paint()
-          ..color = (brightness == Brightness.light
-                  ? AppTheme.lightTextPrimary
-                  : Colors.white)
-              .withValues(alpha: 0.7 * gi)
+          ..color = Colors.white.withValues(alpha: 0.7 * gi)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * gi);
         canvas.drawCircle(end, 7, sparkGlow);
       }
@@ -1285,9 +1289,7 @@ class _DialMeterGaugePainter extends CustomPainter {
         end,
         4,
         Paint()
-          ..color = brightness == Brightness.light
-              ? AppTheme.lightTextPrimary
-              : Colors.white,
+          ..color = Colors.white,
       );
     }
 

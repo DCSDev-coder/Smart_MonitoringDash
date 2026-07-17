@@ -1069,7 +1069,7 @@ class _DeviceHealthRow extends StatelessWidget {
                                 ? AppTheme.lightTextPrimary
                                 : Colors.white,
                             fontSize: minimalist ? 12 : 13,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         if (!minimalist) ...[

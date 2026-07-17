@@ -675,7 +675,7 @@ class _SensorRow extends StatelessWidget {
               style: TextStyle(
                 color: ConsoleTheme.textPrimary(context),
                 fontSize: 13,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

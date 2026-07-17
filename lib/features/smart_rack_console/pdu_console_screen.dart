@@ -622,7 +622,7 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
                         0: FlexColumnWidth(1),
                         1: FlexColumnWidth(1),
                       },
-                      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      border: TableBorder.all(color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.3), width: 1),
                       children: _buildPduRows(context),
                     ),
                   ],
