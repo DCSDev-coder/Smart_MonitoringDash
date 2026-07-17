@@ -657,7 +657,9 @@ class _MiniGaugeCard extends StatelessWidget {
                             style: bitcount(
                               context,
                               fontSize: 36,
-                              color: Colors.white,
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
                             ),
                           ),
                         ),
@@ -957,7 +959,9 @@ class _ArcGaugePainterV2 extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = baseColor.withValues(alpha: 0.20);
+      ..color = brightness == Brightness.light
+          ? baseColor.withValues(alpha: 0.55)
+          : baseColor.withValues(alpha: 0.20);
     canvas.drawArc(rect, start, sweep, false, trackPaint);
 
     // Draw warning markers (red) for configured thresholds.
@@ -1054,12 +1058,22 @@ class _ArcGaugePainterV2 extends CustomPainter {
     final capAlpha = prog > 0 ? 0.7 : 0.18;
     if (gi > 0) {
       final sparkGlow = Paint()
-        ..color = Colors.white.withValues(alpha: capAlpha * gi)
+        ..color = (brightness == Brightness.light
+                ? AppTheme.lightTextPrimary
+                : Colors.white)
+            .withValues(alpha: capAlpha * gi)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * gi);
       canvas.drawCircle(cap, 7, sparkGlow);
     }
-    canvas.drawCircle(cap, 4,
-        Paint()..color = Colors.white.withValues(alpha: prog > 0 ? 1.0 : 0.35));
+    canvas.drawCircle(
+      cap,
+      4,
+      Paint()
+        ..color = (brightness == Brightness.light
+                ? AppTheme.lightTextPrimary
+                : Colors.white)
+            .withValues(alpha: prog > 0 ? 1.0 : 0.35),
+    );
   }
 
   @override
@@ -1195,7 +1209,10 @@ class _DialMeterGaugePainter extends CustomPainter {
       final active = a <= start + prog + 0.0001;
       final c = active
           ? glowColor.withValues(alpha: isMajor ? 0.95 : 0.78)
-          : Colors.white.withValues(alpha: isMajor ? 0.18 : 0.12);
+          : (brightness == Brightness.light
+              ? AppTheme.lightTextSecondary
+                  .withValues(alpha: isMajor ? 0.38 : 0.24)
+              : Colors.white.withValues(alpha: isMajor ? 0.18 : 0.12));
 
       final paint = Paint()
         ..color = c
@@ -1257,11 +1274,21 @@ class _DialMeterGaugePainter extends CustomPainter {
       );
       if (gi > 0) {
         final sparkGlow = Paint()
-          ..color = Colors.white.withValues(alpha: 0.7 * gi)
+          ..color = (brightness == Brightness.light
+                  ? AppTheme.lightTextPrimary
+                  : Colors.white)
+              .withValues(alpha: 0.7 * gi)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * gi);
         canvas.drawCircle(end, 7, sparkGlow);
       }
-      canvas.drawCircle(end, 4, Paint()..color = Colors.white);
+      canvas.drawCircle(
+        end,
+        4,
+        Paint()
+          ..color = brightness == Brightness.light
+              ? AppTheme.lightTextPrimary
+              : Colors.white,
+      );
     }
 
     // Keep the center fully transparent so the value text doesn't look

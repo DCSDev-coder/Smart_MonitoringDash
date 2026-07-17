@@ -177,7 +177,7 @@ class _ConsoleSidebarState extends State<ConsoleSidebar> {
                               item.label,
                               style: TextStyle(
                                 color: selected
-                                    ? ConsoleTheme.textInverse(context)
+                                    ? accentBlue
                                     : textSecondary,
                                 fontSize: 13,
                                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,

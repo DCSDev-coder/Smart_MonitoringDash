@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
 import '../../features/settings/control_presets_screen.dart';
 import '../../features/settings/export_pdf_screen.dart';
+import '../../features/smart_rack_console/services/rack_console_preferences.dart';
 import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
 import 'secure_action_guard.dart';
@@ -666,6 +667,34 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                       _buildGroup(
                           'Preferences',
                           [
+                            if (isRackConsole)
+                              AnimatedBuilder(
+                                animation: RackConsolePreferences.instance,
+                                builder: (context, _) {
+                                  final prefs = RackConsolePreferences.instance;
+                                  return _SettingsTile(
+                                    title: 'Use 24-Hour Time',
+                                    subtitle: prefs.use24HourTime
+                                        ? 'Header clock and trend charts use 24-hour labels.'
+                                        : 'Header clock and trend charts use 12-hour labels.',
+                                    icon: Icons.schedule_rounded,
+                                    iconColor: const Color(0xFF007AFF),
+                                    trailing: Switch.adaptive(
+                                      value: prefs.use24HourTime,
+                                      onChanged: (value) {
+                                        prefs.setUse24HourTime(value);
+                                      },
+                                      activeThumbColor:
+                                          ConsoleTheme.primaryBlue(context),
+                                    ),
+                                    onTap: () {
+                                      prefs.setUse24HourTime(
+                                        !prefs.use24HourTime,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
                             if (!isRackConsole)
                               _SettingsTile(
                                 title: 'App Lock',
