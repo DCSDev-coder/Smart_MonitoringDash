@@ -25,11 +25,13 @@ class _PowerSchematicWidgetState extends State<PowerSchematicWidget> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final isLight = Theme.of(context).brightness == Brightness.light;
         return CustomPaint(
           size: Size(constraints.maxWidth, constraints.maxHeight),
           painter: PowerSchematicPainter(
             pathCache: _pathCache,
             showLabels: widget.showLabels,
+            isLight: isLight,
           ),
         );
       },
@@ -162,10 +164,12 @@ class PowerSchematicPainter extends CustomPainter {
   PowerSchematicPainter({
     required this.pathCache,
     required this.showLabels,
+    required this.isLight,
   });
 
   final PowerPathCache pathCache;
   final bool showLabels;
+  final bool isLight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -191,7 +195,7 @@ class PowerSchematicPainter extends CustomPainter {
 
     // Draw the cyan circuit lines
     final Paint linePaint = Paint()
-      ..color = const Color(0xFF67E8F9) // Bright cyan
+      ..color = isLight ? const Color(0xFF0284C7) : const Color(0xFF67E8F9) // Bright cyan
       ..style = PaintingStyle.stroke
       ..strokeWidth = AppConfig.isRackConsoleBuild ? 2 : 3;
     final Paint glowPaint = Paint()
@@ -210,8 +214,8 @@ class PowerSchematicPainter extends CustomPainter {
   }
 
   void _drawComponents(Canvas canvas, double w, double h, Rect b) {
-    const TextStyle textStyle = TextStyle(
-      color: Colors.white,
+    final TextStyle textStyle = TextStyle(
+      color: isLight ? const Color(0xFF183153) : Colors.white,
       fontSize: 10,
       fontWeight: FontWeight.bold,
     );
@@ -383,7 +387,7 @@ class PowerSchematicPainter extends CustomPainter {
     final Paint fill = Paint()
       ..color = const Color(0xFF3B82F6).withValues(alpha: 0.8);
     final Paint border = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -403,9 +407,11 @@ class PowerSchematicPainter extends CustomPainter {
 
   void _drawLightningModule(Canvas canvas, Offset center) {
     final Paint fill = Paint()
-      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.5);
+      ..color = isLight
+          ? const Color(0xFF1E90FF).withValues(alpha: 0.25)
+          : const Color(0xFF3B82F6).withValues(alpha: 0.5);
     final Paint border = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -419,12 +425,12 @@ class PowerSchematicPainter extends CustomPainter {
     tri.lineTo(center.dx + 10, center.dy);
     tri.lineTo(center.dx - 10, center.dy + 6);
     tri.close();
-    canvas.drawPath(tri, Paint()..color = const Color(0xFF93C5FD));
+    canvas.drawPath(tri, Paint()..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD));
   }
 
   void _drawGround(Canvas canvas, Offset center) {
     final Paint paint = Paint()
-      ..color = const Color(0xFF93C5FD)
+      ..color = isLight ? const Color(0xFF1E3A8A) : const Color(0xFF93C5FD)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -437,20 +443,22 @@ class PowerSchematicPainter extends CustomPainter {
   }
 
   void _drawNode(Canvas canvas, Offset center) {
-    final Paint paint = Paint()..color = const Color(0xFF06B6D4);
+    final Color nodeColor = isLight ? const Color(0xFF0EA5E9) : const Color(0xFF06B6D4);
+    final Paint paint = Paint()..color = nodeColor;
     canvas.drawCircle(center, 4, paint);
     canvas.drawCircle(
         center,
         8,
         Paint()
-          ..color = const Color(0xFF06B6D4).withValues(alpha: 0.3)
+          ..color = nodeColor.withValues(alpha: 0.3)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2);
   }
 
   void _drawSwitch(Canvas canvas, Offset center, String label) {
+    final Color switchColor = isLight ? const Color(0xFF1E3A8A) : Colors.white;
     final Paint paint = Paint()
-      ..color = Colors.white
+      ..color = switchColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -458,17 +466,19 @@ class PowerSchematicPainter extends CustomPainter {
     canvas.drawLine(Offset(center.dx - 6, center.dy),
         Offset(center.dx + 6, center.dy - 8), paint);
     canvas.drawCircle(
-        Offset(center.dx - 6, center.dy), 2, Paint()..color = Colors.white);
+        Offset(center.dx - 6, center.dy), 2, Paint()..color = switchColor);
     canvas.drawCircle(
-        Offset(center.dx + 6, center.dy), 2, Paint()..color = Colors.white);
+        Offset(center.dx + 6, center.dy), 2, Paint()..color = switchColor);
 
     if (showLabels && label.isNotEmpty) {
       _drawLabel(
           canvas,
           Offset(center.dx, center.dy - 15),
           label,
-          const TextStyle(
-              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold));
+          TextStyle(
+              color: isLight ? const Color(0xFF183153) : Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold));
     }
   }
 

@@ -187,8 +187,9 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final activeColor = ConsoleTheme.primaryBlue(context);
-    final inactiveColor = ConsoleTheme.innerSurface(context);
+    final inactiveColor = isLight ? const Color(0xFFEDF2F7) : ConsoleTheme.innerSurface(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -204,7 +205,7 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           border: Border.all(
             color: selected
                 ? activeColor.withValues(alpha: 0.9)
-                : ConsoleTheme.cardBorder(context),
+                : (isLight ? const Color(0xFFCBD5E0) : ConsoleTheme.cardBorder(context)),
           ),
           boxShadow: selected && !AppConfig.isRackConsoleBuild
               ? [
@@ -222,7 +223,7 @@ class _AcConsoleScreenState extends State<AcConsoleScreen> {
           style: TextStyle(
             color: selected
                 ? ConsoleTheme.textInverse(context)
-                : ConsoleTheme.textSecondary(context),
+                : (isLight ? const Color(0xFF4A5568) : ConsoleTheme.textSecondary(context)),
             fontSize: 13,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.4,

@@ -120,12 +120,34 @@ class PueTrendLineChart extends StatelessWidget {
             reservedSize: 40,
             interval: 1,
             getTitlesWidget: (value, meta) {
-              final index = value.toInt();
-              final showLabel = index >= 0 &&
-                  index < bottomTitles.length &&
-                  (index % bottomLabelStep == 0 ||
-                      index == bottomTitles.length - 1 ||
-                      index == 0);
+              final double tolerance = 1e-4;
+              final isInteger = (value - value.round()).abs() < tolerance;
+              if (!isInteger) return const SizedBox.shrink();
+              final index = value.round();
+
+              if (index < 0 || index >= bottomTitles.length) {
+                return const SizedBox.shrink();
+              }
+
+              bool showLabel = false;
+              if (index == 0) {
+                showLabel = true;
+              } else if (index == bottomTitles.length - 1) {
+                final lastRegularTick = ((bottomTitles.length - 1) ~/ bottomLabelStep) * bottomLabelStep;
+                if (lastRegularTick == bottomTitles.length - 1) {
+                  showLabel = true;
+                } else {
+                  final distance = (bottomTitles.length - 1) - lastRegularTick;
+                  final textIsDifferent = bottomTitles[bottomTitles.length - 1] != bottomTitles[lastRegularTick];
+                  showLabel = distance >= 2 && textIsDifferent;
+                }
+              } else if (index % bottomLabelStep == 0) {
+                final distanceToLast = (bottomTitles.length - 1) - index;
+                final isTooCloseToLast = distanceToLast < 2;
+                final textIsSameAsFirst = bottomTitles[index] == bottomTitles[0];
+                showLabel = !isTooCloseToLast && !textIsSameAsFirst;
+              }
+
               if (showLabel) {
                 final isFirst = index == 0;
                 final isLast = index == bottomTitles.length - 1;
@@ -401,11 +423,15 @@ class PueConsumptionBarChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 30,
               getTitlesWidget: (value, meta) {
-                if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                final double tolerance = 1e-4;
+                final isInteger = (value - value.round()).abs() < tolerance;
+                if (!isInteger) return const SizedBox.shrink();
+                final index = value.round();
+                if (index >= 0 && index < labels.length) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      labels[value.toInt()],
+                      labels[index],
                       style: TextStyle(
                         color: ConsoleTheme.textSecondary(context),
                         fontSize: 10,

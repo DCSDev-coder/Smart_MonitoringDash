@@ -194,9 +194,9 @@ class PduSchematicWidget extends StatelessWidget {
                         children: [
                           Text(
                             expanded ? 'COLLAPSE ALL' : 'EXPAND ALL',
-                            style: const TextStyle(
-                              color: Colors.orangeAccent,
-                              fontSize: 12,
+                            style: TextStyle(
+                              color: isLight ? const Color(0xFFC2410C) : Colors.orangeAccent,
+                              fontSize: 13,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.0,
                             ),
@@ -206,7 +206,10 @@ class PduSchematicWidget extends StatelessWidget {
                             duration: const Duration(milliseconds: 140),
                             curve: Curves.easeOutCubic,
                             turns: expanded ? 0.0 : 0.5,
-                            child: const Icon(Icons.keyboard_arrow_up, color: Colors.orangeAccent),
+                            child: Icon(
+                              Icons.keyboard_arrow_up,
+                              color: isLight ? const Color(0xFFC2410C) : Colors.orangeAccent,
+                            ),
                           ),
                         ],
                       ),
@@ -247,16 +250,21 @@ class PduSchematicWidget extends StatelessWidget {
         normalized == 'online' ||
         normalized == 'on' ||
         normalized == 'enabled';
-    final bg = isOk
-        ? const Color(0xFF00A174).withValues(alpha: 0.16)
-        : Colors.orangeAccent.withValues(alpha: 0.16);
-    final fg = isOk ? const Color(0xFF00D18F) : Colors.orangeAccent;
+    final bg = isLight
+        ? (isOk ? const Color(0xFFDCFCE7) : const Color(0xFFFFEDD5))
+        : (isOk ? const Color(0xFF00A174).withValues(alpha: 0.16) : Colors.orangeAccent.withValues(alpha: 0.16));
+    final fg = isLight
+        ? (isOk ? const Color(0xFF15803D) : const Color(0xFFC2410C))
+        : (isOk ? const Color(0xFF00D18F) : Colors.orangeAccent);
+    final borderCol = isLight
+        ? (isOk ? const Color(0xFF86EFAC) : const Color(0xFFFDBA74))
+        : fg.withValues(alpha: 0.45);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: fg.withValues(alpha: 0.45)),
+        border: Border.all(color: borderCol),
       ),
       child: Text(
         value,

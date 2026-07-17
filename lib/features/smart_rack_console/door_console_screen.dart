@@ -160,8 +160,8 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: ConsoleTheme.textPrimary(context),
           fontWeight: FontWeight.bold,
           fontSize: 14,
         ),
@@ -174,7 +174,10 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white70, fontSize: 13),
+        style: TextStyle(
+          color: ConsoleTheme.textSecondary(context),
+          fontSize: 13,
+        ),
       ),
     );
   }
@@ -183,12 +186,12 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
     final logs = widget.snapshot.recentDoorLogs;
 
     if (logs.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(32),
+      return Padding(
+        padding: const EdgeInsets.all(32),
         child: Center(
           child: Text(
             'No recent door access logs',
-            style: TextStyle(color: Colors.white54),
+            style: TextStyle(color: ConsoleTheme.textMuted(context)),
           ),
         ),
       );
@@ -206,7 +209,11 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
           decoration: BoxDecoration(
             color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.16),
             border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              bottom: BorderSide(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.1),
+              ),
             ),
           ),
           children: [
@@ -242,7 +249,11 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
           return TableRow(
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                bottom: BorderSide(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.black.withValues(alpha: 0.05)
+                      : Colors.white.withValues(alpha: 0.05),
+                ),
               ),
             ),
             children: [
@@ -335,7 +346,10 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
               expand: false,
               trailing: TextButton.icon(
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('View Logs'),
+                label: const Text(
+                  'View Logs',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: ConsoleTheme.cyan(context),
                 ),
@@ -393,7 +407,10 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
                 expand: true,
                 trailing: TextButton.icon(
                   icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                  label: const Text('View Logs'),
+                  label: const Text(
+                    'View Logs',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: ConsoleTheme.cyan(context),
                   ),

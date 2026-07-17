@@ -163,6 +163,9 @@ class ScrollableTimeSeriesChart extends StatelessWidget {
                                 reservedSize: 22,
                                 interval: 1,
                                 getTitlesWidget: (value, meta) {
+                                  if (value != value.roundToDouble()) {
+                                    return const SizedBox.shrink();
+                                  }
                                   final i = value.round();
                                   if (i < 0 || i >= xLabels.length) {
                                     return const SizedBox.shrink();

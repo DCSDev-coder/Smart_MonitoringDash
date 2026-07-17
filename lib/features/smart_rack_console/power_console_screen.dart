@@ -155,6 +155,7 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
 
   Widget _buildPillButton(String title) {
     final bool isSelected = _selectedTab == title;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return InkWell(
       onTap: () {
         setState(() {
@@ -171,12 +172,14 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3B82F6) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xFF3B82F6)
+              : (isLight ? const Color(0xFFEDF2F7) : Colors.transparent),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF3B82F6)
-                : ConsoleTheme.cardBorder(context),
+                : (isLight ? const Color(0xFFCBD5E0) : ConsoleTheme.cardBorder(context)),
           ),
         ),
         child: Text(
@@ -184,7 +187,7 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
           style: TextStyle(
             color: isSelected
                 ? ConsoleTheme.textInverse(context)
-                : ConsoleTheme.textSecondary(context),
+                : (isLight ? const Color(0xFF4A5568) : ConsoleTheme.textSecondary(context)),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -278,8 +281,8 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
   }
 
   Widget _buildTableCell(BuildContext context, String text, {bool isLabel = false, bool isHeader = false, bool isNormal = false}) {
-    Color textColor = Colors.white;
-    if (isLabel) textColor = Colors.white70;
+    Color textColor = ConsoleTheme.textPrimary(context);
+    if (isLabel) textColor = ConsoleTheme.textSecondary(context);
     if (isNormal) textColor = ConsoleTheme.success(context);
 
     return Padding(
@@ -301,6 +304,7 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
     required int selectedIndex,
     required ValueChanged<int> onSelected,
   }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -315,20 +319,22 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
             decoration: BoxDecoration(
               color:
                   isSelected
-                      ? const Color(0xFF3B82F6)
-                      : Colors.white.withValues(alpha: 0.04),
+                      ? ConsoleTheme.primaryBlue(context)
+                      : (isLight ? const Color(0xFFEDF2F7) : ConsoleTheme.innerSurface(context)),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color:
                     isSelected
-                        ? const Color(0xFF3B82F6)
-                        : Colors.white24,
+                        ? ConsoleTheme.primaryBlue(context)
+                        : (isLight ? const Color(0xFFCBD5E0) : ConsoleTheme.cardBorder(context)),
               ),
             ),
             child: Text(
               section.title,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected
+                    ? Colors.white
+                    : (isLight ? const Color(0xFF4A5568) : ConsoleTheme.textSecondary(context)),
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 12,
               ),
@@ -506,12 +512,16 @@ class _PowerConsoleScreenState extends State<PowerConsoleScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Power Schematic Diagram (Detailed)',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: ConsoleTheme.textPrimary(context),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54),
+                      icon: Icon(Icons.close, color: ConsoleTheme.textSecondary(context)),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],

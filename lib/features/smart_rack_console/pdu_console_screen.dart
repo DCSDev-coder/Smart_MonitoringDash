@@ -307,18 +307,21 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3B82F6) : Colors.transparent,
+          color: selected
+              ? const Color(0xFF3B82F6)
+              : (isLight ? const Color(0xFFEDF2F7) : Colors.transparent),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
                 ? const Color(0xFF3B82F6)
-                : ConsoleTheme.cardBorder(context),
+                : (isLight ? const Color(0xFFCBD5E0) : ConsoleTheme.cardBorder(context)),
           ),
         ),
         child: Text(
@@ -327,7 +330,7 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
           style: TextStyle(
             color: selected
                 ? ConsoleTheme.textInverse(context)
-                : ConsoleTheme.textSecondary(context),
+                : (isLight ? const Color(0xFF4A5568) : ConsoleTheme.textSecondary(context)),
             fontWeight: selected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -614,7 +617,10 @@ class _PduConsoleScreenState extends State<PduConsoleScreen> {
                       color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.2),
                       child: Text(
                         'Current Parameter ($_selectedPdu - ${_selectedPanelLabel()})',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: ConsoleTheme.textPrimary(context),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     Table(

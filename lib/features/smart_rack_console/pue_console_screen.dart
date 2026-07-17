@@ -158,13 +158,15 @@ class PueConsoleScreen extends StatelessWidget {
     String text,
   ) {
     final isSelected = controller.index == index;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       height: 36,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: ConsoleTheme.primaryBlue(context)
-              .withValues(alpha: isSelected ? 1.0 : 0.5),
+          color: isSelected
+              ? ConsoleTheme.primaryBlue(context)
+              : (isLight ? const Color(0xFFCBD5E0) : ConsoleTheme.primaryBlue(context).withValues(alpha: 0.5)),
         ),
         boxShadow: isSelected
             ? [
@@ -180,7 +182,7 @@ class PueConsoleScreen extends StatelessWidget {
       child: Material(
         color: isSelected
             ? ConsoleTheme.primaryBlue(context)
-            : ConsoleTheme.primaryBlue(context).withValues(alpha: 0.05),
+            : (isLight ? const Color(0xFFEDF2F7) : ConsoleTheme.primaryBlue(context).withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(19),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -193,7 +195,7 @@ class PueConsoleScreen extends StatelessWidget {
               style: TextStyle(
                 color: isSelected
                     ? Colors.white
-                    : ConsoleTheme.textSecondary(context),
+                    : (isLight ? const Color(0xFF4A5568) : ConsoleTheme.textSecondary(context)),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),

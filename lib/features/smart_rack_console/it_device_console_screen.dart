@@ -136,7 +136,11 @@ class _ItDeviceConsoleScreenState extends State<ItDeviceConsoleScreen> {
       return Container(
         decoration: BoxDecoration(
           color: bgColor,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: isLight
+                ? Colors.black.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.1),
+          ),
         ),
         child: Row(
           children: [
