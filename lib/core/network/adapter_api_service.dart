@@ -63,15 +63,13 @@ class AdapterApiService {
         ? Uri.parse('$_base$path')
         : Uri.parse('$_base$path').replace(queryParameters: query);
 
-    final res = await http
-        .get(
-          url,
-          headers: {
-            ..._headers(token),
-            ...?headers,
-          },
-        )
-        .timeout(timeout);
+    final res = await http.get(
+      url,
+      headers: {
+        ..._headers(token),
+        ...?headers,
+      },
+    ).timeout(timeout);
 
     if (res.statusCode != 200) {
       AppLog.w('GET non-200', tag: 'AdapterApi', fields: {
@@ -261,6 +259,12 @@ class AdapterApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchCabinetCapacity({
+    required int siteId,
+  }) async {
+    return _getJson('/v1/sites/$siteId/cabinet-capacity');
+  }
+
   Future<Map<String, dynamic>?> fetchRedisMemory({required int siteId}) async {
     if (!isConfigured) return null;
 
@@ -297,7 +301,8 @@ class AdapterApiService {
   }) async {
     final now = DateTime.now();
     final endTime = now.millisecondsSinceEpoch;
-    final startTime = now.subtract(Duration(hours: hours)).millisecondsSinceEpoch;
+    final startTime =
+        now.subtract(Duration(hours: hours)).millisecondsSinceEpoch;
     return fetchPueRangeTrend(
       siteId: siteId,
       trendType: trendType,
@@ -1145,6 +1150,7 @@ class AdapterApiService {
       return null;
     }
   }
+
   Future<Map<String, dynamic>?> writeNodeMetric({
     required int siteId,
     required int nodeId,

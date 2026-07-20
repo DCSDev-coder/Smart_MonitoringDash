@@ -210,11 +210,12 @@ class _MainGrid extends StatelessWidget {
 
     const rowGap = ConsoleTheme.sm;
     const columnGap = ConsoleTheme.sm;
-    final usableHeight = (viewportHeight ?? 620).clamp(520.0, 1200.0);
-    final topRowHeight = (usableHeight * 0.56).clamp(272.0, 320.0);
+    final usableHeight = (viewportHeight ?? 620).clamp(520.0, 920.0);
+    final topRowHeight = (usableHeight * 0.52).clamp(272.0, 420.0);
     final bottomRowHeight = usableHeight - topRowHeight - rowGap;
 
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         SizedBox(
           height: topRowHeight,
@@ -261,104 +262,117 @@ class _MainGrid extends StatelessWidget {
       minHeight: 170,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
-                child: isSuperWide
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            flex: 5,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardHeight = constraints.maxHeight;
+          final rackImageHeight = (cardHeight * 0.72).clamp(120.0, 240.0);
+          final double valueFontSize = (cardHeight * 0.16).clamp(32.0, 60.0);
+          final double labelFontSize = (cardHeight * 0.05).clamp(11.0, 16.0);
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+                    child: isSuperWide
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image.asset(
+                                      rackImageAssetPath,
+                                      height: rackImageHeight,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 4,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _VerticalStatItem(
+                                      label: 'Maintenance\nDays Left',
+                                      value: '${snapshot.maintenanceDaysLeft ?? '--'}',
+                                      subValue: 'Days Left',
+                                      valueColor: ConsoleTheme.primaryBlue(context),
+                                      valueFontSize: valueFontSize,
+                                      labelFontSize: labelFontSize,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : SizedBox(
+                            width: double.infinity,
                             child: Column(
-                              mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Image.asset(
                                   rackImageAssetPath,
-                                  height: 168,
+                                  height: rackImageHeight * 0.85,
                                   fit: BoxFit.contain,
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 4,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                                const SizedBox(height: 8),
                                 _VerticalStatItem(
                                   label: 'Maintenance\nDays Left',
                                   value: '${snapshot.maintenanceDaysLeft ?? '--'}',
                                   subValue: 'Days Left',
                                   valueColor: ConsoleTheme.primaryBlue(context),
+                                  centered: true,
+                                  valueFontSize: valueFontSize * 0.85,
+                                  labelFontSize: labelFontSize,
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      )
-                    : SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Image.asset(
-                              rackImageAssetPath,
-                              height: 160,
-                              fit: BoxFit.contain,
-                            ),
-                            const SizedBox(height: 8),
-                            _VerticalStatItem(
-                              label: 'Maintenance\nDays Left',
-                              value: '${snapshot.maintenanceDaysLeft ?? '--'}',
-                              subValue: 'Days Left',
-                              valueColor: ConsoleTheme.primaryBlue(context),
-                              centered: true,
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 4,
-            bottom: 2,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onChangeRackImage,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: ConsoleTheme.primaryBlue(context),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.22),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
-                  child: const Icon(Icons.edit, color: Colors.white, size: 14),
                 ),
               ),
-            ),
-          ),
-        ],
+              Positioned(
+                right: 4,
+                bottom: 2,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onChangeRackImage,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: ConsoleTheme.primaryBlue(context),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.22),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -371,17 +385,25 @@ class _MainGrid extends StatelessWidget {
       minHeight: 170,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 2.0),
-        child: EnvironmentRow(
-          temperatures: snapshot.temperatures,
-          humidities: snapshot.humidities,
-          alarms: snapshot.alarms,
-          initialStyle: EnvironmentGaugeStyle.meter,
-          minimalist: true,
-          isVertical: !isSuperWide,
-          gaugeHeight: isSuperWide ? 150 : 200,
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardHeight = constraints.maxHeight;
+          // Subtract a safe fixed offset for the pager and spacing to avoid vertical overflows
+          final double calculatedGaugeHeight = (cardHeight - 84).clamp(110.0, 260.0);
+
+          return Padding(
+            padding: const EdgeInsets.only(top: 2.0),
+            child: EnvironmentRow(
+              temperatures: snapshot.temperatures,
+              humidities: snapshot.humidities,
+              alarms: snapshot.alarms,
+              initialStyle: EnvironmentGaugeStyle.meter,
+              minimalist: true,
+              isVertical: !isSuperWide,
+              gaugeHeight: calculatedGaugeHeight,
+            ),
+          );
+        },
       ),
     );
   }
@@ -400,8 +422,6 @@ class _MainGrid extends StatelessWidget {
   }
 
   Widget _buildCurrentPuePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
-    final isWide = MediaQuery.of(context).size.width > 1200;
-    final chartSize = isWide ? 150.0 : 132.0;
     final pueValue = snapshot.pue;
     final pueColor = _getPueColor(pueValue ?? 0);
 
@@ -410,104 +430,111 @@ class _MainGrid extends StatelessWidget {
       minHeight: 190,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          SizedBox(
-            width: chartSize,
-            height: chartSize,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                ArcGauge(
-                  progress: pueValue == null
-                      ? 0
-                      : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
-                  glowColor: pueColor,
-                  baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
-                  strokeWidth: isWide ? 14.0 : 12.0,
-                  sweepDegrees: 255,
-                  startDegrees: 145,
-                  glowIntensity: 1.0,
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 16),
-                    Text(
-                      pueValue?.toStringAsFixed(2) ?? '--',
-                      style: TextStyle(
-                        fontSize: isWide ? 30 : 24,
-                        fontWeight: FontWeight.bold,
-                        color: ConsoleTheme.textPrimary(context),
-                      ),
-                    ),
-                    Text(
-                      'PUE',
-                      style: TextStyle(
-                        fontSize: isWide ? 13 : 11,
-                        color: pueColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Total Energy Consumption Of The Month',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: ConsoleTheme.textPrimary(context),
-              fontSize: isWide ? 12 : 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 0),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardHeight = constraints.maxHeight;
+          final double chartSize = (cardHeight - 96).clamp(110.0, 220.0);
+          final double valueFontSize = (chartSize * 0.20).clamp(22.0, 44.0);
+          final double labelFontSize = (chartSize * 0.08).clamp(10.0, 15.0);
+          final double strokeWidth = (chartSize * 0.09).clamp(8.0, 18.0);
+          final double titleFontSize = (cardHeight * 0.046).clamp(11.0, 16.0);
+          final double energyValFontSize = (cardHeight * 0.088).clamp(18.0, 32.0);
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Text(
-                snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
-                style: TextStyle(
-                  color: ConsoleTheme.cyan(context),
-                  fontSize: isWide ? 26 : 22,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: ConsoleTheme.cyan(context).withValues(alpha: 0.5),
-                      blurRadius: 10,
+              SizedBox(
+                width: chartSize,
+                height: chartSize,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    ArcGauge(
+                      progress: pueValue == null
+                          ? 0
+                          : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
+                      glowColor: pueColor,
+                      baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
+                      strokeWidth: strokeWidth,
+                      sweepDegrees: 255,
+                      startDegrees: 145,
+                      glowIntensity: 0.0,
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 12),
+                        Text(
+                          pueValue?.toStringAsFixed(2) ?? '--',
+                          style: TextStyle(
+                            fontSize: valueFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: ConsoleTheme.textPrimary(context),
+                          ),
+                        ),
+                        Text(
+                          'PUE',
+                          style: TextStyle(
+                            fontSize: labelFontSize,
+                            color: pueColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: EdgeInsets.only(bottom: isWide ? 4.0 : 2.0),
-                child: Text(
-                  'kW·h',
-                  style: TextStyle(
-                    color: ConsoleTheme.textPrimary(context),
-                    fontSize: isWide ? 10 : 9,
-                    fontWeight: FontWeight.w500,
-                  ),
+              const SizedBox(height: 6),
+              Text(
+                'Total Energy Consumption Of The Month',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: ConsoleTheme.textPrimary(context),
+                  fontSize: titleFontSize,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
+                    style: TextStyle(
+                      color: ConsoleTheme.cyan(context),
+                      fontSize: energyValFontSize,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Padding(
+                    padding: EdgeInsets.only(bottom: energyValFontSize * 0.15),
+                    child: Text(
+                      'kW·h',
+                      style: TextStyle(
+                        color: ConsoleTheme.textPrimary(context),
+                        fontSize: energyValFontSize * 0.38,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildMonitoringStatisticsPanel(BuildContext context, SmartRackConsoleSnapshot snapshot, {bool twoColumn = false}) {
     return ConsoleSectionCard(
+      title: 'Monitoring Statistics',
       minHeight: 150,
       expand: true,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -533,10 +560,10 @@ class _MainGrid extends StatelessWidget {
 
   Widget _buildCapacityPanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     return ConsoleSectionCard(
-      title: '',
+      title: 'Space Capacity',
       minHeight: 140,
       expand: true,
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: _CapacityItems(snapshot: snapshot),
     );
   }
@@ -554,48 +581,72 @@ class _CapacityItems extends StatelessWidget {
   Widget build(BuildContext context) {
     final breakdown = snapshot.capacityBreakdown;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
-      child: Column(
+    final List<Widget> scrollableItems = [
+      Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-             child: breakdown.isEmpty
-                 ? Center(
-                     child: Text(
-                      'No capacity breakdown available.',
-                      style: TextStyle(
-                        color: ConsoleTheme.textSecondary(context),
-                        fontSize: 12,
-                      ),
-                    ),
-                  )
-                 : ListView.separated(
-                     padding: EdgeInsets.zero,
-                     itemCount: breakdown.length,
-                     separatorBuilder: (_, __) => const SizedBox(height: 4),
-                     itemBuilder: (context, index) {
-                      final item = breakdown[index];
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SensorRow(
-                            icon: Icons.dns_rounded,
-                            label: item.label,
-                            value: '${item.percentage.toStringAsFixed(0)}%',
-                            color: ConsoleTheme.primaryBlue(context),
-                          ),
-                          const SizedBox(height: 6),
-                          _buildCapacityProgressBar(
-                             context,
-                             item.percentage,
-                           ),
-                         ],
-                       );
-                     },
-                   ),
-           ),
+          _SensorRow(
+            icon: Icons.storage_rounded,
+            label: 'Overall Capacity',
+            value: '${(snapshot.capacityUsedPct ?? 0.0).toStringAsFixed(1)}%',
+            color: ConsoleTheme.purple(context),
+          ),
+          const SizedBox(height: 6),
+          _buildCapacityProgressBar(
+            context,
+            snapshot.capacityUsedPct ?? 0.0,
+            color: ConsoleTheme.purple(context),
+          ),
         ],
+      ),
+      if (breakdown.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Divider(
+          color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.3),
+          height: 1,
+        ),
+        const SizedBox(height: 10),
+      ],
+      for (var i = 0; i < breakdown.length; i++) ...[
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SensorRow(
+              icon: Icons.dns_rounded,
+              label: breakdown[i].label,
+              value: '${breakdown[i].percentage.toStringAsFixed(0)}%',
+              color: ConsoleTheme.primaryBlue(context),
+            ),
+            const SizedBox(height: 6),
+            _buildCapacityProgressBar(
+              context,
+              breakdown[i].percentage,
+            ),
+          ],
+        ),
+        if (i < breakdown.length - 1) const SizedBox(height: 10),
+      ],
+      if (breakdown.isEmpty) ...[
+        const SizedBox(height: 32),
+        Center(
+          child: Text(
+            'No capacity breakdown available.',
+            style: TextStyle(
+              color: ConsoleTheme.textSecondary(context),
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ]
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+      child: Scrollbar(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: scrollableItems,
+        ),
       ),
     );
   }
@@ -710,6 +761,8 @@ class _VerticalStatItem extends StatelessWidget {
     required this.subValue,
     required this.valueColor,
     this.centered = false,
+    this.valueFontSize = 42.0,
+    this.labelFontSize = 13.0,
   });
 
   final String label;
@@ -717,6 +770,8 @@ class _VerticalStatItem extends StatelessWidget {
   final String subValue;
   final Color valueColor;
   final bool centered;
+  final double valueFontSize;
+  final double labelFontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -730,7 +785,7 @@ class _VerticalStatItem extends StatelessWidget {
             label,
             style: TextStyle(
               color: ConsoleTheme.textPrimary(context),
-              fontSize: 13,
+              fontSize: labelFontSize,
               height: 1.3,
               fontWeight: FontWeight.w500,
             ),
@@ -744,7 +799,7 @@ class _VerticalStatItem extends StatelessWidget {
             value,
             style: TextStyle(
               color: valueColor,
-              fontSize: 42,
+              fontSize: valueFontSize,
               height: 1.0,
               fontWeight: FontWeight.w700,
             ),
@@ -758,7 +813,7 @@ class _VerticalStatItem extends StatelessWidget {
             subValue,
             style: TextStyle(
               color: ConsoleTheme.textSecondary(context),
-              fontSize: 12,
+              fontSize: labelFontSize * 0.9,
               fontWeight: FontWeight.w500,
             ),
           ),

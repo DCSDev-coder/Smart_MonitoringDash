@@ -612,7 +612,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                   builder: (context, v, _) => _DialMeterGauge(
                                     progress: v,
                                     glowColor: accent,
-                                    glowIntensity: 1.0,
+                                    glowIntensity: 0.0,
                                     warningStops: [
                                       if (warnLow != null)
                                         (warnLow! / maxScale).clamp(0.0, 1.0),
@@ -639,7 +639,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                     strokeWidth: isWide ? 15 : 8,
                                     sweepDegrees: 255,
                                     startDegrees: 145,
-                                    glowIntensity: 1.0,
+                                    glowIntensity: 0.0,
                                     warningStops: [
                                       if (warnLow != null)
                                         (warnLow! / maxScale).clamp(0.0, 1.0),
@@ -1253,7 +1253,9 @@ class _DialMeterGaugePainter extends CustomPainter {
             : Colors.white.withValues(alpha: 0.22 * gi))
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * gi);
       canvas.drawArc(rect, start, prog, false, coreGlow);
+    }
 
+    if (prog > 0) {
       final progPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 10

@@ -187,8 +187,13 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
   void _ensureTimer() {
     if (!_enabled) return;
     if (_timer != null) return;
-    // Immediate fetch, then periodic (interval depends on emergency mode).
-    fetchNow();
+    final lastUpdate = lastUpdatedUtc;
+    final hasFreshData = lastUpdate != null &&
+        DateTime.now().toUtc().difference(lastUpdate) <
+            const Duration(seconds: 2);
+    if (!hasFreshData) {
+      fetchNow();
+    }
     _timer = Timer.periodic(_currentInterval, (_) => fetchNow());
   }
 
@@ -288,6 +293,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final site = CpanelApiService.instance.currentSite;
       final directVendorReady = ApiService.instance.hasAccessToken;
+      final isInitialRackConsoleFetch =
+          AppConfig.isRackConsoleBuild && lastUpdatedUtc == null;
       final siteId = site == null
           ? null
           : (int.tryParse(site['site_id']?.toString() ?? '') ??
@@ -367,8 +374,8 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
 
       Future<Map<String, dynamic>?> cabinetStatsWithFallback() async {
         if (AdapterApiService.instance.isConfigured && siteId != null) {
-          final viaAdapter =
-              await AdapterApiService.instance.fetchCabinetStats(siteId: siteId);
+          final viaAdapter = await AdapterApiService.instance
+              .fetchCabinetStats(siteId: siteId);
           if (viaAdapter != null) return viaAdapter;
           if (AppConfig.isRackConsoleBuild || !directVendorReady) return null;
         }
@@ -443,36 +450,68 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
         return ApiService.instance.fetchDoorAccessLogs(pageSize: 20);
       }
 
-      final results = await Future.wait([
-        environmentWithFallback(),
-        deviceStatusWithFallback(),
-        sysInfoWithFallback(),
-        recentAlarmsWithFallback(),
-        tempHumWithFallback(),
-        pueWithFallback(),
-        powerMonthWithFallback(),
-        cabinetStatsWithFallback(),
-        redisMemoryWithFallback(),
-        itDeviceInterfacesWithFallback(),
-        itDeviceTopMetricsWithFallback(),
-        doorsWithFallback(),
-        accessLogsWithFallback(),
-        remoteLogsWithFallback(),
-      ]);
+      final List<dynamic> results = isInitialRackConsoleFetch
+          ? await Future.wait<dynamic>([
+              environmentWithFallback(),
+              deviceStatusWithFallback(),
+              tempHumWithFallback(),
+              pueWithFallback(),
+              cabinetStatsWithFallback(),
+              itDeviceTopMetricsWithFallback(),
+              doorsWithFallback(),
+            ])
+          : await Future.wait<dynamic>([
+              environmentWithFallback(),
+              deviceStatusWithFallback(),
+              sysInfoWithFallback(),
+              recentAlarmsWithFallback(),
+              tempHumWithFallback(),
+              pueWithFallback(),
+              powerMonthWithFallback(),
+              cabinetStatsWithFallback(),
+              redisMemoryWithFallback(),
+              itDeviceInterfacesWithFallback(),
+              itDeviceTopMetricsWithFallback(),
+              doorsWithFallback(),
+              accessLogsWithFallback(),
+              remoteLogsWithFallback(),
+            ]);
 
       final env = results[0] as Map<String, dynamic>?;
       final ds = results[1] as Map<String, dynamic>?;
-      final si = results[2] as Map<String, dynamic>?;
-      final ra = results[3] as Map<String, dynamic>?;
-      final th = results[4] as Map<String, dynamic>?;
-      final pu = results[5] as Map<String, dynamic>?;
-      final pm = results[6] as Map<String, dynamic>?;
-      final cs = results[7] as Map<String, dynamic>?;
-      final rm = results[8] as Map<String, dynamic>?;
-      final itInterfaces = results[9] as Map<String, dynamic>?;
-      final itTopMetrics = results[10] as Map<String, dynamic>?;
-      final doorsRes = results[11] as Map<String, dynamic>?;
-      final doorLogsRes = results[12] as Map<String, dynamic>?;
+      final si = isInitialRackConsoleFetch
+          ? null
+          : results[2] as Map<String, dynamic>?;
+      final ra = isInitialRackConsoleFetch
+          ? null
+          : results[3] as Map<String, dynamic>?;
+      final th = isInitialRackConsoleFetch
+          ? results[2] as Map<String, dynamic>?
+          : results[4] as Map<String, dynamic>?;
+      final pu = isInitialRackConsoleFetch
+          ? results[3] as Map<String, dynamic>?
+          : results[5] as Map<String, dynamic>?;
+      final pm = isInitialRackConsoleFetch
+          ? null
+          : results[6] as Map<String, dynamic>?;
+      final cs = isInitialRackConsoleFetch
+          ? results[4] as Map<String, dynamic>?
+          : results[7] as Map<String, dynamic>?;
+      final rm = isInitialRackConsoleFetch
+          ? null
+          : results[8] as Map<String, dynamic>?;
+      final itInterfaces = isInitialRackConsoleFetch
+          ? null
+          : results[9] as Map<String, dynamic>?;
+      final itTopMetrics = isInitialRackConsoleFetch
+          ? results[5] as Map<String, dynamic>?
+          : results[10] as Map<String, dynamic>?;
+      final doorsRes = isInitialRackConsoleFetch
+          ? results[6] as Map<String, dynamic>?
+          : results[11] as Map<String, dynamic>?;
+      final doorLogsRes = isInitialRackConsoleFetch
+          ? null
+          : results[12] as Map<String, dynamic>?;
 
       // Update cached values (best-effort; keep last good values on nulls).
       if (env != null && (env['result'] as List?)?.isNotEmpty == true) {
@@ -672,8 +711,7 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
                       ?.toString()
                       .toLowerCase() ??
                   '';
-              final bool isResolvedIdentity =
-                  log['is_intercepted'] == true ||
+              final bool isResolvedIdentity = log['is_intercepted'] == true ||
                   log['matched_event_id'] != null ||
                   log['matched_user_id'] != null ||
                   (log['event_source']?.toString().trim().isNotEmpty ?? false);

@@ -628,77 +628,133 @@ class DeviceHealthSection extends StatelessWidget {
 
     final isLight = Theme.of(context).brightness == Brightness.light;
 
-    Widget buildGroup(List<_DeviceHealthItem> groupItems) {
-      if (groupItems.isEmpty) return const SizedBox.shrink();
-      return Container(
-        margin: EdgeInsets.only(bottom: minimalist ? 10 : 16),
-        decoration: BoxDecoration(
-          color: minimalist
-              ? Colors.transparent
-              : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: (isLight && !minimalist)
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
-        ),
-        clipBehavior: minimalist ? Clip.none : Clip.antiAlias,
-        child: Column(
-          children: groupItems.asMap().entries.map((entry) {
-            final i = entry.key;
-            final item = entry.value;
-            final isLast = i == groupItems.length - 1;
-            return Column(
-              children: [
-                _DeviceHealthRow(
-                    item: item, alarms: alarms, minimalist: minimalist),
-                if (!isLast)
-                  Padding(
-                    padding: EdgeInsets.only(
-                        left: minimalist ? 52 : 72, right: minimalist ? 0 : 16),
-                    child: Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: isLight
-                          ? Colors.black.withValues(alpha: 0.05)
-                          : Colors.white.withValues(alpha: 0.05),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double parentHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : MediaQuery.of(context).size.height;
+        final double screenWidth = MediaQuery.of(context).size.width;
+
+        final double circleSize;
+        final double iconSize;
+        final double fontSize;
+        final double verticalPadding;
+        final double boxWidth;
+        final double boxHeight;
+
+        if (parentHeight >= 360 && screenWidth >= 1400) {
+          circleSize = 46.0;
+          iconSize = 23.0;
+          fontSize = 16.0;
+          verticalPadding = 16.0;
+          boxWidth = 11.0;
+          boxHeight = 40.0;
+        } else if (parentHeight >= 290 && screenWidth >= 1100) {
+          circleSize = 40.0;
+          iconSize = 20.0;
+          fontSize = 14.0;
+          verticalPadding = 12.0;
+          boxWidth = 9.0;
+          boxHeight = 34.0;
+        } else {
+          circleSize = minimalist ? 30.0 : 36.0;
+          iconSize = minimalist ? 16.0 : 18.0;
+          fontSize = minimalist ? 12.0 : 13.0;
+          verticalPadding = minimalist ? 6.0 : 10.0;
+          boxWidth = minimalist ? 6.0 : 14.0;
+          boxHeight = minimalist ? 26.0 : 34.0;
+        }
+
+        Widget buildGroup(List<_DeviceHealthItem> groupItems,
+            {bool stretch = false}) {
+          if (groupItems.isEmpty) return const SizedBox.shrink();
+          return Container(
+            height: stretch ? double.infinity : null,
+            margin: EdgeInsets.only(bottom: minimalist ? 10 : 16),
+            decoration: BoxDecoration(
+              color: minimalist
+                  ? Colors.transparent
+                  : (isLight
+                      ? Colors.white
+                      : Theme.of(context).cardTheme.color),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: (isLight && !minimalist)
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ]
+                  : null,
+            ),
+            clipBehavior: minimalist ? Clip.none : Clip.antiAlias,
+            child: Column(
+              mainAxisAlignment: stretch
+                  ? MainAxisAlignment.spaceEvenly
+                  : MainAxisAlignment.start,
+              children: groupItems.asMap().entries.map((entry) {
+                final i = entry.key;
+                final item = entry.value;
+                final isLast = i == groupItems.length - 1;
+                return Column(
+                  children: [
+                    _DeviceHealthRow(
+                      item: item,
+                      alarms: alarms,
+                      minimalist: minimalist,
+                      circleSize: circleSize,
+                      iconSize: iconSize,
+                      fontSize: fontSize,
+                      verticalPadding: verticalPadding,
+                      boxWidth: boxWidth,
+                      boxHeight: boxHeight,
                     ),
-                  ),
-              ],
-            );
-          }).toList(),
-        ),
-      );
-    }
+                    if (!isLast)
+                      Padding(
+                        padding: EdgeInsets.only(
+                            left: minimalist ? 52 : 72,
+                            right: minimalist ? 0 : 16),
+                        child: Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: isLight
+                              ? Colors.black.withValues(alpha: 0.05)
+                              : Colors.white.withValues(alpha: 0.05),
+                        ),
+                      ),
+                  ],
+                );
+              }).toList(),
+            ),
+          );
+        }
 
-    if (twoColumn && items.length > 1) {
-      final mid = (items.length / 2).ceil();
-      final leftItems = items.sublist(0, mid);
-      final rightItems = items.sublist(mid);
+        if (twoColumn && items.length > 1) {
+          final mid = (items.length / 2).ceil();
+          final leftItems = items.sublist(0, mid);
+          final rightItems = items.sublist(mid);
 
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: buildGroup(leftItems),
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: buildGroup(rightItems),
-          ),
-        ],
-      );
-    }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: buildGroup(leftItems, stretch: true),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: buildGroup(rightItems, stretch: true),
+              ),
+            ],
+          );
+        }
 
-    return Column(
-      children: [
-        buildGroup(items),
-      ],
+        return Column(
+          children: [
+            buildGroup(items),
+          ],
+        );
+      },
     );
   }
 }
@@ -760,11 +816,23 @@ class _DeviceHealthRow extends StatelessWidget {
   final _DeviceHealthItem item;
   final List<dynamic>? alarms;
   final bool minimalist;
+  final double? circleSize;
+  final double? iconSize;
+  final double? fontSize;
+  final double? verticalPadding;
+  final double? boxWidth;
+  final double? boxHeight;
 
   const _DeviceHealthRow({
     required this.item,
     this.alarms,
     this.minimalist = false,
+    this.circleSize,
+    this.iconSize,
+    this.fontSize,
+    this.verticalPadding,
+    this.boxWidth,
+    this.boxHeight,
   });
 
   void _showDetails(BuildContext context) {
@@ -1019,6 +1087,11 @@ class _DeviceHealthRow extends StatelessWidget {
 
     final iconBgColor = item.iconBgColor;
 
+    final double cSize = circleSize ?? (minimalist ? 30.0 : 36.0);
+    final double iSize = iconSize ?? (minimalist ? 16.0 : 18.0);
+    final double fSize = fontSize ?? (minimalist ? 12.0 : 13.0);
+    final double vPadding = verticalPadding ?? (minimalist ? 10.0 : 14.0);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1033,13 +1106,12 @@ class _DeviceHealthRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
               padding: EdgeInsets.symmetric(
-                  horizontal: minimalist ? 12 : 14,
-                  vertical: minimalist ? 12 : 14),
+                  horizontal: minimalist ? 12 : 14, vertical: vPadding),
               child: Row(
                 children: [
                   Container(
-                    width: minimalist ? 30 : 36,
-                    height: minimalist ? 30 : 36,
+                    width: cSize,
+                    height: cSize,
                     decoration: BoxDecoration(
                       color: iconBgColor,
                       shape: BoxShape.circle,
@@ -1047,8 +1119,8 @@ class _DeviceHealthRow extends StatelessWidget {
                     child: Center(
                       child: SvgPicture.asset(
                         item.iconAsset,
-                        width: minimalist ? 16 : 18,
-                        height: minimalist ? 16 : 18,
+                        width: iSize,
+                        height: iSize,
                         colorFilter: const ColorFilter.mode(
                           Colors.white,
                           BlendMode.srcIn,
@@ -1068,7 +1140,7 @@ class _DeviceHealthRow extends StatelessWidget {
                             color: isLight
                                 ? AppTheme.lightTextPrimary
                                 : Colors.white,
-                            fontSize: minimalist ? 12 : 13,
+                            fontSize: fSize,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1092,7 +1164,11 @@ class _DeviceHealthRow extends StatelessWidget {
                   ),
                   SizedBox(width: minimalist ? 6 : 10),
                   _HealthBoxesFromStates(
-                      states: item.boxStates, minimalist: minimalist),
+                    states: item.boxStates,
+                    minimalist: minimalist,
+                    boxWidth: boxWidth,
+                    boxHeight: boxHeight,
+                  ),
                 ],
               ),
             ),
@@ -1308,11 +1384,37 @@ enum _BoxState { normal, alarm, offline }
 class _HealthBoxesFromStates extends StatelessWidget {
   final List<_BoxState> states;
   final bool minimalist;
-  const _HealthBoxesFromStates({required this.states, this.minimalist = false});
+  final double? boxWidth;
+  final double? boxHeight;
+
+  const _HealthBoxesFromStates({
+    required this.states,
+    this.minimalist = false,
+    this.boxWidth,
+    this.boxHeight,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (states.isEmpty) return const SizedBox.shrink();
+
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double w;
+    final double h;
+
+    if (boxWidth != null && boxHeight != null) {
+      w = boxWidth!;
+      h = boxHeight!;
+    } else if (screenWidth >= 1400) {
+      w = 12.0;
+      h = 42.0;
+    } else if (screenWidth >= 1100) {
+      w = 9.0;
+      h = 36.0;
+    } else {
+      w = minimalist ? 6.0 : 14.0;
+      h = minimalist ? 26.0 : 34.0;
+    }
 
     // Keep the row compact; show a "+N" for large totals.
     final visible = states.length.clamp(1, 6);
@@ -1321,7 +1423,12 @@ class _HealthBoxesFromStates extends StatelessWidget {
     return Row(
       children: [
         for (var i = 0; i < visible; i++)
-          _SingleHealthBox(state: states[i], minimalist: minimalist),
+          _SingleHealthBox(
+            state: states[i],
+            minimalist: minimalist,
+            width: w,
+            height: h,
+          ),
         if (extra > 0)
           Padding(
             padding: const EdgeInsets.only(left: 8),
@@ -1344,7 +1451,15 @@ class _HealthBoxesFromStates extends StatelessWidget {
 class _SingleHealthBox extends StatelessWidget {
   final _BoxState state;
   final bool minimalist;
-  const _SingleHealthBox({required this.state, this.minimalist = false});
+  final double? width;
+  final double? height;
+
+  const _SingleHealthBox({
+    required this.state,
+    this.minimalist = false,
+    this.width,
+    this.height,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1356,9 +1471,19 @@ class _SingleHealthBox extends StatelessWidget {
         isLight ? const Color(0xFFBFC5D2) : const Color(0xFF6B7280), // Grey
     };
 
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double w = width ??
+        (screenWidth >= 1400
+            ? 12.0
+            : (screenWidth >= 1100 ? 9.0 : (minimalist ? 6.0 : 14.0)));
+    final double h = height ??
+        (screenWidth >= 1400
+            ? 42.0
+            : (screenWidth >= 1100 ? 36.0 : (minimalist ? 26.0 : 34.0)));
+
     return Container(
-      width: minimalist ? 6 : 14,
-      height: minimalist ? 26 : 34,
+      width: w,
+      height: h,
       margin: EdgeInsets.only(left: minimalist ? 4 : 6),
       decoration: BoxDecoration(
         color: baseColor.withValues(alpha: 0.92),

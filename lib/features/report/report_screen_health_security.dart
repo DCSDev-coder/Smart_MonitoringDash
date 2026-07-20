@@ -736,17 +736,17 @@ class _ExpandableHistoricalAlarmCardState
                   height: 8,
                   color: isFirst
                       ? Colors.transparent
-                      : (isLight ? Colors.black26 : const Color(0xFFEAA61E)),
+                      : (isLight ? Colors.black38 : const Color(0xFFEAA61E)),
                 ),
                 Container(
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: isLight ? Colors.black54 : Colors.white,
+                    color: isLight ? const Color(0xFF0F172A) : Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(
                         color:
-                            isLight ? Colors.black54 : const Color(0xFFEAA61E),
+                            isLight ? const Color(0xFF0F172A) : const Color(0xFFEAA61E),
                         width: 3),
                   ),
                 ),
@@ -755,7 +755,7 @@ class _ExpandableHistoricalAlarmCardState
                     width: 2,
                     color: isLast
                         ? Colors.transparent
-                        : (isLight ? Colors.black26 : const Color(0xFFEAA61E)),
+                        : (isLight ? Colors.black38 : const Color(0xFFEAA61E)),
                   ),
                 ),
               ],
@@ -776,9 +776,9 @@ class _ExpandableHistoricalAlarmCardState
                           title,
                           style: TextStyle(
                             color: isLight
-                                ? Colors.black87
+                                ? const Color(0xFF0F172A)
                                 : const Color(0xFFEAA61E),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
                         ),
@@ -788,7 +788,8 @@ class _ExpandableHistoricalAlarmCardState
                             subtitle,
                             style: TextStyle(
                                 color:
-                                    isLight ? Colors.black54 : Colors.white70,
+                                    isLight ? const Color(0xFF334155) : Colors.white70,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 12),
                           ),
                         ],
@@ -799,14 +800,15 @@ class _ExpandableHistoricalAlarmCardState
                     children: [
                       Icon(Icons.access_time_rounded,
                           color: isLight
-                              ? Colors.black45
+                              ? const Color(0xFF334155)
                               : const Color(0xFF4C8FE1),
                           size: 14),
                       const SizedBox(width: 6),
                       Text(
                         time,
                         style: TextStyle(
-                            color: isLight ? Colors.black87 : Colors.white,
+                            color: isLight ? const Color(0xFF0F172A) : Colors.white,
+                            fontWeight: FontWeight.w700,
                             fontSize: 12),
                       ),
                     ],
@@ -1000,8 +1002,8 @@ class _ExpandableHistoricalAlarmCardState
     final fill = isLight
         ? Color.lerp(levelColor, Colors.white, 0.25)!
         : Color.lerp(levelColor, Colors.black, 0.82)!;
-    final titleColor = isLight ? Colors.black87 : Colors.white;
-    final detailColor = isLight ? Colors.black54 : Colors.white70;
+    final titleColor = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final detailColor = isLight ? const Color(0xFF1E293B) : Colors.white70;
 
     // Timeline parsing
     final occurTime = _formatTime(
@@ -1062,7 +1064,7 @@ class _ExpandableHistoricalAlarmCardState
                         title,
                         style: TextStyle(
                           color: titleColor,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           fontSize: resolved ? 15 : 14,
                         ),
                         maxLines: 1,
@@ -1074,7 +1076,7 @@ class _ExpandableHistoricalAlarmCardState
                           subtitle,
                           style: TextStyle(
                             color: detailColor,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
                           maxLines: 1,
@@ -1100,35 +1102,35 @@ class _ExpandableHistoricalAlarmCardState
                     'Alarm Value: $valueStr',
                     style: TextStyle(
                       color: detailColor,
-                      fontSize: resolved ? 12 : 11,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     'Alarm Type: $typeStr',
                     style: TextStyle(
                       color: detailColor,
-                      fontSize: resolved ? 12 : 11,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     'Alarm Level: $levelStr',
                     style: TextStyle(
                       color: detailColor,
-                      fontSize: resolved ? 12 : 11,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     'Status: ${getStatusText()}',
                     style: TextStyle(
                       color: detailColor,
-                      fontSize: resolved ? 12 : 11,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   if (resolved && !_isExpanded) ...[
@@ -1137,9 +1139,9 @@ class _ExpandableHistoricalAlarmCardState
                       'Resolved: ${alarm['recoveryTime'] ?? alarm['recoverTime'] ?? '--'}',
                       style: TextStyle(
                         color:
-                            isLight ? Colors.black87 : const Color(0xFF2D8CFF),
-                        fontSize: resolved ? 12 : 11,
-                        fontWeight: FontWeight.w800,
+                            isLight ? const Color(0xFF0F172A) : const Color(0xFF2D8CFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],

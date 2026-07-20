@@ -10,6 +10,14 @@ import '../../../core/network/cpanel_api_service.dart';
 import '../../../core/utils/app_log.dart';
 import '../models/smart_rack_console_snapshot.dart';
 
+enum RackConsoleSupplementalSection {
+  overview,
+  power,
+  ups,
+  ac,
+  pdu,
+}
+
 class SmartRackConsoleRepository extends ChangeNotifier {
   SmartRackConsoleRepository._();
 
@@ -20,12 +28,17 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   bool _started = false;
   bool _fetchingSupplemental = false;
   int? _activeSiteId;
+  final Set<RackConsoleSupplementalSection> _requestedSections =
+      <RackConsoleSupplementalSection>{};
+  final Set<RackConsoleSupplementalSection> _loadedSections =
+      <RackConsoleSupplementalSection>{};
   final Map<int, int> _upsNodeIdBySite = <int, int>{};
   final Map<int, int> _acNodeIdBySite = <int, int>{};
   final Map<int, int> _inletNodeIdBySite = <int, int>{};
   final Map<int, int> _outletNodeIdBySite = <int, int>{};
   DateTime? _lastSupplementalFetchAt;
   double? _totalMonthEnergyKwh;
+  double? _capacityUsedPct;
   List<ConsoleBreakdownItem> _capacityBreakdown = const [];
   List<ConsoleMetricRow> _powerInletRows = const [];
   List<ConsoleMetricRow> _powerOutletRows = const [];
@@ -45,8 +58,16 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   List<ConsoleMetricRow> _upsParameterRows = const [];
   List<ConsoleMetricRow> _upsStatusRows = const [];
 
-  void start() {
-    if (_started) return;
+  void start({
+    Set<RackConsoleSupplementalSection> initialSections = const {
+      RackConsoleSupplementalSection.overview
+    },
+  }) {
+    _requestedSections.addAll(initialSections);
+    if (_started) {
+      _maybeRefreshSupplemental();
+      return;
+    }
     _started = true;
     _poller.addListener(_handlePollerChanged);
     _handlePollerChanged();
@@ -56,6 +77,18 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     if (!_started) return;
     _started = false;
     _poller.removeListener(_handlePollerChanged);
+    _requestedSections.clear();
+  }
+
+  void requestSection(RackConsoleSupplementalSection section) {
+    requestSections({section});
+  }
+
+  void requestSections(Set<RackConsoleSupplementalSection> sections) {
+    final before = _requestedSections.length;
+    _requestedSections.addAll(sections);
+    if (_requestedSections.length == before) return;
+    _maybeRefreshSupplemental();
   }
 
   void _handlePollerChanged() {
@@ -67,176 +100,221 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     final site = CpanelApiService.instance.currentSite;
     final siteId = SiteRuntimeConfig.siteId(site);
     if (siteId == null || !AdapterApiService.instance.isConfigured) {
-      if (_activeSiteId != null ||
-          _totalMonthEnergyKwh != null ||
-          _capacityBreakdown.isNotEmpty ||
-          _powerInletRows.isNotEmpty ||
-          _powerOutletRows.isNotEmpty ||
-          _powerPdu1Outlets.isNotEmpty ||
-          _powerPdu2Outlets.isNotEmpty ||
-          _powerPdu1MetricRows.isNotEmpty ||
-          _powerPdu1StatusRows.isNotEmpty ||
-          _powerPdu1SettingRows.isNotEmpty ||
-          _powerPdu2MetricRows.isNotEmpty ||
-          _powerPdu2StatusRows.isNotEmpty ||
-          _powerPdu2SettingRows.isNotEmpty ||
-          _acMetricRows.isNotEmpty ||
-          _acSettingRows.isNotEmpty ||
-          _acStatusRows.isNotEmpty ||
-          _acUnitStatus != null ||
-          _acCompressorStatus != null ||
-          _upsParameterRows.isNotEmpty ||
-          _upsStatusRows.isNotEmpty) {
-        _activeSiteId = siteId;
-        _totalMonthEnergyKwh = null;
-        _capacityBreakdown = const [];
-        _powerInletRows = const [];
-        _powerOutletRows = const [];
-        _powerPdu1Outlets = const [];
-        _powerPdu2Outlets = const [];
-        _powerPdu1MetricRows = const [];
-        _powerPdu1StatusRows = const [];
-        _powerPdu1SettingRows = const [];
-        _powerPdu2MetricRows = const [];
-        _powerPdu2StatusRows = const [];
-        _powerPdu2SettingRows = const [];
-        _acMetricRows = const [];
-        _acSettingRows = const [];
-        _acStatusRows = const [];
-        _acUnitStatus = null;
-        _acCompressorStatus = null;
-        _upsParameterRows = const [];
-        _upsStatusRows = const [];
-        _upsNodeIdBySite.clear();
-        _acNodeIdBySite.clear();
-        _inletNodeIdBySite.clear();
-        _outletNodeIdBySite.clear();
+      if (_hasSupplementalCache) {
+        _clearSupplementalCache(siteId);
         notifyListeners();
       }
       return;
     }
 
+    if (_activeSiteId != siteId) {
+      _clearSupplementalCache(siteId);
+    }
+
+    if (_requestedSections.isEmpty) return;
+
     final now = DateTime.now();
-    final shouldRefresh = _activeSiteId != siteId ||
+    final hasUnloadedSections =
+        _requestedSections.any((section) => !_loadedSections.contains(section));
+    final shouldRefresh = hasUnloadedSections ||
         _lastSupplementalFetchAt == null ||
         now.difference(_lastSupplementalFetchAt!) >=
             const Duration(seconds: 30);
     if (!shouldRefresh || _fetchingSupplemental) return;
 
     _activeSiteId = siteId;
-    unawaited(_refreshSupplemental(siteId));
+    unawaited(_refreshSupplemental(siteId, Set.of(_requestedSections)));
   }
 
-  Future<void> _refreshSupplemental(int siteId) async {
+  bool get _hasSupplementalCache =>
+      _activeSiteId != null ||
+      _totalMonthEnergyKwh != null ||
+      _capacityBreakdown.isNotEmpty ||
+      _powerInletRows.isNotEmpty ||
+      _powerOutletRows.isNotEmpty ||
+      _powerPdu1Outlets.isNotEmpty ||
+      _powerPdu2Outlets.isNotEmpty ||
+      _powerPdu1MetricRows.isNotEmpty ||
+      _powerPdu1StatusRows.isNotEmpty ||
+      _powerPdu1SettingRows.isNotEmpty ||
+      _powerPdu2MetricRows.isNotEmpty ||
+      _powerPdu2StatusRows.isNotEmpty ||
+      _powerPdu2SettingRows.isNotEmpty ||
+      _acMetricRows.isNotEmpty ||
+      _acSettingRows.isNotEmpty ||
+      _acStatusRows.isNotEmpty ||
+      _acUnitStatus != null ||
+      _acCompressorStatus != null ||
+      _upsParameterRows.isNotEmpty ||
+      _upsStatusRows.isNotEmpty;
+
+  void _clearSupplementalCache(int? siteId) {
+    _activeSiteId = siteId;
+    _loadedSections.clear();
+    _lastSupplementalFetchAt = null;
+    _totalMonthEnergyKwh = null;
+    _capacityUsedPct = null;
+    _capacityBreakdown = const [];
+    _powerInletRows = const [];
+    _powerOutletRows = const [];
+    _powerPdu1Outlets = const [];
+    _powerPdu2Outlets = const [];
+    _powerPdu1MetricRows = const [];
+    _powerPdu1StatusRows = const [];
+    _powerPdu1SettingRows = const [];
+    _powerPdu2MetricRows = const [];
+    _powerPdu2StatusRows = const [];
+    _powerPdu2SettingRows = const [];
+    _acMetricRows = const [];
+    _acSettingRows = const [];
+    _acStatusRows = const [];
+    _acUnitStatus = null;
+    _acCompressorStatus = null;
+    _upsParameterRows = const [];
+    _upsStatusRows = const [];
+    _upsNodeIdBySite.clear();
+    _acNodeIdBySite.clear();
+    _inletNodeIdBySite.clear();
+    _outletNodeIdBySite.clear();
+  }
+
+  Future<void> _refreshSupplemental(
+    int siteId,
+    Set<RackConsoleSupplementalSection> sections,
+  ) async {
+    if (sections.isEmpty) return;
     _fetchingSupplemental = true;
     try {
-      final powerMonth = await AdapterApiService.instance.fetchPowerMonth(
-        siteId: siteId,
-      );
-      final powerMonthResult =
-          (powerMonth?['result'] as Map?)?.cast<String, dynamic>() ??
-              const <String, dynamic>{};
-      final totalMonthEnergyKwh =
-          _readDouble(powerMonthResult, const ['Total', 'total']);
-
       final now = DateTime.now();
-      final cabinetPower = await AdapterApiService.instance.fetchCabinetPower(
-        siteId: siteId,
-        startTime:
-            now.subtract(const Duration(days: 30)).millisecondsSinceEpoch,
-        endTime: now.millisecondsSinceEpoch,
-      );
-      final capacityBreakdown =
-          _parseCapacityBreakdown(cabinetPower?['result'] as List?);
-      final rackTelemetry = await AdapterApiService.instance.fetchRackTelemetry(
-        siteId: siteId,
-        includeRaw: true,
-      );
       final site = CpanelApiService.instance.currentSite;
-      final inletNodeId = await _resolveInletNodeId(siteId, site);
-      Map<String, dynamic>? inletPayload;
-      if (inletNodeId != null) {
-        inletPayload = await AdapterApiService.instance.fetchNodeWithMetric(
-          siteId: siteId,
-          nodeId: inletNodeId,
-        );
-      }
-      final outletNodeId = await _resolveOutletNodeId(
-        siteId,
-        site,
-        inletNodeId: inletNodeId,
-      );
-      Map<String, dynamic>? outletPayload;
-      if (outletNodeId != null) {
-        outletPayload = await AdapterApiService.instance.fetchNodeWithMetric(
-          siteId: siteId,
-          nodeId: outletNodeId,
-        );
-      }
-      final powerRows = _parsePowerRows(
-        rackTelemetry,
-        inletPayload: inletPayload,
-        inletNodeId: inletNodeId,
-        outletPayload: outletPayload,
-        outletNodeId: outletNodeId,
-      );
-      final upsNodeId = await _resolveUpsNodeId(siteId, site);
-      Map<String, dynamic>? upsPayload;
-      if (upsNodeId != null) {
-        upsPayload = await AdapterApiService.instance.fetchNodeWithMetric(
-          siteId: siteId,
-          nodeId: upsNodeId,
-        );
-      }
-      final upsRows = _parseUpsRows(
-        rackTelemetry,
-        upsPayload: upsPayload,
-        upsNodeId: upsNodeId,
-      );
-      final acNodeId = await _resolveAcNodeId(siteId, site);
-      Map<String, dynamic>? acPayload;
-      if (acNodeId != null) {
-        acPayload = await AdapterApiService.instance.fetchNodeWithMetric(
-          siteId: siteId,
-          nodeId: acNodeId,
-        );
-      }
-      final acRows = _parseAcRows(acPayload, acNodeId: acNodeId);
 
-      final pduNodeIds = await _resolvePduNodeIds(siteId, site);
-      final pduBundles = <(
-        List<ConsoleMetricRow>,
-        List<ConsoleMetricRow>,
-        List<ConsoleMetricRow>,
-        List<Map<String, dynamic>>
-      )>[];
-      for (final nodeId in pduNodeIds.take(2)) {
-        pduBundles.add(await _fetchPduSectionRows(siteId, nodeId));
-      }
-      while (pduBundles.length < 2) {
-        pduBundles.add((const [], const [], const [], const []));
+      if (sections.contains(RackConsoleSupplementalSection.overview)) {
+        final powerMonth = await AdapterApiService.instance.fetchPowerMonth(
+          siteId: siteId,
+        );
+        final powerMonthResult =
+            (powerMonth?['result'] as Map?)?.cast<String, dynamic>() ??
+                const <String, dynamic>{};
+        final totalMonthEnergyKwh =
+            _readDouble(powerMonthResult, const ['Total', 'total']);
+
+        final cabinetCapacity =
+            await AdapterApiService.instance.fetchCabinetCapacity(
+          siteId: siteId,
+        );
+        final cabinetCapacityResult =
+            (cabinetCapacity?['result'] as Map?)?.cast<String, dynamic>();
+
+        _totalMonthEnergyKwh =
+            totalMonthEnergyKwh > 0 ? totalMonthEnergyKwh : null;
+        _capacityUsedPct = _readOptionalDouble(
+          cabinetCapacityResult,
+          const ['usedPercent', 'used_percent', 'capacityUsedPct'],
+        );
+        _capacityBreakdown = _parseCapacityUInfo(cabinetCapacityResult);
       }
 
-      _totalMonthEnergyKwh =
-          totalMonthEnergyKwh > 0 ? totalMonthEnergyKwh : null;
-      _capacityBreakdown = capacityBreakdown;
-      _powerInletRows = powerRows.$1;
-      _powerOutletRows = powerRows.$2;
-      _powerPdu1MetricRows = pduBundles[0].$1;
-      _powerPdu1StatusRows = pduBundles[0].$2;
-      _powerPdu1SettingRows = pduBundles[0].$3;
-      _powerPdu1Outlets = pduBundles[0].$4;
-      _powerPdu2MetricRows = pduBundles[1].$1;
-      _powerPdu2StatusRows = pduBundles[1].$2;
-      _powerPdu2SettingRows = pduBundles[1].$3;
-      _powerPdu2Outlets = pduBundles[1].$4;
-      _acMetricRows = acRows.$1;
-      _acSettingRows = acRows.$2;
-      _acStatusRows = acRows.$3;
-      _acUnitStatus = acRows.$4;
-      _acCompressorStatus = acRows.$5;
-      _upsParameterRows = upsRows.$1;
-      _upsStatusRows = upsRows.$2;
+      Map<String, dynamic>? rackTelemetry;
+      if (sections.contains(RackConsoleSupplementalSection.power) ||
+          sections.contains(RackConsoleSupplementalSection.ups)) {
+        rackTelemetry = await AdapterApiService.instance.fetchRackTelemetry(
+          siteId: siteId,
+          includeRaw: true,
+        );
+      }
+
+      if (sections.contains(RackConsoleSupplementalSection.power)) {
+        final inletNodeId = await _resolveInletNodeId(siteId, site);
+        Map<String, dynamic>? inletPayload;
+        if (inletNodeId != null) {
+          inletPayload = await AdapterApiService.instance.fetchNodeWithMetric(
+            siteId: siteId,
+            nodeId: inletNodeId,
+          );
+        }
+        final outletNodeId = await _resolveOutletNodeId(
+          siteId,
+          site,
+          inletNodeId: inletNodeId,
+        );
+        Map<String, dynamic>? outletPayload;
+        if (outletNodeId != null) {
+          outletPayload = await AdapterApiService.instance.fetchNodeWithMetric(
+            siteId: siteId,
+            nodeId: outletNodeId,
+          );
+        }
+        final powerRows = _parsePowerRows(
+          rackTelemetry,
+          inletPayload: inletPayload,
+          inletNodeId: inletNodeId,
+          outletPayload: outletPayload,
+          outletNodeId: outletNodeId,
+        );
+        _powerInletRows = powerRows.$1;
+        _powerOutletRows = powerRows.$2;
+      }
+
+      if (sections.contains(RackConsoleSupplementalSection.ups)) {
+        final upsNodeId = await _resolveUpsNodeId(siteId, site);
+        Map<String, dynamic>? upsPayload;
+        if (upsNodeId != null) {
+          upsPayload = await AdapterApiService.instance.fetchNodeWithMetric(
+            siteId: siteId,
+            nodeId: upsNodeId,
+          );
+        }
+        final upsRows = _parseUpsRows(
+          rackTelemetry,
+          upsPayload: upsPayload,
+          upsNodeId: upsNodeId,
+        );
+        _upsParameterRows = upsRows.$1;
+        _upsStatusRows = upsRows.$2;
+      }
+
+      if (sections.contains(RackConsoleSupplementalSection.ac)) {
+        final acNodeId = await _resolveAcNodeId(siteId, site);
+        Map<String, dynamic>? acPayload;
+        if (acNodeId != null) {
+          acPayload = await AdapterApiService.instance.fetchNodeWithMetric(
+            siteId: siteId,
+            nodeId: acNodeId,
+          );
+        }
+        final acRows = _parseAcRows(acPayload, acNodeId: acNodeId);
+        _acMetricRows = acRows.$1;
+        _acSettingRows = acRows.$2;
+        _acStatusRows = acRows.$3;
+        _acUnitStatus = acRows.$4;
+        _acCompressorStatus = acRows.$5;
+      }
+
+      if (sections.contains(RackConsoleSupplementalSection.pdu)) {
+        final pduNodeIds = await _resolvePduNodeIds(siteId, site);
+        final pduBundles = <(
+          List<ConsoleMetricRow>,
+          List<ConsoleMetricRow>,
+          List<ConsoleMetricRow>,
+          List<Map<String, dynamic>>
+        )>[];
+        for (final nodeId in pduNodeIds.take(2)) {
+          pduBundles.add(await _fetchPduSectionRows(siteId, nodeId));
+        }
+        while (pduBundles.length < 2) {
+          pduBundles.add((const [], const [], const [], const []));
+        }
+        _powerPdu1MetricRows = pduBundles[0].$1;
+        _powerPdu1StatusRows = pduBundles[0].$2;
+        _powerPdu1SettingRows = pduBundles[0].$3;
+        _powerPdu1Outlets = pduBundles[0].$4;
+        _powerPdu2MetricRows = pduBundles[1].$1;
+        _powerPdu2StatusRows = pduBundles[1].$2;
+        _powerPdu2SettingRows = pduBundles[1].$3;
+        _powerPdu2Outlets = pduBundles[1].$4;
+      }
+
+      _loadedSections.addAll(sections);
       _lastSupplementalFetchAt = now;
       notifyListeners();
     } catch (_) {
@@ -299,12 +377,13 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     return 9999;
   }
 
-  Future<(
-    List<ConsoleMetricRow>,
-    List<ConsoleMetricRow>,
-    List<ConsoleMetricRow>,
-    List<Map<String, dynamic>>
-  )> _fetchPduSectionRows(
+  Future<
+      (
+        List<ConsoleMetricRow>,
+        List<ConsoleMetricRow>,
+        List<ConsoleMetricRow>,
+        List<Map<String, dynamic>>
+      )> _fetchPduSectionRows(
     int siteId,
     int nodeId,
   ) async {
@@ -312,8 +391,8 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       siteId: siteId,
       nodeId: nodeId,
     );
-    final metricPayload = adapterPayload ??
-        await ApiService.instance.fetchNodeWithMetric(nodeId);
+    final metricPayload =
+        adapterPayload ?? await ApiService.instance.fetchNodeWithMetric(nodeId);
     final statusPayload = await AdapterApiService.instance.fetchNodeStatus(
           siteId: siteId,
           nodeId: nodeId,
@@ -481,7 +560,8 @@ class SmartRackConsoleRepository extends ChangeNotifier {
         .toList();
     if (records.isEmpty) return const [];
 
-    final filtered = records.where((row) => _matchesPduSection(row, view)).toList();
+    final filtered =
+        records.where((row) => _matchesPduSection(row, view)).toList();
     final chosen = filtered.isNotEmpty
         ? filtered
         : records.where((row) => _looksLikePduSectionRow(row, view)).toList();
@@ -587,7 +667,10 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       row['name'],
       row['statusType'],
       row['code'],
-    ].where((item) => item != null).map((item) => item.toString().toLowerCase()).join(' ');
+    ]
+        .where((item) => item != null)
+        .map((item) => item.toString().toLowerCase())
+        .join(' ');
 
     if (view) {
       return label.contains('control') ||
@@ -627,8 +710,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
           metricRecords,
           exactNames: const ['Outlets'],
           contains: const ['outlets'],
-        )
-            ?.round() ??
+        )?.round() ??
         16;
 
     final wattsByIndex = <int, double>{};
@@ -663,13 +745,13 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       if (!label.contains('output control')) continue;
       final status = _displayValueForRow(record)?.trim().toLowerCase();
       if (status == null || status.isEmpty) continue;
-      isOnByIndex[index] = status == 'on' || status == '1' || status == 'enable';
+      isOnByIndex[index] =
+          status == 'on' || status == '1' || status == 'enable';
     }
 
     final outlets = <Map<String, dynamic>>[];
     for (var index = 1; index <= totalOutlets; index++) {
-      final watts = wattsByIndex[index] ??
-          (ampsByIndex[index] ?? 0.0) * 220.0;
+      final watts = wattsByIndex[index] ?? (ampsByIndex[index] ?? 0.0) * 220.0;
       final amps = ampsByIndex[index] ?? 0.0;
       final hasReading = (watts > 0) || (amps > 0);
       final isOn = isOnByIndex[index] ?? hasReading;
@@ -1117,8 +1199,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     int? inletNodeId,
     Map<String, dynamic>? outletPayload,
     int? outletNodeId,
-  }
-  ) {
+  }) {
     final inlet = (telemetry?['inlet'] as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
     final pdu1 = (telemetry?['pdu1'] as Map?)?.cast<String, dynamic>() ??
@@ -1679,8 +1760,12 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     Map<String, dynamic> a,
     Map<String, dynamic> b,
   ) {
-    final aOrder = (a['orderNo'] is num) ? (a['orderNo'] as num).toDouble() : double.infinity;
-    final bOrder = (b['orderNo'] is num) ? (b['orderNo'] as num).toDouble() : double.infinity;
+    final aOrder = (a['orderNo'] is num)
+        ? (a['orderNo'] as num).toDouble()
+        : double.infinity;
+    final bOrder = (b['orderNo'] is num)
+        ? (b['orderNo'] as num).toDouble()
+        : double.infinity;
     if (aOrder != bOrder) return aOrder.compareTo(bOrder);
     final aName = _fallbackLabelForRow(a, '').toLowerCase();
     final bName = _fallbackLabelForRow(b, '').toLowerCase();
@@ -1717,41 +1802,31 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     return 'Outlet $index (${bestWatts.toStringAsFixed(0)} W)';
   }
 
-  List<ConsoleBreakdownItem> _parseCapacityBreakdown(List? raw) {
-    if (raw == null || raw.isEmpty) return const [];
+  List<ConsoleBreakdownItem> _parseCapacityUInfo(
+    Map<String, dynamic>? result,
+  ) {
+    final cabinetItems = result?['cabinetItemUInfo'];
+    if (cabinetItems is! List || cabinetItems.isEmpty) return const [];
 
-    final first = raw.first;
-    if (first is! Map) return const [];
-    final itemPowers = first['itemPowers'];
-    if (itemPowers is! List || itemPowers.isEmpty) return const [];
-
-    final parsed = <({String label, double power})>[];
-    for (final item in itemPowers) {
+    final parsed = <ConsoleBreakdownItem>[];
+    for (final item in cabinetItems) {
       if (item is! Map) continue;
       final label = (item['name'] ?? item['itemName'] ?? item['label'] ?? '')
           .toString()
           .trim();
-      final power = _readDouble(
+      final percentage = _readDouble(
         item.cast<String, dynamic>(),
-        const ['power', 'value', 'trendVal'],
+        const ['usedPercent', 'used_percent', 'capacityUsedPct'],
       );
-      if (label.isEmpty || power <= 0) continue;
-      parsed.add((label: label, power: power));
+      if (label.isEmpty) continue;
+      parsed.add(
+        ConsoleBreakdownItem(
+          label: label,
+          percentage: percentage.clamp(0.0, 100.0).toDouble(),
+        ),
+      );
     }
-    if (parsed.isEmpty) return const [];
-
-    final total = parsed.fold<double>(0, (sum, item) => sum + item.power);
-    if (total <= 0) return const [];
-
-    return parsed
-        .map(
-          (item) => ConsoleBreakdownItem(
-            label: item.label,
-            percentage: (item.power / total) * 100,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.percentage.compareTo(a.percentage));
+    return parsed..sort((a, b) => b.percentage.compareTo(a.percentage));
   }
 
   double _readDouble(Map<String, dynamic> data, List<String> keys) {
@@ -1762,6 +1837,17 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       if (parsed != null) return parsed;
     }
     return 0;
+  }
+
+  double? _readOptionalDouble(Map<String, dynamic>? data, List<String> keys) {
+    if (data == null) return null;
+    for (final key in keys) {
+      final value = data[key];
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   List<dynamic> _recordsFromPayload(Map<String, dynamic>? payload) {
@@ -1837,15 +1923,14 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   }
 
   String? _rowMetricCode(Map<String, dynamic> row) {
-    final code =
-        (row['code'] ??
-                row['metricTypeLibCode'] ??
-                row['statusTypeCode'] ??
-                row['statusType'] ??
-                row['name'] ??
-                '')
-            .toString()
-            .trim();
+    final code = (row['code'] ??
+            row['metricTypeLibCode'] ??
+            row['statusTypeCode'] ??
+            row['statusType'] ??
+            row['name'] ??
+            '')
+        .toString()
+        .trim();
     return code.isEmpty ? null : code;
   }
 
@@ -1888,7 +1973,10 @@ class SmartRackConsoleRepository extends ChangeNotifier {
       row['statusTypeCode'],
       row['name'],
       row['statusType'],
-    ].where((item) => item != null).map((item) => item.toString().toLowerCase()).join(' ');
+    ]
+        .where((item) => item != null)
+        .map((item) => item.toString().toLowerCase())
+        .join(' ');
     return text.contains('control') ||
         text.contains('setting') ||
         text.contains('reset') ||
@@ -1929,10 +2017,11 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   }
 
   int? _extractOutletIndex(Map<String, dynamic> record) {
-    final label = (record['name'] ?? record['statusType'] ?? record['code'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final label =
+        (record['name'] ?? record['statusType'] ?? record['code'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
     final match = RegExp(r'outlet\s*(\d+)').firstMatch(label);
     if (match != null) {
       return int.tryParse(match.group(1) ?? '');
@@ -2092,17 +2181,28 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     );
   }
 
-  Future<void> refreshNow() async {
+  Future<void> refreshNow({
+    Set<RackConsoleSupplementalSection>? sections,
+  }) async {
     final site = CpanelApiService.instance.currentSite;
     final siteId = SiteRuntimeConfig.siteId(site);
     if (siteId == null || !AdapterApiService.instance.isConfigured) return;
-    await _refreshSupplemental(siteId);
+    final targetSections = sections ?? Set.of(_requestedSections);
+    _requestedSections.addAll(targetSections);
+    await _refreshSupplemental(siteId, targetSections);
+  }
+
+  Future<void> refreshSections(
+    Set<RackConsoleSupplementalSection> sections,
+  ) {
+    return refreshNow(sections: sections);
   }
 
   SmartRackConsoleSnapshot currentSnapshot() {
     final base = SmartRackConsoleSnapshot.fromPoller(_poller);
     return base.copyWith(
       totalMonthEnergyKwh: _totalMonthEnergyKwh,
+      capacityUsedPct: _capacityUsedPct,
       capacityBreakdown: _capacityBreakdown,
       powerInletRows: _powerInletRows,
       powerOutletRows: _powerOutletRows,

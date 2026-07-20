@@ -68,4 +68,14 @@ class AppConfig {
     if (v.isEmpty) return '';
     return v.endsWith('/') ? v.substring(0, v.length - 1) : v;
   }
+
+  // Rack Console self-hosted updater.
+  // Example:
+  // --dart-define=UPDATE_MANIFEST_URL="https://dcstack.my/rack-console/latest.json"
+  static const String _updateManifestUrlRaw = String.fromEnvironment(
+    'UPDATE_MANIFEST_URL',
+    defaultValue: '',
+  );
+
+  static String get updateManifestUrl => _updateManifestUrlRaw.trim();
 }
