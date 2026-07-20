@@ -25,9 +25,8 @@ class GlobalVideoBackground {
   /// Post-login video background is intentionally disabled for performance.
   /// The UI uses a solid-color background via `BackgroundLayer(staticForApp: true)`.
   static const String appAssetUri = '';
-  static String get authAssetUri => AppConfig.isRackConsoleBuild
-      ? ''
-      : 'asset:///assets/background/14900-259623335_medium.mp4';
+  static String get authAssetUri =>
+      'asset:///assets/background/14900-259623335_medium.mp4';
 
   Player? player;
   VideoController? controller;
