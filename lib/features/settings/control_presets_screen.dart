@@ -153,9 +153,23 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
   Future<_LiveControlSnapshot?> _fetchLiveSnapshot() async {
     final candidates = <Map<String, dynamic>>[];
     final seenIds = <int>{};
+    final siteId = _siteId;
+    final adapterReady =
+        AdapterApiService.instance.isConfigured && siteId != null;
 
     Future<void> collectCandidates(String? name) async {
-      final list = await ApiService.instance
+      Map<String, dynamic>? list;
+      if (adapterReady) {
+        list = await AdapterApiService.instance.fetchPowerEnvNodes(
+          siteId: siteId,
+          name: name,
+          pageSize: 100,
+        );
+        if (list == null && !ApiService.instance.canUseDirectFallback) {
+          return;
+        }
+      }
+      list ??= await ApiService.instance
           .fetchPowerEnvNodes(name: name, pageSize: 100);
       final records = (list?['result']?['records'] as List?) ?? const [];
       for (final raw in records) {
@@ -202,11 +216,17 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
         siteId: siteId,
         nodeId: nodeId,
       );
+      if (res == null && !ApiService.instance.canUseDirectFallback) {
+        return _LiveControlSnapshot.fromNodeWithMetric(null);
+      }
     }
     res ??= await ApiService.instance.fetchNodeWithMetric(nodeId);
     final primary = _LiveControlSnapshot.fromNodeWithMetric(res);
     if (primary.rows.isNotEmpty) return primary;
 
+    if (!ApiService.instance.canUseDirectFallback) {
+      return primary;
+    }
     try {
       final metricsRes = await ApiService.instance.fetchNodeMetrics(nodeId);
       final fallback = _LiveControlSnapshot.fromMetricList(
@@ -424,11 +444,13 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
             value: entry.value,
           );
         }
-        res ??= await ApiService.instance.writeNodeMetric(
-          nodeId: live.nodeId,
-          metricTypeLibCode: row.metricCode,
-          value: entry.value,
-        );
+        if (ApiService.instance.canUseDirectFallback) {
+          res ??= await ApiService.instance.writeNodeMetric(
+            nodeId: live.nodeId,
+            metricTypeLibCode: row.metricCode,
+            value: entry.value,
+          );
+        }
 
         final ok =
             (res?['success'] == true) || (res?['code']?.toString() == '20000');
@@ -797,7 +819,6 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       ],
     );
   }
-
 }
 
 class _PresetCardWidget extends StatefulWidget {

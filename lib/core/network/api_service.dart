@@ -32,6 +32,7 @@ class ApiService {
   String? get baseUrl => _baseUrl;
   bool get hasAccessToken =>
       (_storage[AppConstants.keyAccessToken] ?? '').isNotEmpty;
+  bool get canUseDirectFallback => hasAccessToken;
 
   /// Call this on app startup to load the last used IP.
   Future<void> init() async {

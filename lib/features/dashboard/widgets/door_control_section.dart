@@ -687,7 +687,9 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
           accessType: '1',
         );
       }
-      res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+      if (!usedAdapter || ApiService.instance.canUseDirectFallback) {
+        res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+      }
       if (!mounted) return;
 
       if (res != null && res['success'] == true) {
@@ -987,7 +989,9 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
             },
           );
         }
-        res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+        if (!adapterAvailable || ApiService.instance.canUseDirectFallback) {
+          res ??= await ApiService.instance.openCloseDoor(widget.doorId, 1);
+        }
       }
 
       if (!mounted) return;

@@ -303,6 +303,10 @@ class _RackViewScreenState extends State<RackViewScreen>
           tag: 'RackView',
           fields: {'siteId': siteId, 'missStreak': _adapterMissStreak},
         );
+        if (!ApiService.instance.canUseDirectFallback) {
+          setState(() => _loading = false);
+          return;
+        }
       }
 
       final results = await Future.wait([

@@ -119,9 +119,6 @@ class SessionFlowService {
 
     if (AdapterApiService.instance.isConfigured && allowBackgroundLogin) {
       ok = true;
-      if (!AppConfig.isRackConsoleBuild) {
-        ApiService.instance.login(siteUser, sitePass, ip: targetIp).ignore();
-      }
     } else {
       ok = await ApiService.instance.login(
         siteUser,

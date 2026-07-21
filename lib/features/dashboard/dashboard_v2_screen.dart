@@ -224,6 +224,10 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     _startTimer();
   }
 
+  bool _canUseDirectFallback(int? siteId) =>
+      !(AdapterApiService.instance.isConfigured && siteId != null) ||
+      ApiService.instance.canUseDirectFallback;
+
   Future<Map<String, dynamic>?> _fetchPowerMonthWithFallback({
     required int? siteId,
     required String? cabinetId,
@@ -232,6 +236,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       final adapterData =
           await AdapterApiService.instance.fetchPowerMonth(siteId: siteId);
       if (adapterData != null) return adapterData;
+      if (!_canUseDirectFallback(siteId)) return null;
     }
     return ApiService.instance.fetchPowerMonth(id: cabinetId);
   }
@@ -244,6 +249,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       final adapterData =
           await AdapterApiService.instance.fetchPue(siteId: siteId);
       if (adapterData != null) return adapterData;
+      if (!_canUseDirectFallback(siteId)) return null;
     }
     return ApiService.instance.fetchPue(id: cabinetId);
   }
@@ -256,6 +262,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       final adapterData =
           await AdapterApiService.instance.fetchDoors(siteId: siteId);
       if (adapterData != null) return adapterData;
+      if (!_canUseDirectFallback(siteId)) return null;
     }
     final parsed = int.tryParse(cabinetId ?? '');
     return ApiService.instance.fetchCabinetDoors(cabinetId: parsed ?? 1);
@@ -268,6 +275,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
       final adapterData =
           await AdapterApiService.instance.fetchTempHumTopN(siteId: siteId);
       if (adapterData != null) return adapterData;
+      if (!_canUseDirectFallback(siteId)) return null;
     }
     return ApiService.instance.fetchTempHumTopN();
   }

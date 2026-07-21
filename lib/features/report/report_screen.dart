@@ -167,6 +167,9 @@ class _ReportScreenState extends State<ReportScreen>
   bool _isAdapterReady(int? siteId) =>
       AdapterApiService.instance.isConfigured && siteId != null;
 
+  bool _canUseDirectFallback(int? siteId) =>
+      !_isAdapterReady(siteId) || ApiService.instance.canUseDirectFallback;
+
   bool _shouldUseAdapter(int? siteId) =>
       _isAdapterReady(siteId) && !_showAdapterDegraded;
 
@@ -183,6 +186,7 @@ class _ReportScreenState extends State<ReportScreen>
           final adapterData =
               await AdapterApiService.instance.fetchPowerMonth(siteId: siteId!);
           if (adapterData != null) return adapterData;
+          if (!_canUseDirectFallback(siteId)) return null;
         }
         return ApiService.instance.fetchPowerMonth(id: cabinetId);
       }
@@ -192,6 +196,7 @@ class _ReportScreenState extends State<ReportScreen>
           final adapterData = await AdapterApiService.instance
               .fetchRecentAlarms(siteId: siteId!);
           if (adapterData != null) return adapterData;
+          if (!_canUseDirectFallback(siteId)) return null;
         }
         return ApiService.instance.fetchAlarmsByLevel();
       }
@@ -201,6 +206,7 @@ class _ReportScreenState extends State<ReportScreen>
           final adapterData =
               await AdapterApiService.instance.fetchSysInfo(siteId: siteId!);
           if (adapterData != null) return adapterData;
+          if (!_canUseDirectFallback(siteId)) return null;
         }
         return ApiService.instance.fetchSysInfo();
       }
@@ -497,6 +503,10 @@ class _ReportScreenState extends State<ReportScreen>
       }
 
       if (!_shouldUseAdapter(siteId)) {
+        if (!_canUseDirectFallback(siteId)) {
+          if (mounted) setState(() => _fetchingHistoricalEvents = false);
+          return;
+        }
         res ??= await ApiService.instance
             .fetchReportAlarms(startTime: startTime, endTime: endTime);
       }
@@ -539,6 +549,10 @@ class _ReportScreenState extends State<ReportScreen>
       }
 
       if (!_shouldUseAdapter(siteId)) {
+        if (!_canUseDirectFallback(siteId)) {
+          if (mounted) setState(() => _fetchingDoorLogs = false);
+          return;
+        }
         res ??= await ApiService.instance.fetchDoorAccessLogs(
           accessType: '1',
         );
@@ -559,7 +573,7 @@ class _ReportScreenState extends State<ReportScreen>
           doorsRes =
               await AdapterApiService.instance.fetchDoors(siteId: siteId!);
         }
-        if (doorsRes == null) {
+        if (doorsRes == null && _canUseDirectFallback(siteId)) {
           final cabinetId = SiteRuntimeConfig.cabinetId(
               CpanelApiService.instance.currentSite);
           final parsed = int.tryParse(cabinetId ?? '');
@@ -751,6 +765,7 @@ class _ReportScreenState extends State<ReportScreen>
           final adapterData =
               await AdapterApiService.instance.fetchPue(siteId: siteId!);
           if (adapterData != null) return adapterData;
+          if (!_canUseDirectFallback(siteId)) return null;
         }
         // Legacy fallback expects a cabinet id (string), default to 1.
         return ApiService.instance.fetchPue(id: cabinetId ?? '1');
@@ -769,6 +784,7 @@ class _ReportScreenState extends State<ReportScreen>
             endTime: endTime,
           );
           if (adapterData != null) return adapterData;
+          if (!_canUseDirectFallback(siteId)) return null;
         }
         return ApiService.instance.fetchHistoricalData(
           nodeId: nodeId,

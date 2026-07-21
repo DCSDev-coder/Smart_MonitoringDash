@@ -209,11 +209,14 @@ class _ControlScreenState extends State<ControlScreen>
         ? null
         : (int.tryParse(site['site_id']?.toString() ?? '') ??
             int.tryParse(site['id']?.toString() ?? ''));
+    final adapterReady =
+        AdapterApiService.instance.isConfigured && siteId != null;
 
-    if (AdapterApiService.instance.isConfigured && siteId != null) {
+    if (adapterReady) {
       final res = await AdapterApiService.instance
           .fetchNodeWithMetric(siteId: siteId, nodeId: nodeId);
       if (res != null) return res;
+      if (!ApiService.instance.canUseDirectFallback) return null;
     }
     return ApiService.instance.fetchNodeWithMetric(nodeId);
   }
@@ -222,6 +225,7 @@ class _ControlScreenState extends State<ControlScreen>
     int nodeId, {
     String? fallbackName,
   }) async {
+    if (!ApiService.instance.canUseDirectFallback) return null;
     try {
       final res = await ApiService.instance.fetchNodeMetrics(nodeId);
       return _NodeMetrics.fromMetricList(
@@ -260,9 +264,27 @@ class _ControlScreenState extends State<ControlScreen>
     try {
       final candidates = <Map<String, dynamic>>[];
       final seenIds = <int>{};
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = site == null
+          ? null
+          : (int.tryParse(site['site_id']?.toString() ?? '') ??
+              int.tryParse(site['id']?.toString() ?? ''));
+      final adapterReady =
+          AdapterApiService.instance.isConfigured && siteId != null;
 
       Future<void> collectCandidates(String? name) async {
-        final list = await ApiService.instance.fetchPowerEnvNodes(
+        Map<String, dynamic>? list;
+        if (adapterReady) {
+          list = await AdapterApiService.instance.fetchPowerEnvNodes(
+            siteId: siteId,
+            name: name,
+            pageSize: 100,
+          );
+          if (list == null && !ApiService.instance.canUseDirectFallback) {
+            return;
+          }
+        }
+        list ??= await ApiService.instance.fetchPowerEnvNodes(
           name: name,
           pageSize: 100,
         );
@@ -1437,7 +1459,7 @@ class _ControlScreenState extends State<ControlScreen>
           value: value,
         );
       }
-      if (!isRackConsoleMode) {
+      if (!isRackConsoleMode && ApiService.instance.canUseDirectFallback) {
         res ??= await ApiService.instance.writeNodeMetric(
             nodeId: nodeId, metricTypeLibCode: metricCode, value: value);
       }
