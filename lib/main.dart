@@ -21,7 +21,6 @@ import 'core/utils/app_log.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/dashboard/dashboard_v2_screen.dart';
 import 'features/smart_rack_console/smart_rack_console_shell.dart';
-import 'features/admin/admin_webview_screen.dart';
 import 'features/admin/manage_users_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/auth/welcome_screen.dart';
@@ -276,30 +275,6 @@ class CigApp extends StatelessWidget {
               return const SmartRackConsoleShell();
             },
             '/profile': (_) => const ProfileScreen(),
-            '/admin_panel': (_) {
-              final uid = CpanelApiService.instance.getUserId();
-              return FutureBuilder<int?>(
-                future: uid,
-                builder: (context, snap) {
-                  if (snap.connectionState != ConnectionState.done) {
-                    return Scaffold(
-                      backgroundColor: AppTheme.bgColor,
-                      body: Center(
-                        child: CircularProgressIndicator(
-                            color: Theme.of(context).colorScheme.primary),
-                      ),
-                    );
-                  }
-                  final allowed =
-                      _canManageUsersFromCurrentSite(portalUserId: snap.data);
-                  if (allowed) return const AdminWebviewScreen();
-                  return const _PermissionDeniedScreen(
-                    message:
-                        'You do not have permission to access the admin portal for this site.',
-                  );
-                },
-              );
-            },
           },
         );
       },

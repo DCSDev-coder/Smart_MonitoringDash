@@ -32,6 +32,11 @@ migrate_working_dir/
 # iOS Firebase
 /ios/Runner/GoogleService-Info.plist
 
+# Server-only Firebase credentials
+**/firebase-adminsdk.json
+**/*service-account*.json
+**/*.service-account.json
+
 # Local Environment / Sensitive
 .env
 .env.*
