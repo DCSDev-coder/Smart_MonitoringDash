@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
@@ -93,6 +94,82 @@ class CpanelApiService {
 
     final normalized = value.toString().trim().toLowerCase();
     return normalized == '1' || normalized == 'true' || normalized == 'yes';
+  }
+
+  bool isAdminRoleValue(dynamic value) {
+    final normalized = value?.toString().trim().toLowerCase() ?? '';
+    return normalized == 'admin' ||
+        normalized == 'site_admin' ||
+        normalized == 'site admin';
+  }
+
+  bool isCurrentUserSiteOwner({
+    Map<String, dynamic>? site,
+    int? portalUserId,
+  }) {
+    final target = site ?? currentSite;
+    if (target == null) return false;
+
+    final effectiveUserId = portalUserId ?? _portalUserId;
+    final ownerId = int.tryParse(
+      (target['owner_user_id'] ?? target['owner_id'] ?? target['user_id'])
+              ?.toString() ??
+          '',
+    );
+
+    return effectiveUserId != null &&
+        ownerId != null &&
+        effectiveUserId == ownerId;
+  }
+
+  bool currentSiteHasAdminRole({Map<String, dynamic>? site}) {
+    final target = site ?? currentSite;
+    if (target == null) return false;
+
+    return isAdminRoleValue(target['role']) ||
+        isAdminRoleValue(target['site_role']) ||
+        isAdminRoleValue(target['member_role']) ||
+        isAdminRoleValue(currentUser?['role']);
+  }
+
+  bool canCurrentSiteChangeSettings({
+    Map<String, dynamic>? site,
+    int? portalUserId,
+  }) {
+    final target = site ?? currentSite;
+    if (target == null) return false;
+
+    return isCurrentUserSiteOwner(site: target, portalUserId: portalUserId) ||
+        currentSiteHasAdminRole(site: target) ||
+        isTruthyFlag(target['can_change_settings']);
+  }
+
+  String? currentCompanyLogoUrl([Map<String, dynamic>? site]) {
+    final target = site ?? currentSite;
+    if (target == null) return null;
+
+    final rawLogo = target['company_logo_path']?.toString().trim() ?? '';
+    if (rawLogo.isEmpty) return null;
+
+    final resolved =
+        rawLogo.startsWith('http://') || rawLogo.startsWith('https://')
+            ? rawLogo
+            : '$baseAssetUrl$rawLogo';
+
+    final revision = target['_company_logo_cache_buster']?.toString().trim();
+    if (revision == null || revision.isEmpty) return resolved;
+
+    final separator = resolved.contains('?') ? '&' : '?';
+    return '$resolved${separator}v=$revision';
+  }
+
+  void updateCurrentSiteLogo(String logoPathOrUrl) {
+    final site = currentSite;
+    if (site == null) return;
+
+    site['company_logo_path'] = logoPathOrUrl;
+    site['_company_logo_cache_buster'] =
+        DateTime.now().millisecondsSinceEpoch.toString();
   }
 
   bool isCurrentSiteKiosk([Map<String, dynamic>? site]) {
@@ -229,18 +306,20 @@ class CpanelApiService {
     Map<String, String>? headers,
     Duration timeout = const Duration(seconds: 10),
   }) async {
-    final response = await http.post(
-      Uri.parse("$baseUrl?action=$action"),
-      headers: <String, String>{
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        ...?headers,
-      },
-      body: jsonEncode({
-        "action": action,
-        ...fields,
-      }),
-    ).timeout(timeout);
+    final response = await http
+        .post(
+          Uri.parse("$baseUrl?action=$action"),
+          headers: <String, String>{
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            ...?headers,
+          },
+          body: jsonEncode({
+            "action": action,
+            ...fields,
+          }),
+        )
+        .timeout(timeout);
 
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {
@@ -1081,7 +1160,7 @@ class CpanelApiService {
 
   Future<Map<String, dynamic>?> uploadLogo({
     required int siteId,
-    required String filePath,
+    required List<int> fileBytes,
     required String fileName,
   }) async {
     try {
@@ -1089,7 +1168,11 @@ class CpanelApiService {
         AppLog.d(
           'Uploading logo',
           tag: 'CpanelApi',
-          fields: {'siteId': siteId, 'filePath': filePath},
+          fields: {
+            'siteId': siteId,
+            'fileName': fileName,
+            'size': fileBytes.length,
+          },
         );
       }
 
@@ -1103,17 +1186,58 @@ class CpanelApiService {
       request.fields['action'] = 'upload_logo';
       request.fields['site_id'] = siteId.toString();
 
+      MediaType? contentType;
+      final ext = fileName.split('.').last.toLowerCase();
+      if (ext == 'jpg' || ext == 'jpeg') {
+        contentType = MediaType('image', 'jpeg');
+      } else if (ext == 'png') {
+        contentType = MediaType('image', 'png');
+      }
+
       // Add file
-      final file = await http.MultipartFile.fromPath(
+      final file = http.MultipartFile.fromBytes(
         'logo',
-        filePath,
+        fileBytes,
         filename: fileName,
+        contentType: contentType,
       );
       request.files.add(file);
 
       final streamedResponse =
           await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
+
+      if (kDebugMode) {
+        AppLog.d(
+          'Upload response',
+          tag: 'CpanelApi',
+          fields: {
+            'statusCode': response.statusCode,
+            'body': response.body.length > 500
+                ? '${response.body.substring(0, 500)}...'
+                : response.body,
+          },
+        );
+      }
+
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          if (response.statusCode != 200 && decoded['status'] == null) {
+            decoded['status'] = 'error';
+          }
+          return decoded;
+        }
+      } catch (_) {
+        // Fall through to a normalized response below.
+      }
+
+      if (response.statusCode != 200) {
+        return {
+          'status': 'error',
+          'message': 'Upload failed (${response.statusCode}).',
+        };
+      }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -1131,4 +1255,3 @@ class CpanelApiService {
     return null;
   }
 }
-

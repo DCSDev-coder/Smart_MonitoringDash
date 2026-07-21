@@ -130,9 +130,11 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
       // Show loading indicator
       AppToast.show(context, 'Uploading logo...');
 
+      final bytes = await image.readAsBytes();
+
       final result = await CpanelApiService.instance.uploadLogo(
         siteId: siteId,
-        filePath: image.path,
+        fileBytes: bytes,
         fileName: image.name,
       );
 
@@ -142,9 +144,7 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         final newUrl = result['url']?.toString();
         if (newUrl != null) {
           setState(() {
-            // Update local site info so the UI refreshes
-            CpanelApiService.instance.currentSite?['company_logo_path'] =
-                newUrl;
+            CpanelApiService.instance.updateCurrentSiteLogo(newUrl);
           });
         }
         showDialog(

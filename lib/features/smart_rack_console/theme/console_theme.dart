@@ -27,19 +27,19 @@ class ConsoleTheme {
 
   // ─── Background Colors ─────────────────────────────────────────────────────
   static Color appBg(BuildContext context) =>
-      isDark(context) ? const Color(0xFF03142E) : const Color(0xFFF4F8FD);
+      isDark(context) ? const Color(0xFF090A0F) : const Color(0xFFF4F8FD);
 
   static Color panelBg(BuildContext context) =>
-      isDark(context) ? const Color(0xFF071B3A) : const Color(0xFFFFFFFF);
+      isDark(context) ? const Color(0xFF12141A) : const Color(0xFFFFFFFF);
 
   static Color cardBg(BuildContext context) =>
-      isDark(context) ? const Color(0xFF0A2348) : const Color(0xFFFFFFFF);
+      isDark(context) ? const Color(0xFF1A1C23) : const Color(0xFFFFFFFF);
 
   static Color innerSurface(BuildContext context) =>
-      isDark(context) ? const Color(0xFF091A35) : const Color(0xFFF7FAFE);
+      isDark(context) ? const Color(0xFF16181F) : const Color(0xFFF7FAFE);
 
   static Color softBlueSurface(BuildContext context) =>
-      isDark(context) ? const Color(0xFF071B3A) : const Color(0xFFEAF3FF);
+      isDark(context) ? const Color(0xFF151B25) : const Color(0xFFEAF3FF);
 
   // ─── Accent Colors ─────────────────────────────────────────────────────────
   static Color primaryBlue(BuildContext context) =>
@@ -72,38 +72,38 @@ class ConsoleTheme {
 
   // ─── Text Colors ───────────────────────────────────────────────────────────
   static Color textPrimary(BuildContext context) =>
-      isDark(context) ? const Color(0xFFF4F8FF) : const Color(0xFF183153);
+      isDark(context) ? const Color(0xFFF8F9FA) : const Color(0xFF183153);
 
   static Color textSecondary(BuildContext context) =>
-      isDark(context) ? const Color(0xFFC7D8F5) : const Color(0xFF355072);
+      isDark(context) ? const Color(0xFFB0B5BF) : const Color(0xFF355072);
 
   static Color textTertiary(BuildContext context) =>
-      isDark(context) ? const Color(0xFF8EA6C9) : const Color(0xFF5B7696);
+      isDark(context) ? const Color(0xFF808691) : const Color(0xFF5B7696);
 
   static Color textMuted(BuildContext context) =>
-      isDark(context) ? const Color(0xFF6D83A7) : const Color(0xFF7E94AE);
+      isDark(context) ? const Color(0xFF606670) : const Color(0xFF7E94AE);
 
   static Color textInverse(BuildContext context) =>
       isDark(context) ? const Color(0xFFFFFFFF) : const Color(0xFFFFFFFF);
 
   // ─── Borders and Divider Colors ───────────────────────────────────────────
   static Color cardBorder(BuildContext context) => isDark(context)
-      ? const Color(0x384E88FF) // rgba(78, 136, 255, 0.22)
+      ? const Color(0x1FFFFFFF) // rgba(255, 255, 255, 0.12)
       : const Color(0x244E88FF); // rgba(78, 136, 255, 0.14)
 
   static Color divider(BuildContext context) => isDark(context)
-      ? const Color(0x1F96BEFF) // rgba(150, 190, 255, 0.12)
+      ? const Color(0x14FFFFFF) // rgba(255, 255, 255, 0.08)
       : const Color(0x1F5678AA); // rgba(86, 120, 170, 0.12)
 
   static Color strongDivider(BuildContext context) => isDark(context)
-      ? const Color(0x47508CFF) // rgba(80, 140, 255, 0.28)
+      ? const Color(0x24FFFFFF) // rgba(255, 255, 255, 0.14)
       : const Color(0x333764B4); // rgba(55, 100, 180, 0.20)
 
   // ─── Gradients ─────────────────────────────────────────────────────────────
   static Gradient pageBgGradient(BuildContext context) {
     return isDark(context)
         ? const LinearGradient(
-            colors: [Color(0xFF071B3A), Color(0xFF05152D)],
+            colors: [Color(0xFF12141A), Color(0xFF0A0C10)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           )
@@ -117,7 +117,7 @@ class ConsoleTheme {
   static Gradient cardBgGradient(BuildContext context) {
     return isDark(context)
         ? const LinearGradient(
-            colors: [Color(0xFF0A2348), Color(0xFF071B3A)],
+            colors: [Color(0xFF1C1E26), Color(0xFF14161C)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           )

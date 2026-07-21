@@ -44,7 +44,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late bool _canViewReport;
   late bool _canViewRack;
   late bool _canViewControl;
-  final bool _canViewCctv = false; // Add if needed later
   late bool _canControlDoors;
   late bool _canChangeSettings;
   late bool _canManageUsers;
@@ -82,7 +81,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
         "can_view_report": _canViewReport ? 1 : 0,
         "can_view_rack": _canViewRack ? 1 : 0,
         "can_view_control": _canViewControl ? 1 : 0,
-        "can_view_cctv": _canViewCctv ? 1 : 0,
         "can_control_doors": _canControlDoors ? 1 : 0,
         "can_change_settings": _canChangeSettings ? 1 : 0,
         "can_manage_users": _canManageUsers ? 1 : 0,
@@ -194,7 +192,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                           'USERNAME',
                           style: TextStyle(
                             color: isLight
-                                ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                ? AppTheme.lightTextPrimary
+                                    .withValues(alpha: 0.5)
                                 : Colors.white.withValues(alpha: 0.5),
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -217,7 +216,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
                           'ACCOUNT MODE',
                           style: TextStyle(
                             color: isLight
-                                ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                ? AppTheme.lightTextPrimary
+                                    .withValues(alpha: 0.5)
                                 : Colors.white.withValues(alpha: 0.5),
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -227,14 +227,15 @@ class _EditUserScreenState extends State<EditUserScreen> {
                         const SizedBox(height: 12),
                         _buildPermToggle('Rack Console Mode', _isRackConsole,
                             _setRackConsoleMode),
-                            
+
                         if (!_isRackConsole) ...[
                           const SizedBox(height: 36),
                           Text(
                             'PERMISSIONS',
                             style: TextStyle(
                               color: isLight
-                                  ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                  ? AppTheme.lightTextPrimary
+                                      .withValues(alpha: 0.5)
                                   : Colors.white.withValues(alpha: 0.5),
                               fontSize: 12,
                               fontWeight: FontWeight.w800,

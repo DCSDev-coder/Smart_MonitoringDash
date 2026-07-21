@@ -23,9 +23,6 @@ import 'features/dashboard/dashboard_v2_screen.dart';
 import 'features/smart_rack_console/smart_rack_console_shell.dart';
 import 'features/admin/admin_webview_screen.dart';
 import 'features/admin/manage_users_screen.dart';
-// import 'features/cctv/cctv_screen.dart';
-// import 'features/cctv/cctv_config_manager.dart';
-// import 'features/cctv/cctv_settings_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/auth/welcome_screen.dart';
 import 'features/auth/setup_user_screen.dart';
@@ -256,15 +253,6 @@ class CigApp extends StatelessWidget {
           scrollBehavior: MyScrollBehavior(),
           initialRoute: '/boot',
           onGenerateRoute: (settings) {
-            // CCTV Settings route hidden for compilation
-            /*
-            if (settings.name == '/cctv_settings') {
-               final args = settings.arguments as Map<String, dynamic>;
-               return _slideFromRightRoute<Map<String, dynamic>>(
-                 CctvSettingsScreen(initialConfig: args),
-               );
-            }
-            */
             if (settings.name == '/manage_users') {
               return _slideFromRightRoute<void>(const _ManageUsersGate());
             }
@@ -329,8 +317,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
-
-  // final GlobalKey<CctvScreenState> _cctvKey = GlobalKey<CctvScreenState>();
   final GlobalKey _mobileSettingsKey = GlobalKey();
   final GlobalKey _desktopSettingsKey = GlobalKey();
   late AnimationController _headerController;
@@ -351,11 +337,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   String? _companyLogoUrl() {
-    final site = CpanelApiService.instance.currentSite;
-    if (site == null) return null;
-    final logo = site['company_logo_path']?.toString() ?? '';
-    if (logo.trim().isEmpty) return null;
-    return '${CpanelApiService.baseAssetUrl}$logo';
+    return CpanelApiService.instance.currentCompanyLogoUrl();
   }
 
   int _getTotalNotifications() {
@@ -606,7 +588,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                                           originRect:
                                               SettingsOverlay.rectFromKey(
                                                   _mobileSettingsKey),
-                                          // onCctvConfig: _handleCctvSettings,
                                           onUploadLogo: _handleLogoUpload,
                                           onGoHome: () => _onNavTapped(0),
                                         ),
@@ -874,9 +855,11 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       // Show loading indicator
       AppToast.show(context, 'Uploading logo...');
 
+      final bytes = await image.readAsBytes();
+
       final result = await CpanelApiService.instance.uploadLogo(
         siteId: siteId,
-        filePath: image.path,
+        fileBytes: bytes,
         fileName: image.name,
       );
 
@@ -886,9 +869,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         final newUrl = result['url']?.toString();
         if (newUrl != null) {
           setState(() {
-            // Update local site info so the UI refreshes
-            CpanelApiService.instance.currentSite?['company_logo_path'] =
-                newUrl;
+            CpanelApiService.instance.updateCurrentSiteLogo(newUrl);
           });
         }
         showDialog(

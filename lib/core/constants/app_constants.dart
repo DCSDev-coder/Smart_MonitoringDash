@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 class AppConstants {
   AppConstants._();
 
-  // ─── Server ─────────────────────────────────────────────────────────────────
+  // Server
   /// Fallback IP used if no Server IP is provided.
   static const String defaultBaseUrl = '219.92.246.237';
 
-  // ─── Auth Endpoints ─────────────────────────────────────────────────────────
+  // Auth Endpoints
   static const String loginPath = '/itom/sys/login';
 
-  // ─── Data Polling Endpoints ──────────────────────────────────────────────────
+  // Data Polling Endpoints
   static const String sysInfoPath = '/itom/sys/global/setting/sysInfo';
   static const String cabinetEnvPath = '/itom/assets/cabinet/cabinetEnv';
   static const String tempHumTopNPath =
@@ -46,7 +46,7 @@ class AppConstants {
       '/itom/monitor/collectControlNode/view/listPowerEnv';
   static const String rangeDataPath = '/itom/server/dataTest/range';
 
-  // ─── Resource Capacity & Door Endpoints (5326-2.har) ─────────────────────────
+  // Resource Capacity & Door Endpoints
   static const String redisInfoPath = '/itom/sys/actuator/redis/info';
   static const String redisMemoryPath = '/itom/sys/actuator/redis/memoryInfo';
   static const String gateListPath = '/itom/access/gate/listByLocationId';
@@ -55,22 +55,17 @@ class AppConstants {
   static const String openCloseDoorPath = '/itom/access/log/openClose';
   static const String accessLogPath = '/itom/access/log/list';
 
-  // ─── CCTV Endpoints ─────────────────────────────────────────────────────────
-  static const String cameraListPath = '/itom/camera/forCabinet';
-  static const String cameraGroupPath = '/itom/cameraGroup/list';
-  static const String cameraRestartPath = '/itom/camera/restart';
-
   static const String xSignGetPowerToday = '5001D427E80676284EA058A7556F65B9';
   static const String xSignGetPowerMonth = 'CBA99513ABC9F1C2687F04C2AD0AD860';
 
-  // ─── Polling ─────────────────────────────────────────────────────────────────
+  // Polling
   static const Duration pollInterval = Duration(seconds: 15);
 
-  // ─── Secure Storage Keys ─────────────────────────────────────────────────────
+  // Secure Storage Keys
   static const String keyAccessToken = 'x_access_token';
   static const String keyUsername = 'username';
 
-  // ─── Layout Helpers ──────────────────────────────────────────────────────────
+  // Layout Helpers
   /// The height of the floating app header content (~56px) plus its vertical
   /// margins (8px top + 8px bottom). Screens should add this on top of the
   /// system status bar to ensure content is never hidden by the header.
@@ -108,7 +103,7 @@ class AppConstants {
         (critical ? 60.0 : 0.0);
   }
 
-  // ─── Misc ────────────────────────────────────────────────────────────────────
+  // Misc
   static String timestamp() =>
       (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
 }

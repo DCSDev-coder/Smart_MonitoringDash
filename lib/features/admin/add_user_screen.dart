@@ -27,7 +27,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
   bool _canViewReport = false;
   bool _canViewRack = false;
   bool _canViewControl = false;
-  final bool _canViewCctv = false;
   bool _canControlDoors = false;
   bool _canChangeSettings = false;
   bool _canManageUsers = false;
@@ -85,7 +84,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
         "can_view_report": _canViewReport ? 1 : 0,
         "can_view_rack": _canViewRack ? 1 : 0,
         "can_view_control": _canViewControl ? 1 : 0,
-        "can_view_cctv": _canViewCctv ? 1 : 0,
         "can_control_doors": _canControlDoors ? 1 : 0,
         "can_change_settings": _canChangeSettings ? 1 : 0,
         "can_manage_users": _canManageUsers ? 1 : 0,
@@ -205,7 +203,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
                           'ACCOUNT MODE',
                           style: TextStyle(
                             color: isLight
-                                ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                ? AppTheme.lightTextPrimary
+                                    .withValues(alpha: 0.5)
                                 : Colors.white.withValues(alpha: 0.5),
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -215,14 +214,15 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         const SizedBox(height: 12),
                         _buildPermToggle('Rack Console Mode', _isRackConsole,
                             _setRackConsoleMode),
-                            
+
                         if (!_isRackConsole) ...[
                           const SizedBox(height: 36),
                           Text(
                             'PERMISSIONS',
                             style: TextStyle(
                               color: isLight
-                                  ? AppTheme.lightTextPrimary.withValues(alpha: 0.5)
+                                  ? AppTheme.lightTextPrimary
+                                      .withValues(alpha: 0.5)
                                   : Colors.white.withValues(alpha: 0.5),
                               fontSize: 12,
                               fontWeight: FontWeight.w800,

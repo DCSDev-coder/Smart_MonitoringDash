@@ -6,10 +6,12 @@ import '../../core/controllers/app_theme_controller.dart';
 import '../../core/security/app_lock_controller.dart';
 import '../../core/security/secure_action_session.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_log.dart';
 import '../../features/dashboard/widgets/dashboard_typography.dart';
 import '../../features/settings/control_presets_screen.dart';
 import '../../features/settings/export_pdf_screen.dart';
 import '../../features/smart_rack_console/services/rack_console_preferences.dart';
+import 'safe_network_image.dart';
 import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
 import 'secure_action_guard.dart';
@@ -36,7 +38,6 @@ class SettingsOverlay {
   static Future<void> show(
     BuildContext context, {
     Rect? originRect,
-    VoidCallback? onCctvConfig,
     Future<void> Function()? onUploadLogo,
     VoidCallback? onGoHome,
   }) {
@@ -48,7 +49,6 @@ class SettingsOverlay {
           // returns the user back to the settings overlay.
           nav.pushNamed('/manage_users');
         },
-        onCctvConfig: onCctvConfig,
         onUploadLogo: onUploadLogo,
         onGoHome: onGoHome,
       ),
@@ -58,13 +58,11 @@ class SettingsOverlay {
 
 class _SettingsOverlayRoute extends PopupRoute<void> {
   final VoidCallback onManageUsers;
-  final VoidCallback? onCctvConfig;
   final Future<void> Function()? onUploadLogo;
   final VoidCallback? onGoHome;
 
   _SettingsOverlayRoute({
     required this.onManageUsers,
-    this.onCctvConfig,
     this.onUploadLogo,
     this.onGoHome,
   });
@@ -90,7 +88,6 @@ class _SettingsOverlayRoute extends PopupRoute<void> {
   ) {
     return _SettingsOverlayPage(
       onManageUsers: onManageUsers,
-      onCctvConfig: onCctvConfig,
       onUploadLogo: onUploadLogo,
       onGoHome: onGoHome,
     );
@@ -116,13 +113,11 @@ class _SettingsOverlayRoute extends PopupRoute<void> {
 
 class _SettingsOverlayPage extends StatelessWidget {
   final VoidCallback onManageUsers;
-  final VoidCallback? onCctvConfig;
   final Future<void> Function()? onUploadLogo;
   final VoidCallback? onGoHome;
 
   const _SettingsOverlayPage({
     required this.onManageUsers,
-    this.onCctvConfig,
     this.onUploadLogo,
     this.onGoHome,
   });
@@ -163,7 +158,6 @@ class _SettingsOverlayPage extends StatelessWidget {
                     child: _SettingsPanel(
                       onClose: () => Navigator.of(context).pop(),
                       onManageUsers: onManageUsers,
-                      onCctvConfig: onCctvConfig,
                       onUploadLogo: onUploadLogo,
                       onGoHome: onGoHome,
                     ),
@@ -181,14 +175,12 @@ class _SettingsOverlayPage extends StatelessWidget {
 class _SettingsPanel extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onManageUsers;
-  final VoidCallback? onCctvConfig;
   final Future<void> Function()? onUploadLogo;
   final VoidCallback? onGoHome;
 
   const _SettingsPanel({
     required this.onClose,
     required this.onManageUsers,
-    this.onCctvConfig,
     this.onUploadLogo,
     this.onGoHome,
   });
@@ -202,6 +194,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   int? _portalUserId;
   bool _loadingUser = true;
   bool _updatingAppLock = false;
+  bool _loggedLogoPermission = false;
 
   bool get _canManageUsers {
     final site = CpanelApiService.instance.currentSite;
@@ -241,18 +234,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         CpanelApiService.instance.isTruthyFlag(site['can_view_control']);
   }
 
-  /*
-  bool get _canViewCctv {
-    final site = CpanelApiService.instance.currentSite;
-    if (site == null) return true; // Default to true if site not loaded
-    final v = site['can_view_cctv'];
-    if (v == null) return true;
-    if (v is bool) return v;
-    if (v is num) return v != 0;
-    final s = v.toString().trim().toLowerCase();
-    return s == '1' || s == 'true' || s == 'yes';
+  bool get _canChangeSettings {
+    return CpanelApiService.instance
+        .canCurrentSiteChangeSettings(portalUserId: _portalUserId);
   }
-  */
 
   @override
   void initState() {
@@ -287,67 +272,87 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     final current = AppThemeController.instance.themeMode;
     final isLight = Theme.of(context).brightness == Brightness.light;
 
-    Widget buildBtn(ThemeMode mode, String label, IconData icon) {
-      final isSelected = current == mode;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () async {
-            await AppThemeController.instance.setThemeMode(mode);
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : (isLight
-                      ? const Color(0xFFF0F0F0)
-                      : const Color(0xFF1E242B)),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.transparent,
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  icon,
-                  size: 24,
-                  color: isSelected
-                      ? Colors.white
-                      : (isLight ? Colors.black54 : Colors.white54),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected
-                        ? Colors.white
-                        : (isLight ? Colors.black87 : Colors.white70),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    int getIndex() {
+      if (current == ThemeMode.light) return 0;
+      if (current == ThemeMode.system) return 1;
+      return 2;
     }
 
+    final int selectedIndex = getIndex();
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Row(
-        children: [
-          buildBtn(ThemeMode.light, 'Light', Icons.light_mode_rounded),
-          const SizedBox(width: 8),
-          buildBtn(ThemeMode.system, 'System', Icons.settings_suggest_rounded),
-          const SizedBox(width: 8),
-          buildBtn(ThemeMode.dark, 'Dark', Icons.dark_mode_rounded),
-        ],
+      padding:
+          const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 16, right: 16),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: isLight ? const Color(0xFFE5E5EA) : const Color(0xFF1E242B),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double itemWidth = constraints.maxWidth / 3;
+            return Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  left: selectedIndex * itemWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: itemWidth,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(21),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildPillOption(ThemeMode.light, Icons.light_mode_rounded,
+                        selectedIndex == 0),
+                    _buildPillOption(ThemeMode.system,
+                        Icons.brightness_auto_rounded, selectedIndex == 1),
+                    _buildPillOption(ThemeMode.dark, Icons.dark_mode_rounded,
+                        selectedIndex == 2),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPillOption(ThemeMode mode, IconData icon, bool isSelected) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => AppThemeController.instance.setThemeMode(mode),
+        child: Center(
+          child: Icon(
+            icon,
+            size: 24,
+            color: isSelected
+                ? Colors.white
+                : (Theme.of(context).brightness == Brightness.light
+                    ? Colors.black54
+                    : Colors.white54),
+          ),
+        ),
       ),
     );
   }
@@ -361,6 +366,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       _username = user;
       _portalUserId = uid;
       _loadingUser = false;
+      _loggedLogoPermission = false;
     });
   }
 
@@ -539,6 +545,28 @@ class _SettingsPanelState extends State<_SettingsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final site = CpanelApiService.instance.currentSite;
+    final canUploadLogo = widget.onUploadLogo != null && _canChangeSettings;
+    final companyLogoUrl = CpanelApiService.instance.currentCompanyLogoUrl();
+    if (!_loadingUser && !_loggedLogoPermission) {
+      _loggedLogoPermission = true;
+      AppLog.d(
+        'Logo upload permission snapshot',
+        tag: 'SettingsOverlay',
+        fields: {
+          'hasUploadHandler': widget.onUploadLogo != null,
+          'canUploadLogo': canUploadLogo,
+          'portalUserId': _portalUserId,
+          'siteId': site?['site_id'],
+          'ownerUserId': site?['owner_user_id'],
+          'role': site?['role'],
+          'siteRole': site?['site_role'],
+          'memberRole': site?['member_role'],
+          'canChangeSettings': site?['can_change_settings'],
+          'currentUserRole': CpanelApiService.instance.currentUser?['role'],
+        },
+      );
+    }
     final isRackConsole = CpanelApiService.instance.isCurrentSiteRackConsole();
     final isLight = Theme.of(context).brightness == Brightness.light;
     final isWebPreview = !AppLockController.instance.isSupported;
@@ -589,12 +617,56 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               child: SizedBox(
                                 width: 140,
                                 height: 140,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(23),
-                                  child: Image.asset(
-                                    'assets/DCS_Logo/untitled_design.png',
-                                    fit: BoxFit.contain,
-                                  ),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(23),
+                                      child: companyLogoUrl != null
+                                          ? SafeNetworkImage(
+                                              companyLogoUrl,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (_) => Image.asset(
+                                                'assets/DCS_Logo/untitled_design.png',
+                                                fit: BoxFit.contain,
+                                              ),
+                                            )
+                                          : Image.asset(
+                                              'assets/DCS_Logo/untitled_design.png',
+                                              fit: BoxFit.contain,
+                                            ),
+                                    ),
+                                    if (canUploadLogo)
+                                      Positioned.fill(
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: widget.onUploadLogo,
+                                            borderRadius:
+                                                BorderRadius.circular(23),
+                                            child: Container(
+                                              alignment: Alignment.bottomRight,
+                                              padding: const EdgeInsets.all(8),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.edit,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),

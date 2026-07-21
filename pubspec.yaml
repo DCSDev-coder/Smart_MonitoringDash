@@ -44,6 +44,7 @@ dependencies:
   google_fonts: ^8.0.2
   local_auth: ^2.2.0
   image_picker: ^1.1.2
+  http_parser: ^4.1.2
 
 dependency_overrides:
   # Workaround for AGP 8.x JNI merge failures on Windows release builds:

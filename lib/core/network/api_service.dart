@@ -101,7 +101,7 @@ class ApiService {
           if (token != null) {
             _storage[AppConstants.keyAccessToken] = token;
             _storage[AppConstants.keyUsername] = username;
-            
+
             await prefs.remove(_keyLockoutUntil);
             await prefs.remove(_keyFailedAttempts);
             return true;
@@ -109,16 +109,19 @@ class ApiService {
         } else {
           final code = body['code'];
           final message = body['message']?.toString() ?? '';
-          
-          if (code == 50061 || message.contains('验证码无效')) {
+
+          if (code == 50061 || message.contains('éªŒè¯ç æ— æ•ˆ')) {
             final lockoutTime = DateTime.now().add(const Duration(minutes: 5));
-            await prefs.setInt(_keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
+            await prefs.setInt(
+                _keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
             throw 'Server requires CAPTCHA. You are locked out for 5 minutes.';
           } else {
             int failedCount = (prefs.getInt(_keyFailedAttempts) ?? 0) + 1;
             if (failedCount >= 3) {
-              final lockoutTime = DateTime.now().add(const Duration(minutes: 5));
-              await prefs.setInt(_keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
+              final lockoutTime =
+                  DateTime.now().add(const Duration(minutes: 5));
+              await prefs.setInt(
+                  _keyLockoutUntil, lockoutTime.millisecondsSinceEpoch);
               await prefs.setInt(_keyFailedAttempts, failedCount);
               throw 'Too many attempt. Your are locked out for 5 minutes.';
             } else {
@@ -676,15 +679,9 @@ class ApiService {
   /// Fetch whether PUE is "enabled" per backend. Useful for diagnostics only.
   Future<Map<String, dynamic>?> fetchPueAvailability({String? id}) =>
       _get(AppConstants.pueCheckPath, query: id != null ? {'id': id} : null);
-  Future<Map<String, dynamic>?> fetchCameras({int cabinetId = 1}) =>
-      _get(AppConstants.cameraListPath,
-          query: {'cabinetId': cabinetId.toString()});
-  Future<Map<String, dynamic>?> fetchCameraGroups() =>
-      _get(AppConstants.cameraGroupPath);
-  Future<Map<String, dynamic>?> restartCamera(int cameraId) =>
-      _put(AppConstants.cameraRestartPath, {"id": cameraId});
 
-  Future<Map<String, dynamic>?> fetchYearTrend({required int cabinetId, required int trendType}) {
+  Future<Map<String, dynamic>?> fetchYearTrend(
+      {required int cabinetId, required int trendType}) {
     return _get('/itom/monitor/pueRegion/getYearTrendForCabinet', query: {
       'cabinetId': cabinetId.toString(),
       'trendType': trendType.toString(),

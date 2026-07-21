@@ -26,11 +26,7 @@ class ConsoleHeader extends StatelessWidget {
   final VoidCallback? onProfileTap;
 
   String? _companyLogoUrl() {
-    final site = CpanelApiService.instance.currentSite;
-    if (site == null) return null;
-    final logo = site['company_logo_path']?.toString() ?? '';
-    if (logo.trim().isEmpty) return null;
-    return '${CpanelApiService.baseAssetUrl}$logo';
+    return CpanelApiService.instance.currentCompanyLogoUrl();
   }
 
   @override
@@ -40,8 +36,7 @@ class ConsoleHeader extends StatelessWidget {
     return AnimatedBuilder(
       animation: SmartRackConsoleRepository.instance,
       builder: (context, _) {
-        final snapshot =
-            SmartRackConsoleRepository.instance.currentSnapshot();
+        final snapshot = SmartRackConsoleRepository.instance.currentSnapshot();
 
         return Container(
           height: ConsoleTheme.headerHeight,
@@ -63,7 +58,10 @@ class ConsoleHeader extends StatelessWidget {
                       Container(
                         width: ConsoleTheme.sidebarWidth - ConsoleTheme.xl,
                         alignment: Alignment.centerLeft, // Pushes it left
-                        padding: const EdgeInsets.only(top: 7.0, left: 40), // 'top' moves it down. 'left' pushes it right.
+                        padding: const EdgeInsets.only(
+                            top: 7.0,
+                            left:
+                                40), // 'top' moves it down. 'left' pushes it right.
                         child: Row(
                           children: [
                             if (leading != null) ...[
@@ -76,7 +74,8 @@ class ConsoleHeader extends StatelessWidget {
                                       height: 85, // Enlarged logo even more
                                       child: SafeNetworkImage(
                                         logoUrl,
-                                        fit: BoxFit.contain, // Fit and not stretch
+                                        fit: BoxFit
+                                            .contain, // Fit and not stretch
                                         errorBuilder: (context) =>
                                             _buildDefaultProfileIcon(context),
                                       ),
@@ -95,7 +94,8 @@ class ConsoleHeader extends StatelessWidget {
                     children: [
                       // Time display
                       const _LiveTimeDisplay(),
-                      const SizedBox(width: 24), // Expanded gap from time to notification
+                      const SizedBox(
+                          width: 24), // Expanded gap from time to notification
 
                       // Notification Icon with Badge (Alert)
                       _HeaderIconBadge(
@@ -103,7 +103,9 @@ class ConsoleHeader extends StatelessWidget {
                         count: snapshot.issueCount,
                         onTap: onNotificationTap,
                       ),
-                      const SizedBox(width: 20), // Expanded gap from notification to setting
+                      const SizedBox(
+                          width:
+                              20), // Expanded gap from notification to setting
 
                       // Settings/Hamburger Menu Icon Button (3 slice icon)
                       InkWell(
@@ -158,7 +160,8 @@ class ConsoleHeader extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: snapshot.healthColor.withValues(alpha: 0.5),
+                              color:
+                                  snapshot.healthColor.withValues(alpha: 0.5),
                               blurRadius: 6,
                               spreadRadius: 1,
                             ),
@@ -184,7 +187,6 @@ class ConsoleHeader extends StatelessWidget {
       },
     );
   }
-
 
   Widget _buildDefaultProfileIcon(BuildContext context) {
     return SizedBox(
