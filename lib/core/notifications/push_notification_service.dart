@@ -143,12 +143,16 @@ class PushNotificationService {
   PushNotificationService._();
   static final PushNotificationService instance = PushNotificationService._();
 
+  static const Duration _pollerNotificationFreshnessWindow =
+      Duration(minutes: 2);
+
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
   bool _pollerBound = false;
   bool _pollerBaselineCaptured = false;
+  DateTime? _pollerBaselineCapturedAt;
   String? _lastSyncedToken;
   int? _lastSyncedSiteId;
   String? _lastAlarmSignature;
@@ -507,19 +511,39 @@ class PushNotificationService {
     final hadIssue = poller.hasAnyIssue;
     final alarmSignature = _alarmSignature(latestAlarm);
     final doorSignature = _doorLogSignature(latestDoorLog);
+    final freshAlarm = _isAlarmFresh(latestAlarm);
+    final freshDoorLog = _isDoorLogFresh(latestDoorLog);
 
     if (!_pollerBaselineCaptured) {
       _pollerBaselineCaptured = true;
+      _pollerBaselineCapturedAt = DateTime.now();
       _lastHadIssue = hadIssue;
       _lastAlarmSignature = alarmSignature;
       _lastDoorLogSignature = doorSignature;
       return;
     }
 
+    final alarmTimestamp = _parseEventTime(
+      latestAlarm?['alarmRecordTime'] ??
+          latestAlarm?['alarmTime'] ??
+          latestAlarm?['createdAt'],
+    );
+    final doorTimestamp = _parseEventTime(
+      latestDoorLog?['opTime'] ??
+          latestDoorLog?['time'] ??
+          latestDoorLog?['recordTime'],
+    );
+
     final hasNewAlarm =
-        latestAlarm != null && alarmSignature != _lastAlarmSignature;
+        latestAlarm != null &&
+        alarmSignature != _lastAlarmSignature &&
+        freshAlarm &&
+        _isEventAfterPollerBaseline(alarmTimestamp);
     final hasNewDoorLog =
-        latestDoorLog != null && doorSignature != _lastDoorLogSignature;
+        latestDoorLog != null &&
+        doorSignature != _lastDoorLogSignature &&
+        freshDoorLog &&
+        _isEventAfterPollerBaseline(doorTimestamp);
     final newlyEnteredIssueState = hadIssue && !_lastHadIssue;
 
     if (hasNewAlarm) {
@@ -661,6 +685,49 @@ class PushNotificationService {
     ].map((part) => part?.toString() ?? '').join('|');
   }
 
+  DateTime? _parseEventTime(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    if (raw is num) {
+      final millis = raw > 1000000000000 ? raw.toInt() : raw.toInt() * 1000;
+      return DateTime.fromMillisecondsSinceEpoch(millis);
+    }
+
+    var text = raw.toString().trim();
+    if (text.isEmpty) return null;
+    if (text == '--') return null;
+
+    if (!text.contains('T') && text.contains(' ')) {
+      text = text.replaceFirst(' ', 'T');
+    }
+
+    return DateTime.tryParse(text);
+  }
+
+  bool _isEventFresh(DateTime? timestamp) {
+    if (timestamp == null) return false;
+    final now = DateTime.now();
+    final age = now.difference(timestamp);
+    if (age.isNegative) return false;
+    return age <= _pollerNotificationFreshnessWindow;
+  }
+
+  bool _isEventAfterPollerBaseline(DateTime? timestamp) {
+    if (timestamp == null) return false;
+    final baseline = _pollerBaselineCapturedAt;
+    if (baseline == null) return false;
+
+    // Allow a small tolerance for server/device clock skew.
+    return !timestamp.isBefore(baseline.subtract(const Duration(seconds: 5)));
+  }
+
+  bool _isAlarmFresh(Map<String, dynamic>? alarm) {
+    final timestamp = _parseEventTime(
+      alarm?['alarmRecordTime'] ?? alarm?['alarmTime'] ?? alarm?['createdAt'],
+    );
+    return _isEventFresh(timestamp);
+  }
+
   String _alarmNotificationTitle(Map<String, dynamic> alarm) {
     final raw = (alarm['alarmItem'] ??
             alarm['collectControlNodeName'] ??
@@ -768,6 +835,13 @@ class PushNotificationService {
       return '$user triggered $action on $door.';
     }
     return '$user accessed $door.';
+  }
+
+  bool _isDoorLogFresh(Map<String, dynamic>? log) {
+    final timestamp = _parseEventTime(
+      log?['opTime'] ?? log?['time'] ?? log?['recordTime'],
+    );
+    return _isEventFresh(timestamp);
   }
 
   void _handleRemoteMessage(RemoteMessage message) {
