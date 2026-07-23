@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../utils/app_log.dart';
 import '../config/app_config.dart';
 
-class CpanelApiService {
+class CpanelApiService extends ChangeNotifier {
   CpanelApiService._();
   static final CpanelApiService instance = CpanelApiService._();
 
@@ -61,6 +61,7 @@ class CpanelApiService {
     currentSite = null;
     currentAppConfig = null;
     currentUser = null;
+    notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyPortalUsername);
@@ -170,6 +171,7 @@ class CpanelApiService {
     site['company_logo_path'] = logoPathOrUrl;
     site['_company_logo_cache_buster'] =
         DateTime.now().millisecondsSinceEpoch.toString();
+    notifyListeners();
   }
 
   bool isCurrentSiteKiosk([Map<String, dynamic>? site]) {
@@ -264,6 +266,7 @@ class CpanelApiService {
           final user = data['user'];
           if (user is Map<String, dynamic>) {
             currentUser = user;
+            notifyListeners();
           }
           final portalUsername = (user is Map<String, dynamic>)
               ? (user['username']?.toString() ?? username)
@@ -537,6 +540,7 @@ class CpanelApiService {
         final user = decoded['user'];
         if (user is Map<String, dynamic>) {
           currentUser = user;
+          notifyListeners();
         }
         final portalUsername = (user is Map<String, dynamic>)
             ? (user['username']?.toString())
@@ -691,6 +695,7 @@ class CpanelApiService {
     final cfg = Map<String, dynamic>.from(cfgRaw);
 
     currentAppConfig = cfg;
+    notifyListeners();
 
     final out = Map<String, dynamic>.from(site);
     final dahuaCabinetId = cfg['dahua_cabinet_id'] ?? cfg['cabinet_id'];

@@ -31,11 +31,11 @@ class ConsoleHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logoUrl = _companyLogoUrl();
-
     return AnimatedBuilder(
-      animation: SmartRackConsoleRepository.instance,
+      animation:
+          Listenable.merge([SmartRackConsoleRepository.instance, CpanelApiService.instance]),
       builder: (context, _) {
+        final logoUrl = _companyLogoUrl();
         final snapshot = SmartRackConsoleRepository.instance.currentSnapshot();
 
         return Container(
