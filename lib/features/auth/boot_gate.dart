@@ -4,7 +4,6 @@ import '../../core/auth/remember_me_store.dart';
 import '../../core/auth/session_flow_service.dart';
 import '../../core/config/app_config.dart';
 import '../../core/security/app_lock_controller.dart';
-import '../../core/theme/app_theme.dart';
 
 /// App entry gate.
 ///
@@ -120,41 +119,61 @@ class _BootGateState extends State<BootGate> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: AppTheme.bgColor,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'DCS',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 2,
+      backgroundColor: const Color(0xFF060B11),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Image.asset(
+                  'assets/DCS_Logo/untitled_design.png',
+                  width: 220,
+                  fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                _label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              if (_working)
-                SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    color: Theme.of(context).colorScheme.primary,
+            ),
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 28,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.2,
+                    ),
                   ),
-                ),
-            ],
-          ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: SizedBox(
+                      height: 3,
+                      child: _working
+                          ? LinearProgressIndicator(
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.12,
+                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(accent),
+                            )
+                          : Container(
+                              color: accent,
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

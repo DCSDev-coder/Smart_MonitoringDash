@@ -263,8 +263,10 @@ class CigApp extends StatelessWidget {
             '/register': (_) => const SetupUserScreen(),
             '/auth': (_) => const AuthScreen(),
             '/home': (_) => AppConfig.isRackConsoleBuild
-                ? const SmartRackConsoleShell()
-                : const AppLockGate(child: MainShell()),
+                ? const _HomeLaunchHold(child: SmartRackConsoleShell())
+                : const _HomeLaunchHold(
+                    child: AppLockGate(child: MainShell()),
+                  ),
             '/smart_rack_console': (_) {
               if (!AppConfig.isRackConsoleBuild) {
                 return const _PermissionDeniedScreen(
@@ -287,6 +289,86 @@ class MainShell extends StatefulWidget {
 
   @override
   State<MainShell> createState() => _MainShellState();
+}
+
+class _HomeLaunchHold extends StatefulWidget {
+  const _HomeLaunchHold({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_HomeLaunchHold> createState() => _HomeLaunchHoldState();
+}
+
+class _HomeLaunchHoldState extends State<_HomeLaunchHold> {
+  bool _showOverlay = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (mounted) {
+        setState(() => _showOverlay = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return Stack(
+      children: [
+        widget.child,
+        IgnorePointer(
+          ignoring: !_showOverlay,
+          child: AnimatedOpacity(
+            opacity: _showOverlay ? 1 : 0,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOut,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(color: Color(0xFF060B11)),
+              child: SafeArea(
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Image.asset(
+                          'assets/DCS_Logo/untitled_design.png',
+                          width: 220,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 24,
+                      right: 24,
+                      bottom: 28,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: SizedBox(
+                          height: 3,
+                          child: LinearProgressIndicator(
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.12,
+                            ),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(accent),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
@@ -540,35 +622,41 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                                       parent: _headerController,
                                       curve: Curves.easeInOut,
                                     )),
-                                    child: StickyHeaderBar(
-                                      glass: true,
-                                      height:
-                                          AppConstants.headerHeight(context) +
-                                              MediaQuery.of(context)
-                                                  .padding
-                                                  .top,
-                                      topPad:
-                                          MediaQuery.of(context).padding.top,
-                                      contentHeight:
-                                          AppConstants.headerContentHeight,
-                                      topPadding: 10,
-                                      bottomPadding: 10,
-                                      child: DashboardHeader(
-                                        logoUrl: _companyLogoUrl(),
-                                        onNotificationTap: () =>
-                                            _showNotificationsOverlay(context),
-                                        onLogoTap: () => _onNavTapped(0),
-                                        onMenuTap: () => SettingsOverlay.show(
-                                          context,
-                                          originRect:
-                                              SettingsOverlay.rectFromKey(
-                                                  _mobileSettingsKey),
-                                          onUploadLogo: _handleLogoUpload,
-                                          onGoHome: () => _onNavTapped(0),
+                                    child: AnimatedBuilder(
+                                      animation: CpanelApiService.instance,
+                                      builder: (context, _) => StickyHeaderBar(
+                                        glass: true,
+                                        height:
+                                            AppConstants.headerHeight(context) +
+                                                MediaQuery.of(context)
+                                                    .padding
+                                                    .top,
+                                        topPad:
+                                            MediaQuery.of(context).padding.top,
+                                        contentHeight:
+                                            AppConstants.headerContentHeight,
+                                        topPadding: 10,
+                                        bottomPadding: 10,
+                                        child: DashboardHeader(
+                                          logoUrl: _companyLogoUrl(),
+                                          onNotificationTap: () =>
+                                              _showNotificationsOverlay(
+                                                  context),
+                                          onLogoTap: () => _onNavTapped(0),
+                                          onMenuTap: () => SettingsOverlay.show(
+                                            context,
+                                            originRect:
+                                                SettingsOverlay.rectFromKey(
+                                                    _mobileSettingsKey),
+                                            onUploadLogo: _handleLogoUpload,
+                                            onGoHome: () => _onNavTapped(0),
+                                          ),
+                                          settingsIconKey: _mobileSettingsKey,
+                                          notificationCount:
+                                              totalNotifications,
+                                          notificationCriticalGlow:
+                                              criticalGlow,
                                         ),
-                                        settingsIconKey: _mobileSettingsKey,
-                                        notificationCount: totalNotifications,
-                                        notificationCriticalGlow: criticalGlow,
                                       ),
                                     ),
                                   ),
@@ -656,8 +744,11 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                         }
                       },
                       child: AnimatedBuilder(
-                        animation:
-                            Listenable.merge([_poller, _sidebarController]),
+                        animation: Listenable.merge([
+                          _poller,
+                          _sidebarController,
+                          CpanelApiService.instance,
+                        ]),
                         builder: (context, _) {
                           // Keep "Alerts" consistent across the app:
                           final totalNotifications = _getTotalNotifications();

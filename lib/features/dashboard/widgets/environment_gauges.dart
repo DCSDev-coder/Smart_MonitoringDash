@@ -830,6 +830,7 @@ class ArcGauge extends StatelessWidget {
   final List<double> warningStops;
 
   const ArcGauge({
+    super.key,
     required this.progress,
     required this.glowColor,
     required this.baseColor,

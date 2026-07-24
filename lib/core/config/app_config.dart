@@ -42,17 +42,17 @@ class AppConfig {
   // flutter run --dart-define=CPANEL_ASSET_BASE_URL="https://example.com/"
   static const String cpanelBaseUrl = String.fromEnvironment(
     'CPANEL_BASE_URL',
-    defaultValue: 'https://dcstack.my/api/index.php',
+    defaultValue: 'https://portal.dcstack.my/api/index.php',
   );
 
   static const String _cpanelAssetBaseUrlRaw = String.fromEnvironment(
     'CPANEL_ASSET_BASE_URL',
-    defaultValue: 'https://dcstack.my/',
+    defaultValue: 'https://portal.dcstack.my/',
   );
 
   static String get cpanelAssetBaseUrl {
     final v = _cpanelAssetBaseUrlRaw.trim();
-    if (v.isEmpty) return 'https://dcstack.my/';
+    if (v.isEmpty) return 'https://portal.dcstack.my/';
     return v.endsWith('/') ? v : '$v/';
   }
 
@@ -71,7 +71,7 @@ class AppConfig {
 
   // Rack Console self-hosted updater.
   // Example:
-  // --dart-define=UPDATE_MANIFEST_URL="https://dcstack.my/rack-console/latest.json"
+  // --dart-define=UPDATE_MANIFEST_URL="https://portal.dcstack.my/rack-console/latest.json"
   static const String _updateManifestUrlRaw = String.fromEnvironment(
     'UPDATE_MANIFEST_URL',
     defaultValue: '',
