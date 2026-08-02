@@ -23,7 +23,7 @@ void main() {
       cpuUsedPct: 15.0,
       diskUsedPct: 45.0,
       pue: 2.25,
-      doors: [
+      doors: const [
         {
           'id': 1,
           'accessName': 'Test Door 1',
@@ -37,7 +37,7 @@ void main() {
           'lockStatus': 1,
         }
       ],
-      recentDoorLogs: [
+      recentDoorLogs: const [
         {
           'opTime': '2026-06-22 15:30:00',
           'accessName': 'Test Door 1',

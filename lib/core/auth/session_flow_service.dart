@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../config/app_config.dart';
 import '../network/adapter_api_service.dart';
 import '../network/api_service.dart';
 import '../network/cpanel_api_service.dart';

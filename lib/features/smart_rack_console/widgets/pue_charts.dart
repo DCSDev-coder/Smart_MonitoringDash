@@ -120,7 +120,7 @@ class PueTrendLineChart extends StatelessWidget {
             reservedSize: 40,
             interval: 1,
             getTitlesWidget: (value, meta) {
-              final double tolerance = 1e-4;
+              const double tolerance = 1e-4;
               final isInteger = (value - value.round()).abs() < tolerance;
               if (!isInteger) return const SizedBox.shrink();
               final index = value.round();
@@ -423,7 +423,7 @@ class PueConsumptionBarChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 30,
               getTitlesWidget: (value, meta) {
-                final double tolerance = 1e-4;
+                const double tolerance = 1e-4;
                 final isInteger = (value - value.round()).abs() < tolerance;
                 if (!isInteger) return const SizedBox.shrink();
                 final index = value.round();

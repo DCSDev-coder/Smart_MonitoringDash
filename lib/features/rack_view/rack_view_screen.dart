@@ -794,7 +794,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             Row(
               children: [
                 Icon(Icons.flash_on_rounded,
-                    color: Color(0xFF00A174), size: 18 * uiScale),
+                    color: const Color(0xFF00A174), size: 18 * uiScale),
                 const SizedBox(width: 8),
                 Text('INLET',
                     style: TextStyle(
@@ -819,7 +819,7 @@ class _RackViewScreenState extends State<RackViewScreen>
             Text(
               '${_inletP.toStringAsFixed(2)} kW',
               style: TextStyle(
-                color: Color(0xFF00A174),
+                color: const Color(0xFF00A174),
                 fontSize: 38 * uiScale,
                 fontWeight: FontWeight.w900,
                 height: 1.0,
@@ -1129,7 +1129,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                   opacity: animation,
                   child: SizeTransition(
                     sizeFactor: animation,
-                    axisAlignment: -1,
+                    alignment: Alignment.topCenter,
                     child: child,
                   ),
                 );
@@ -1292,7 +1292,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: isOn
-                          ? Color(0xFF00A174).withValues(alpha: 0.18)
+                          ? const Color(0xFF00A174).withValues(alpha: 0.18)
                           : (isLight
                               ? const Color(0xFFE5E7EB)
                               : Colors.white.withValues(alpha: 0.10)),
@@ -1308,7 +1308,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                           isOn ? Icons.power_rounded : Icons.power_off_rounded,
                           size: 18,
                           color: isOn
-                              ? Color(0xFF00A174)
+                              ? const Color(0xFF00A174)
                               : (isLight
                                   ? AppTheme.lightTextSecondary
                                   : Colors.white.withValues(alpha: 0.75)),
@@ -1442,7 +1442,7 @@ class _RackViewScreenState extends State<RackViewScreen>
 
   Widget _statusPill({required bool online, required double uiScale}) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final c = online ? Color(0xFF00A174) : AppTheme.statusError;
+    final c = online ? const Color(0xFF00A174) : AppTheme.statusError;
     return Container(
       padding:
           EdgeInsets.symmetric(horizontal: 16 * uiScale, vertical: 6 * uiScale),
@@ -1553,7 +1553,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                           Expanded(
                             child: Text(
                               title.toUpperCase(),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
                                 color: Color(0xFF00A174),
