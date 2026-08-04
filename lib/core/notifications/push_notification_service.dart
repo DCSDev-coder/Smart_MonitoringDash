@@ -238,7 +238,6 @@ class PushNotificationService {
   String? _lastSyncedToken;
   int? _lastSyncedSiteId;
   String? _lastAlarmSignature;
-  String? _lastDoorLogSignature;
   bool _lastHadIssue = false;
   Future<void>? _initFuture;
   final ValueNotifier<PushDiagnosticsSnapshot> diagnostics =
@@ -778,21 +777,15 @@ class PushNotificationService {
 
     final poller = GlobalStatusPoller.instance;
     final latestAlarm = _latestMap(poller.recentAlarms);
-    final latestDoorLog = poller.recentDoorLogs.isEmpty
-        ? null
-        : Map<String, dynamic>.from(poller.recentDoorLogs.first);
     final hadIssue = poller.hasAnyIssue;
     final alarmSignature = _alarmSignature(latestAlarm);
-    final doorSignature = _doorLogSignature(latestDoorLog);
     final freshAlarm = _isAlarmFresh(latestAlarm);
-    final freshDoorLog = _isDoorLogFresh(latestDoorLog);
 
     if (!_pollerBaselineCaptured) {
       _pollerBaselineCaptured = true;
       _pollerBaselineCapturedAt = DateTime.now();
       _lastHadIssue = hadIssue;
       _lastAlarmSignature = alarmSignature;
-      _lastDoorLogSignature = doorSignature;
       return;
     }
 
@@ -801,22 +794,12 @@ class PushNotificationService {
           latestAlarm?['alarmTime'] ??
           latestAlarm?['createdAt'],
     );
-    final doorTimestamp = _parseEventTime(
-      latestDoorLog?['opTime'] ??
-          latestDoorLog?['time'] ??
-          latestDoorLog?['recordTime'],
-    );
 
     final hasNewAlarm =
         latestAlarm != null &&
         alarmSignature != _lastAlarmSignature &&
         freshAlarm &&
         _isEventAfterPollerBaseline(alarmTimestamp);
-    final hasNewDoorLog =
-        latestDoorLog != null &&
-        doorSignature != _lastDoorLogSignature &&
-        freshDoorLog &&
-        _isEventAfterPollerBaseline(doorTimestamp);
     final newlyEnteredIssueState = hadIssue && !_lastHadIssue;
 
     if (hasNewAlarm) {
@@ -833,17 +816,8 @@ class PushNotificationService {
       );
     }
 
-    if (hasNewDoorLog) {
-      await _showLocalNotification(
-        id: doorSignature.hashCode,
-        title: 'Door Access Activity',
-        body: _doorLogNotificationBody(latestDoorLog),
-      );
-    }
-
     _lastHadIssue = hadIssue;
     _lastAlarmSignature = alarmSignature;
-    _lastDoorLogSignature = doorSignature;
   }
 
   Future<void> deactivateCurrentTokenIfPossible() async {
@@ -1085,47 +1059,6 @@ class PushNotificationService {
     final total =
         totalRaw is num ? totalRaw.toInt() : int.tryParse('$totalRaw') ?? 0;
     return total > 0 && normal != total;
-  }
-
-  String? _doorLogSignature(Map<String, dynamic>? log) {
-    if (log == null) return null;
-    return [
-      log['opTime'],
-      log['time'],
-      log['opUser'],
-      log['openUser'],
-      log['userName'],
-      log['username'],
-      log['accessName'],
-      log['doorName'],
-      log['channel'],
-      log['opType'],
-    ].map((part) => part?.toString() ?? '').join('|');
-  }
-
-  String _doorLogNotificationBody(Map<String, dynamic> log) {
-    final user = (log['opUser'] ??
-            log['openUser'] ??
-            log['userName'] ??
-            log['username'] ??
-            log['user'] ??
-            'A user')
-        .toString()
-        .trim();
-    final door =
-        (log['accessName'] ?? log['doorName'] ?? 'a door').toString().trim();
-    final action = (log['opType'] ?? '').toString().trim();
-    if (action.isNotEmpty) {
-      return '$user triggered $action on $door.';
-    }
-    return '$user accessed $door.';
-  }
-
-  bool _isDoorLogFresh(Map<String, dynamic>? log) {
-    final timestamp = _parseEventTime(
-      log?['opTime'] ?? log?['time'] ?? log?['recordTime'],
-    );
-    return _isEventFresh(timestamp);
   }
 
   void _handleRemoteMessage(RemoteMessage message) {
