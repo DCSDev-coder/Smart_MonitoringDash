@@ -30,6 +30,82 @@ bool _isLocalWebDevHost() {
   return host.isEmpty || host == 'localhost' || host == '127.0.0.1';
 }
 
+class PushDiagnosticsSnapshot {
+  final String permissionStatus;
+  final bool? hasApnsToken;
+  final bool? hasFcmToken;
+  final bool tokenRegisteredToBackend;
+  final String lastSyncStatus;
+  final DateTime? lastSyncAt;
+  final DateTime? lastForegroundMessageAt;
+  final DateTime? lastBackgroundMessageAt;
+  final DateTime? lastOpenedFromPushAt;
+  final DateTime? lastRefreshAt;
+  final String? tokenPreview;
+  final int? siteId;
+
+  const PushDiagnosticsSnapshot({
+    this.permissionStatus = 'unknown',
+    this.hasApnsToken,
+    this.hasFcmToken,
+    this.tokenRegisteredToBackend = false,
+    this.lastSyncStatus = 'Not started',
+    this.lastSyncAt,
+    this.lastForegroundMessageAt,
+    this.lastBackgroundMessageAt,
+    this.lastOpenedFromPushAt,
+    this.lastRefreshAt,
+    this.tokenPreview,
+    this.siteId,
+  });
+
+  PushDiagnosticsSnapshot copyWith({
+    String? permissionStatus,
+    bool? hasApnsToken,
+    bool? hasFcmToken,
+    bool? tokenRegisteredToBackend,
+    String? lastSyncStatus,
+    DateTime? lastSyncAt,
+    bool clearLastSyncAt = false,
+    DateTime? lastForegroundMessageAt,
+    bool clearLastForegroundMessageAt = false,
+    DateTime? lastBackgroundMessageAt,
+    bool clearLastBackgroundMessageAt = false,
+    DateTime? lastOpenedFromPushAt,
+    bool clearLastOpenedFromPushAt = false,
+    DateTime? lastRefreshAt,
+    bool clearLastRefreshAt = false,
+    String? tokenPreview,
+    bool clearTokenPreview = false,
+    int? siteId,
+    bool clearSiteId = false,
+  }) {
+    return PushDiagnosticsSnapshot(
+      permissionStatus: permissionStatus ?? this.permissionStatus,
+      hasApnsToken: hasApnsToken ?? this.hasApnsToken,
+      hasFcmToken: hasFcmToken ?? this.hasFcmToken,
+      tokenRegisteredToBackend:
+          tokenRegisteredToBackend ?? this.tokenRegisteredToBackend,
+      lastSyncStatus: lastSyncStatus ?? this.lastSyncStatus,
+      lastSyncAt: clearLastSyncAt ? null : (lastSyncAt ?? this.lastSyncAt),
+      lastForegroundMessageAt: clearLastForegroundMessageAt
+          ? null
+          : (lastForegroundMessageAt ?? this.lastForegroundMessageAt),
+      lastBackgroundMessageAt: clearLastBackgroundMessageAt
+          ? null
+          : (lastBackgroundMessageAt ?? this.lastBackgroundMessageAt),
+      lastOpenedFromPushAt: clearLastOpenedFromPushAt
+          ? null
+          : (lastOpenedFromPushAt ?? this.lastOpenedFromPushAt),
+      lastRefreshAt:
+          clearLastRefreshAt ? null : (lastRefreshAt ?? this.lastRefreshAt),
+      tokenPreview:
+          clearTokenPreview ? null : (tokenPreview ?? this.tokenPreview),
+      siteId: clearSiteId ? null : (siteId ?? this.siteId),
+    );
+  }
+}
+
 Future<void> _ensureBackgroundLocalNotificationsInitialized() async {
   if (_backgroundLocalNotificationsInitialized) return;
 
@@ -112,6 +188,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   AppLog.d('Background message received', tag: 'Push', fields: {
     'messageId': message.messageId,
   });
+  PushNotificationService.instance._updateDiagnostics(
+    (current) => current.copyWith(
+      lastBackgroundMessageAt: DateTime.now(),
+      lastRefreshAt: DateTime.now(),
+    ),
+  );
 
   // Android can receive data-only FCM messages in the background. Convert
   // them into a visible notification so alerts are not silently dropped.
@@ -159,6 +241,8 @@ class PushNotificationService {
   String? _lastDoorLogSignature;
   bool _lastHadIssue = false;
   Future<void>? _initFuture;
+  final ValueNotifier<PushDiagnosticsSnapshot> diagnostics =
+      ValueNotifier(const PushDiagnosticsSnapshot());
 
   Future<void> init() {
     if (_initialized) return Future.value();
@@ -247,6 +331,12 @@ class PushNotificationService {
       tag: 'Push',
       fields: {'status': settings.authorizationStatus.name},
     );
+    _updateDiagnostics(
+      (current) => current.copyWith(
+        permissionStatus: settings.authorizationStatus.name,
+        lastRefreshAt: DateTime.now(),
+      ),
+    );
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       final androidPlugin =
@@ -268,6 +358,12 @@ class PushNotificationService {
       AppLog.d('Foreground message', tag: 'Push', fields: {
         'keys': message.data.keys.toList(),
       });
+      _updateDiagnostics(
+        (current) => current.copyWith(
+          lastForegroundMessageAt: DateTime.now(),
+          lastRefreshAt: DateTime.now(),
+        ),
+      );
       await _showForegroundNotification(message);
     });
 
@@ -275,6 +371,12 @@ class PushNotificationService {
       AppLog.d('Opened from background push', tag: 'Push', fields: {
         'keys': message.data.keys.toList(),
       });
+      _updateDiagnostics(
+        (current) => current.copyWith(
+          lastOpenedFromPushAt: DateTime.now(),
+          lastRefreshAt: DateTime.now(),
+        ),
+      );
       _handleRemoteMessage(message);
     });
 
@@ -283,6 +385,12 @@ class PushNotificationService {
       AppLog.d('Opened from terminated push', tag: 'Push', fields: {
         'keys': initialMessage.data.keys.toList(),
       });
+      _updateDiagnostics(
+        (current) => current.copyWith(
+          lastOpenedFromPushAt: DateTime.now(),
+          lastRefreshAt: DateTime.now(),
+        ),
+      );
       _handleRemoteMessage(initialMessage);
     }
 
@@ -328,8 +436,21 @@ class PushNotificationService {
             'hasApnsToken': apnsToken != null && apnsToken.isNotEmpty,
           },
         );
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            hasApnsToken: apnsToken != null && apnsToken.isNotEmpty,
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
       } catch (e) {
         AppLog.w('APNs token check failed', tag: 'Push', error: e);
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            hasApnsToken: false,
+            lastSyncStatus: 'APNs token check failed',
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
       }
     }
 
@@ -341,8 +462,24 @@ class PushNotificationService {
     AppLog.d('FCM token resolved', tag: 'Push');
     if (token == null || token.isEmpty) {
       AppLog.w('FCM token is empty', tag: 'Push');
+      _updateDiagnostics(
+        (current) => current.copyWith(
+          hasFcmToken: false,
+          tokenRegisteredToBackend: false,
+          lastSyncStatus: 'FCM token empty',
+          lastRefreshAt: DateTime.now(),
+          clearTokenPreview: true,
+        ),
+      );
       return;
     }
+    _updateDiagnostics(
+      (current) => current.copyWith(
+        hasFcmToken: true,
+        tokenPreview: _tokenPreview(token),
+        lastRefreshAt: DateTime.now(),
+      ),
+    );
     await syncTokenWithBackendIfPossible(token: token);
   }
 
@@ -373,10 +510,23 @@ class PushNotificationService {
               'hasApnsToken': apnsToken != null && apnsToken.isNotEmpty,
             },
           );
+          _updateDiagnostics(
+            (current) => current.copyWith(
+              hasApnsToken: apnsToken != null && apnsToken.isNotEmpty,
+              lastRefreshAt: DateTime.now(),
+            ),
+          );
         }
         resolved = await FirebaseMessaging.instance.getToken();
       } catch (e) {
         AppLog.w('Device token resolve attempt failed', tag: 'Push', error: e);
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            lastSyncStatus: 'Device token resolve failed',
+            tokenRegisteredToBackend: false,
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
       }
       if (resolved != null && resolved.isNotEmpty) return resolved;
       await Future.delayed(retryInterval);
@@ -405,16 +555,42 @@ class PushNotificationService {
 
       if (siteId == null || siteId <= 0) {
         AppLog.d('Token sync skipped: site not ready', tag: 'Push');
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            tokenRegisteredToBackend: false,
+            lastSyncStatus: 'Site not ready',
+            lastRefreshAt: DateTime.now(),
+            clearSiteId: true,
+          ),
+        );
         return false;
       }
       if (authToken == null || authToken.isEmpty) {
         AppLog.d('Token sync skipped: portal auth token missing', tag: 'Push');
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            siteId: siteId,
+            tokenRegisteredToBackend: false,
+            lastSyncStatus: 'Portal auth token missing',
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
         return false;
       }
 
       final resolvedToken = await _resolveDeviceToken(token: token);
       if (resolvedToken == null || resolvedToken.isEmpty) {
         AppLog.d('Token sync skipped: device token missing', tag: 'Push');
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            siteId: siteId,
+            hasFcmToken: false,
+            tokenRegisteredToBackend: false,
+            lastSyncStatus: 'Device token missing',
+            lastRefreshAt: DateTime.now(),
+            clearTokenPreview: true,
+          ),
+        );
         return false;
       }
 
@@ -425,6 +601,17 @@ class PushNotificationService {
 
       if (_lastSyncedToken == resolvedToken && _lastSyncedSiteId == siteId) {
         AppLog.d('Token sync skipped: already registered', tag: 'Push');
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            siteId: siteId,
+            hasFcmToken: true,
+            tokenPreview: _tokenPreview(resolvedToken),
+            tokenRegisteredToBackend: true,
+            lastSyncStatus: 'Already registered',
+            lastSyncAt: DateTime.now(),
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
         return true;
       }
 
@@ -439,16 +626,102 @@ class PushNotificationService {
         _lastSyncedSiteId = siteId;
         AppLog.i('Token registered to adapter',
             tag: 'Push', fields: {'siteId': siteId});
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            siteId: siteId,
+            hasFcmToken: true,
+            tokenPreview: _tokenPreview(resolvedToken),
+            tokenRegisteredToBackend: true,
+            lastSyncStatus: 'Registered to backend',
+            lastSyncAt: DateTime.now(),
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
         return true;
       } else {
         AppLog.w('Token register to adapter failed', tag: 'Push', fields: {
           'siteId': siteId,
         });
+        _updateDiagnostics(
+          (current) => current.copyWith(
+            siteId: siteId,
+            hasFcmToken: true,
+            tokenPreview: _tokenPreview(resolvedToken),
+            tokenRegisteredToBackend: false,
+            lastSyncStatus: 'Backend registration failed',
+            lastSyncAt: DateTime.now(),
+            lastRefreshAt: DateTime.now(),
+          ),
+        );
         return false;
       }
     } catch (e) {
       AppLog.w('Token sync error', tag: 'Push', error: e);
+      _updateDiagnostics(
+        (current) => current.copyWith(
+          tokenRegisteredToBackend: false,
+          lastSyncStatus: 'Token sync error',
+          lastSyncAt: DateTime.now(),
+          lastRefreshAt: DateTime.now(),
+        ),
+      );
       return false;
+    }
+  }
+
+  Future<PushDiagnosticsSnapshot> refreshDiagnostics() async {
+    if (AppConfig.isRackConsoleBuild) {
+      final snapshot = diagnostics.value.copyWith(
+        lastSyncStatus: 'Push disabled for rack console build',
+        lastRefreshAt: DateTime.now(),
+      );
+      diagnostics.value = snapshot;
+      return snapshot;
+    }
+
+    if (_isLocalWebDevHost()) {
+      final snapshot = diagnostics.value.copyWith(
+        lastSyncStatus: 'Push skipped on local web host',
+        lastRefreshAt: DateTime.now(),
+      );
+      diagnostics.value = snapshot;
+      return snapshot;
+    }
+
+    try {
+      await init();
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      bool? hasApnsToken;
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        hasApnsToken = apnsToken != null && apnsToken.isNotEmpty;
+      }
+      final token = await _resolveDeviceToken(timeout: const Duration(seconds: 3));
+      final site = CpanelApiService.instance.currentSite;
+      final siteId = int.tryParse(
+        (site?['site_id'] ?? site?['id'] ?? '').toString(),
+      );
+      final canSync = await syncTokenWithBackendIfPossible(token: token);
+      final snapshot = diagnostics.value.copyWith(
+        permissionStatus: settings.authorizationStatus.name,
+        hasApnsToken: hasApnsToken ?? diagnostics.value.hasApnsToken,
+        hasFcmToken: token != null && token.isNotEmpty,
+        tokenPreview: token == null || token.isEmpty ? null : _tokenPreview(token),
+        tokenRegisteredToBackend: canSync,
+        siteId: siteId,
+        lastRefreshAt: DateTime.now(),
+      );
+      diagnostics.value = snapshot;
+      return snapshot;
+    } catch (e) {
+      final snapshot = diagnostics.value.copyWith(
+        lastSyncStatus: 'Diagnostics refresh failed',
+        tokenRegisteredToBackend: false,
+        lastRefreshAt: DateTime.now(),
+      );
+      diagnostics.value = snapshot;
+      AppLog.w('Diagnostics refresh failed', tag: 'Push', error: e);
+      return snapshot;
     }
   }
 
@@ -627,6 +900,17 @@ class PushNotificationService {
     } catch (e) {
       AppLog.w('Token removal error', tag: 'Push', error: e);
     }
+  }
+
+  void _updateDiagnostics(
+    PushDiagnosticsSnapshot Function(PushDiagnosticsSnapshot current) update,
+  ) {
+    diagnostics.value = update(diagnostics.value);
+  }
+
+  String _tokenPreview(String token) {
+    if (token.length <= 12) return token;
+    return '${token.substring(0, 8)}...${token.substring(token.length - 4)}';
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {

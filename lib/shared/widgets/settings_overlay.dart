@@ -17,6 +17,7 @@ import 'reset_password_dialog.dart';
 import 'secure_action_guard.dart';
 import 'set_pin_dialog.dart';
 import '../../core/network/adapter_api_service.dart';
+import '../../core/notifications/push_notification_service.dart';
 import '../utils/app_toast.dart';
 import '../../features/smart_rack_console/theme/console_theme.dart';
 
@@ -538,6 +539,15 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     }
   }
 
+  Future<void> _openPushDiagnostics() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _PushDiagnosticsSheet(),
+    );
+  }
+
   Widget _buildGroup(String title, List<Widget> children, bool isLight) {
     if (children.isEmpty) return const SizedBox.shrink();
 
@@ -868,6 +878,15 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                           !AppLockController.instance.isEnabled,
                                         ),
                               ),
+                            if (!isRackConsole)
+                              _SettingsTile(
+                                title: 'Push Diagnostics',
+                                subtitle:
+                                    'Check APNs, FCM, and backend token registration',
+                                icon: Icons.notifications_active_outlined,
+                                iconColor: const Color(0xFF007AFF),
+                                onTap: _openPushDiagnostics,
+                              ),
                             Column(
                               children: [
                                 _SettingsTile(
@@ -1016,6 +1035,317 @@ class _SettingsTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PushDiagnosticsSheet extends StatefulWidget {
+  const _PushDiagnosticsSheet();
+
+  @override
+  State<_PushDiagnosticsSheet> createState() => _PushDiagnosticsSheetState();
+}
+
+class _PushDiagnosticsSheetState extends State<_PushDiagnosticsSheet> {
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refresh();
+    });
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await PushNotificationService.instance.refreshDiagnostics();
+    } finally {
+      if (mounted) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
+  String _fmt(DateTime? value) {
+    if (value == null) return 'Not seen';
+    final local = value.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+  }
+
+  String _boolText(bool? value) {
+    if (value == null) return 'Unknown';
+    return value ? 'Yes' : 'No';
+  }
+
+  Color _statusColor(BuildContext context, bool ok) {
+    return ok ? const Color(0xFF18A957) : Theme.of(context).colorScheme.error;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final background = isLight ? const Color(0xFFF5F7FB) : const Color(0xFF0B1118);
+    final card = isLight ? Colors.white : const Color(0xFF121A23);
+    final text = isLight ? Colors.black : Colors.white;
+    final subtext = isLight
+        ? Colors.black.withValues(alpha: 0.62)
+        : Colors.white.withValues(alpha: 0.62);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Material(
+          color: background,
+          borderRadius: BorderRadius.circular(24),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.72,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 16, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Push Diagnostics',
+                          style: bitcount(
+                            context,
+                            fontSize: 18,
+                            color: text,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _refreshing ? null : _refresh,
+                        icon: _refreshing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Icon(Icons.refresh_rounded, color: text),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(Icons.close_rounded, color: text),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ValueListenableBuilder<PushDiagnosticsSnapshot>(
+                    valueListenable: PushNotificationService.instance.diagnostics,
+                    builder: (context, snapshot, _) {
+                      final registered = snapshot.tokenRegisteredToBackend;
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        children: [
+                          _DiagnosticsCard(
+                            title: 'Current Status',
+                            background: card,
+                            children: [
+                              _DiagnosticsRow(
+                                label: 'Permission',
+                                value: snapshot.permissionStatus,
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'APNs token',
+                                value: _boolText(snapshot.hasApnsToken),
+                                valueColor: snapshot.hasApnsToken == null
+                                    ? subtext
+                                    : _statusColor(
+                                        context,
+                                        snapshot.hasApnsToken == true,
+                                      ),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'FCM token',
+                                value: _boolText(snapshot.hasFcmToken),
+                                valueColor: snapshot.hasFcmToken == null
+                                    ? subtext
+                                    : _statusColor(
+                                        context,
+                                        snapshot.hasFcmToken == true,
+                                      ),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Backend registered',
+                                value: registered ? 'Yes' : 'No',
+                                valueColor: _statusColor(context, registered),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Site ID',
+                                value: snapshot.siteId?.toString() ?? 'Unknown',
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Token preview',
+                                value: snapshot.tokenPreview ?? 'Unavailable',
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Last sync status',
+                                value: snapshot.lastSyncStatus,
+                                valueColor: text,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _DiagnosticsCard(
+                            title: 'Recent Activity',
+                            background: card,
+                            children: [
+                              _DiagnosticsRow(
+                                label: 'Last refresh',
+                                value: _fmt(snapshot.lastRefreshAt),
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Last backend sync',
+                                value: _fmt(snapshot.lastSyncAt),
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Foreground push seen',
+                                value: _fmt(snapshot.lastForegroundMessageAt),
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Background push seen',
+                                value: _fmt(snapshot.lastBackgroundMessageAt),
+                                valueColor: text,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Opened from push',
+                                value: _fmt(snapshot.lastOpenedFromPushAt),
+                                valueColor: text,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: card,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Text(
+                              'Use this screen on iPhone before testing. If APNs token is No or Unknown, the device is not ready for iOS remote push. If FCM token is Yes but Backend registered is No, the adapter is not storing the iPhone token. If all show Yes but background push never appears, the issue is in APNs delivery.',
+                              style: TextStyle(
+                                color: subtext,
+                                fontSize: 13,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DiagnosticsCard extends StatelessWidget {
+  final String title;
+  final Color background;
+  final List<Widget> children;
+
+  const _DiagnosticsCard({
+    required this.title,
+    required this.background,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final titleColor = isLight ? Colors.black87 : Colors.white;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: bitcount(
+              context,
+              fontSize: 14,
+              color: titleColor,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticsRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const _DiagnosticsRow({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final labelColor = isLight
+        ? Colors.black.withValues(alpha: 0.56)
+        : Colors.white.withValues(alpha: 0.56);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: labelColor,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
