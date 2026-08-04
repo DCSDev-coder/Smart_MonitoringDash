@@ -3,6 +3,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/auth/session_flow_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/security/secure_action_session.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass_confirm_dialog.dart';
 import '../../shared/widgets/reset_password_dialog.dart';
@@ -76,7 +77,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: ListView(
               padding: EdgeInsets.fromLTRB(
-                  24, AppConstants.headerClearance(context), 24, 24),
+                24,
+                AppConstants.headerClearance(context),
+                24,
+                24,
+              ),
               children: [
                 // Profile Header
                 Center(
@@ -86,18 +91,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.1),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 2),
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 2,
+                          ),
                         ),
-                        child: Icon(Icons.person_rounded,
-                            size: 50,
-                            color: Theme.of(context).colorScheme.primary),
+                        child: Icon(
+                          Icons.person_rounded,
+                          size: 50,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -112,7 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text(
                         'System Specialist',
                         style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 14),
+                          color: AppTheme.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
@@ -143,6 +152,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: 'Set Door PIN',
                   subtitle: 'Update your 4-digit PIN for Smart Rack unlock',
                   onTap: () => _handleSetPin(context),
+                ),
+                const SizedBox(height: 12),
+                _buildProfileTile(
+                  icon: Icons.delete_forever_rounded,
+                  title: 'Delete Account',
+                  subtitle: 'Permanently remove this Smart Rack account',
+                  textColor: AppTheme.statusError,
+                  iconColor: AppTheme.statusError,
+                  onTap: () => _handleDeleteAccount(context),
                 ),
                 const SizedBox(height: 12),
                 _buildProfileTile(
@@ -217,9 +235,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           subtitle,
           style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
-        trailing: trailing ??
-            const Icon(Icons.chevron_right_rounded,
-                color: AppTheme.textSecondary),
+        trailing:
+            trailing ??
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.textSecondary,
+            ),
       ),
     );
   }
@@ -281,6 +302,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
       }
+    }
+  }
+
+  Future<void> _handleDeleteAccount(BuildContext context) async {
+    final username = _username;
+    if (username == null || username.isEmpty) {
+      AppToast.show(context, 'User profile is not loaded yet.');
+      return;
+    }
+
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Please authenticate to delete your account.',
+    );
+    if (!authorized) return;
+    if (!context.mounted) return;
+
+    final confirm = await showGlassConfirmDialog(
+      context,
+      title: 'DELETE ACCOUNT',
+      message:
+          'This permanently removes your Smart Rack account access, signs you out, and cannot be undone.',
+      confirmText: 'Delete Account',
+      confirmColor: AppTheme.statusError,
+    );
+
+    if (confirm != true) return;
+
+    final res = await CpanelApiService.instance.deleteMyAccount();
+    final ok = res?['status']?.toString() == 'success';
+    if (!context.mounted) return;
+
+    if (!ok) {
+      final msg = res?['message']?.toString() ?? 'Failed to delete account.';
+      AppToast.showError(context, msg);
+      return;
+    }
+
+    await SessionFlowService.instance.signOut();
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
     }
   }
 }

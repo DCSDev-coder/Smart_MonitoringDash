@@ -104,10 +104,7 @@ class CpanelApiService extends ChangeNotifier {
         normalized == 'site admin';
   }
 
-  bool isCurrentUserSiteOwner({
-    Map<String, dynamic>? site,
-    int? portalUserId,
-  }) {
+  bool isCurrentUserSiteOwner({Map<String, dynamic>? site, int? portalUserId}) {
     final target = site ?? currentSite;
     if (target == null) return false;
 
@@ -154,8 +151,8 @@ class CpanelApiService extends ChangeNotifier {
 
     final resolved =
         rawLogo.startsWith('http://') || rawLogo.startsWith('https://')
-            ? rawLogo
-            : '$baseAssetUrl$rawLogo';
+        ? rawLogo
+        : '$baseAssetUrl$rawLogo';
 
     final revision = target['_company_logo_cache_buster']?.toString().trim();
     if (revision == null || revision.isEmpty) return resolved;
@@ -169,8 +166,8 @@ class CpanelApiService extends ChangeNotifier {
     if (site == null) return;
 
     site['company_logo_path'] = logoPathOrUrl;
-    site['_company_logo_cache_buster'] =
-        DateTime.now().millisecondsSinceEpoch.toString();
+    site['_company_logo_cache_buster'] = DateTime.now().millisecondsSinceEpoch
+        .toString();
     notifyListeners();
   }
 
@@ -231,21 +228,21 @@ class CpanelApiService extends ChangeNotifier {
         AppLog.d('[CpanelApi] Attempting login for: $username');
       }
       // ... existing code ...
-      final response = await http.post(
-        Uri.parse("$baseUrl?action=login"),
-        // Use form-encoded body for maximum compatibility with PHP/cPanel
-        // backends (which often read `$_POST` rather than JSON input).
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: <String, String>{
-          "action": "login",
-          "username": username,
-          "password": password,
-          // Many PHP backends treat this as a truthy "1"/"0" string.
-          "remember_me": rememberMe ? "1" : "0",
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=login"),
+            // Use form-encoded body for maximum compatibility with PHP/cPanel
+            // backends (which often read `$_POST` rather than JSON input).
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: <String, String>{
+              "action": "login",
+              "username": username,
+              "password": password,
+              // Many PHP backends treat this as a truthy "1"/"0" string.
+              "remember_me": rememberMe ? "1" : "0",
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -255,8 +252,9 @@ class CpanelApiService extends ChangeNotifier {
           if (token != null && token.isNotEmpty) {
             _portalAuthToken = token;
             if (kDebugMode) {
-              final prefix =
-                  token.length <= 16 ? token : token.substring(0, 16);
+              final prefix = token.length <= 16
+                  ? token
+                  : token.substring(0, 16);
               AppLog.d(
                 '[CpanelApi] Portal token set (masked)',
                 fields: {'prefix': prefix, 'length': token.length},
@@ -288,7 +286,7 @@ class CpanelApiService extends ChangeNotifier {
         } catch (_) {
           return {
             "status": "error",
-            "message": "Server returned status ${response.statusCode}"
+            "message": "Server returned status ${response.statusCode}",
           };
         }
       }
@@ -317,10 +315,7 @@ class CpanelApiService extends ChangeNotifier {
             "Accept": "application/json",
             ...?headers,
           },
-          body: jsonEncode({
-            "action": action,
-            ...fields,
-          }),
+          body: jsonEncode({"action": action, ...fields}),
         )
         .timeout(timeout);
 
@@ -336,14 +331,13 @@ class CpanelApiService extends ChangeNotifier {
       final response = await http
           .post(
             Uri.parse("$baseUrl?action=verify_pin"),
-            headers: _authHeaders(extra: {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-            }),
-            body: jsonEncode({
-              "action": "verify_pin",
-              "pin": pin,
-            }),
+            headers: _authHeaders(
+              extra: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+            ),
+            body: jsonEncode({"action": "verify_pin", "pin": pin}),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -365,14 +359,13 @@ class CpanelApiService extends ChangeNotifier {
       final response = await http
           .post(
             Uri.parse("$baseUrl?action=set_pin"),
-            headers: _authHeaders(extra: {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-            }),
-            body: jsonEncode({
-              "action": "set_pin",
-              "pin": pin,
-            }),
+            headers: _authHeaders(
+              extra: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+            ),
+            body: jsonEncode({"action": "set_pin", "pin": pin}),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -422,10 +415,7 @@ class CpanelApiService extends ChangeNotifier {
 
       final url = Uri.parse("$baseUrl?action=get_sites");
       final response = await http
-          .get(
-            url,
-            headers: _authHeaders(),
-          )
+          .get(url, headers: _authHeaders())
           .timeout(const Duration(seconds: 10));
 
       if (kDebugMode) {
@@ -447,7 +437,8 @@ class CpanelApiService extends ChangeNotifier {
           final sites = decoded['sites'];
           if (kDebugMode) {
             AppLog.d(
-                '[CpanelApi] Sites Count: ${sites is List ? sites.length : 0}');
+              '[CpanelApi] Sites Count: ${sites is List ? sites.length : 0}',
+            );
           }
           return sites is List ? sites : <dynamic>[];
         }
@@ -507,8 +498,9 @@ class CpanelApiService extends ChangeNotifier {
         await http
             .post(
               Uri.parse("$baseUrl?action=logout"),
-              headers:
-                  _authHeaders(extra: {"Content-Type": "application/json"}),
+              headers: _authHeaders(
+                extra: {"Content-Type": "application/json"},
+              ),
               body: jsonEncode({"action": "logout"}),
             )
             .timeout(const Duration(seconds: 10));
@@ -520,19 +512,46 @@ class CpanelApiService extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>?> deleteMyAccount() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=delete_my_account"),
+            headers: _authHeaders(
+              extra: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+            ),
+            body: jsonEncode({"action": "delete_my_account"}),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Delete my account error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>?> authMe({required String token}) async {
     try {
       // Only persist the token in memory after the backend accepts it.
-      final response = await http.get(
-        Uri.parse("$baseUrl?action=auth_me"),
-        headers: <String, String>{
-          ..._authHeaders(extra: const {"Accept": "application/json"}),
-          if ((_portalAuthToken == null || _portalAuthToken!.isEmpty))
-            'Authorization': 'Bearer $token',
-          if ((_portalAuthToken == null || _portalAuthToken!.isEmpty))
-            'X-Auth-Token': token,
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse("$baseUrl?action=auth_me"),
+            headers: <String, String>{
+              ..._authHeaders(extra: const {"Accept": "application/json"}),
+              if ((_portalAuthToken == null || _portalAuthToken!.isEmpty))
+                'Authorization': 'Bearer $token',
+              if ((_portalAuthToken == null || _portalAuthToken!.isEmpty))
+                'X-Auth-Token': token,
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic> && decoded['status'] == 'success') {
@@ -550,7 +569,9 @@ class CpanelApiService extends ChangeNotifier {
             : null;
         if (portalUsername != null) {
           await _persistPortalSession(
-              username: portalUsername, userId: portalUserId);
+            username: portalUsername,
+            userId: portalUserId,
+          );
         }
         return decoded;
       }
@@ -567,18 +588,13 @@ class CpanelApiService extends ChangeNotifier {
     return null;
   }
 
-  Future<Map<String, dynamic>?> fetchAppConfig({
-    required int siteId,
-  }) async {
+  Future<Map<String, dynamic>?> fetchAppConfig({required int siteId}) async {
     try {
       final response = await http
           .post(
             Uri.parse("$baseUrl?action=app_config&site_id=$siteId"),
             headers: _authHeaders(extra: {"Content-Type": "application/json"}),
-            body: jsonEncode({
-              "action": "app_config",
-              "site_id": siteId,
-            }),
+            body: jsonEncode({"action": "app_config", "site_id": siteId}),
           )
           .timeout(const Duration(seconds: 12));
 
@@ -614,8 +630,11 @@ class CpanelApiService extends ChangeNotifier {
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        AppLog.w('Fetch site control presets error',
-            tag: 'CpanelApi', error: e);
+        AppLog.w(
+          'Fetch site control presets error',
+          tag: 'CpanelApi',
+          error: e,
+        );
       }
     }
     return null;
@@ -675,8 +694,11 @@ class CpanelApiService extends ChangeNotifier {
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        AppLog.w('Set default site control preset error',
-            tag: 'CpanelApi', error: e);
+        AppLog.w(
+          'Set default site control preset error',
+          tag: 'CpanelApi',
+          error: e,
+        );
       }
     }
     return null;
@@ -688,7 +710,8 @@ class CpanelApiService extends ChangeNotifier {
   ) {
     if (appConfigEnvelope == null) return Map<String, dynamic>.from(site);
 
-    final cfgRaw = appConfigEnvelope['config'] ??
+    final cfgRaw =
+        appConfigEnvelope['config'] ??
         appConfigEnvelope['result'] ??
         appConfigEnvelope;
     if (cfgRaw is! Map) return Map<String, dynamic>.from(site);
@@ -737,13 +760,14 @@ class CpanelApiService extends ChangeNotifier {
         if (raw is! Map) continue;
         final member = Map<String, dynamic>.from(raw);
         final memberUserId = int.tryParse(member['user_id']?.toString() ?? '');
-        final memberUsername = (member['username'] ??
-                member['member_username'] ??
-                member['member_user'] ??
-                '')
-            .toString()
-            .trim()
-            .toLowerCase();
+        final memberUsername =
+            (member['username'] ??
+                    member['member_username'] ??
+                    member['member_user'] ??
+                    '')
+                .toString()
+                .trim()
+                .toLowerCase();
 
         if (portalUserId != null &&
             memberUserId != null &&
@@ -938,8 +962,11 @@ class CpanelApiService extends ChangeNotifier {
       if (decoded != null) return decoded;
     } catch (e) {
       if (kDebugMode) {
-        AppLog.w('Reset password by username error',
-            tag: 'CpanelApi', error: e);
+        AppLog.w(
+          'Reset password by username error',
+          tag: 'CpanelApi',
+          error: e,
+        );
       }
     }
     return null;
@@ -991,8 +1018,9 @@ class CpanelApiService extends ChangeNotifier {
         final response = await http
             .post(
               Uri.parse("$baseUrl?action=$action"),
-              headers:
-                  _authHeaders(extra: {"Content-Type": "application/json"}),
+              headers: _authHeaders(
+                extra: {"Content-Type": "application/json"},
+              ),
               body: jsonEncode({
                 "action": action,
                 "site_id": siteId,
@@ -1040,10 +1068,7 @@ class CpanelApiService extends ChangeNotifier {
           .post(
             Uri.parse("$baseUrl?action=update_maintenance"),
             headers: _authHeaders(extra: {"Content-Type": "application/json"}),
-            body: jsonEncode({
-              "site_id": siteId,
-              "maintenance_date": date,
-            }),
+            body: jsonEncode({"site_id": siteId, "maintenance_date": date}),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -1208,8 +1233,9 @@ class CpanelApiService extends ChangeNotifier {
       );
       request.files.add(file);
 
-      final streamedResponse =
-          await request.send().timeout(const Duration(seconds: 30));
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
       final response = await http.Response.fromStream(streamedResponse);
 
       if (kDebugMode) {
@@ -1247,8 +1273,11 @@ class CpanelApiService extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (kDebugMode) {
-          AppLog.d('Upload result',
-              tag: 'CpanelApi', fields: {'status': '$data'});
+          AppLog.d(
+            'Upload result',
+            tag: 'CpanelApi',
+            fields: {'status': '$data'},
+          );
         }
         return data;
       }

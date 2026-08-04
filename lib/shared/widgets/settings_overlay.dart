@@ -29,8 +29,12 @@ class SettingsOverlay {
     if (!ro.hasSize) return null;
 
     final topLeft = ro.localToGlobal(Offset.zero);
-    final rect =
-        Rect.fromLTWH(topLeft.dx, topLeft.dy, ro.size.width, ro.size.height);
+    final rect = Rect.fromLTWH(
+      topLeft.dx,
+      topLeft.dy,
+      ro.size.width,
+      ro.size.height,
+    );
     // A tiny inflation reads better than animating from a 24x24 icon box.
     return rect.inflate(6);
   }
@@ -144,7 +148,11 @@ class _SettingsOverlayPage extends StatelessWidget {
             child: Padding(
               padding: isMobile
                   ? const EdgeInsets.only(
-                      top: 76, left: 16, right: 16, bottom: 24)
+                      top: 76,
+                      left: 16,
+                      right: 16,
+                      bottom: 24,
+                    )
                   : const EdgeInsets.only(top: 76, right: 24, bottom: 24),
               child: SizedBox(
                 width: panelWidth,
@@ -153,8 +161,10 @@ class _SettingsOverlayPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   clipBehavior: Clip.antiAlias,
                   child: ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(maxWidth: 380, maxHeight: 650),
+                    constraints: const BoxConstraints(
+                      maxWidth: 380,
+                      maxHeight: 650,
+                    ),
                     child: _SettingsPanel(
                       onClose: () => Navigator.of(context).pop(),
                       onManageUsers: onManageUsers,
@@ -229,14 +239,16 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     final role = site['role']?.toString().trim().toLowerCase();
     if (role == 'admin') return true;
 
-    return CpanelApiService.instance
-            .isTruthyFlag(site['can_change_settings']) ||
+    return CpanelApiService.instance.isTruthyFlag(
+          site['can_change_settings'],
+        ) ||
         CpanelApiService.instance.isTruthyFlag(site['can_view_control']);
   }
 
   bool get _canChangeSettings {
-    return CpanelApiService.instance
-        .canCurrentSiteChangeSettings(portalUserId: _portalUserId);
+    return CpanelApiService.instance.canCurrentSiteChangeSettings(
+      portalUserId: _portalUserId,
+    );
   }
 
   @override
@@ -281,8 +293,12 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     final int selectedIndex = getIndex();
 
     return Padding(
-      padding:
-          const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 16, right: 16),
+      padding: const EdgeInsets.only(
+        top: 12.0,
+        bottom: 8.0,
+        left: 16,
+        right: 16,
+      ),
       child: Container(
         height: 50,
         decoration: BoxDecoration(
@@ -321,12 +337,21 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildPillOption(ThemeMode.light, Icons.light_mode_rounded,
-                        selectedIndex == 0),
-                    _buildPillOption(ThemeMode.system,
-                        Icons.brightness_auto_rounded, selectedIndex == 1),
-                    _buildPillOption(ThemeMode.dark, Icons.dark_mode_rounded,
-                        selectedIndex == 2),
+                    _buildPillOption(
+                      ThemeMode.light,
+                      Icons.light_mode_rounded,
+                      selectedIndex == 0,
+                    ),
+                    _buildPillOption(
+                      ThemeMode.system,
+                      Icons.brightness_auto_rounded,
+                      selectedIndex == 1,
+                    ),
+                    _buildPillOption(
+                      ThemeMode.dark,
+                      Icons.dark_mode_rounded,
+                      selectedIndex == 2,
+                    ),
                   ],
                 ),
               ],
@@ -425,8 +450,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       String? failureMessage;
       bool success = false;
       if (AdapterApiService.instance.isConfigured) {
-        final adapterRes =
-            await AdapterApiService.instance.setPinDetailed(result);
+        final adapterRes = await AdapterApiService.instance.setPinDetailed(
+          result,
+        );
         success = adapterRes != null && adapterRes['status'] == 'success';
         failureMessage = adapterRes?['message']?.toString();
       }
@@ -440,21 +466,56 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           SecureActionSession.instance.clear();
           AppToast.showSuccess(context, 'Door Access PIN updated securely');
         } else {
-          AppToast.showError(
-            context,
-            failureMessage ?? 'Failed to set PIN.',
-          );
+          AppToast.showError(context, failureMessage ?? 'Failed to set PIN.');
         }
       }
     }
   }
 
-  Future<void> _openControlPresets() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ControlPresetsScreen(),
-      ),
+  Future<void> _handleDeleteAccount() async {
+    final username = _username;
+    if (username == null || username.isEmpty) {
+      AppToast.showError(context, 'User profile is not loaded yet.');
+      return;
+    }
+
+    final authorized = await SecureActionGuard.ensureAuthorized(
+      context,
+      reason: 'Please authenticate to delete your account.',
     );
+    if (!authorized) return;
+    if (!mounted) return;
+
+    final confirm = await showGlassConfirmDialog(
+      context,
+      title: 'DELETE ACCOUNT',
+      message:
+          'This permanently removes your Smart Rack account access, signs you out, and cannot be undone.',
+      confirmText: 'Delete Account',
+      confirmColor: AppTheme.statusError,
+    );
+
+    if (confirm != true) return;
+
+    final res = await CpanelApiService.instance.deleteMyAccount();
+    final ok = res?['status']?.toString() == 'success';
+    if (!mounted) return;
+
+    if (!ok) {
+      final msg = res?['message']?.toString() ?? 'Failed to delete account.';
+      AppToast.showError(context, msg);
+      return;
+    }
+
+    await SessionFlowService.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
+  }
+
+  Future<void> _openControlPresets() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ControlPresetsScreen()));
   }
 
   Future<void> _handleAppLockChanged(bool enabled) async {
@@ -531,7 +592,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                       color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
-                    )
+                    ),
                   ]
                 : null,
           ),
@@ -642,18 +703,20 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                           color: Colors.transparent,
                                           child: InkWell(
                                             onTap: widget.onUploadLogo,
-                                            borderRadius:
-                                                BorderRadius.circular(23),
+                                            borderRadius: BorderRadius.circular(
+                                              23,
+                                            ),
                                             child: Container(
                                               alignment: Alignment.bottomRight,
                                               padding: const EdgeInsets.all(8),
                                               child: Container(
-                                                padding:
-                                                    const EdgeInsets.all(6),
+                                                padding: const EdgeInsets.all(
+                                                  6,
+                                                ),
                                                 decoration: BoxDecoration(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: const Icon(
@@ -709,6 +772,14 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                 iconColor: const Color(0xFF34C759),
                                 onTap: _handleSetPin,
                               ),
+                              _SettingsTile(
+                                title: 'Delete Account',
+                                subtitle:
+                                    'Permanently remove this Smart Rack account',
+                                icon: Icons.delete_forever_rounded,
+                                iconColor: const Color(0xFFFF3B30),
+                                onTap: _handleDeleteAccount,
+                              ),
                             ],
                             isLight),
                       _buildGroup(
@@ -757,12 +828,13 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                         prefs.setUse24HourTime(value);
                                       },
                                       activeThumbColor:
-                                          ConsoleTheme.primaryBlue(context),
+                                          ConsoleTheme.primaryBlue(
+                                        context,
+                                      ),
                                     ),
                                     onTap: () {
                                       prefs.setUse24HourTime(
-                                        !prefs.use24HourTime,
-                                      );
+                                          !prefs.use24HourTime);
                                     },
                                   );
                                 },
@@ -905,13 +977,7 @@ class _SettingsTile extends StatelessWidget {
                   color: iconColor,
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
+                child: Center(child: Icon(icon, color: Colors.white, size: 18)),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -946,10 +1012,7 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               trailing ??
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: chevronColor,
-                  ),
+                  Icon(Icons.chevron_right_rounded, color: chevronColor),
             ],
           ),
         ),
