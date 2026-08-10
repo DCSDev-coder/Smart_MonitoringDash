@@ -1,6 +1,10 @@
 part of 'report_screen.dart';
 
 extension _ReportScreenHealthSecurity on _ReportScreenState {
+  bool get _canUpdateMaintenance {
+    return CpanelApiService.instance.canCurrentSiteChangeSettings();
+  }
+
   Widget _buildMaintenancePage(double hPadding) {
     return Padding(
       padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
@@ -273,20 +277,24 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               ],
             ),
           ),
-          TextButton(
-            onPressed: _pickMaintenanceDate,
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: updateBtnBg,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+          if (_canUpdateMaintenance)
+            TextButton(
+              onPressed: _pickMaintenanceDate,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: updateBtnBg,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
-              textStyle:
-                  const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              child: const Text('Update'),
             ),
-            child: const Text('Update'),
-          ),
         ],
       ),
     );
