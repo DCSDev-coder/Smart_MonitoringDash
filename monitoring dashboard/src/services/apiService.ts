@@ -1,6 +1,9 @@
 import { CompanyItem, CompanyAccount } from '../types';
 
 export const CPANEL_API_URL = 'https://portal.dcstack.my/api/index.php';
+export const DEFAULT_API_USER = 'admin';
+export const DEFAULT_API_PASS = 'Dtct+1234';
+
 const STORAGE_KEY_TOKEN = 'dcstack_api_token';
 const STORAGE_KEY_USER = 'dcstack_api_user';
 
@@ -54,6 +57,18 @@ class ApiService {
 
   isAuthenticated(): boolean {
     return Boolean(this.getAuthToken());
+  }
+
+  /**
+   * Ensures the client has a valid token. If missing, automatically authenticates
+   * using the default credentials (admin / Dtct+1234).
+   */
+  async ensureAuthenticated(): Promise<boolean> {
+    if (this.isAuthenticated()) {
+      return true;
+    }
+    const res = await this.login(DEFAULT_API_USER, DEFAULT_API_PASS);
+    return res.success;
   }
 
   logout() {
@@ -125,19 +140,38 @@ class ApiService {
    * Fetch registered sites from the portal
    */
   async getSites(): Promise<{ success: boolean; sites: ApiSite[]; message?: string }> {
-    const token = this.getAuthToken();
+    let token = this.getAuthToken();
     if (!token) {
-      return { success: false, sites: [], message: 'Not authenticated' };
+      const authOk = await this.ensureAuthenticated();
+      if (!authOk) {
+        return { success: false, sites: [], message: 'Not authenticated' };
+      }
+      token = this.getAuthToken();
     }
 
     try {
-      const response = await fetch(`${CPANEL_API_URL}?action=get_sites`, {
+      let response = await fetch(`${CPANEL_API_URL}?action=get_sites`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
-          'X-Auth-Token': token,
+          'X-Auth-Token': token || '',
         },
       });
+
+      // If token expired or rejected, re-authenticate and retry once
+      if (response.status === 401 || response.status === 403) {
+        const reauth = await this.login(DEFAULT_API_USER, DEFAULT_API_PASS);
+        if (reauth.success && reauth.token) {
+          token = reauth.token;
+          response = await fetch(`${CPANEL_API_URL}?action=get_sites`, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'X-Auth-Token': token || '',
+            },
+          });
+        }
+      }
 
       if (!response.ok) {
         return { success: false, sites: [], message: `HTTP ${response.status}` };
@@ -150,7 +184,7 @@ class ApiService {
 
       return { success: false, sites: [], message: data.message || 'No sites found' };
     } catch (err: any) {
-      return { success: false, sites: [], message: err.message };
+      return { success: false, sites: [], message: err.message || 'Network error' };
     }
   }
 

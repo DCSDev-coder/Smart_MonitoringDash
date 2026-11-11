@@ -66,41 +66,44 @@ export function App() {
   const syncWithApi = async () => {
     setIsSyncingApi(true);
     try {
+      const authOk = await apiService.ensureAuthenticated();
       const res = await apiService.getSites();
-      if (res.success && res.sites.length > 0) {
+      if (res.success) {
         setApiConnected(true);
-        setCompanies((prev) => {
-          const current = prev.length > 0 ? prev : loadCompanies();
-          const updated = [...current];
+        if (res.sites.length > 0) {
+          setCompanies((prev) => {
+            const current = prev.length > 0 ? prev : loadCompanies();
+            const updated = [...current];
 
-          res.sites.forEach((apiSite) => {
-            const mapped = apiService.mapApiSiteToCompany(apiSite);
-            const index = updated.findIndex(
-              (c) =>
-                c.id === mapped.id ||
-                c.openIp === mapped.openIp ||
-                c.name.toLowerCase() === mapped.name.toLowerCase()
-            );
-            if (index !== -1) {
-              updated[index] = {
-                ...updated[index],
-                openIp: mapped.openIp,
-                localIp: mapped.localIp,
-                siteUser: mapped.siteUser,
-                sitePassword: mapped.sitePassword,
-                isBlocked: mapped.isBlocked,
-                lastService: mapped.lastService,
-              };
-            } else {
-              updated.unshift(mapped);
-            }
+            res.sites.forEach((apiSite) => {
+              const mapped = apiService.mapApiSiteToCompany(apiSite);
+              const index = updated.findIndex(
+                (c) =>
+                  c.id === mapped.id ||
+                  c.openIp === mapped.openIp ||
+                  c.name.toLowerCase() === mapped.name.toLowerCase()
+              );
+              if (index !== -1) {
+                updated[index] = {
+                  ...updated[index],
+                  openIp: mapped.openIp,
+                  localIp: mapped.localIp,
+                  siteUser: mapped.siteUser,
+                  sitePassword: mapped.sitePassword,
+                  isBlocked: mapped.isBlocked,
+                  lastService: mapped.lastService,
+                };
+              } else {
+                updated.unshift(mapped);
+              }
+            });
+
+            saveCompanies(updated);
+            return updated;
           });
-
-          saveCompanies(updated);
-          return updated;
-        });
+        }
       } else {
-        setApiConnected(apiService.isAuthenticated());
+        setApiConnected(authOk && apiService.isAuthenticated());
       }
     } catch {
       setApiConnected(false);
