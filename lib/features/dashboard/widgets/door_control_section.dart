@@ -315,20 +315,11 @@ class _DoorTileState extends State<_DoorTile> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: isLight
-                    ? const Color(0xFFF1F5F9)
-                    : Colors.white.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: _DoorLockIcon(isUnlocked: isUnlocked, size: 38),
-              ),
+            _CabinetDoorVisual(
+              isOpen: isUnlocked,
+              isDoubleDoor: rawName.toLowerCase().contains('front'),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 8),
             Text(
               rawName,
               style: TextStyle(
@@ -1378,8 +1369,8 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
 class _DoorLockIcon extends StatelessWidget {
   final bool isUnlocked;
-  final double size;
-  const _DoorLockIcon({required this.isUnlocked, this.size = 28});
+  static const double size = 28;
+  const _DoorLockIcon({required this.isUnlocked});
 
   @override
   Widget build(BuildContext context) {
@@ -1398,5 +1389,196 @@ class _DoorLockIcon extends StatelessWidget {
             : (isLight ? AppTheme.lightTextSecondary : Colors.white54),
       ),
     );
+  }
+}
+
+class _CabinetDoorVisual extends StatelessWidget {
+  final bool isOpen;
+  final bool isDoubleDoor;
+
+  const _CabinetDoorVisual({
+    required this.isOpen,
+    required this.isDoubleDoor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 76,
+      height: 82,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: isOpen ? 1.0 : 0.0),
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeOutCubic,
+        builder: (context, openValue, _) {
+          return CustomPaint(
+            painter: _CabinetDoorPainter(
+              openFactor: openValue,
+              isDoubleDoor: isDoubleDoor,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CabinetDoorPainter extends CustomPainter {
+  final double openFactor;
+  final bool isDoubleDoor;
+
+  _CabinetDoorPainter({
+    required this.openFactor,
+    required this.isDoubleDoor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    const frameMargin = 6.0;
+    final frameRect = Rect.fromLTWH(
+      frameMargin,
+      frameMargin,
+      w - frameMargin * 2,
+      h - frameMargin * 2,
+    );
+
+    // 1. Dark Server Interior Background
+    final interiorPaint = Paint()
+      ..color = const Color(0xFF070B10)
+      ..style = PaintingStyle.fill;
+    final frameRRect =
+        RRect.fromRectAndRadius(frameRect, const Radius.circular(8));
+    canvas.drawRRect(frameRRect, interiorPaint);
+
+    // 2. Interior Server Rack Equipment (illuminated when door is open)
+    if (openFactor > 0.01) {
+      // Glow background
+      final glowPaint = Paint()
+        ..color = const Color(0xFF00C08B).withValues(alpha: 0.22 * openFactor)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      canvas.drawRRect(frameRRect, glowPaint);
+
+      // Server slots horizontal lines
+      final slotPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.12 * openFactor)
+        ..strokeWidth = 1.2;
+      const slotCount = 6;
+      for (int i = 1; i < slotCount; i++) {
+        final y = frameRect.top + (frameRect.height / slotCount) * i;
+        canvas.drawLine(
+          Offset(frameRect.left + 4, y),
+          Offset(frameRect.right - 4, y),
+          slotPaint,
+        );
+      }
+
+      // Blinking / Status LED dots on the rack
+      final ledPaintCyan = Paint()
+        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.85 * openFactor);
+      final ledPaintGreen = Paint()
+        ..color = const Color(0xFF00C08B).withValues(alpha: 0.85 * openFactor);
+      for (int i = 1; i < slotCount; i++) {
+        final y = frameRect.top + (frameRect.height / slotCount) * i - 3;
+        canvas.drawCircle(Offset(frameRect.left + 8, y), 1.5, ledPaintGreen);
+        canvas.drawCircle(Offset(frameRect.left + 14, y), 1.5, ledPaintCyan);
+      }
+    }
+
+    // 3. Draw Cabinet Doors (closed or swinging open)
+    final doorPaint = Paint()
+      ..color = const Color(0xFF141D27)
+      ..style = PaintingStyle.fill;
+    final doorBorder = Paint()
+      ..color = openFactor > 0.5
+          ? const Color(0xFF00C08B).withValues(alpha: 0.6)
+          : const Color(0xFF2A3A4E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+
+    if (isDoubleDoor) {
+      // FRONT 1: Double Door (Swings open left and right)
+      final midX = frameRect.center.dx;
+      final doorW = (frameRect.width / 2) - 1.5;
+
+      // Left Door
+      final leftOpenShift = doorW * 0.65 * openFactor;
+      final leftPath = Path()
+        ..moveTo(frameRect.left + 1, frameRect.top + 1)
+        ..lineTo(
+            midX - 1 - leftOpenShift, frameRect.top + 1 + (4 * openFactor))
+        ..lineTo(
+            midX - 1 - leftOpenShift, frameRect.bottom - 1 - (4 * openFactor))
+        ..lineTo(frameRect.left + 1, frameRect.bottom - 1)
+        ..close();
+      canvas.drawPath(leftPath, doorPaint);
+      canvas.drawPath(leftPath, doorBorder);
+
+      // Right Door
+      final rightOpenShift = doorW * 0.65 * openFactor;
+      final rightPath = Path()
+        ..moveTo(
+            midX + 1 + rightOpenShift, frameRect.top + 1 + (4 * openFactor))
+        ..lineTo(frameRect.right - 1, frameRect.top + 1)
+        ..lineTo(frameRect.right - 1, frameRect.bottom - 1)
+        ..lineTo(midX + 1 + rightOpenShift,
+            frameRect.bottom - 1 - (4 * openFactor))
+        ..close();
+      canvas.drawPath(rightPath, doorPaint);
+      canvas.drawPath(rightPath, doorBorder);
+
+      // Center Handles
+      final handlePaint = Paint()
+        ..color = (openFactor > 0.5 ? const Color(0xFF00C08B) : Colors.white)
+            .withValues(alpha: 0.7)
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      final leftHandleX = midX - 4 - leftOpenShift;
+      final rightHandleX = midX + 4 + rightOpenShift;
+      final handleY = frameRect.center.dy;
+      canvas.drawLine(Offset(leftHandleX, handleY - 6),
+          Offset(leftHandleX, handleY + 6), handlePaint);
+      canvas.drawLine(Offset(rightHandleX, handleY - 6),
+          Offset(rightHandleX, handleY + 6), handlePaint);
+    } else {
+      // BACK 1: Single Door (Swings open from the right towards left)
+      final openShift = (frameRect.width - 2) * 0.55 * openFactor;
+      final singleDoorPath = Path()
+        ..moveTo(frameRect.left + 1, frameRect.top + 1)
+        ..lineTo(frameRect.right - 1 - openShift,
+            frameRect.top + 1 + (5 * openFactor))
+        ..lineTo(frameRect.right - 1 - openShift,
+            frameRect.bottom - 1 - (5 * openFactor))
+        ..lineTo(frameRect.left + 1, frameRect.bottom - 1)
+        ..close();
+      canvas.drawPath(singleDoorPath, doorPaint);
+      canvas.drawPath(singleDoorPath, doorBorder);
+
+      // Door Handle on Right
+      final handlePaint = Paint()
+        ..color = (openFactor > 0.5 ? const Color(0xFF00C08B) : Colors.white)
+            .withValues(alpha: 0.7)
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      final handleX = frameRect.right - 6 - openShift;
+      final handleY = frameRect.center.dy;
+      canvas.drawLine(Offset(handleX, handleY - 8),
+          Offset(handleX, handleY + 8), handlePaint);
+    }
+
+    // 4. Outer Metallic Frame Border
+    final outerFramePaint = Paint()
+      ..color = const Color(0xFF2A3A4E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawRRect(frameRRect, outerFramePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CabinetDoorPainter oldDelegate) {
+    return oldDelegate.openFactor != openFactor ||
+        oldDelegate.isDoubleDoor != isDoubleDoor;
   }
 }

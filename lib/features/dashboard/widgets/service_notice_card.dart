@@ -8,12 +8,14 @@ class ServiceNoticeCard extends StatelessWidget {
   final DateTime? lastService;
   final int cycleDays;
   final VoidCallback onTap;
+  final bool horizontalCalendarMode;
 
   const ServiceNoticeCard({
     super.key,
     required this.lastService,
     required this.cycleDays,
     required this.onTap,
+    this.horizontalCalendarMode = false,
   });
 
   @override
@@ -31,6 +33,141 @@ class ServiceNoticeCard extends StatelessWidget {
     final ringText = clampedLeft?.toString() ?? '--';
     const ringA = Color(0xFFFF8A1F); // orange
     const ringB = Color(0xFF2D7DFF); // blue
+
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final isAlert = (clampedLeft ?? 90) <= 30;
+
+    // Horizontal Desk Calendar Mode for Desktop Redesign
+    if (horizontalCalendarMode) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 1. Mini Desk Calendar Sheet
+                _DeskCalendarSheet(
+                  month: expected != null
+                      ? DateFormat('MMM').format(expected).toUpperCase()
+                      : 'FEB',
+                  day: expected != null ? DateFormat('dd').format(expected) : '03',
+                  year: expected != null
+                      ? DateFormat('yyyy').format(expected)
+                      : '2027',
+                  isAlert: isAlert,
+                ),
+                const SizedBox(width: 18),
+                // 2. Schedule Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Next Scheduled Maintenance',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          // Days Left Countdown Pill
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (isAlert
+                                      ? const Color(0xFFFF3B30)
+                                      : const Color(0xFF00C08B))
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: (isAlert
+                                        ? const Color(0xFFFF3B30)
+                                        : const Color(0xFF00C08B))
+                                    .withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Text(
+                              '$ringText DAYS LEFT',
+                              style: TextStyle(
+                                color: isAlert
+                                    ? const Color(0xFFFF6961)
+                                    : const Color(0xFF00C08B),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            'Last Service: ',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white60,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            lastService == null ? '--' : fmt.format(lastService!),
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            'Expected: ',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white60,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            expected == null ? '--' : fmt.format(expected),
+                            style: TextStyle(
+                              color: isAlert
+                                  ? const Color(0xFFFF6961)
+                                  : const Color(0xFF00C08B),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return GestureDetector(
       onTap: onTap,
@@ -335,5 +472,99 @@ class _RingGaugePainter extends CustomPainter {
         oldDelegate.glowB != glowB ||
         oldDelegate.strokeWidth != strokeWidth ||
         oldDelegate.rotation != rotation;
+  }
+}
+
+class _DeskCalendarSheet extends StatelessWidget {
+  final String month;
+  final String day;
+  final String year;
+  final bool isAlert;
+
+  const _DeskCalendarSheet({
+    required this.month,
+    required this.day,
+    required this.year,
+    this.isAlert = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    final accentColor =
+        isAlert ? const Color(0xFFFF3B30) : const Color(0xFF00C08B);
+
+    return Container(
+      width: 66,
+      height: 74,
+      decoration: BoxDecoration(
+        color: isLight ? Colors.white : const Color(0xFF141D27),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.15),
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Spiral / Binder rings indicator & Month Banner
+          Container(
+            height: 22,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(10)),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              month,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          // Day number
+          Expanded(
+            child: Center(
+              child: Text(
+                day,
+                style: TextStyle(
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+          // Year
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              year,
+              style: TextStyle(
+                color: (isLight
+                        ? AppTheme.lightTextSecondary
+                        : Colors.white)
+                    .withValues(alpha: 0.4),
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -609,12 +609,6 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     final screenW = media.size.width;
     final bool wideLayout = screenW >= 1100;
     final uiScale = screenW >= 900 ? (screenW / 1150).clamp(1.0, 1.25) : 1.0;
-    // Keep the web/tablet dashboard feeling "grid-like": top cards taller,
-    // bottom cards shorter (per WebDashboard.png).
-    final wideTopHeight = wideLayout
-        ? (media.size.height * 0.40).clamp(360.0, 500.0) * uiScale
-        : null;
-    final envGaugeHeight = wideLayout ? (wideTopHeight! - 80) : null;
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -655,17 +649,20 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                             child: Column(
                               children: [
                                 if (wideLayout)
-                                  Row(
+                                  Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      // LEFT COLUMN
-                                      Expanded(
-                                        flex: 1,
-                                        child: Column(
-                                          children: [
-                                            SizedBox(
-                                              height: wideTopHeight,
+                                      // ─── 1. TOP SECTION: PUE Hero (Left) & Cabinet Env + Calendar Maintenance (Right) ───
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // LEFT: PUE Hero Card
+                                          Expanded(
+                                            flex: 5,
+                                            child: SizedBox(
+                                              height: 335.0 * uiScale,
                                               child: PueHeroCard(
                                                 pue: _pue,
                                                 pueStatus: _pueStatus,
@@ -686,58 +683,61 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                                     _loading || _refreshing,
                                               ),
                                             ),
-                                            const SizedBox(height: 16),
-                                            DoorControlSection(
-                                              doors: _doors ?? const [],
-                                              loading:
-                                                  _doors == null && _loading,
-                                              canUnlock: _canControlDoors,
-                                              onUnlock: _handleDoorUnlock,
+                                          ),
+                                          const SizedBox(width: 16),
+                                          // RIGHT: Cabinet Environment (Thermometer Style + Top Cabinet [<] [>]) & Next Scheduled Maintenance (Calendar Style)
+                                          Expanded(
+                                            flex: 6,
+                                            child: Column(
+                                              children: [
+                                                EnvironmentRow(
+                                                  temperatures: _temperatures,
+                                                  humidities: _humidities,
+                                                  alarms: _poller.recentAlarms,
+                                                  initialStyle:
+                                                      EnvironmentGaugeStyle
+                                                          .thermometer,
+                                                  showTopCabinetHeader: true,
+                                                  gaugeHeight: 165.0 * uiScale,
+                                                  loading:
+                                                      _loading || _refreshing,
+                                                ),
+                                                const SizedBox(height: 16),
+                                                ServiceNoticeCard(
+                                                  lastService: _lastMaintenance,
+                                                  cycleDays: 90,
+                                                  horizontalCalendarMode: true,
+                                                  onTap: () {
+                                                    GlobalEventBus
+                                                        .targetMaintenancePage
+                                                        .value = true;
+                                                    widget.onNavigateToReport
+                                                        ?.call();
+                                                  },
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(height: 16),
-                                            ServiceNoticeCard(
-                                              lastService: _lastMaintenance,
-                                              cycleDays: 90,
-                                              onTap: () {
-                                                GlobalEventBus
-                                                    .targetMaintenancePage
-                                                    .value = true;
-                                                widget.onNavigateToReport
-                                                    ?.call();
-                                              },
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 16),
-                                      // RIGHT COLUMN
-                                      Expanded(
-                                        flex: 1,
-                                        child: Column(
-                                          children: [
-                                            SizedBox(
-                                              height: wideTopHeight,
-                                              child: EnvironmentRow(
-                                                temperatures: _temperatures,
-                                                humidities: _humidities,
-                                                alarms: _poller.recentAlarms,
-                                                gaugeHeight:
-                                                    envGaugeHeight ?? 260,
-                                                loading:
-                                                    _loading || _refreshing,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            DeviceHealthSection(
-                                              smokeStatus: _smokeStatus,
-                                              floodStatus: _floodStatus,
-                                              alarms: _poller.recentAlarms,
-                                              devices: _devices,
-                                              temperatures: _temperatures,
-                                              humidities: _humidities,
-                                            ),
-                                          ],
-                                        ),
+                                      const SizedBox(height: 16),
+                                      // ─── 2. MIDDLE SECTION: Full-Width Telemetry Status (AC, T.H, Power, UPS, Smoke, Leak, PDU) ───
+                                      DeviceHealthSection(
+                                        smokeStatus: _smokeStatus,
+                                        floodStatus: _floodStatus,
+                                        alarms: _poller.recentAlarms,
+                                        devices: _devices,
+                                        temperatures: _temperatures,
+                                        humidities: _humidities,
+                                        twoColumn: true,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // ─── 3. BOTTOM SECTION: Door Control (with Door Opening / Closed Visuals) ───
+                                      DoorControlSection(
+                                        doors: _doors ?? const [],
+                                        loading: _doors == null && _loading,
+                                        canUnlock: _canControlDoors,
+                                        onUnlock: _handleDoorUnlock,
                                       ),
                                     ],
                                   )
