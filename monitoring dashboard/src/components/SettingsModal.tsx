@@ -72,8 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           <p className="text-xs text-white/60 leading-relaxed">
-            In case the admin forgets the password, use this recovery email address to
-            receive a secure password reset link and recovery instructions.
+            Password reset links will be sent to this email if you forget your password.
           </p>
 
           <form onSubmit={handleSave} className="space-y-3">

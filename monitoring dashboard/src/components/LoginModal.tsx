@@ -132,7 +132,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
             </div>
 
             <p className="text-xs text-white/70 mt-4 leading-relaxed">
-              If you forgot your password, we can send a one-time password reset link to your registered recovery email:
+              Send a password reset link to your registered recovery email:
             </p>
             <div className="mt-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836] font-mono text-xs text-[#00E5FF]">
               {recoveryEmail}
