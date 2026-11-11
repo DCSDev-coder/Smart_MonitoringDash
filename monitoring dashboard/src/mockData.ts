@@ -3,21 +3,25 @@ import { CompanyItem } from './types';
 export const INITIAL_COMPANIES: CompanyItem[] = [
   {
     id: 'comp-1',
-    name: 'Data Center Specialist',
+    name: 'DCS HQ Office',
     openIp: '219.92.246.237',
-    localIp: '192.168.1.120',
+    localIp: '172.16.200.2',
     siteUser: 'admin',
-    sitePassword: 'Dtct+1234',
+    sitePassword: 'Dtct+123',
     isBlocked: false,
-    pue: 1.24,
-    lastService: '2026-10-12',
-    nextService: '2026-12-15',
-    activeIssues: ['Smoke'], // Only has Smoke
+    pue: 2.19,
+    totalEnergyKwh: 610.25,
+    itEnergyKwh: 273.83,
+    temperature: 33,
+    humidity: 38,
+    lastService: '2026-11-05',
+    nextService: '2027-02-03',
+    activeIssues: [], // All subsystems Secure (AC, T.H, Power, UPS, Smoke, Leak, PDU)
     accounts: [
       {
         id: 'acc-1',
-        username: 'ops_user',
-        password: 'User@2026',
+        username: 'admin',
+        password: 'Dtct+123',
         isRackConsole: false,
       },
       {
@@ -84,7 +88,7 @@ export const INITIAL_COMPANIES: CompanyItem[] = [
   },
 ];
 
-const STORAGE_KEY_COMPANIES = 'dcstack_monitor_companies_v4';
+const STORAGE_KEY_COMPANIES = 'dcstack_monitor_companies_v5';
 const STORAGE_KEY_EMAIL = 'dcstack_monitor_recovery_email_v1';
 
 export function loadCompanies(): CompanyItem[] {

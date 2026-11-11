@@ -33,6 +33,10 @@ export interface CompanyItem {
   sitePassword: string;
   isBlocked: boolean; // Block button in case user doesn't pay
   pue: number;
+  totalEnergyKwh?: number;
+  itEnergyKwh?: number;
+  temperature?: number;
+  humidity?: number;
   lastService: string; // YYYY-MM-DD
   nextService: string; // YYYY-MM-DD
   activeIssues: MonitorIssueType[]; // Only issues that exist! If empty -> "None"

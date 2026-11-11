@@ -173,8 +173,39 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
             </div>
           </div>
 
-          {/* Far Right: Circular PUE and 3-Dotted Button ("See More") */}
+          {/* Far Right: Telemetry pill, Circular PUE, and 3-Dotted Button ("See More") */}
           <div className="flex items-center gap-3.5 shrink-0">
+            {/* Live Telemetry: Energy & Env Readings if available */}
+            {(company.totalEnergyKwh || company.temperature) && (
+              <div className="hidden lg:flex flex-col items-end gap-1 text-[11px] font-semibold text-white/70 mr-1">
+                {company.totalEnergyKwh && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-white/40 text-[10px] font-bold">MONTHLY:</span>
+                    <span className="font-mono font-bold text-white/90">{company.totalEnergyKwh.toFixed(1)} kWh</span>
+                    {company.itEnergyKwh && (
+                      <>
+                        <span className="text-white/20">|</span>
+                        <span className="text-white/40 text-[10px] font-bold">IT:</span>
+                        <span className="font-mono font-bold text-[#00E5FF]">{company.itEnergyKwh.toFixed(1)} kWh</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                {company.temperature && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#00C08B]/15 text-[#00C08B] font-extrabold text-[10px] border border-[#00C08B]/30">
+                      {company.temperature}°C
+                    </span>
+                    {company.humidity && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-[#00E5FF]/15 text-[#00E5FF] font-extrabold text-[10px] border border-[#00E5FF]/30">
+                        {company.humidity}% RH
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ─── PUE IN A CIRCLE ON THE FAR RIGHT (Enlarged) ─── */}
             <div
               className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full border-[2.5px] flex flex-col items-center justify-center shrink-0 shadow-lg transition-transform hover:scale-105 ${

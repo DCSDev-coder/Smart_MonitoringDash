@@ -86,12 +86,20 @@ export function App() {
               if (index !== -1) {
                 updated[index] = {
                   ...updated[index],
+                  name: mapped.name,
                   openIp: mapped.openIp,
                   localIp: mapped.localIp,
                   siteUser: mapped.siteUser,
                   sitePassword: mapped.sitePassword,
                   isBlocked: mapped.isBlocked,
                   lastService: mapped.lastService,
+                  nextService: mapped.nextService,
+                  pue: mapped.pue,
+                  totalEnergyKwh: mapped.totalEnergyKwh,
+                  itEnergyKwh: mapped.itEnergyKwh,
+                  temperature: mapped.temperature,
+                  humidity: mapped.humidity,
+                  activeIssues: mapped.activeIssues,
                 };
               } else {
                 updated.unshift(mapped);

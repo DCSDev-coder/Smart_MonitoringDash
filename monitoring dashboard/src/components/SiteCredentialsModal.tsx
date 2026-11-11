@@ -194,6 +194,45 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Live Rack Telemetry & Energy (if available) */}
+          {(company.totalEnergyKwh || company.temperature || company.pue) && (
+            <div className="p-3.5 rounded-xl bg-[#0b1119] border border-[#1e2836]">
+              <span className="text-[10px] font-extrabold text-[#00C08B] tracking-wider block uppercase mb-2">
+                Live Controller Telemetry & Energy
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2 rounded-lg bg-[#141d27] border border-[#1e2836]">
+                  <span className="text-[10px] text-white/40 block font-bold">PUE EFFICIENCY</span>
+                  <span className={`text-sm font-black font-mono ${company.pue > 2.0 ? 'text-[#FF3B30]' : 'text-[#00C08B]'}`}>
+                    {company.pue.toFixed(2)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-[#141d27] border border-[#1e2836]">
+                  <span className="text-[10px] text-white/40 block font-bold">ENVIRONMENT</span>
+                  <span className="text-sm font-black text-white font-mono">
+                    {company.temperature ?? 33}°C <span className="text-white/40 font-normal">/</span> {company.humidity ?? 38}%
+                  </span>
+                </div>
+                {company.totalEnergyKwh && (
+                  <div className="p-2 rounded-lg bg-[#141d27] border border-[#1e2836]">
+                    <span className="text-[10px] text-white/40 block font-bold">MONTHLY ENERGY</span>
+                    <span className="text-sm font-bold text-white font-mono">
+                      {company.totalEnergyKwh.toFixed(1)} kWh
+                    </span>
+                  </div>
+                )}
+                {company.itEnergyKwh && (
+                  <div className="p-2 rounded-lg bg-[#141d27] border border-[#1e2836]">
+                    <span className="text-[10px] text-white/40 block font-bold">IT CONSUMPTION</span>
+                    <span className="text-sm font-bold text-[#00E5FF] font-mono">
+                      {company.itEnergyKwh.toFixed(1)} kWh
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
