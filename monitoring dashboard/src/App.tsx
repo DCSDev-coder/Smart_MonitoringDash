@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { CompanyCard } from './components/CompanyCard';
 import { AddCompanyModal } from './components/AddCompanyModal';
+import { EditCompanyModal } from './components/EditCompanyModal';
 import { AddAccountModal } from './components/AddAccountModal';
+import { EditAccountModal } from './components/EditAccountModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
 import {
@@ -47,7 +49,12 @@ export function App() {
 
   // Modals
   const [showAddCompany, setShowAddCompany] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<CompanyItem | null>(null);
   const [accountModalCompanyId, setAccountModalCompanyId] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<{
+    companyId: string;
+    account: CompanyAccount;
+  } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
@@ -72,6 +79,14 @@ export function App() {
     saveCompanies(updated);
   };
 
+  const handleUpdateCompany = (updatedCompany: CompanyItem) => {
+    const updated = companies.map((c) =>
+      c.id === updatedCompany.id ? updatedCompany : c
+    );
+    setCompanies(updated);
+    saveCompanies(updated);
+  };
+
   const handleDeleteCompany = (companyId: string) => {
     const updated = companies.filter((c) => c.id !== companyId);
     setCompanies(updated);
@@ -84,6 +99,20 @@ export function App() {
         return {
           ...c,
           accounts: [...c.accounts, account],
+        };
+      }
+      return c;
+    });
+    setCompanies(updated);
+    saveCompanies(updated);
+  };
+
+  const handleUpdateAccount = (companyId: string, updatedAccount: CompanyAccount) => {
+    const updated = companies.map((c) => {
+      if (c.id === companyId) {
+        return {
+          ...c,
+          accounts: c.accounts.map((a) => (a.id === updatedAccount.id ? updatedAccount : a)),
         };
       }
       return c;
@@ -362,6 +391,8 @@ export function App() {
                 onOpenAddAccount={(id) => setAccountModalCompanyId(id)}
                 onDeleteAccount={handleDeleteAccount}
                 onDeleteCompany={handleDeleteCompany}
+                onOpenEditCompany={(comp) => setEditingCompany(comp)}
+                onOpenEditAccount={(cId, acc) => setEditingAccount({ companyId: cId, account: acc })}
               />
             ))}
           </div>
@@ -376,12 +407,32 @@ export function App() {
         />
       )}
 
+      {editingCompany && (
+        <EditCompanyModal
+          company={editingCompany}
+          onClose={() => setEditingCompany(null)}
+          onUpdateCompany={handleUpdateCompany}
+        />
+      )}
+
       {accountModalCompanyId && targetAccountCompany && (
         <AddAccountModal
           companyId={accountModalCompanyId}
           companyName={targetAccountCompany.name}
           onClose={() => setAccountModalCompanyId(null)}
           onAddAccount={handleAddAccount}
+        />
+      )}
+
+      {editingAccount && (
+        <EditAccountModal
+          companyId={editingAccount.companyId}
+          companyName={
+            companies.find((c) => c.id === editingAccount.companyId)?.name || 'Datacenter'
+          }
+          account={editingAccount.account}
+          onClose={() => setEditingAccount(null)}
+          onUpdateAccount={handleUpdateAccount}
         />
       )}
 

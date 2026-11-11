@@ -20,8 +20,10 @@ import {
   UserCheck,
   Plus,
   Trash2,
+  Edit3,
+  Pencil,
 } from 'lucide-react';
-import { CompanyItem, MonitorIssueType } from '../types';
+import { CompanyItem, CompanyAccount, MonitorIssueType } from '../types';
 import { SiteCredentialsModal } from './SiteCredentialsModal';
 
 interface CompanyCardProps {
@@ -30,6 +32,8 @@ interface CompanyCardProps {
   onOpenAddAccount: (companyId: string) => void;
   onDeleteAccount: (companyId: string, accountId: string) => void;
   onDeleteCompany: (companyId: string) => void;
+  onOpenEditCompany: (company: CompanyItem) => void;
+  onOpenEditAccount: (companyId: string, account: CompanyAccount) => void;
 }
 
 export const CompanyCard: React.FC<CompanyCardProps> = ({
@@ -38,10 +42,12 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
   onOpenAddAccount,
   onDeleteAccount,
   onDeleteCompany,
+  onOpenEditCompany,
+  onOpenEditAccount,
 }) => {
   const [showSiteCredentials, setShowSiteCredentials] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  // Default to true so passwords are shown directly as requested
+  // Default to false so passwords are automatically hidden first as requested
   const [revealedAccountPasses, setRevealedAccountPasses] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showConfirmBlock, setShowConfirmBlock] = useState(false);
@@ -56,8 +62,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
   const toggleAccountPass = (id: string) => {
     setRevealedAccountPasses((prev) => ({
       ...prev,
-      // If undefined, it was visible, toggling makes it masked
-      [id]: prev[id] === undefined ? false : !prev[id],
+      [id]: !prev[id],
     }));
   };
 
@@ -208,7 +213,18 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                     className="fixed inset-0 z-40"
                     onClick={() => setShowMenu(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-60 rounded-xl bg-[#141d27] border border-[#1e2836] shadow-2xl p-1.5 z-50 animate-fadeIn">
+                  <div className="absolute right-0 top-full mt-2 w-64 rounded-xl bg-[#141d27] border border-[#1e2836] shadow-2xl p-1.5 z-50 animate-fadeIn">
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onOpenEditCompany(company);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg text-left text-xs font-semibold text-white/90 hover:text-white hover:bg-[#1e2836] flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-4 h-4 text-[#00C08B]" />
+                      <span>Edit Company Details</span>
+                    </button>
+                    <div className="my-1 border-t border-[#1e2836]" />
                     <button
                       onClick={() => {
                         setShowMenu(false);
@@ -439,8 +455,8 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {company.accounts.map((acc) => {
-              // Default to revealed (true) unless explicitly toggled off
-              const isRevealed = revealedAccountPasses[acc.id] !== false;
+              // Default to hidden (false) first as requested
+              const isRevealed = Boolean(revealedAccountPasses[acc.id]);
               return (
                 <div
                   key={acc.id}
@@ -482,10 +498,10 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                         </span>
                       </div>
 
-                      {/* Password: Shown clearly */}
+                      {/* Password: Automatically masked first */}
                       <div className="text-xs text-white/60 flex items-center gap-1.5 font-mono">
                         <span className="text-white/40">Password:</span>
-                        <span className={isRevealed ? 'text-[#00C08B] font-bold select-all' : 'text-white/50'}>
+                        <span className={isRevealed ? 'text-[#00C08B] font-bold select-all' : 'text-white/40 tracking-wider'}>
                           {isRevealed ? acc.password : '••••••••'}
                         </span>
                       </div>
@@ -517,6 +533,13 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                       )}
                     </button>
                     <button
+                      onClick={() => onOpenEditAccount(company.id, acc)}
+                      className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-[#00C08B] transition-colors cursor-pointer"
+                      title="Edit Credentials"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => onDeleteAccount(company.id, acc.id)}
                       className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-[#FF3B30] transition-colors cursor-pointer"
                       title="Delete Account"
@@ -536,6 +559,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
         <SiteCredentialsModal
           company={company}
           onClose={() => setShowSiteCredentials(false)}
+          onOpenEdit={() => onOpenEditCompany(company)}
         />
       )}
 

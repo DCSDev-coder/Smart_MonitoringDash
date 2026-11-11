@@ -10,17 +10,20 @@ import {
   Copy,
   Check,
   Shield,
+  Edit3,
 } from 'lucide-react';
 import { CompanyItem } from '../types';
 
 interface SiteCredentialsModalProps {
   company: CompanyItem;
   onClose: () => void;
+  onOpenEdit?: () => void;
 }
 
 export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
   company,
   onClose,
+  onOpenEdit,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -193,8 +196,20 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
           </div>
         </div>
 
-        {/* Footer Note */}
-        <div className="mt-5 pt-4 border-t border-[#1e2836] flex justify-end">
+        {/* Footer Actions */}
+        <div className="mt-5 pt-4 border-t border-[#1e2836] flex items-center justify-between">
+          {onOpenEdit ? (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenEdit();
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B]/15 hover:bg-[#00C08B]/25 text-[#00C08B] border border-[#00C08B]/30 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Details</span>
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-xl text-xs font-bold bg-[#1e2836] hover:bg-[#2a3a4e] text-white transition-colors cursor-pointer"
