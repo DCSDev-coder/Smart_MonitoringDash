@@ -274,10 +274,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                       type="date"
                       value={lastService}
                       onChange={(e) => setLastService(e.target.value)}
+                      onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full pl-3.5 pr-9 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white focus:outline-none focus:border-[#00C08B] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
+                      className="w-full pl-3.5 pr-10 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white focus:outline-none focus:border-[#00C08B] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
                     />
-                    <Calendar className="w-4 h-4 text-white pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
+                    <Calendar className="w-4 h-4 text-white pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 z-0" />
                   </div>
                 </div>
                 <div>
@@ -287,10 +288,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                       type="date"
                       value={nextService}
                       onChange={(e) => setNextService(e.target.value)}
+                      onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full pl-3.5 pr-9 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white focus:outline-none focus:border-[#00C08B] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
+                      className="w-full pl-3.5 pr-10 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white focus:outline-none focus:border-[#00C08B] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
                     />
-                    <Calendar className="w-4 h-4 text-white pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
+                    <Calendar className="w-4 h-4 text-white pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 z-0" />
                   </div>
                 </div>
               </div>

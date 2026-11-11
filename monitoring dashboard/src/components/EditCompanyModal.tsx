@@ -222,10 +222,11 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                       type="date"
                       value={lastService}
                       onChange={(e) => setLastService(e.target.value)}
+                      onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00C08B] transition-colors cursor-pointer pr-10"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00C08B] transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                     />
-                    <Calendar className="w-4 h-4 text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Calendar className="w-4 h-4 text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none z-0" />
                   </div>
                 </div>
                 <div>
@@ -237,10 +238,11 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                       type="date"
                       value={nextService}
                       onChange={(e) => setNextService(e.target.value)}
+                      onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00C08B] transition-colors cursor-pointer pr-10"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00C08B] transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                     />
-                    <Calendar className="w-4 h-4 text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Calendar className="w-4 h-4 text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none z-0" />
                   </div>
                 </div>
               </div>
