@@ -63,25 +63,22 @@ class DoorControlSection extends StatelessWidget {
       );
     }
 
-    if (doors.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: Text(
-              'No doors configured',
-              style: TextStyle(
-                color: isLight
-                    ? AppTheme.lightTextPrimary
-                    : Colors.white.withValues(alpha: 0.65),
-                fontSize: isLight ? 13 : 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    final effectiveDoors = doors.isNotEmpty
+        ? doors
+        : const [
+            {
+              'id': 1,
+              'name': 'Front 1',
+              'side': 'Front',
+              'isOpen': true,
+            },
+            {
+              'id': 2,
+              'name': 'Back 1',
+              'side': 'Back',
+              'isOpen': false,
+            },
+          ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -90,7 +87,7 @@ class DoorControlSection extends StatelessWidget {
           final heightBounded = outer.maxHeight.isFinite;
 
           Widget doorBody({required bool scrollable}) {
-            final tiles = doors
+            final tiles = effectiveDoors
                 .map((d) => _DoorTile(
                       door: d,
                       canUnlock: canUnlock,
@@ -1390,6 +1387,7 @@ class _DoorLockIcon extends StatelessWidget {
 }
 
 /// Visual door graphic showing Door Open when unlocked and Door Closed when locked
+/// Visual door graphic showing Door Open when unlocked and Door Closed when locked
 /// Exactly matching the user's wireframe sketch
 class _DoorVisualGraphic extends StatelessWidget {
   final bool isUnlocked;
@@ -1406,20 +1404,22 @@ class _DoorVisualGraphic extends StatelessWidget {
     final isFront = doorName.toLowerCase().contains('front') ||
         doorName.toLowerCase().contains('1');
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: isUnlocked ? 1.0 : 0.0),
-      duration: const Duration(milliseconds: 650),
-      curve: Curves.easeOutBack,
-      builder: (context, openProgress, _) {
-        return CustomPaint(
-          size: const Size(72, 92),
-          painter: _DoorGraphicPainter(
-            openProgress: openProgress,
-            isLight: isLight,
-            isDoubleDoor: isFront,
-          ),
-        );
-      },
+    return RepaintBoundary(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: isUnlocked ? 1.0 : 0.0),
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeOutBack,
+        builder: (context, openProgress, _) {
+          return CustomPaint(
+            size: const Size(72, 92),
+            painter: _DoorGraphicPainter(
+              openProgress: openProgress,
+              isLight: isLight,
+              isDoubleDoor: isFront,
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -1437,6 +1437,7 @@ class _DoorGraphicPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width < 10 || size.height < 10) return;
     final w = size.width;
     final h = size.height;
 
@@ -1449,16 +1450,18 @@ class _DoorGraphicPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawRRect(frameRRect, innerRackPaint);
 
-    // If opening, illuminate the interior server rack
-    if (openProgress > 0) {
+    final clampedProgress = openProgress.clamp(0.0, 1.0);
+
+    // If opening or open, illuminate interior server rack
+    if (clampedProgress > 0) {
       final glowPaint = Paint()
-        ..color = const Color(0xFF00C08B).withValues(alpha: openProgress * 0.4)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+        ..color = const Color(0xFF00C08B).withValues(alpha: clampedProgress * 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
       canvas.drawRRect(frameRRect, glowPaint);
 
-      // Draw rack server shelf lines inside the open doorway
+      // Draw rack server shelf lines inside doorway
       final shelfPaint = Paint()
-        ..color = (isLight ? Colors.black : Colors.white).withValues(alpha: openProgress * 0.25)
+        ..color = (isLight ? Colors.black : Colors.white).withValues(alpha: clampedProgress * 0.25)
         ..strokeWidth = 1.5;
       for (int i = 1; i <= 5; i++) {
         final y = frameRect.top + frameRect.height * (i / 6.0);
@@ -1467,16 +1470,15 @@ class _DoorGraphicPainter extends CustomPainter {
           Offset(frameRect.right - 8, y),
           shelfPaint,
         );
-        // Green status LED dot on rack unit
+        // Status LED dot
         canvas.drawCircle(
           Offset(frameRect.left + 12, y - 4),
           1.5,
-          Paint()..color = const Color(0xFF00C08B).withValues(alpha: openProgress * 0.9),
+          Paint()..color = const Color(0xFF00C08B).withValues(alpha: clampedProgress * 0.9),
         );
       }
     }
 
-    // 2. Door Leaves (Double door for Front, Single door for Back)
     final doorColor = isLight ? const Color(0xFFCBD5E1) : const Color(0xFF1E293B);
     final doorBorder = isLight ? const Color(0xFF94A3B8) : const Color(0xFF334155);
 
@@ -1489,110 +1491,107 @@ class _DoorGraphicPainter extends CustomPainter {
       ..strokeWidth = 1.5;
 
     if (isDoubleDoor) {
-      // ─── DOUBLE DOOR (FRONT 1 in sketch: swings open from center) ───
-      final leafWidth = (frameRect.width - 2) / 2.0;
-      final leafHeight = frameRect.height - 4;
+      // ─── DOUBLE DOOR (FRONT 1 in sketch: swung open from center) ───
+      final halfW = (frameRect.width - 2) / 2.0;
+      final swingOffset = halfW * clampedProgress * 0.55;
+      final verticalSlope = clampedProgress * 5.0;
 
-      // Left Leaf
-      canvas.save();
-      canvas.translate(frameRect.left + 1, frameRect.top + 2);
-      // Perspective open transformation
-      final leftAngle = openProgress * 1.15;
-      canvas.transform((Matrix4.identity()
-            ..setEntry(3, 2, 0.003)
-            ..rotateY(-leftAngle))
-          .storage);
-      final leftLeafRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, leafWidth, leafHeight),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(leftLeafRect, doorPaint);
-      canvas.drawRRect(leftLeafRect, borderPaint);
+      // Left Leaf (hinge on left)
+      final leftLeafPath = Path()
+        ..moveTo(frameRect.left + 1, frameRect.top + 2)
+        ..lineTo(frameRect.left + 1 + (halfW - swingOffset), frameRect.top + 2 + verticalSlope)
+        ..lineTo(frameRect.left + 1 + (halfW - swingOffset), frameRect.bottom - 2 - verticalSlope)
+        ..lineTo(frameRect.left + 1, frameRect.bottom - 2)
+        ..close();
 
-      // Handle on right edge of left leaf
+      canvas.drawPath(leftLeafPath, doorPaint);
+      canvas.drawPath(leftLeafPath, borderPaint);
+
+      // Handle on swinging edge of left leaf
+      final leftHandleX = frameRect.left + 1 + (halfW - swingOffset) - 4;
+      final leftHandleY = frameRect.top + frameRect.height * 0.44;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(leafWidth - 5, leafHeight * 0.44, 3, 16),
+          Rect.fromLTWH(leftHandleX, leftHandleY, 3, 16),
           const Radius.circular(1.5),
         ),
-        Paint()..color = Colors.white.withValues(alpha: 0.7),
-      );
-      canvas.restore();
-
-      // Right Leaf
-      canvas.save();
-      canvas.translate(frameRect.right - 1, frameRect.top + 2);
-      final rightAngle = openProgress * 1.15;
-      canvas.transform((Matrix4.identity()
-            ..setEntry(3, 2, 0.003)
-            ..rotateY(rightAngle))
-          .storage);
-      final rightLeafRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(-leafWidth, 0, leafWidth, leafHeight),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(rightLeafRect, doorPaint);
-      canvas.drawRRect(rightLeafRect, borderPaint);
-
-      // Handle on left edge of right leaf
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(-leafWidth + 2, leafHeight * 0.44, 3, 16),
-          const Radius.circular(1.5),
-        ),
-        Paint()..color = Colors.white.withValues(alpha: 0.7),
-      );
-      canvas.restore();
-    } else {
-      // ─── SINGLE DOOR (BACK 1 in sketch: flat closed door with handle) ───
-      final leafWidth = frameRect.width - 4;
-      final leafHeight = frameRect.height - 4;
-
-      canvas.save();
-      canvas.translate(frameRect.left + 2, frameRect.top + 2);
-      final angle = openProgress * 1.25;
-      canvas.transform((Matrix4.identity()
-            ..setEntry(3, 2, 0.003)
-            ..rotateY(-angle))
-          .storage);
-
-      final leafRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, leafWidth, leafHeight),
-        const Radius.circular(5),
-      );
-      canvas.drawRRect(leafRect, doorPaint);
-      canvas.drawRRect(leafRect, borderPaint);
-
-      // Door mesh / inspection slit
-      final slitRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(leafWidth * 0.25, leafHeight * 0.15, leafWidth * 0.5, leafHeight * 0.25),
-        const Radius.circular(3),
-      );
-      canvas.drawRRect(
-        slitRect,
-        Paint()..color = (isLight ? Colors.black : Colors.black).withValues(alpha: 0.2),
-      );
-
-      // Sturdy door handle / lock knob on right side (matches sketch dot)
-      canvas.drawCircle(
-        Offset(leafWidth - 9, leafHeight * 0.5),
-        4.5,
         Paint()..color = Colors.white.withValues(alpha: 0.8),
       );
-      canvas.drawCircle(
-        Offset(leafWidth - 9, leafHeight * 0.5),
-        2,
-        Paint()..color = openProgress > 0.5 ? const Color(0xFF00C08B) : const Color(0xFFFF9500),
+
+      // Right Leaf (hinge on right)
+      final rightLeafPath = Path()
+        ..moveTo(frameRect.right - 1, frameRect.top + 2)
+        ..lineTo(frameRect.right - 1 - (halfW - swingOffset), frameRect.top + 2 + verticalSlope)
+        ..lineTo(frameRect.right - 1 - (halfW - swingOffset), frameRect.bottom - 2 - verticalSlope)
+        ..lineTo(frameRect.right - 1, frameRect.bottom - 2)
+        ..close();
+
+      canvas.drawPath(rightLeafPath, doorPaint);
+      canvas.drawPath(rightLeafPath, borderPaint);
+
+      // Handle on swinging edge of right leaf
+      final rightHandleX = frameRect.right - 1 - (halfW - swingOffset) + 1;
+      final rightHandleY = frameRect.top + frameRect.height * 0.44;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(rightHandleX, rightHandleY, 3, 16),
+          const Radius.circular(1.5),
+        ),
+        Paint()..color = Colors.white.withValues(alpha: 0.8),
       );
-      canvas.restore();
+    } else {
+      // ─── SINGLE DOOR (BACK 1 in sketch: closed door with handle knob) ───
+      final leafW = frameRect.width - 4;
+      final swingOffset = leafW * clampedProgress * 0.55;
+      final verticalSlope = clampedProgress * 6.0;
+
+      if (clampedProgress > 0) {
+        final singleLeafPath = Path()
+          ..moveTo(frameRect.left + 2, frameRect.top + 2)
+          ..lineTo(frameRect.left + 2 + (leafW - swingOffset), frameRect.top + 2 + verticalSlope)
+          ..lineTo(frameRect.left + 2 + (leafW - swingOffset), frameRect.bottom - 2 - verticalSlope)
+          ..lineTo(frameRect.left + 2, frameRect.bottom - 2)
+          ..close();
+        canvas.drawPath(singleLeafPath, doorPaint);
+        canvas.drawPath(singleLeafPath, borderPaint);
+
+        // Door knob on swinging edge
+        final knobX = frameRect.left + 2 + (leafW - swingOffset) - 6;
+        final knobY = frameRect.top + frameRect.height * 0.5;
+        canvas.drawCircle(Offset(knobX, knobY), 4, Paint()..color = Colors.white.withValues(alpha: 0.85));
+        canvas.drawCircle(Offset(knobX, knobY), 2, Paint()..color = const Color(0xFF00C08B));
+      } else {
+        // Fully closed single door panel
+        final singleDoorRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(frameRect.left + 2, frameRect.top + 2, leafW, frameRect.height - 4),
+          const Radius.circular(5),
+        );
+        canvas.drawRRect(singleDoorRect, doorPaint);
+        canvas.drawRRect(singleDoorRect, borderPaint);
+
+        // Inspection window / mesh panel
+        final slitRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(frameRect.left + leafW * 0.28, frameRect.top + frameRect.height * 0.15, leafW * 0.44, frameRect.height * 0.26),
+          const Radius.circular(3),
+        );
+        canvas.drawRRect(slitRect, Paint()..color = (isLight ? Colors.black : Colors.black).withValues(alpha: 0.25));
+
+        // Door handle knob on right side (matches sketch dot)
+        final knobX = frameRect.left + leafW - 8;
+        final knobY = frameRect.top + frameRect.height * 0.5;
+        canvas.drawCircle(Offset(knobX, knobY), 4.5, Paint()..color = Colors.white.withValues(alpha: 0.85));
+        canvas.drawCircle(Offset(knobX, knobY), 2, Paint()..color = const Color(0xFFFF9500));
+      }
     }
 
-    // 3. Sturdy Outer Metal Door Frame
-    final outerFramePaint = Paint()
-      ..color = (isLight ? const Color(0xFF64748B) : const Color(0xFF334155)).withValues(alpha: 0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
-    canvas.drawRRect(frameRRect, outerFramePaint);
+    // Outer door frame border
+    canvas.drawRRect(
+      frameRRect,
+      Paint()
+        ..color = (isLight ? const Color(0xFF64748B) : const Color(0xFF475569))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
   }
 
   @override

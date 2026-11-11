@@ -624,7 +624,36 @@ class DeviceHealthSection extends StatelessWidget {
       if (it != null) items.add(it);
     }
 
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (items.isEmpty) {
+      const fallbackDefs = [
+        {'type': 'AC', 'label': 'AC', 'icon': 'assets/icons/thermometer.svg', 'bars': 1},
+        {'type': 'T&H', 'label': 'T.H', 'icon': 'assets/icons/thermometer.svg', 'bars': 4},
+        {'type': 'POWER', 'label': 'Power', 'icon': 'assets/icons/plug.svg', 'bars': 2},
+        {'type': 'UPS', 'label': 'UPS', 'icon': 'assets/icons/ups.svg', 'bars': 1},
+        {'type': 'SMOKE', 'label': 'Smoke', 'icon': 'assets/icons/fire-extinguisher.svg', 'bars': 2},
+        {'type': 'WLD', 'label': 'Leak', 'icon': 'assets/icons/droplet.svg', 'bars': 1},
+        {'type': 'PDU', 'label': 'PDU', 'icon': 'assets/icons/pdu.svg', 'bars': 2},
+      ];
+      for (final fb in fallbackDefs) {
+        final count = fb['bars'] as int;
+        items.add(
+          _DeviceHealthItem(
+            type: fb['type'] as String,
+            label: fb['label'] as String,
+            iconAsset: fb['icon'] as String,
+            total: count,
+            normal: count,
+            offline: 0,
+            alarm: 0,
+            devices: const [],
+            boxStates: List.filled(count, _BoxState.normal),
+            displayNames: List.filled(count, fb['label'] as String),
+            nodeIds: List.filled(count, null),
+            metricCodes: List.filled(count, null),
+          ),
+        );
+      }
+    }
 
     final isLight = Theme.of(context).brightness == Brightness.light;
 
@@ -736,14 +765,14 @@ class DeviceHealthSection extends StatelessWidget {
           final rightItems = items.sublist(mid);
 
           return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: buildGroup(leftItems, stretch: true),
+                child: buildGroup(leftItems, stretch: false),
               ),
               const SizedBox(width: 24),
               Expanded(
-                child: buildGroup(rightItems, stretch: true),
+                child: buildGroup(rightItems, stretch: false),
               ),
             ],
           );

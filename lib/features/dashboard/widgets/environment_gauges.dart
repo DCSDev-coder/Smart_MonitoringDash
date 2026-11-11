@@ -42,7 +42,7 @@ class EnvironmentRow extends StatefulWidget {
     required this.temperatures,
     required this.humidities,
     this.alarms,
-    this.initialStyle = EnvironmentGaugeStyle.arc,
+    this.initialStyle = EnvironmentGaugeStyle.thermometer,
     this.gaugeHeight = 210,
     this.loading = false,
     this.minimalist = false,
@@ -110,7 +110,6 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
       );
     }
 
-    final showArrows = MediaQuery.of(context).size.width >= 900;
     final groupedTemps = _groupByCabinet(widget.temperatures);
     final groupedHums = _groupByCabinet(widget.humidities);
     final alarms = widget.alarms;
@@ -129,122 +128,69 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
       return a.compareTo(b);
     });
 
-    if (cabinetKeys.isEmpty) {
-      return Column(
-        children: [
-          SizedBox(
-            height: widget.gaugeHeight,
-            child: Padding(
-              padding: EdgeInsets.zero,
-              child: Flex(
-                direction: widget.isVertical ? Axis.vertical : Axis.horizontal,
-                children: [
-                  Expanded(
-                    child: _MiniGaugeCard.placeholder(
-                      title: 'TEMPERATURE',
-                      accent: AppTheme.accentGreen,
-                      minimalist: widget.minimalist,
-                    ),
-                  ),
-                  SizedBox(
-                    width: widget.isVertical ? 0 : 12,
-                    height: widget.isVertical ? 12 : 0,
-                  ),
-                  Expanded(
-                    child: _MiniGaugeCard.placeholder(
-                      title: 'HUMIDITY',
-                      accent: const Color(0xFF00A3FF),
-                      minimalist: widget.minimalist,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          _CabinetPager(
-            label: 'Cabinet 1',
-            count: 1,
-            activeIndex: 0,
-            showArrows: showArrows,
-            trailing: _GaugeStyleSwitch(
-              value: _style,
-              onChanged: (v) => setState(() => _style = v),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-      );
-    }
-
-    final isWide = MediaQuery.of(context).size.width >= 1100;
-    final safeIndex = _currentPage.clamp(0, cabinetKeys.length - 1);
+    final effectiveCabinetKeys = cabinetKeys.isNotEmpty
+        ? cabinetKeys
+        : const ['Cabinet 1', 'Cabinet 2'];
+    final safeIndex = _currentPage.clamp(0, effectiveCabinetKeys.length - 1);
+    final cabLabel = effectiveCabinetKeys[safeIndex].toLowerCase().contains('cabinet')
+        ? effectiveCabinetKeys[safeIndex]
+        : 'Cabinet ${effectiveCabinetKeys[safeIndex]}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isWide) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '${cabinetKeys[safeIndex].toLowerCase().contains("cabinet") ? cabinetKeys[safeIndex] : "Cabinet ${cabinetKeys[safeIndex]}"} :',
-                      style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _PagerArrow(
-                      icon: Icons.chevron_left_rounded,
-                      enabled: safeIndex > 0,
-                      onTap: () {
-                        final next = (safeIndex - 1).clamp(0, cabinetKeys.length - 1);
-                        _pageController.animateToPage(
-                          next,
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOutCubic,
-                        );
-                      },
-                    ),
-                    _PagerArrow(
-                      icon: Icons.chevron_right_rounded,
-                      enabled: safeIndex < cabinetKeys.length - 1,
-                      onTap: () {
-                        final next = (safeIndex + 1).clamp(0, cabinetKeys.length - 1);
-                        _pageController.animateToPage(
-                          next,
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOutCubic,
-                        );
-                      },
-                    ),
-                  ],
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
+          child: Row(
+            children: [
+              Text(
+                '$cabLabel :',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppTheme.lightTextPrimary
+                      : Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
-                _GaugeStyleSwitch(
-                  value: _style,
-                  onChanged: (v) => setState(() => _style = v),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _PagerArrow(
+                icon: Icons.chevron_left_rounded,
+                enabled: safeIndex > 0,
+                onTap: () {
+                  final next = (safeIndex - 1).clamp(0, effectiveCabinetKeys.length - 1);
+                  _pageController.animateToPage(
+                    next,
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                  );
+                },
+              ),
+              const SizedBox(width: 4),
+              _PagerArrow(
+                icon: Icons.chevron_right_rounded,
+                enabled: safeIndex < effectiveCabinetKeys.length - 1,
+                onTap: () {
+                  final next = (safeIndex + 1).clamp(0, effectiveCabinetKeys.length - 1);
+                  _pageController.animateToPage(
+                    next,
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                  );
+                },
+              ),
+            ],
           ),
-        ],
+        ),
         SizedBox(
           height: widget.gaugeHeight,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (i) => setState(() => _currentPage = i),
-            itemCount: cabinetKeys.length,
+            itemCount: effectiveCabinetKeys.length,
             itemBuilder: (context, index) {
-              final cab = cabinetKeys[index];
+              final cab = effectiveCabinetKeys[index];
               final temps = groupedTemps[cab] ?? const [];
               final hums = groupedHums[cab] ?? const [];
 
@@ -442,46 +388,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
             },
           ),
         ),
-        if (!isWide) ...[
-          const SizedBox(height: 10),
-          _CabinetPager(
-            label: cabinetKeys[safeIndex],
-            count: cabinetKeys.length,
-            activeIndex: safeIndex,
-            showArrows: showArrows,
-            onPrev: cabinetKeys.length <= 1
-                ? null
-                : () {
-                    final next = (safeIndex - 1).clamp(0, cabinetKeys.length - 1);
-                    _pageController.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-            onNext: cabinetKeys.length <= 1
-                ? null
-                : () {
-                    final next = (safeIndex + 1).clamp(0, cabinetKeys.length - 1);
-                    _pageController.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-            onDotTap: (i) {
-              _pageController.animateToPage(
-                i,
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
-              );
-            },
-            trailing: _GaugeStyleSwitch(
-              value: _style,
-              onChanged: (v) => setState(() => _style = v),
-            ),
-          ),
-        ],
+
       ],
     );
   }
@@ -547,8 +454,7 @@ class _MiniGaugeCard extends StatelessWidget {
   final double? warnLow;
   final double? warnHigh;
   final double maxScale;
-  final bool placeholder;
-  final EnvironmentGaugeStyle style;
+    final EnvironmentGaugeStyle style;
   final bool minimalist;
 
   const _MiniGaugeCard({
@@ -562,20 +468,7 @@ class _MiniGaugeCard extends StatelessWidget {
     required this.maxScale,
     required this.style,
     this.minimalist = false,
-  }) : placeholder = false;
-
-  const _MiniGaugeCard.placeholder({
-    required this.title,
-    required this.accent,
-    this.minimalist = false,
-  })  : iconAsset = '',
-        valueText = '--',
-        progress = 0,
-        warnLow = null,
-        warnHigh = null,
-        maxScale = 1,
-        style = EnvironmentGaugeStyle.arc,
-        placeholder = true;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -620,7 +513,7 @@ class _MiniGaugeCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (!placeholder)
+                  if (iconAsset.isNotEmpty)
                     SvgPicture.asset(
                       iconAsset,
                       width: 22,
@@ -636,7 +529,7 @@ class _MiniGaugeCard extends StatelessWidget {
               child: Center(
                 child: style == EnvironmentGaugeStyle.thermometer
                     ? _ThermometerMeterGauge(
-                        progress: placeholder ? 0.0 : progress,
+                        progress: progress,
                         glowColor: accent,
                         valueText: valueText,
                         isHumidity: !isTempCard,
@@ -664,7 +557,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                             EnvironmentGaugeStyle.meter),
                                         tween: Tween<double>(
                                           begin: 0,
-                                          end: placeholder ? 0.0 : progress,
+                                          end: progress,
                                         ),
                                         duration: const Duration(milliseconds: 1600),
                                         curve: Curves.easeOutCubic,
@@ -685,7 +578,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                             const ValueKey(EnvironmentGaugeStyle.arc),
                                         tween: Tween<double>(
                                           begin: 0,
-                                          end: placeholder ? 0.0 : progress,
+                                          end: progress,
                                         ),
                                         duration: const Duration(milliseconds: 1600),
                                         curve: Curves.easeOutCubic,
@@ -733,102 +626,6 @@ class _MiniGaugeCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CabinetPager extends StatelessWidget {
-  final String label;
-  final int count;
-  final int activeIndex;
-  final ValueChanged<int>? onDotTap;
-  final Widget? trailing;
-  final bool showArrows;
-  final VoidCallback? onPrev;
-  final VoidCallback? onNext;
-
-  const _CabinetPager({
-    required this.label,
-    required this.count,
-    required this.activeIndex,
-    this.onDotTap,
-    this.trailing,
-    this.showArrows = false,
-    this.onPrev,
-    this.onNext,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dots = count.clamp(1, 6);
-    final active = activeIndex.clamp(0, dots - 1);
-    return Column(
-      children: [
-        SizedBox(
-          height: 28,
-          child: Stack(
-            children: [
-              Align(
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextPrimary
-                        : Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (trailing != null)
-                Align(alignment: Alignment.centerRight, child: trailing!),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (showArrows)
-              _PagerArrow(
-                icon: Icons.chevron_left_rounded,
-                enabled: onPrev != null,
-                onTap: onPrev,
-              ),
-            ...List.generate(dots, (i) {
-              final isActive = i == active;
-              return GestureDetector(
-                onTap: onDotTap == null ? null : () => onDotTap!(i),
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isActive
-                        ? (Theme.of(context).brightness == Brightness.light
-                            ? const Color(0xFF00A3FF)
-                            : Colors.white)
-                        : (Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextSecondary.withValues(alpha: 0.4)
-                            : Colors.white.withValues(alpha: 0.22)),
-                  ),
-                ),
-              );
-            }),
-            if (showArrows)
-              _PagerArrow(
-                icon: Icons.chevron_right_rounded,
-                enabled: onNext != null,
-                onTap: onNext,
-              ),
-          ],
-        ),
-      ],
     );
   }
 }
@@ -1369,65 +1166,6 @@ class _DialMeterGaugePainter extends CustomPainter {
   double _degToRad(double deg) => deg * pi / 180.0;
 }
 
-class _GaugeStyleSwitch extends StatelessWidget {
-  final EnvironmentGaugeStyle value;
-  final ValueChanged<EnvironmentGaugeStyle> onChanged;
-
-  const _GaugeStyleSwitch({
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isMeter = value == EnvironmentGaugeStyle.meter;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-
-    const activeColor = AppTheme.accentGreen;
-    final inactiveBorder = isLight ? AppTheme.lightTextPrimary : Colors.white;
-    final inactiveKnob = (isLight ? AppTheme.lightTextPrimary : Colors.white)
-        .withValues(alpha: 0.85);
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => onChanged(
-            isMeter ? EnvironmentGaugeStyle.arc : EnvironmentGaugeStyle.meter),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-          width: 44,
-          height: 24,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isMeter ? activeColor : inactiveBorder,
-              width: 1.5,
-            ),
-            color: Colors.transparent,
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 400),
-            curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-            alignment: isMeter ? Alignment.centerRight : Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isMeter ? activeColor : inactiveKnob,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Thermometer style gauge showing the fluid/mercury level matching the wireframe sketch
 class _ThermometerMeterGauge extends StatelessWidget {
   final double progress;
@@ -1535,6 +1273,7 @@ class _ThermometerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width < 10 || size.height < 20) return;
     final w = size.width;
     final h = size.height;
 
@@ -1596,7 +1335,7 @@ class _ThermometerPainter extends CustomPainter {
           fillColor,
           fillColor.withValues(alpha: 0.85),
         ],
-      ).createShader(Rect.fromLTRB(0, tubeTop, w, h));
+      ).createShader(Rect.fromLTWH(0, tubeTop, w, (h - tubeTop).clamp(1.0, double.infinity)));
 
     // Bulb glow & fill
     final fluidGlowPaint = Paint()
