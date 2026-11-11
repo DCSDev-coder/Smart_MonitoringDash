@@ -609,6 +609,12 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     final screenW = media.size.width;
     final bool wideLayout = screenW >= 1100;
     final uiScale = screenW >= 900 ? (screenW / 1150).clamp(1.0, 1.25) : 1.0;
+    // Keep the web/tablet dashboard feeling "grid-like": top cards taller,
+    // bottom cards shorter (per WebDashboard.png).
+    final wideTopHeight = wideLayout
+        ? (media.size.height * 0.40).clamp(360.0, 500.0) * uiScale
+        : null;
+    final envGaugeHeight = wideLayout ? (wideTopHeight! - 80) : null;
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -648,99 +654,93 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                             ),
                             child: Column(
                               children: [
-                                if (wideLayout)
-                                  Column(
+                                if (wideLayout) ...[
+                                  // ─── 1. TOP ROW: PUE HERO (Left) & ENVIRONMENT + NEXT MAINTENANCE (Right) ───
+                                  Row(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      // ─── 1. TOP SECTION: PUE Hero (Left) & Cabinet Env + Calendar Maintenance (Right) ───
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          // LEFT: PUE Hero Card
-                                          Expanded(
-                                            flex: 5,
-                                            child: SizedBox(
-                                              height: 335.0 * uiScale,
-                                              child: PueHeroCard(
-                                                pue: _pue,
-                                                pueStatus: _pueStatus,
-                                                totalEnergyKwh: _powerMonth[
-                                                        'Total'] ??
-                                                    _powerMonth['TOTAL'] ??
-                                                    _powerMonth[
-                                                        'total_power'] ??
-                                                    _powerMonth['totalPower'],
-                                                itEnergyKwh: _powerMonth[
-                                                        'IT Device'] ??
-                                                    _powerMonth['IT DEVICE'] ??
-                                                    _powerMonth['IT'] ??
-                                                    _powerMonth['it_power'] ??
-                                                    _powerMonth['itPower'] ??
-                                                    _powerMonth['IT_DEVICE'],
-                                                loading:
-                                                    _loading || _refreshing,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          // RIGHT: Cabinet Environment (Thermometer Style + Top Cabinet [<] [>]) & Next Scheduled Maintenance (Calendar Style)
-                                          Expanded(
-                                            flex: 6,
-                                            child: Column(
-                                              children: [
-                                                EnvironmentRow(
-                                                  temperatures: _temperatures,
-                                                  humidities: _humidities,
-                                                  alarms: _poller.recentAlarms,
-                                                  initialStyle:
-                                                      EnvironmentGaugeStyle
-                                                          .thermometer,
-                                                  showTopCabinetHeader: true,
-                                                  gaugeHeight: 165.0 * uiScale,
-                                                  loading:
-                                                      _loading || _refreshing,
-                                                ),
-                                                const SizedBox(height: 16),
-                                                ServiceNoticeCard(
-                                                  lastService: _lastMaintenance,
-                                                  cycleDays: 90,
-                                                  horizontalCalendarMode: true,
-                                                  onTap: () {
-                                                    GlobalEventBus
-                                                        .targetMaintenancePage
-                                                        .value = true;
-                                                    widget.onNavigateToReport
-                                                        ?.call();
-                                                  },
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
+                                      // TOP LEFT: PUE HERO CARD
+                                      Expanded(
+                                        flex: 5,
+                                        child: PueHeroCard(
+                                          pue: _pue,
+                                          pueStatus: _pueStatus,
+                                          totalEnergyKwh: _powerMonth[
+                                                  'Total'] ??
+                                              _powerMonth['TOTAL'] ??
+                                              _powerMonth[
+                                                  'total_power'] ??
+                                              _powerMonth['totalPower'],
+                                          itEnergyKwh: _powerMonth[
+                                                  'IT Device'] ??
+                                              _powerMonth['IT DEVICE'] ??
+                                              _powerMonth['IT'] ??
+                                              _powerMonth['it_power'] ??
+                                              _powerMonth['itPower'] ??
+                                              _powerMonth['IT_DEVICE'],
+                                          loading:
+                                              _loading || _refreshing,
+                                        ),
                                       ),
-                                      const SizedBox(height: 16),
-                                      // ─── 2. MIDDLE SECTION: Full-Width Telemetry Status (AC, T.H, Power, UPS, Smoke, Leak, PDU) ───
-                                      DeviceHealthSection(
-                                        smokeStatus: _smokeStatus,
-                                        floodStatus: _floodStatus,
-                                        alarms: _poller.recentAlarms,
-                                        devices: _devices,
-                                        temperatures: _temperatures,
-                                        humidities: _humidities,
-                                        twoColumn: true,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // ─── 3. BOTTOM SECTION: Door Control (with Door Opening / Closed Visuals) ───
-                                      DoorControlSection(
-                                        doors: _doors ?? const [],
-                                        loading: _doors == null && _loading,
-                                        canUnlock: _canControlDoors,
-                                        onUnlock: _handleDoorUnlock,
+                                      const SizedBox(width: 16),
+                                      // TOP RIGHT: CABINET ENVIRONMENT (Thermometer style) + NEXT MAINTENANCE (Calendar style)
+                                      Expanded(
+                                        flex: 6,
+                                        child: Column(
+                                          children: [
+                                            EnvironmentRow(
+                                              temperatures: _temperatures,
+                                              humidities: _humidities,
+                                              alarms: _poller.recentAlarms,
+                                              gaugeHeight:
+                                                  envGaugeHeight ?? 180,
+                                              initialStyle:
+                                                  EnvironmentGaugeStyle.thermometer,
+                                              loading:
+                                                  _loading || _refreshing,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            ServiceNoticeCard(
+                                              lastService: _lastMaintenance,
+                                              cycleDays: 90,
+                                              calendarStyle: true,
+                                              onTap: () {
+                                                GlobalEventBus
+                                                    .targetMaintenancePage
+                                                    .value = true;
+                                                widget.onNavigateToReport
+                                                    ?.call();
+                                              },
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
-                                  )
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // ─── 2. MIDDLE ROW: SUBSYSTEM DEVICE HEALTH (Spanning across full width) ───
+                                  DeviceHealthSection(
+                                    smokeStatus: _smokeStatus,
+                                    floodStatus: _floodStatus,
+                                    alarms: _poller.recentAlarms,
+                                    devices: _devices,
+                                    temperatures: _temperatures,
+                                    humidities: _humidities,
+                                    twoColumn: true,
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // ─── 3. BOTTOM ROW: DOOR CONTROLS (With visual door open / closed graphics) ───
+                                  DoorControlSection(
+                                    doors: _doors ?? const [],
+                                    loading:
+                                        _doors == null && _loading,
+                                    canUnlock: _canControlDoors,
+                                    onUnlock: _handleDoorUnlock,
+                                  ),
+                                ]
                                 else ...[
                                   PueHeroCard(
                                     pue: _pue,

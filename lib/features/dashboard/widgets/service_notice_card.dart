@@ -8,14 +8,14 @@ class ServiceNoticeCard extends StatelessWidget {
   final DateTime? lastService;
   final int cycleDays;
   final VoidCallback onTap;
-  final bool horizontalCalendarMode;
+  final bool calendarStyle;
 
   const ServiceNoticeCard({
     super.key,
     required this.lastService,
     required this.cycleDays,
     required this.onTap,
-    this.horizontalCalendarMode = false,
+    this.calendarStyle = false,
   });
 
   @override
@@ -28,17 +28,15 @@ class ServiceNoticeCard extends StatelessWidget {
 
     final expected = lastService?.add(Duration(days: cycleDays));
     final fmt = DateFormat('d MMMM yyyy');
+    final isOverdue = daysLeft != null && daysLeft <= 0;
+    final isNear = daysLeft != null && daysLeft > 0 && daysLeft <= 30;
 
-    final ringProgress = ((clampedLeft ?? 0) / cycleDays).clamp(0.0, 1.0);
-    final ringText = clampedLeft?.toString() ?? '--';
-    const ringA = Color(0xFFFF8A1F); // orange
-    const ringB = Color(0xFF2D7DFF); // blue
+    // ─── CALENDAR STYLE FOR DESKTOP REDESIGN (Per User Wireframe Sketch) ───
+    if (calendarStyle) {
+      final isLight = Theme.of(context).brightness == Brightness.light;
+      final expectedMonth = expected != null ? DateFormat('MMM').format(expected).toUpperCase() : 'FEB';
+      final expectedDay = expected != null ? DateFormat('dd').format(expected) : '03';
 
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final isAlert = (clampedLeft ?? 90) <= 30;
-
-    // Horizontal Desk Calendar Mode for Desktop Redesign
-    if (horizontalCalendarMode) {
       return GestureDetector(
         onTap: onTap,
         child: Card(
@@ -47,114 +45,110 @@ class ServiceNoticeCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 1. Mini Desk Calendar Sheet
+                // 1. Mini Desk Calendar Graphic
                 _DeskCalendarSheet(
-                  month: expected != null
-                      ? DateFormat('MMM').format(expected).toUpperCase()
-                      : 'FEB',
-                  day: expected != null ? DateFormat('dd').format(expected) : '03',
-                  year: expected != null
-                      ? DateFormat('yyyy').format(expected)
-                      : '2027',
-                  isAlert: isAlert,
+                  month: expectedMonth,
+                  day: expectedDay,
+                  isOverdue: isOverdue,
+                  isNear: isNear,
                 ),
                 const SizedBox(width: 18),
-                // 2. Schedule Details
+
+                // 2. Scheduled Maintenance Info Column
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Next Scheduled Maintenance',
-                            style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          // Days Left Countdown Pill
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (isAlert
-                                      ? const Color(0xFFFF3B30)
-                                      : const Color(0xFF00C08B))
-                                  .withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: (isAlert
-                                        ? const Color(0xFFFF3B30)
-                                        : const Color(0xFF00C08B))
-                                    .withValues(alpha: 0.35),
-                              ),
-                            ),
+                          Expanded(
                             child: Text(
-                              '$ringText DAYS LEFT',
+                              'Next Scheduled Maintenance',
                               style: TextStyle(
-                                color: isAlert
-                                    ? const Color(0xFFFF6961)
-                                    : const Color(0xFF00C08B),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.8,
+                                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (daysLeft != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (isOverdue || isNear)
+                                    ? const Color(0xFFFF3B30).withValues(alpha: 0.15)
+                                    : const Color(0xFF00C08B).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: (isOverdue || isNear)
+                                      ? const Color(0xFFFF3B30).withValues(alpha: 0.4)
+                                      : const Color(0xFF00C08B).withValues(alpha: 0.4),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                isOverdue
+                                    ? 'Overdue'
+                                    : (isNear ? 'Near (${daysLeft}d left)' : 'Okay (${daysLeft}d left)'),
+                                style: TextStyle(
+                                  color: (isOverdue || isNear)
+                                      ? const Color(0xFFFF6961)
+                                      : const Color(0xFF00C08B),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
+
+                      // Last Service Line
                       Row(
                         children: [
                           Text(
-                            'Last Service: ',
+                            'Last Service : ',
                             style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextSecondary
-                                  : Colors.white60,
-                              fontSize: 12,
+                              color: isLight ? AppTheme.lightTextSecondary : Colors.white60,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
                             lastService == null ? '--' : fmt.format(lastService!),
                             style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                              fontSize: 12,
+                              color: isLight ? AppTheme.lightTextPrimary : Colors.white.withValues(alpha: 0.9),
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
+
+                      // Expected Service Line
                       Row(
                         children: [
                           Text(
-                            'Expected: ',
+                            'Expected : ',
                             style: TextStyle(
-                              color: isLight
-                                  ? AppTheme.lightTextSecondary
-                                  : Colors.white60,
-                              fontSize: 12,
+                              color: isLight ? AppTheme.lightTextSecondary : Colors.white60,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
                             expected == null ? '--' : fmt.format(expected),
                             style: TextStyle(
-                              color: isAlert
+                              color: (isOverdue || isNear)
                                   ? const Color(0xFFFF6961)
-                                  : const Color(0xFF00C08B),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                                  : (isLight ? AppTheme.lightTextPrimary : const Color(0xFF00E5FF)),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -168,6 +162,11 @@ class ServiceNoticeCard extends StatelessWidget {
         ),
       );
     }
+
+    final ringProgress = ((clampedLeft ?? 0) / cycleDays).clamp(0.0, 1.0);
+    final ringText = clampedLeft?.toString() ?? '--';
+    const ringA = Color(0xFFFF8A1F); // orange
+    const ringB = Color(0xFF2D7DFF); // blue
 
     return GestureDetector(
       onTap: onTap,
@@ -475,93 +474,138 @@ class _RingGaugePainter extends CustomPainter {
   }
 }
 
+/// Mini desk calendar sheet graphic matching the user's wireframe sketch
 class _DeskCalendarSheet extends StatelessWidget {
   final String month;
   final String day;
-  final String year;
-  final bool isAlert;
+  final bool isOverdue;
+  final bool isNear;
 
   const _DeskCalendarSheet({
     required this.month,
     required this.day,
-    required this.year,
-    this.isAlert = false,
+    this.isOverdue = false,
+    this.isNear = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isLight = theme.brightness == Brightness.light;
-    final accentColor =
-        isAlert ? const Color(0xFFFF3B30) : const Color(0xFF00C08B);
+    final bannerColor = (isOverdue || isNear)
+        ? const Color(0xFFFF3B30)
+        : const Color(0xFF00C08B);
 
     return Container(
-      width: 66,
-      height: 74,
+      width: 72,
+      height: 82,
       decoration: BoxDecoration(
-        color: isLight ? Colors.white : const Color(0xFF141D27),
+        color: const Color(0xFF141D27),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: accentColor.withValues(alpha: 0.4),
+          color: bannerColor.withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withValues(alpha: 0.15),
+            color: bannerColor.withValues(alpha: 0.18),
             blurRadius: 10,
-            spreadRadius: 1,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // Spiral / Binder rings indicator & Month Banner
-          Container(
-            height: 22,
-            decoration: BoxDecoration(
-              color: accentColor,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(10)),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              month,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
+          // Top binder rings
+          Positioned(
+            top: -4,
+            left: 14,
+            child: Container(
+              width: 6,
+              height: 9,
+              decoration: BoxDecoration(
+                color: const Color(0xFF94A3B8),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: Colors.black, width: 1),
               ),
             ),
           ),
-          // Day number
-          Expanded(
-            child: Center(
-              child: Text(
-                day,
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
+          Positioned(
+            top: -4,
+            right: 14,
+            child: Container(
+              width: 6,
+              height: 9,
+              decoration: BoxDecoration(
+                color: const Color(0xFF94A3B8),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: Colors.black, width: 1),
+              ),
+            ),
+          ),
+
+          // Main Calendar Body
+          Column(
+            children: [
+              // Month Header Bar
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: bannerColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  month,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
-            ),
-          ),
-          // Year
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              year,
-              style: TextStyle(
-                color: (isLight
-                        ? AppTheme.lightTextSecondary
-                        : Colors.white)
-                    .withValues(alpha: 0.4),
-                fontSize: 8,
-                fontWeight: FontWeight.w700,
+
+              // Day Number
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        day,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      // Mini calendar dots representing calendar dates 2 3 4 5
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          4,
+                          (index) => Container(
+                            width: 3.5,
+                            height: 3.5,
+                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

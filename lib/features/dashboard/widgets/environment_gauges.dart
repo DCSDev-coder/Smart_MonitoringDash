@@ -36,7 +36,6 @@ class EnvironmentRow extends StatefulWidget {
   final bool loading;
   final bool minimalist;
   final bool isVertical;
-  final bool showTopCabinetHeader;
 
   const EnvironmentRow({
     super.key,
@@ -48,7 +47,6 @@ class EnvironmentRow extends StatefulWidget {
     this.loading = false,
     this.minimalist = false,
     this.isVertical = false,
-    this.showTopCabinetHeader = false,
   });
 
   @override
@@ -179,37 +177,65 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
       );
     }
 
+    final isWide = MediaQuery.of(context).size.width >= 1100;
     final safeIndex = _currentPage.clamp(0, cabinetKeys.length - 1);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.showTopCabinetHeader) ...[
-          _CabinetTopBar(
-            label: cabinetKeys[safeIndex],
-            count: cabinetKeys.length,
-            activeIndex: safeIndex,
-            onPrev: cabinetKeys.length <= 1
-                ? null
-                : () {
-                    final next = (safeIndex - 1).clamp(0, cabinetKeys.length - 1);
-                    _pageController.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-            onNext: cabinetKeys.length <= 1
-                ? null
-                : () {
-                    final next = (safeIndex + 1).clamp(0, cabinetKeys.length - 1);
-                    _pageController.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
+        if (isWide) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '${cabinetKeys[safeIndex].toLowerCase().contains("cabinet") ? cabinetKeys[safeIndex] : "Cabinet ${cabinetKeys[safeIndex]}"} :',
+                      style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _PagerArrow(
+                      icon: Icons.chevron_left_rounded,
+                      enabled: safeIndex > 0,
+                      onTap: () {
+                        final next = (safeIndex - 1).clamp(0, cabinetKeys.length - 1);
+                        _pageController.animateToPage(
+                          next,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                        );
+                      },
+                    ),
+                    _PagerArrow(
+                      icon: Icons.chevron_right_rounded,
+                      enabled: safeIndex < cabinetKeys.length - 1,
+                      onTap: () {
+                        final next = (safeIndex + 1).clamp(0, cabinetKeys.length - 1);
+                        _pageController.animateToPage(
+                          next,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                _GaugeStyleSwitch(
+                  value: _style,
+                  onChanged: (v) => setState(() => _style = v),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
         ],
         SizedBox(
           height: widget.gaugeHeight,
@@ -416,7 +442,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
             },
           ),
         ),
-        if (!widget.showTopCabinetHeader) ...[
+        if (!isWide) ...[
           const SizedBox(height: 10),
           _CabinetPager(
             label: cabinetKeys[safeIndex],
@@ -569,110 +595,6 @@ class _MiniGaugeCard extends StatelessWidget {
                 : const Color(0xFF00A3FF)))
         : null;
 
-    if (style == EnvironmentGaugeStyle.thermometer) {
-      return Card(
-        color: minimalist ? Colors.transparent : bgTint,
-        elevation: minimalist ? 0 : null,
-        margin: minimalist ? EdgeInsets.zero : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              // Visual Thermometer / Level Tube
-              _VerticalThermometerMeter(
-                progress: placeholder ? 0.0 : progress,
-                accent: isAlertCard ? const Color(0xFFFF3B30) : accent,
-                isHumidity: !isTempCard,
-                maxScale: maxScale,
-                warnHigh: warnHigh,
-              ),
-              const SizedBox(width: 14),
-              // Information Column
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        if (!placeholder && iconAsset.isNotEmpty) ...[
-                          SvgPicture.asset(
-                            iconAsset,
-                            width: 16,
-                            height: 16,
-                            colorFilter: ColorFilter.mode(
-                              isLight ? Colors.white : (isAlertCard ? const Color(0xFFFF3B30) : accent),
-                              BlendMode.srcIn,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: TextStyle(
-                              color: isLight
-                                  ? Colors.white
-                                  : (isAlertCard
-                                      ? const Color(0xFFFF3B30)
-                                      : onSurface.withValues(alpha: 0.7)),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        valueText,
-                        style: bitcount(
-                          context,
-                          fontSize: 32,
-                          color: isLight
-                              ? AppTheme.lightTextPrimary
-                              : Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: (isAlertCard ? const Color(0xFFFF3B30) : accent)
-                            .withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: (isAlertCard ? const Color(0xFFFF3B30) : accent)
-                              .withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        isAlertCard ? 'WARNING' : 'NORMAL',
-                        style: TextStyle(
-                          color: isAlertCard ? const Color(0xFFFF6961) : accent,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Card(
       color: minimalist ? Colors.transparent : bgTint,
       elevation: minimalist ? 0 : null,
@@ -712,342 +634,104 @@ class _MiniGaugeCard extends StatelessWidget {
             ],
             Expanded(
               child: Center(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Convert absolute warning thresholds to 0..1 stops.
-                      // Only render if they are within the scale.
-                      //
-                      // Example:
-                      // Temp: warnHigh=28 (maxScale=50) => 0.56
-                      // Hum: warnHigh=70 (maxScale=100) => 0.70
-                      Positioned.fill(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          switchInCurve: Curves.easeOutBack,
-                          switchOutCurve: Curves.easeInBack,
-                          transitionBuilder: (child, animation) {
-                            return FadeTransition(
-                              opacity: animation,
-                              child: ScaleTransition(
-                                  scale: animation, child: child),
-                            );
-                          },
-                          child: style == EnvironmentGaugeStyle.meter
-                              ? TweenAnimationBuilder<double>(
-                                  key: const ValueKey(
-                                      EnvironmentGaugeStyle.meter),
-                                  tween: Tween<double>(
-                                    begin: 0,
-                                    end: placeholder ? 0.0 : progress,
-                                  ),
-                                  duration: const Duration(milliseconds: 1600),
-                                  curve: Curves.easeOutCubic,
-                                  builder: (context, v, _) => _DialMeterGauge(
-                                    progress: v,
-                                    glowColor: accent,
-                                    glowIntensity: 0.0,
-                                    warningStops: [
-                                      if (warnLow != null)
-                                        (warnLow! / maxScale).clamp(0.0, 1.0),
-                                      if (warnHigh != null)
-                                        (warnHigh! / maxScale).clamp(0.0, 1.0),
-                                    ],
-                                  ),
-                                )
-                              : TweenAnimationBuilder<double>(
-                                  key:
-                                      const ValueKey(EnvironmentGaugeStyle.arc),
-                                  tween: Tween<double>(
-                                    begin: 0,
-                                    end: placeholder ? 0.0 : progress,
-                                  ),
-                                  duration: const Duration(milliseconds: 1600),
-                                  curve: Curves.easeOutCubic,
-                                  builder: (context, v, _) => ArcGauge(
-                                    progress: v,
-                                    glowColor: accent,
-                                    baseColor: Theme.of(context).brightness == Brightness.light
-                                        ? const Color(0xFFC0D3EB)
-                                        : const Color(0xFF5A5A5A),
-                                    strokeWidth: isWide ? 15 : 8,
-                                    sweepDegrees: 255,
-                                    startDegrees: 145,
-                                    glowIntensity: 0.0,
-                                    warningStops: [
-                                      if (warnLow != null)
-                                        (warnLow! / maxScale).clamp(0.0, 1.0),
-                                      if (warnHigh != null)
-                                        (warnHigh! / maxScale).clamp(0.0, 1.0),
-                                    ],
+                child: style == EnvironmentGaugeStyle.thermometer
+                    ? _ThermometerMeterGauge(
+                        progress: placeholder ? 0.0 : progress,
+                        glowColor: accent,
+                        valueText: valueText,
+                        isHumidity: !isTempCard,
+                      )
+                    : AspectRatio(
+                        aspectRatio: 1,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned.fill(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 500),
+                                switchInCurve: Curves.easeOutBack,
+                                switchOutCurve: Curves.easeInBack,
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                        scale: animation, child: child),
+                                  );
+                                },
+                                child: style == EnvironmentGaugeStyle.meter
+                                    ? TweenAnimationBuilder<double>(
+                                        key: const ValueKey(
+                                            EnvironmentGaugeStyle.meter),
+                                        tween: Tween<double>(
+                                          begin: 0,
+                                          end: placeholder ? 0.0 : progress,
+                                        ),
+                                        duration: const Duration(milliseconds: 1600),
+                                        curve: Curves.easeOutCubic,
+                                        builder: (context, v, _) => _DialMeterGauge(
+                                          progress: v,
+                                          glowColor: accent,
+                                          glowIntensity: 0.0,
+                                          warningStops: [
+                                            if (warnLow != null)
+                                              (warnLow! / maxScale).clamp(0.0, 1.0),
+                                            if (warnHigh != null)
+                                              (warnHigh! / maxScale).clamp(0.0, 1.0),
+                                          ],
+                                        ),
+                                      )
+                                    : TweenAnimationBuilder<double>(
+                                        key:
+                                            const ValueKey(EnvironmentGaugeStyle.arc),
+                                        tween: Tween<double>(
+                                          begin: 0,
+                                          end: placeholder ? 0.0 : progress,
+                                        ),
+                                        duration: const Duration(milliseconds: 1600),
+                                        curve: Curves.easeOutCubic,
+                                        builder: (context, v, _) => ArcGauge(
+                                          progress: v,
+                                          glowColor: accent,
+                                          baseColor: Theme.of(context).brightness == Brightness.light
+                                              ? const Color(0xFFC0D3EB)
+                                              : const Color(0xFF5A5A5A),
+                                          strokeWidth: isWide ? 15 : 8,
+                                          sweepDegrees: 255,
+                                          startDegrees: 145,
+                                          glowIntensity: 0.0,
+                                          warningStops: [
+                                            if (warnLow != null)
+                                              (warnLow! / maxScale).clamp(0.0, 1.0),
+                                            if (warnHigh != null)
+                                              (warnHigh! / maxScale).clamp(0.0, 1.0),
+                                          ],
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: 0.6,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  valueText,
+                                  style: bitcount(
+                                    context,
+                                    fontSize: 36,
+                                    color: isLight
+                                        ? AppTheme.lightTextPrimary
+                                        : Colors.white,
                                   ),
                                 ),
-                        ),
-                      ),
-                      FractionallySizedBox(
-                        widthFactor: 0.6,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            valueText,
-                            style: bitcount(
-                              context,
-                              fontSize: 36,
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _VerticalThermometerMeter extends StatelessWidget {
-  final double progress;
-  final Color accent;
-  final bool isHumidity;
-  final double maxScale;
-  final double? warnHigh;
-
-  const _VerticalThermometerMeter({
-    required this.progress,
-    required this.accent,
-    this.isHumidity = false,
-    required this.maxScale,
-    this.warnHigh,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 96,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
-        duration: const Duration(milliseconds: 1400),
-        curve: Curves.easeOutCubic,
-        builder: (context, v, _) {
-          return CustomPaint(
-            painter: _ThermometerPainter(
-              progress: v,
-              color: accent,
-              isHumidity: isHumidity,
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ThermometerPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final bool isHumidity;
-
-  _ThermometerPainter({
-    required this.progress,
-    required this.color,
-    required this.isHumidity,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final bulbRadius = w * 0.30;
-    final bulbCenter = Offset(w * 0.38, h - bulbRadius - 2);
-    final stemWidth = w * 0.22;
-    final stemLeft = bulbCenter.dx - stemWidth / 2;
-    final stemRight = bulbCenter.dx + stemWidth / 2;
-    const stemTop = 6.0;
-    final stemBottom = bulbCenter.dy;
-
-    // 1. Draw Glass Outline & Background Tube
-    final trackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08)
-      ..style = PaintingStyle.fill;
-    final borderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    // Outer path
-    final tubePath = Path()
-      ..moveTo(stemLeft, stemBottom)
-      ..lineTo(stemLeft, stemTop + stemWidth / 2)
-      ..arcToPoint(
-        Offset(stemRight, stemTop + stemWidth / 2),
-        radius: Radius.circular(stemWidth / 2),
-      )
-      ..lineTo(stemRight, stemBottom)
-      ..addOval(Rect.fromCircle(center: bulbCenter, radius: bulbRadius));
-
-    canvas.drawPath(tubePath, trackPaint);
-    canvas.drawPath(tubePath, borderPaint);
-
-    // 2. Tick marks along the right side
-    final tickPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.32)
-      ..strokeWidth = 1.0;
-    const tickCount = 5;
-    for (int i = 0; i <= tickCount; i++) {
-      final y = stemBottom - (i / tickCount) * (stemBottom - stemTop - 4);
-      final tickLen = (i % 2 == 0) ? 8.0 : 4.0;
-      canvas.drawLine(
-        Offset(stemRight + 3, y),
-        Offset(stemRight + 3 + tickLen, y),
-        tickPaint,
-      );
-    }
-
-    // 3. Fluid Column & Bulb
-    final fluidFillHeight = (stemBottom - stemTop - 4) * progress;
-    final fluidTop = stemBottom - fluidFillHeight;
-
-    final fluidPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-        colors: [
-          color,
-          color.withValues(alpha: 0.85),
-        ],
-      ).createShader(Rect.fromLTWH(stemLeft, fluidTop, stemWidth, fluidFillHeight))
-      ..style = PaintingStyle.fill;
-
-    // Bulb fill with radial glow
-    final bulbGlowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          color,
-          color.withValues(alpha: 0.7),
-        ],
-      ).createShader(Rect.fromCircle(center: bulbCenter, radius: bulbRadius - 2));
-    canvas.drawCircle(bulbCenter, bulbRadius - 2, bulbGlowPaint);
-
-    // Stem fill
-    if (fluidFillHeight > 0) {
-      final fluidPath = Path()
-        ..moveTo(stemLeft + 1.5, stemBottom)
-        ..lineTo(stemLeft + 1.5, fluidTop)
-        ..arcToPoint(
-          Offset(stemRight - 1.5, fluidTop),
-          radius: Radius.circular(stemWidth / 2),
-        )
-        ..lineTo(stemRight - 1.5, stemBottom)
-        ..close();
-      canvas.drawPath(fluidPath, fluidPaint);
-    }
-
-    // 4. Subtle glass shine highlight
-    final shinePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawLine(
-      Offset(stemLeft + 3, stemTop + 8),
-      Offset(stemLeft + 3, stemBottom - 4),
-      shinePaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ThermometerPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
-  }
-}
-
-class _CabinetTopBar extends StatelessWidget {
-  final String label;
-  final int count;
-  final int activeIndex;
-  final VoidCallback? onPrev;
-  final VoidCallback? onNext;
-
-  const _CabinetTopBar({
-    required this.label,
-    required this.count,
-    required this.activeIndex,
-    this.onPrev,
-    this.onNext,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dots = count.clamp(1, 6);
-    final active = activeIndex.clamp(0, dots - 1);
-    final displayLabel = label.contains(':') ? label : '$label :';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.dns_rounded, size: 16, color: Color(0xFF00C08B)),
-              const SizedBox(width: 8),
-              Text(
-                displayLabel,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              _PagerArrow(
-                icon: Icons.chevron_left_rounded,
-                enabled: onPrev != null,
-                onTap: onPrev,
-              ),
-              const SizedBox(width: 4),
-              ...List.generate(dots, (i) {
-                final isActive = i == active;
-                return Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isActive
-                        ? const Color(0xFF00C08B)
-                        : Colors.white.withValues(alpha: 0.25),
-                  ),
-                );
-              }),
-              const SizedBox(width: 4),
-              _PagerArrow(
-                icon: Icons.chevron_right_rounded,
-                enabled: onNext != null,
-                onTap: onNext,
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -1741,5 +1425,230 @@ class _GaugeStyleSwitch extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Thermometer style gauge showing the fluid/mercury level matching the wireframe sketch
+class _ThermometerMeterGauge extends StatelessWidget {
+  final double progress;
+  final Color glowColor;
+  final String valueText;
+  final bool isHumidity;
+
+  const _ThermometerMeterGauge({
+    required this.progress,
+    required this.glowColor,
+    required this.valueText,
+    this.isHumidity = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 1. Vertical Thermometer Graphic
+          SizedBox(
+            width: 48,
+            height: 120,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 1400),
+              curve: Curves.easeOutCubic,
+              builder: (context, v, _) {
+                return CustomPaint(
+                  painter: _ThermometerPainter(
+                    progress: v,
+                    fillColor: glowColor,
+                    isHumidity: isHumidity,
+                    isLight: isLight,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // 2. Bold Digital Readout & Description
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    valueText,
+                    style: bitcount(
+                      context,
+                      fontSize: 32,
+                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: glowColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: glowColor.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    isHumidity ? 'RH Moisture' : 'Temperature',
+                    style: TextStyle(
+                      color: glowColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThermometerPainter extends CustomPainter {
+  final double progress;
+  final Color fillColor;
+  final bool isHumidity;
+  final bool isLight;
+
+  _ThermometerPainter({
+    required this.progress,
+    required this.fillColor,
+    required this.isHumidity,
+    required this.isLight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final centerX = w * 0.42;
+    final bulbRadius = w * 0.28;
+    final bulbCenter = Offset(centerX, h - bulbRadius - 2);
+    final tubeWidth = w * 0.22;
+    const tubeTop = 8.0;
+    final tubeBottom = bulbCenter.dy - bulbRadius * 0.45;
+
+    // 1. Draw outer glass tube & bulb background track
+    final trackPaint = Paint()
+      ..color = isLight ? Colors.black.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = isLight ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8;
+
+    final tubeRect = RRect.fromRectAndRadius(
+      Rect.fromLTRB(centerX - tubeWidth / 2, tubeTop, centerX + tubeWidth / 2, tubeBottom + 2),
+      Radius.circular(tubeWidth / 2),
+    );
+
+    final glassPath = Path()
+      ..addRRect(tubeRect)
+      ..addOval(Rect.fromCircle(center: bulbCenter, radius: bulbRadius));
+
+    canvas.drawPath(glassPath, trackPaint);
+    canvas.drawPath(glassPath, borderPaint);
+
+    // 2. Tick marks along the right of the tube
+    final tickPaint = Paint()
+      ..color = (isLight ? Colors.black : Colors.white).withValues(alpha: 0.35)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+
+    const numTicks = 6;
+    for (int i = 0; i < numTicks; i++) {
+      final tY = tubeTop + (tubeBottom - tubeTop) * (i / (numTicks - 1));
+      final tickLen = (i == 0 || i == numTicks - 1 || i == 3) ? 8.0 : 4.5;
+      canvas.drawLine(
+        Offset(centerX + tubeWidth / 2 + 3, tY),
+        Offset(centerX + tubeWidth / 2 + 3 + tickLen, tY),
+        tickPaint,
+      );
+    }
+
+    // 3. Fluid filling
+    final clampedP = progress.clamp(0.0, 1.0);
+    final fluidFillTop = tubeBottom - (tubeBottom - tubeTop) * clampedP;
+
+    final fluidPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [
+          fillColor,
+          fillColor.withValues(alpha: 0.85),
+        ],
+      ).createShader(Rect.fromLTRB(0, tubeTop, w, h));
+
+    // Bulb glow & fill
+    final fluidGlowPaint = Paint()
+      ..color = fillColor.withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    canvas.drawCircle(bulbCenter, bulbRadius - 2.5, fluidGlowPaint);
+    canvas.drawCircle(bulbCenter, bulbRadius - 2.5, fluidPaint);
+
+    // Stem fluid column
+    if (clampedP > 0) {
+      final fluidTubeRect = RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          centerX - tubeWidth / 2 + 2,
+          fluidFillTop,
+          centerX + tubeWidth / 2 - 2,
+          tubeBottom + 4,
+        ),
+        Radius.circular((tubeWidth - 4) / 2),
+      );
+      canvas.drawRRect(fluidTubeRect, fluidGlowPaint);
+      canvas.drawRRect(fluidTubeRect, fluidPaint);
+
+      // Meniscus reflection highlight
+      canvas.drawCircle(
+        Offset(centerX, fluidFillTop + 2),
+        (tubeWidth - 6) / 2,
+        Paint()..color = Colors.white.withValues(alpha: 0.5),
+      );
+    }
+
+    // Specular glass shine on bulb
+    final shinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: bulbCenter, radius: bulbRadius - 4),
+      pi * 0.9,
+      pi * 0.45,
+      false,
+      shinePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ThermometerPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.fillColor != fillColor ||
+        oldDelegate.isHumidity != isHumidity ||
+        oldDelegate.isLight != isLight;
   }
 }
