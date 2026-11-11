@@ -37,7 +37,11 @@ migrate_working_dir/
 **/*service-account*.json
 **/*.service-account.json
 
-# Local Environment / Sensitive
+# Node/Web build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
 .env
 .env.*
 /android/
