@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { AnimatedDcsLogo } from './AnimatedDcsLogo';
 
 interface LoginModalProps {
   onLogin: (username: string) => void;
@@ -34,13 +35,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
         {/* Ambient Top Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-[#00C08B]/10 blur-3xl rounded-full pointer-events-none" />
 
-        {/* Branding with DCS Logo */}
+        {/* Branding with Animated DCS Logo */}
         <div className="text-center mb-7">
-          <img
-            src="/dcs_logo.png"
-            alt="DCS Data Center Specialists"
-            className="h-14 sm:h-16 mx-auto object-contain mb-4 drop-shadow-md"
-          />
+          <div className="flex justify-center mb-4">
+            <AnimatedDcsLogo className="h-14 sm:h-16" />
+          </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-wider">
             MONITORING GATEWAY
           </h1>

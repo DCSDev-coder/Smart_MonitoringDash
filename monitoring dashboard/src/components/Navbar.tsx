@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { CompanyItem } from '../types';
+import { AnimatedDcsLogo } from './AnimatedDcsLogo';
 
 interface NavbarProps {
   onOpenAddCompany: () => void;
@@ -75,13 +76,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[#0b1119]/95 backdrop-blur-md border-b border-[#1e2836]">
       {/* ─── Header: DCS Logo on Left, Actions & Notification Bell on Right ─── */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-3.5 relative flex items-center justify-between gap-4">
-        {/* LEFT CORNER: DCS LOGO */}
+        {/* LEFT CORNER: ANIMATED DCS LOGO (Rotates C from up to right like Flutter app) */}
         <div className="flex items-center shrink-0">
-          <img
-            src="/dcs_logo.png"
-            alt="DCS Data Center Specialists"
-            className="h-10 sm:h-11 w-auto object-contain drop-shadow transition-transform hover:scale-102"
-          />
+          <AnimatedDcsLogo className="h-10 sm:h-11" />
         </div>
 
         {/* RIGHT CORNER: Actions + Notification Bell on far corner */}
