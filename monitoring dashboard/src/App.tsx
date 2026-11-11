@@ -7,6 +7,7 @@ import { AddAccountModal } from './components/AddAccountModal';
 import { EditAccountModal } from './components/EditAccountModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
+import { apiService } from './services/apiService';
 import {
   loadCompanies,
   saveCompanies,
@@ -32,6 +33,8 @@ export function App() {
   });
   const [companies, setCompanies] = useState<CompanyItem[]>([]);
   const [recoveryEmail, setRecoveryEmail] = useState<string>('admin@dcstack.my');
+  const [apiConnected, setApiConnected] = useState(false);
+  const [isSyncingApi, setIsSyncingApi] = useState(false);
 
   const handleLogin = () => {
     localStorage.setItem('dcstack_auth_session', 'true');
@@ -39,6 +42,7 @@ export function App() {
   };
 
   const handleSignOut = () => {
+    apiService.logout();
     localStorage.removeItem('dcstack_auth_session');
     setIsLoggedIn(false);
   };
@@ -58,11 +62,62 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
-  // Initialize data from LocalStorage
+  // Sync with live DCStack Portal API
+  const syncWithApi = async () => {
+    setIsSyncingApi(true);
+    try {
+      const res = await apiService.getSites();
+      if (res.success && res.sites.length > 0) {
+        setApiConnected(true);
+        setCompanies((prev) => {
+          const current = prev.length > 0 ? prev : loadCompanies();
+          const updated = [...current];
+
+          res.sites.forEach((apiSite) => {
+            const mapped = apiService.mapApiSiteToCompany(apiSite);
+            const index = updated.findIndex(
+              (c) =>
+                c.id === mapped.id ||
+                c.openIp === mapped.openIp ||
+                c.name.toLowerCase() === mapped.name.toLowerCase()
+            );
+            if (index !== -1) {
+              updated[index] = {
+                ...updated[index],
+                openIp: mapped.openIp,
+                localIp: mapped.localIp,
+                siteUser: mapped.siteUser,
+                sitePassword: mapped.sitePassword,
+                isBlocked: mapped.isBlocked,
+                lastService: mapped.lastService,
+              };
+            } else {
+              updated.unshift(mapped);
+            }
+          });
+
+          saveCompanies(updated);
+          return updated;
+        });
+      } else {
+        setApiConnected(apiService.isAuthenticated());
+      }
+    } catch {
+      setApiConnected(false);
+    } finally {
+      setIsSyncingApi(false);
+    }
+  };
+
+  // Initialize data from LocalStorage & sync with live API
   useEffect(() => {
     setCompanies(loadCompanies());
     setRecoveryEmail(loadRecoveryEmail());
-  }, []);
+
+    if (isLoggedIn) {
+      syncWithApi();
+    }
+  }, [isLoggedIn]);
 
   // Handlers for companies
   const handleToggleBlock = (companyId: string) => {
@@ -185,6 +240,9 @@ export function App() {
         onOpenSettings={() => setShowSettings(true)}
         onSignOut={() => setShowSignOutConfirm(true)}
         companies={companies}
+        apiConnected={apiConnected}
+        isSyncingApi={isSyncingApi}
+        onSyncApi={syncWithApi}
       />
 
       {/* ─── Main Content Area (Full Screen Width with Generous Spacing) ─── */}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, User, Eye, EyeOff, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Mail, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { AnimatedDcsLogo } from './AnimatedDcsLogo';
+import { apiService } from '../services/apiService';
 
 interface LoginModalProps {
   onLogin: (username: string) => void;
@@ -9,20 +10,46 @@ interface LoginModalProps {
 
 export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }) => {
   const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('Dtct+1234');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setError('Please enter both username and password');
       return;
     }
-    // Simple authentication
-    onLogin(username.trim());
+    setError('');
+    setLoading(true);
+
+    try {
+      // Connect and authenticate against live DCStack Portal API
+      const res = await apiService.login(username.trim(), password.trim());
+      if (res.success) {
+        onLogin(username.trim());
+        return;
+      }
+
+      // Offline / fallback check for admin credentials
+      if (username.trim() === 'admin' && password.trim() === 'Dtct+1234') {
+        onLogin(username.trim());
+        return;
+      }
+
+      setError(res.message || 'Invalid username or password');
+    } catch {
+      if (username.trim() === 'admin' && password.trim() === 'Dtct+1234') {
+        onLogin(username.trim());
+        return;
+      }
+      setError('Failed to connect to DCStack Portal API.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSendRecovery = () => {
@@ -111,11 +138,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
 
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] font-extrabold text-sm tracking-wider uppercase transition-all shadow-lg shadow-[#00C08B]/20 cursor-pointer flex items-center justify-center gap-2 mt-2 active:scale-98"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-[#00C08B] hover:bg-[#00d89c] disabled:opacity-70 disabled:cursor-not-allowed text-[#060B11] font-extrabold text-sm tracking-wider uppercase transition-all shadow-lg shadow-[#00C08B]/20 cursor-pointer flex items-center justify-center gap-2 mt-2 active:scale-98"
           >
-            <span>Sign In</span>
-            <ArrowRight className="w-4 h-4 stroke-[3]" />
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin stroke-[3]" />
+                <span>Connecting to API...</span>
+              </>
+            ) : (
+              <>
+                <span>Sign In</span>
+                <ArrowRight className="w-4 h-4 stroke-[3]" />
+              </>
+            )}
           </button>
+
+          {/* API Server Indicator */}
+          <div className="pt-2 text-center">
+            <span className="inline-flex items-center gap-1.5 text-[10px] text-white/40 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00C08B] animate-pulse" />
+              <span>DCStack API: portal.dcstack.my</span>
+            </span>
+          </div>
         </form>
       </div>
 

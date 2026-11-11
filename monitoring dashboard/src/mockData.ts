@@ -7,7 +7,7 @@ export const INITIAL_COMPANIES: CompanyItem[] = [
     openIp: '219.92.246.237',
     localIp: '192.168.1.120',
     siteUser: 'admin',
-    sitePassword: 'DcsPassword#2026',
+    sitePassword: 'Dtct+1234',
     isBlocked: false,
     pue: 1.24,
     lastService: '2026-10-12',
@@ -84,7 +84,7 @@ export const INITIAL_COMPANIES: CompanyItem[] = [
   },
 ];
 
-const STORAGE_KEY_COMPANIES = 'dcstack_monitor_companies_v3';
+const STORAGE_KEY_COMPANIES = 'dcstack_monitor_companies_v4';
 const STORAGE_KEY_EMAIL = 'dcstack_monitor_recovery_email_v1';
 
 export function loadCompanies(): CompanyItem[] {
