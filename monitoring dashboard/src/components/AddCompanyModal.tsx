@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Building2, Plus, Calendar } from 'lucide-react';
-import { CompanyItem, CompanyAccount, MonitorIssueType, ALL_ISSUE_TYPES } from '../types';
+import { X, Building2, Plus, Calendar, Server } from 'lucide-react';
+import { CompanyItem, CompanyAccount, MonitorIssueType, ALL_ISSUE_TYPES, RackMonitor } from '../types';
+import { apiService } from '../services/apiService';
 
 interface AddCompanyModalProps {
   onClose: () => void;
@@ -12,9 +13,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
   onAddCompany,
 }) => {
   const [name, setName] = useState('');
+  const [cabinetId, setCabinetId] = useState('CAB-01');
+  const [rackLabel, setRackLabel] = useState('Main Server Rack');
   const [openIp, setOpenIp] = useState('');
   const [localIp, setLocalIp] = useState('');
-  const [siteUser, setSiteUser] = useState('');
+  const [siteUser, setSiteUser] = useState('admin');
   const [sitePassword, setSitePassword] = useState('');
 
   const [accountUser, setAccountUser] = useState('');
@@ -23,10 +26,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
   const [consolePassword, setConsolePassword] = useState('');
 
   const [pue, setPue] = useState('1.25');
-  const [lastService, setLastService] = useState('2026-10-01');
-  const [nextService, setNextService] = useState('2026-12-15');
+  const [lastService, setLastService] = useState('2026-11-05');
+  const [nextService, setNextService] = useState('2027-02-03');
 
   const [selectedIssues, setSelectedIssues] = useState<MonitorIssueType[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const toggleIssue = (issue: MonitorIssueType) => {
@@ -35,23 +39,49 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError('Company name is required');
+      return;
+    }
+    if (!cabinetId.trim()) {
+      setError('Cabinet ID is required');
       return;
     }
     if (!openIp.trim()) {
       setError('Open IP is required');
       return;
     }
-    if (!localIp.trim()) {
-      setError('Local IP is required');
-      return;
-    }
     if (!siteUser.trim() || !sitePassword.trim()) {
       setError('Site User and Site Password are required');
       return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    // Attempt to register with live portal API
+    let assignedSiteId: number | undefined;
+    try {
+      const apiRes = await apiService.createCompanySite({
+        name: name.trim(),
+        cabinet_id: cabinetId.trim(),
+        label: rackLabel.trim() || `Rack ${cabinetId.trim()}`,
+        open_ip: openIp.trim(),
+        local_ip: localIp.trim(),
+        site_user: siteUser.trim(),
+        site_pass: sitePassword.trim(),
+        account_user: accountUser.trim() || undefined,
+        account_pass: accountPassword.trim() || undefined,
+        console_user: consoleUser.trim() || undefined,
+        console_pass: consolePassword.trim() || undefined,
+      });
+      if (apiRes.success && apiRes.site_id) {
+        assignedSiteId = apiRes.site_id;
+      }
+    } catch {
+      // If offline, proceed with local state
     }
 
     const accounts: CompanyAccount[] = [];
@@ -72,8 +102,23 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       });
     }
 
+    const initialRack: RackMonitor = {
+      id: `mon-${Date.now()}`,
+      cabinetId: cabinetId.trim(),
+      label: rackLabel.trim() || `Rack ${cabinetId.trim()}`,
+      openIp: openIp.trim(),
+      localIp: localIp.trim(),
+      siteUser: siteUser.trim(),
+      sitePassword: sitePassword.trim(),
+      isActive: true,
+      pue: parseFloat(pue) || 1.25,
+      temperature: 24,
+      humidity: 45,
+      activeIssues: selectedIssues,
+    };
+
     const newCompany: CompanyItem = {
-      id: `comp-${Date.now()}`,
+      id: assignedSiteId ? `site-${assignedSiteId}` : `comp-${Date.now()}`,
       name: name.trim(),
       openIp: openIp.trim(),
       localIp: localIp.trim(),
@@ -85,9 +130,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       nextService,
       activeIssues: selectedIssues,
       accounts,
+      monitors: [initialRack],
     };
 
     onAddCompany(newCompany);
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -135,7 +182,43 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Company Name"
                 className="w-full px-3.5 py-2.5 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00C08B]"
+                required
               />
+            </div>
+
+            {/* Initial Rack Monitor Details */}
+            <div className="p-4 rounded-xl bg-[#0b1119] border border-[#1e2836] space-y-3">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-[#00E5FF]" />
+                <span className="text-[11px] font-bold text-[#00E5FF] tracking-wider">
+                  PRIMARY RACK MONITOR (INITIAL SETUP)
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <span className="text-[10px] text-white/50 block mb-1">
+                    CABINET ID <span className="text-[#00E5FF]">(Auto-suggested)</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={cabinetId}
+                    onChange={(e) => setCabinetId(e.target.value)}
+                    placeholder="CAB-01"
+                    className="w-full px-3.5 py-2 bg-[#141d27] border border-[#1e2836] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#00E5FF]"
+                    required
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/50 block mb-1">RACK LABEL / NICKNAME</span>
+                  <input
+                    type="text"
+                    value={rackLabel}
+                    onChange={(e) => setRackLabel(e.target.value)}
+                    placeholder="Main Server Rack"
+                    className="w-full px-3.5 py-2 bg-[#141d27] border border-[#1e2836] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#00E5FF]"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Network IPs */}
@@ -339,10 +422,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-[#00C08B]/20"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-[#00C08B]/20 disabled:opacity-50"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              Create Company
+              {isSubmitting ? 'Creating Company...' : 'Create Company'}
             </button>
           </div>
         </form>

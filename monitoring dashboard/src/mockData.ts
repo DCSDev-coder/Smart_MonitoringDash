@@ -31,6 +31,52 @@ export const INITIAL_COMPANIES: CompanyItem[] = [
         isRackConsole: true,
       },
     ],
+    monitors: [
+      {
+        id: 'mon-1-1',
+        cabinetId: 'CAB-01',
+        label: 'Core Switch & Gateway Rack',
+        openIp: '219.92.246.237',
+        localIp: '172.16.200.2',
+        siteUser: 'admin',
+        sitePassword: 'Dtct+123',
+        isActive: true,
+        pue: 2.19,
+        temperature: 33,
+        humidity: 38,
+        frontDoor: {
+          temperature: 24.5,
+          humidity: 48,
+        },
+        rearDoor: {
+          temperature: 33.0,
+          humidity: 38,
+        },
+        activeIssues: [],
+      },
+      {
+        id: 'mon-1-2',
+        cabinetId: 'CAB-02',
+        label: 'Production Database Rack',
+        openIp: '219.92.246.237',
+        localIp: '172.16.200.3',
+        siteUser: 'admin',
+        sitePassword: 'Dtct+123',
+        isActive: true,
+        pue: 1.45,
+        temperature: 28,
+        humidity: 42,
+        frontDoor: {
+          temperature: 23.8,
+          humidity: 46,
+        },
+        rearDoor: {
+          temperature: 31.5,
+          humidity: 40,
+        },
+        activeIssues: [],
+      },
+    ],
   },
   {
     id: 'comp-2',
@@ -56,6 +102,30 @@ export const INITIAL_COMPANIES: CompanyItem[] = [
         username: 'rack_console_2',
         password: 'ConsoleKey@2026',
         isRackConsole: true,
+      },
+    ],
+    monitors: [
+      {
+        id: 'mon-2-1',
+        cabinetId: 'CAB-01',
+        label: 'Main Server Rack',
+        openIp: '175.143.12.88',
+        localIp: '10.0.10.45',
+        siteUser: 'admin_2',
+        sitePassword: 'SecurePassword!890',
+        isActive: true,
+        pue: 1.35,
+        temperature: 26,
+        humidity: 45,
+        frontDoor: {
+          temperature: 24.0,
+          humidity: 50,
+        },
+        rearDoor: {
+          temperature: 32.2,
+          humidity: 42,
+        },
+        activeIssues: [],
       },
     ],
   },
@@ -85,10 +155,34 @@ export const INITIAL_COMPANIES: CompanyItem[] = [
         isRackConsole: true,
       },
     ],
+    monitors: [
+      {
+        id: 'mon-3-1',
+        cabinetId: 'CAB-01',
+        label: 'Auxiliary Storage Rack',
+        openIp: '115.132.89.14',
+        localIp: '172.16.2.10',
+        siteUser: 'admin_3',
+        sitePassword: 'MasterKey!2026',
+        isActive: false,
+        pue: 1.58,
+        temperature: 36,
+        humidity: 65,
+        frontDoor: {
+          temperature: 28.5,
+          humidity: 62,
+        },
+        rearDoor: {
+          temperature: 38.0,
+          humidity: 55,
+        },
+        activeIssues: ['Unsecure AC', 'Power'],
+      },
+    ],
   },
 ];
 
-const STORAGE_KEY_COMPANIES = 'dcstack_monitor_companies_v5';
+const STORAGE_KEY_COMPANIES = 'dcstack_monitor_companies_v7';
 const STORAGE_KEY_EMAIL = 'dcstack_monitor_recovery_email_v1';
 
 export function loadCompanies(): CompanyItem[] {

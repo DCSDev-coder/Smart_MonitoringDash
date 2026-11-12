@@ -22,6 +22,7 @@ import {
   Trash2,
   Edit3,
   Pencil,
+  Server,
 } from 'lucide-react';
 import { CompanyItem, CompanyAccount, MonitorIssueType } from '../types';
 import { SiteCredentialsModal } from './SiteCredentialsModal';
@@ -34,6 +35,7 @@ interface CompanyCardProps {
   onDeleteCompany: (companyId: string) => void;
   onOpenEditCompany: (company: CompanyItem) => void;
   onOpenEditAccount: (companyId: string, account: CompanyAccount) => void;
+  onOpenAddRack?: (company: CompanyItem) => void;
 }
 
 export const CompanyCard: React.FC<CompanyCardProps> = ({
@@ -44,8 +46,10 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
   onDeleteCompany,
   onOpenEditCompany,
   onOpenEditAccount,
+  onOpenAddRack,
 }) => {
   const [showSiteCredentials, setShowSiteCredentials] = useState(false);
+  const [selectedRackForCredentials, setSelectedRackForCredentials] = useState<string | number | undefined>(undefined);
   const [showMenu, setShowMenu] = useState(false);
   // Default to false so passwords are automatically hidden first as requested
   const [revealedAccountPasses, setRevealedAccountPasses] = useState<Record<string, boolean>>({});
@@ -175,34 +179,20 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
           {/* Far Right: Telemetry pill, Circular PUE, and 3-Dotted Button ("See More") */}
           <div className="flex items-center gap-3.5 shrink-0">
-            {/* Live Telemetry: Energy & Env Readings if available */}
-            {(company.totalEnergyKwh || company.temperature) && (
+            {/* Live Telemetry: Energy Readings if available */}
+            {company.totalEnergyKwh && (
               <div className="hidden lg:flex flex-col items-end gap-1 text-[11px] font-semibold text-white/70 mr-1">
-                {company.totalEnergyKwh && (
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="text-white/40 text-[10px] font-bold">MONTHLY:</span>
-                    <span className="font-mono font-bold text-white/90">{company.totalEnergyKwh.toFixed(1)} kWh</span>
-                    {company.itEnergyKwh && (
-                      <>
-                        <span className="text-white/20">|</span>
-                        <span className="text-white/40 text-[10px] font-bold">IT:</span>
-                        <span className="font-mono font-bold text-[#00E5FF]">{company.itEnergyKwh.toFixed(1)} kWh</span>
-                      </>
-                    )}
-                  </div>
-                )}
-                {company.temperature && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 rounded-md bg-[#00C08B]/15 text-[#00C08B] font-extrabold text-[10px] border border-[#00C08B]/30">
-                      {company.temperature}°C
-                    </span>
-                    {company.humidity && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-[#00E5FF]/15 text-[#00E5FF] font-extrabold text-[10px] border border-[#00E5FF]/30">
-                        {company.humidity}% RH
-                      </span>
-                    )}
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-white/40 text-[10px] font-bold">MONTHLY:</span>
+                  <span className="font-mono font-bold text-white/90">{company.totalEnergyKwh.toFixed(1)} kWh</span>
+                  {company.itEnergyKwh && (
+                    <>
+                      <span className="text-white/20">|</span>
+                      <span className="text-white/40 text-[10px] font-bold">IT:</span>
+                      <span className="font-mono font-bold text-[#00E5FF]">{company.itEnergyKwh.toFixed(1)} kWh</span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -462,6 +452,132 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
         </div>
       </div>
 
+      {/* ─── Under Each Company: Registered Server Racks / Monitoring Units ─── */}
+      <div className="bg-[#0b1119] px-6 sm:px-8 py-5 sm:py-6 border-t border-[#1e2836]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Server className="w-4 h-4 text-[#00E5FF]" />
+            <span className="text-xs font-bold text-white/70 tracking-wider uppercase">
+              Server Racks / Monitors ({(company.monitors && company.monitors.length > 0) ? company.monitors.length : 1})
+            </span>
+          </div>
+          {onOpenAddRack && (
+            <button
+              onClick={() => onOpenAddRack(company)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E5FF]/15 text-[#00E5FF] hover:bg-[#00E5FF]/25 border border-[#00E5FF]/30 text-xs font-bold transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              Add Server Rack
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {((company.monitors && company.monitors.length > 0)
+            ? company.monitors
+            : [
+                {
+                  id: 'primary',
+                  cabinetId: 'CAB-01',
+                  label: `${company.name} Rack 1`,
+                  openIp: company.openIp,
+                  localIp: company.localIp,
+                  siteUser: company.siteUser,
+                  sitePassword: company.sitePassword,
+                  isActive: !company.isBlocked,
+                  pue: company.pue,
+                  temperature: company.temperature,
+                  humidity: company.humidity,
+                  activeIssues: company.activeIssues,
+                },
+              ]
+          ).map((rack) => (
+            <div
+              key={rack.id}
+              className="p-4 rounded-xl bg-[#141d27] border border-[#1e2836] hover:border-[#00E5FF]/40 transition-all flex flex-col justify-between gap-3 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="px-2 py-0.5 rounded-md bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/40 font-mono font-extrabold text-[11px] shrink-0">
+                    {rack.cabinetId}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="font-extrabold text-white text-xs truncate block">
+                      {rack.label}
+                    </span>
+                    <span className="text-[11px] text-white/40 font-mono block">
+                      {rack.openIp}
+                    </span>
+                  </div>
+                </div>
+
+                <span
+                  className={`text-[9px] px-2 py-0.5 rounded-md font-extrabold uppercase shrink-0 ${
+                    rack.isActive
+                      ? 'bg-[#00C08B]/20 text-[#00C08B] border border-[#00C08B]/40'
+                      : 'bg-[#FF3B30]/20 text-[#FF6961] border border-[#FF3B30]/40'
+                  }`}
+                >
+                  {rack.isActive ? 'Active' : 'Offline'}
+                </span>
+              </div>
+
+              {/* Door Environment: Temperature & Humidity per door (Front & Rear) */}
+              <div className="pt-2.5 border-t border-[#1e2836]/60 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Front Door */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                      Front Door:
+                    </span>
+                    <span className="font-mono font-bold text-[#00C08B] text-xs">
+                      {rack.frontDoor ? `${rack.frontDoor.temperature}°C` : '24.5°C'}
+                    </span>
+                    <span className="text-white/20">|</span>
+                    <span className="font-mono font-bold text-[#00E5FF] text-xs">
+                      {rack.frontDoor ? `${rack.frontDoor.humidity}% RH` : '48% RH'}
+                    </span>
+                  </div>
+
+                  {/* Rear Door */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                      Rear Door:
+                    </span>
+                    <span className="font-mono font-bold text-[#FF9500] text-xs">
+                      {rack.rearDoor
+                        ? `${rack.rearDoor.temperature}°C`
+                        : rack.temperature
+                        ? `${rack.temperature}°C`
+                        : '33.0°C'}
+                    </span>
+                    <span className="text-white/20">|</span>
+                    <span className="font-mono font-bold text-[#00E5FF] text-xs">
+                      {rack.rearDoor
+                        ? `${rack.rearDoor.humidity}% RH`
+                        : rack.humidity
+                        ? `${rack.humidity}% RH`
+                        : '38% RH'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedRackForCredentials(rack.id);
+                    setShowSiteCredentials(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#00C08B] hover:text-[#00d89c] transition-colors cursor-pointer shrink-0 ml-auto"
+                >
+                  <KeyRound className="w-3 h-3" />
+                  Credentials
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ─── Under Each Company: Accounts & Rack Consoles (Showing Username & Password) ─── */}
       <div className="bg-[#0b1119] px-6 sm:px-8 py-5 sm:py-6 border-t border-[#1e2836]">
         <div className="flex items-center justify-between mb-4">
@@ -589,7 +705,11 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
       {showSiteCredentials && (
         <SiteCredentialsModal
           company={company}
-          onClose={() => setShowSiteCredentials(false)}
+          initialRackId={selectedRackForCredentials}
+          onClose={() => {
+            setShowSiteCredentials(false);
+            setSelectedRackForCredentials(undefined);
+          }}
           onOpenEdit={() => onOpenEditCompany(company)}
         />
       )}

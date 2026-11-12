@@ -5,6 +5,7 @@ import { AddCompanyModal } from './components/AddCompanyModal';
 import { EditCompanyModal } from './components/EditCompanyModal';
 import { AddAccountModal } from './components/AddAccountModal';
 import { EditAccountModal } from './components/EditAccountModal';
+import { AddRackModal } from './components/AddRackModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { apiService } from './services/apiService';
@@ -14,7 +15,7 @@ import {
   loadRecoveryEmail,
   saveRecoveryEmail,
 } from './mockData';
-import { CompanyItem, CompanyAccount, CompanyFilter } from './types';
+import { CompanyItem, CompanyAccount, CompanyFilter, RackMonitor } from './types';
 import {
   Building2,
   CheckCircle2,
@@ -54,6 +55,7 @@ export function App() {
   // Modals
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyItem | null>(null);
+  const [addRackCompany, setAddRackCompany] = useState<CompanyItem | null>(null);
   const [accountModalCompanyId, setAccountModalCompanyId] = useState<string | null>(null);
   const [editingAccount, setEditingAccount] = useState<{
     companyId: string;
@@ -100,6 +102,7 @@ export function App() {
                   temperature: mapped.temperature,
                   humidity: mapped.humidity,
                   activeIssues: mapped.activeIssues,
+                  monitors: mapped.monitors || updated[index].monitors,
                 };
               } else {
                 updated.unshift(mapped);
@@ -107,6 +110,33 @@ export function App() {
             });
 
             saveCompanies(updated);
+
+            // Fetch live telemetry (doors temperature & humidity, live PUE) from adapter
+            res.sites.forEach(async (apiSite) => {
+              const live = await apiService.fetchLiveRackTelemetry(apiSite.site_id);
+              if (live) {
+                setCompanies((curr) => {
+                  const refreshed = curr.map((comp) => {
+                    if (comp.id === `site-${apiSite.site_id}`) {
+                      const updatedMonitors = (comp.monitors || []).map((m) => ({
+                        ...m,
+                        frontDoor: live.frontDoor || m.frontDoor,
+                        rearDoor: live.rearDoor || m.rearDoor,
+                      }));
+                      return {
+                        ...comp,
+                        pue: live.pue ?? comp.pue,
+                        monitors: updatedMonitors,
+                      };
+                    }
+                    return comp;
+                  });
+                  saveCompanies(refreshed);
+                  return refreshed;
+                });
+              }
+            });
+
             return updated;
           });
         }
@@ -132,6 +162,13 @@ export function App() {
 
   // Handlers for companies
   const handleToggleBlock = (companyId: string) => {
+    const target = companies.find((c) => c.id === companyId);
+    if (target && target.id.startsWith('site-')) {
+      const sId = parseInt(target.id.replace('site-', ''), 10);
+      if (!isNaN(sId)) {
+        apiService.toggleCompanyStatus(sId, target.isBlocked ? 1 : 0);
+      }
+    }
     const updated = companies.map((c) =>
       c.id === companyId ? { ...c, isBlocked: !c.isBlocked } : c
     );
@@ -141,6 +178,21 @@ export function App() {
 
   const handleAddCompany = (newCompany: CompanyItem) => {
     const updated = [newCompany, ...companies];
+    setCompanies(updated);
+    saveCompanies(updated);
+  };
+
+  const handleAddRack = (companyId: string, rack: RackMonitor) => {
+    const updated = companies.map((c) => {
+      if (c.id === companyId) {
+        const existing = c.monitors || [];
+        return {
+          ...c,
+          monitors: [...existing, rack],
+        };
+      }
+      return c;
+    });
     setCompanies(updated);
     saveCompanies(updated);
   };
@@ -462,6 +514,7 @@ export function App() {
                 onDeleteCompany={handleDeleteCompany}
                 onOpenEditCompany={(comp) => setEditingCompany(comp)}
                 onOpenEditAccount={(cId, acc) => setEditingAccount({ companyId: cId, account: acc })}
+                onOpenAddRack={(comp) => setAddRackCompany(comp)}
               />
             ))}
           </div>
@@ -473,6 +526,14 @@ export function App() {
         <AddCompanyModal
           onClose={() => setShowAddCompany(false)}
           onAddCompany={handleAddCompany}
+        />
+      )}
+
+      {addRackCompany && (
+        <AddRackModal
+          company={addRackCompany}
+          onClose={() => setAddRackCompany(null)}
+          onAddRack={handleAddRack}
         />
       )}
 

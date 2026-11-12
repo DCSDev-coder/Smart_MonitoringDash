@@ -24,6 +24,34 @@ export const ALL_ISSUE_TYPES: MonitorIssueType[] = [
   'PDU',
 ];
 
+export interface DoorEnvironment {
+  temperature: number;
+  humidity: number;
+}
+
+export interface RackMonitor {
+  id: string | number;
+  cabinetId: string;
+  dahuaCabinetId?: string;
+  label: string;
+  openIp: string;
+  localIp?: string;
+  siteUser: string;
+  sitePassword?: string;
+  isActive: boolean;
+  pue?: number;
+  temperature?: number;
+  humidity?: number;
+  frontDoor?: DoorEnvironment;
+  rearDoor?: DoorEnvironment;
+  doorsEnv?: Array<{
+    doorName: string;
+    temperature: number;
+    humidity: number;
+  }>;
+  activeIssues?: MonitorIssueType[];
+}
+
 export interface CompanyItem {
   id: string;
   name: string;
@@ -41,6 +69,7 @@ export interface CompanyItem {
   nextService: string; // YYYY-MM-DD
   activeIssues: MonitorIssueType[]; // Only issues that exist! If empty -> "None"
   accounts: CompanyAccount[];
+  monitors?: RackMonitor[];
 }
 
 export type CompanyFilter = 'all' | 'active' | 'blocked' | 'issues';
