@@ -1416,8 +1416,9 @@ class _ReportScreenState extends State<ReportScreen>
             'Operational',
             style: TextStyle(
               color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
@@ -2196,7 +2197,7 @@ class _BatteryGaugeState extends State<_BatteryGauge>
     return Align(
       child: SizedBox(
         width: double.infinity,
-        height: 52,
+        height: 66,
         child: AnimatedBuilder(
           animation: _anim,
           builder: (context, _) {
@@ -2209,14 +2210,29 @@ class _BatteryGaugeState extends State<_BatteryGauge>
                 isLight: isLight,
               ),
               child: Center(
-                child: Text(
-                  '${(pct * 100).toInt()}%',
-                  style: bitcount(
-                    context,
-                    fontSize: 24,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
-                  ).copyWith(fontWeight: FontWeight.w900),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '${(pct * 100).toInt()}%',
+                      style: bitcount(
+                        context,
+                        fontSize: 38,
+                        color: Colors.white,
+                        letterSpacing: 2.0,
+                      ).copyWith(
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             );
@@ -2243,7 +2259,7 @@ class _BatteryPainter extends CustomPainter {
     // Background track
     final trackRect = Rect.fromLTWH(0, 0, size.width, size.height);
     final trackRRect =
-        RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
+        RRect.fromRectAndRadius(trackRect, const Radius.circular(16));
 
     final trackColor = isLight
         ? Colors.black.withValues(alpha: 0.05)
@@ -2260,8 +2276,8 @@ class _BatteryPainter extends CustomPainter {
 
     if (currentFillWidth > 0) {
       final fillRect = Rect.fromLTWH(0, 0, currentFillWidth, size.height);
-      final fillRRect = RRect.fromRectAndRadius(
-          fillRect, Radius.circular(size.height * 0.15));
+      final fillRRect =
+          RRect.fromRectAndRadius(fillRect, const Radius.circular(16));
 
       Color baseColor;
       if (progress >= 0.80) {
@@ -2280,8 +2296,8 @@ class _BatteryPainter extends CustomPainter {
 
       final glowPaint = Paint()
         ..style = PaintingStyle.fill
-        ..color = baseColor.withValues(alpha: 0.3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+        ..color = baseColor.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
       canvas.drawRRect(fillRRect, glowPaint);
     }
   }
