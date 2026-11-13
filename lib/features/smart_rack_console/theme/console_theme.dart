@@ -27,19 +27,19 @@ class ConsoleTheme {
 
   // ─── Background Colors ─────────────────────────────────────────────────────
   static Color appBg(BuildContext context) =>
-      isDark(context) ? const Color(0xFF090A0F) : const Color(0xFFF4F8FD);
+      isDark(context) ? const Color(0xFF090E15) : const Color(0xFFF4F8FD);
 
   static Color panelBg(BuildContext context) =>
-      isDark(context) ? const Color(0xFF12141A) : const Color(0xFFFFFFFF);
+      isDark(context) ? const Color(0xFF0F1722) : const Color(0xFFFFFFFF);
 
   static Color cardBg(BuildContext context) =>
-      isDark(context) ? const Color(0xFF1A1C23) : const Color(0xFFFFFFFF);
+      isDark(context) ? const Color(0xFF131D2A) : const Color(0xFFFFFFFF);
 
   static Color innerSurface(BuildContext context) =>
-      isDark(context) ? const Color(0xFF16181F) : const Color(0xFFF7FAFE);
+      isDark(context) ? const Color(0xFF0E1622) : const Color(0xFFF7FAFE);
 
   static Color softBlueSurface(BuildContext context) =>
-      isDark(context) ? const Color(0xFF151B25) : const Color(0xFFEAF3FF);
+      isDark(context) ? const Color(0xFF152232) : const Color(0xFFEAF3FF);
 
   // ─── Accent Colors ─────────────────────────────────────────────────────────
   static Color primaryBlue(BuildContext context) =>
@@ -88,22 +88,22 @@ class ConsoleTheme {
 
   // ─── Borders and Divider Colors ───────────────────────────────────────────
   static Color cardBorder(BuildContext context) => isDark(context)
-      ? const Color(0x1FFFFFFF) // rgba(255, 255, 255, 0.12)
+      ? const Color(0xFF1E2D3D)
       : const Color(0x244E88FF); // rgba(78, 136, 255, 0.14)
 
   static Color divider(BuildContext context) => isDark(context)
-      ? const Color(0x14FFFFFF) // rgba(255, 255, 255, 0.08)
+      ? const Color(0xFF1E2D3D)
       : const Color(0x1F5678AA); // rgba(86, 120, 170, 0.12)
 
   static Color strongDivider(BuildContext context) => isDark(context)
-      ? const Color(0x24FFFFFF) // rgba(255, 255, 255, 0.14)
+      ? const Color(0xFF283B4F)
       : const Color(0x333764B4); // rgba(55, 100, 180, 0.20)
 
   // ─── Gradients ─────────────────────────────────────────────────────────────
   static Gradient pageBgGradient(BuildContext context) {
     return isDark(context)
         ? const LinearGradient(
-            colors: [Color(0xFF12141A), Color(0xFF0A0C10)],
+            colors: [Color(0xFF090E15), Color(0xFF060B11)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           )
@@ -117,9 +117,9 @@ class ConsoleTheme {
   static Gradient cardBgGradient(BuildContext context) {
     return isDark(context)
         ? const LinearGradient(
-            colors: [Color(0xFF1C1E26), Color(0xFF14161C)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            colors: [Color(0xFF131D2A), Color(0xFF0C131D)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           )
         : const LinearGradient(
             colors: [Color(0xFFFFFFFF), Color(0xFFF8FBFF)],

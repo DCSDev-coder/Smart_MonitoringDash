@@ -36,10 +36,10 @@ class DashboardGlass extends StatelessWidget {
             ? (inset
                 ? theme.scaffoldBackgroundColor
                 : theme.colorScheme.surface)
-            : const Color(0xFF111922));
+            : const Color(0xFF131D2A));
 
     final effectiveBorder =
-        borderColor ?? (isLight ? AppTheme.lightStroke : Colors.transparent);
+        borderColor ?? (isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D));
 
     return Container(
       padding: padding,
