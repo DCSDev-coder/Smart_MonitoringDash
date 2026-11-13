@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -250,6 +251,16 @@ class CigApp extends StatelessWidget {
           darkTheme: AppTheme.dark,
           themeMode: AppThemeController.instance.themeMode,
           scrollBehavior: MyScrollBehavior(),
+          builder: (context, child) {
+            final theme = Theme.of(context);
+            return DefaultTextStyle(
+              style: GoogleFonts.manrope(
+                textStyle: theme.textTheme.bodyMedium ??
+                    const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           initialRoute: '/boot',
           onGenerateRoute: (settings) {
             if (settings.name == '/manage_users') {

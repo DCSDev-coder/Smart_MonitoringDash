@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
 
@@ -9,6 +10,26 @@ class ConsoleTheme {
       Theme.of(context).brightness == Brightness.dark;
 
   static bool get isRackConsoleLite => AppConfig.isRackConsoleBuild;
+
+  static String? get fontFamily => GoogleFonts.manrope().fontFamily;
+
+  static TextStyle font({
+    TextStyle? textStyle,
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return GoogleFonts.manrope(
+      textStyle: textStyle,
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
 
   // ─── Spacing Tokens (8px system) ──────────────────────────────────────────
   static const double xs = 4.0;
