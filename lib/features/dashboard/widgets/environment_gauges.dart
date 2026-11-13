@@ -182,6 +182,16 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                     );
                   },
                 ),
+                const Spacer(),
+                Tooltip(
+                  message: _style == EnvironmentGaugeStyle.meter
+                      ? 'Switch to Arc View (Original Mobile Structure)'
+                      : 'Switch to Meter View',
+                  child: _GaugeStyleSwitch(
+                    value: _style,
+                    onChanged: (v) => setState(() => _style = v),
+                  ),
+                ),
               ],
             ),
           ),
@@ -394,7 +404,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
           const SizedBox(height: 10),
           _CabinetPager(
             label: '$cabLabel Front',
-            count: 4,
+            count: effectiveCabinetKeys.length,
             activeIndex: safeIndex,
             onDotTap: (i) {
               _pageController.animateToPage(
@@ -403,9 +413,14 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                 curve: Curves.easeOutCubic,
               );
             },
-            trailing: _GaugeStyleSwitch(
-              value: _style,
-              onChanged: (v) => setState(() => _style = v),
+            trailing: Tooltip(
+              message: _style == EnvironmentGaugeStyle.meter
+                  ? 'Switch to Arc View (Original Mobile Structure)'
+                  : 'Switch to Meter View',
+              child: _GaugeStyleSwitch(
+                value: _style,
+                onChanged: (v) => setState(() => _style = v),
+              ),
             ),
           ),
         ],
@@ -1514,35 +1529,53 @@ class _GaugeStyleSwitch extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onChanged(
             isMeter ? EnvironmentGaugeStyle.arc : EnvironmentGaugeStyle.meter),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-          width: 44,
-          height: 24,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isMeter ? activeColor : inactiveBorder,
-              width: 1.5,
-            ),
-            color: Colors.transparent,
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 400),
-            curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-            alignment: isMeter ? Alignment.centerRight : Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              curve: const Cubic(0.34, 1.56, 0.64, 1.0),
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isMeter ? activeColor : inactiveKnob,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isMeter ? 'Meter' : 'Arc',
+              style: TextStyle(
+                color: isLight
+                    ? AppTheme.lightTextSecondary
+                    : Colors.white.withValues(alpha: 0.75),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+              width: 44,
+              height: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isMeter ? activeColor : inactiveBorder,
+                  width: 1.5,
+                ),
+                color: Colors.transparent,
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 400),
+                curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+                alignment:
+                    isMeter ? Alignment.centerRight : Alignment.centerLeft,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isMeter ? activeColor : inactiveKnob,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
