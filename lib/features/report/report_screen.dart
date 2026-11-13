@@ -1027,142 +1027,172 @@ class _ReportScreenState extends State<ReportScreen>
 
     final hPadding = AppSpacing.pageHorizontal(context);
 
+    final isWide = screenWidth >= 1000;
+
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _refreshGate.handleNotification,
-                child: RefreshIndicator.noSpinner(
-                  triggerMode: RefreshIndicatorTriggerMode.onEdge,
-                  notificationPredicate: _refreshGate.shouldProcess,
-                  onRefresh: _onRefresh,
-                  onStatusChange: _onRefreshStatusChanged,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    // Avoid iOS-style "rubber band" overscroll that can feel like infinite
-                    // scrolling, while still allowing pull-to-refresh even when content is
-                    // shorter than the viewport.
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: ClampingScrollPhysics(),
-                    ),
-                    slivers: [
-                      // 1. Dynamic Header Clearance (Scrollable)
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                            height: AppConstants.headerClearance(context)),
-                      ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final double availableHeight = constraints.maxHeight;
+            final double topClearance = AppConstants.headerClearance(context);
+            final double sectionGap = isWide ? 8.0 : AppSpacing.sectionGapSm;
+            final double bottomMargin = isWide ? 6.0 : AppSpacing.pageBottom(context);
+            const double navBarHeight = 52.0;
+            const double interCardGap = 12.0;
 
-                      // 2. Custom Navigation
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: hPadding),
-                          child: const SizedBox.shrink(),
+            final double totalUsed = topClearance +
+                navBarHeight +
+                sectionGap +
+                interCardGap +
+                bottomMargin;
+            final double cardHeight = isWide
+                ? math.max(260.0, (availableHeight - totalUsed) / 2)
+                : 260.0;
+
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _refreshGate.handleNotification,
+                    child: RefreshIndicator.noSpinner(
+                      triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                      notificationPredicate: _refreshGate.shouldProcess,
+                      onRefresh: _onRefresh,
+                      onStatusChange: _onRefreshStatusChanged,
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        // Avoid iOS-style "rubber band" overscroll that can feel like infinite
+                        // scrolling, while still allowing pull-to-refresh even when content is
+                        // shorter than the viewport.
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: ClampingScrollPhysics(),
                         ),
-                      ),
+                        slivers: [
+                          // 1. Dynamic Header Clearance (Scrollable)
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                                height: AppConstants.headerClearance(context)),
+                          ),
 
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: hPadding),
-                          child: _buildCustomNavButtons(),
-                        ),
-                      ),
+                          // 2. Custom Navigation
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding:
+                                  EdgeInsets.symmetric(horizontal: hPadding),
+                              child: const SizedBox.shrink(),
+                            ),
+                          ),
 
-                      // 3. Tab Content
-                      // We use Visibility with maintainState: true but maintainSize: false
-                      // instead of IndexedStack. This allows the scroll boundary to
-                      // shrink/grow to fit only the active page, while still keeping the
-                      // inactive page's charts alive for the PDF capture process.
-                      SliverToBoxAdapter(
-                        child: Stack(
-                          children: [
-                            if (!_loading)
-                              Column(
-                                children: [
-                                  const SizedBox(
-                                      height: AppSpacing.sectionGapSm),
-                                  Visibility(
-                                    visible: _selectedTabIndex == 0,
-                                    maintainState: true,
-                                    maintainAnimation: true,
-                                    maintainSize: false,
-                                    child: _buildEnergyPage(
-                                        hPadding,
-                                        totalPower,
-                                        healthScore,
-                                        onlinePhysicalDevices,
-                                        totalPhysicalDevices,
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding:
+                                  EdgeInsets.symmetric(horizontal: hPadding),
+                              child: _buildCustomNavButtons(),
+                            ),
+                          ),
+
+                          // 3. Tab Content
+                          // We use Visibility with maintainState: true but maintainSize: false
+                          // instead of IndexedStack. This allows the scroll boundary to
+                          // shrink/grow to fit only the active page, while still keeping the
+                          // inactive page's charts alive for the PDF capture process.
+                          SliverToBoxAdapter(
+                            child: Stack(
+                              children: [
+                                if (!_loading)
+                                  Column(
+                                    children: [
+                                      SizedBox(
+                                          height: isWide
+                                              ? 8.0
+                                              : AppSpacing.sectionGapSm),
+                                      Visibility(
+                                        visible: _selectedTabIndex == 0,
+                                        maintainState: true,
+                                        maintainAnimation: true,
+                                        maintainSize: false,
+                                        child: _buildEnergyPage(
+                                          hPadding,
+                                          totalPower,
+                                          healthScore,
+                                          onlinePhysicalDevices,
+                                          totalPhysicalDevices,
+                                          cardHeight: cardHeight,
+                                          isWide: isWide,
+                                        ),
                                       ),
+                                      Visibility(
+                                        visible: _selectedTabIndex == 1,
+                                        maintainState: true,
+                                        maintainAnimation: true,
+                                        maintainSize: false,
+                                        child: _buildMaintenancePage(hPadding),
+                                      ),
+                                      Visibility(
+                                        visible: _selectedTabIndex == 2,
+                                        maintainState: true,
+                                        maintainAnimation: true,
+                                        maintainSize: false,
+                                        child: _buildSecurityPage(hPadding),
+                                      ),
+                                    ],
                                   ),
-                                  Visibility(
-                                    visible: _selectedTabIndex == 1,
-                                    maintainState: true,
-                                    maintainAnimation: true,
-                                    maintainSize: false,
-                                    child: _buildMaintenancePage(hPadding),
-                                  ),
-                                  Visibility(
-                                    visible: _selectedTabIndex == 2,
-                                    maintainState: true,
-                                    maintainAnimation: true,
-                                    maintainSize: false,
-                                    child: _buildSecurityPage(hPadding),
-                                  ),
-                                ],
-                              ),
-                            if ((_loading || _refreshing) &&
-                                _selectedTabIndex != 2)
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  ignoring: true,
-                                  child: SingleChildScrollView(
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: hPadding),
-                                      child: const Column(
-                                        children: [
-                                          SizedBox(
-                                              height: AppSpacing.sectionGapSm),
-                                          _ReportSkeletonCard(),
-                                          SizedBox(height: AppSpacing.cardGap),
-                                          _ReportSkeletonCard(),
-                                          SizedBox(height: AppSpacing.cardGap),
-                                          _ReportSkeletonCard(),
-                                        ],
+                                if ((_loading || _refreshing) &&
+                                    _selectedTabIndex != 2)
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      ignoring: true,
+                                      child: SingleChildScrollView(
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: hPadding),
+                                          child: const Column(
+                                            children: [
+                                              SizedBox(
+                                                  height: AppSpacing
+                                                      .sectionGapSm),
+                                              _ReportSkeletonCard(),
+                                              SizedBox(
+                                                  height: AppSpacing.cardGap),
+                                              _ReportSkeletonCard(),
+                                              SizedBox(
+                                                  height: AppSpacing.cardGap),
+                                              _ReportSkeletonCard(),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                              ],
+                            ),
+                          ),
 
-                      // Bottom padding
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          // Keep the last card (PUE Stability) as the natural end of the
-                          // scroll, while still leaving enough room for the floating
-                          // bottom nav on phones.
-                          height: AppSpacing.pageBottom(context),
-                        ),
+                          // Bottom padding
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: isWide
+                                  ? 0.0
+                                  : AppSpacing.pageBottom(context),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            HeaderRefreshBar(
-              visible: _showRefreshBar,
-              top: AppConstants.headerClearance(context) - 6,
-              horizontalInset: hPadding,
-            ),
-          ],
+                HeaderRefreshBar(
+                  visible: _showRefreshBar,
+                  top: AppConstants.headerClearance(context) - 6,
+                  horizontalInset: hPadding,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1173,10 +1203,10 @@ class _ReportScreenState extends State<ReportScreen>
     double totalPower,
     int healthScore,
     int onlineDevices,
-    int totalDevices,
-  ) {
-    final isWide = MediaQuery.sizeOf(context).width >= 1100;
-
+    int totalDevices, {
+    required double cardHeight,
+    required bool isWide,
+  }) {
     final double? pmTotal = _powerMonth['Total'];
     final double? pmIt = _powerMonth['IT Device'];
     final double? pmOther = _powerMonth['Other'];
@@ -1197,7 +1227,7 @@ class _ReportScreenState extends State<ReportScreen>
 
     return Padding(
       // Let the global bottom nav / safe area handle spacing.
-      padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
+      padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, isWide ? 6.0 : 24),
       child: isWide
           ? Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1206,12 +1236,12 @@ class _ReportScreenState extends State<ReportScreen>
                   child: Column(
                     children: [
                       SizedBox(
-                        height: 260,
+                        height: cardHeight,
                         child: _buildSummaryCard(healthScore),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       SizedBox(
-                        height: 260,
+                        height: cardHeight,
                         child: _sparklineCard(
                           title: 'Total Power',
                           subtitle: 'Facility Total',
@@ -1229,12 +1259,12 @@ class _ReportScreenState extends State<ReportScreen>
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     children: [
                       SizedBox(
-                        height: 260,
+                        height: cardHeight,
                         child: _sparklineCard(
                           title: 'IT Devices',
                           subtitle: 'Active Load',
@@ -1249,9 +1279,9 @@ class _ReportScreenState extends State<ReportScreen>
                               setState(() => _itPowerRange = r),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       SizedBox(
-                        height: 260,
+                        height: cardHeight,
                         child: _sparklineCard(
                           title: 'Other/Cooling',
                           subtitle: 'Losses & Overhead',
