@@ -4,8 +4,10 @@ class AppSpacing {
   AppSpacing._();
 
   //Page level padding
-  static double pageHorizontal(BuildContext context) =>
-      MediaQuery.sizeOf(context).width * 0.06;
+  static double pageHorizontal(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    return w >= 600 ? 6.0 : w * 0.06;
+  }
 
   static double pageBottom(BuildContext context){
     final w = MediaQuery.sizeOf(context).width;

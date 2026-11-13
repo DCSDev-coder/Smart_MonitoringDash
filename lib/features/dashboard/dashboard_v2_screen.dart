@@ -622,7 +622,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final screenW = media.size.width;
-    final bool wideLayout = screenW >= 750;
+    final bool wideLayout = screenW >= 600;
     final uiScale = screenW >= 900 ? (screenW / 1150).clamp(1.0, 1.25) : 1.0;
 
     if (wideLayout) {

@@ -84,11 +84,11 @@ class AppConstants {
     final statusBar = media.padding.top;
     final critical = hasCritical ?? hasCriticalBanner;
 
-    // Wide layouts use the sidebar as the header, so we only need a small
-    // breathing room to avoid hugging the top edge (same feel as dashboard).
+    // Wide layouts use the top ConsoleHeader in the shell, so inside the content
+    // area we only need a 6px breathing room (same feel as dashboard).
     final useSidebarHeader = media.size.width >= 600;
     if (useSidebarHeader) {
-      return statusBar + 12.0;
+      return 6.0;
     }
 
     // Mobile uses the sticky top header (DashboardHeader) which has 10px top

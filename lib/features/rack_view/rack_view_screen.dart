@@ -574,7 +574,7 @@ class _RackViewScreenState extends State<RackViewScreen>
         screenWidth >= 900 ? (screenWidth / 1150).clamp(1.0, 1.25) : 1.0;
 
     final isVerySmall = screenWidth < 360;
-    final hPadding = screenWidth * 0.06;
+    final hPadding = AppSpacing.pageHorizontal(context);
     final columns = isVerySmall ? 3 : 4;
     final bool sideBySide = screenWidth >= 720;
     final int effectivePduColumns =
