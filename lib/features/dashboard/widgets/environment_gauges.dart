@@ -42,7 +42,7 @@ class EnvironmentRow extends StatefulWidget {
     required this.temperatures,
     required this.humidities,
     this.alarms,
-    this.initialStyle = EnvironmentGaugeStyle.thermometer,
+    this.initialStyle = EnvironmentGaugeStyle.arc,
     this.gaugeHeight = 210,
     this.loading = false,
     this.minimalist = false,
@@ -131,6 +131,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
     final effectiveCabinetKeys = cabinetKeys.isNotEmpty
         ? cabinetKeys
         : const ['Cabinet 1', 'Cabinet 2'];
+    final isWide = MediaQuery.of(context).size.width >= 750;
     final safeIndex = _currentPage.clamp(0, effectiveCabinetKeys.length - 1);
     final cabLabel = effectiveCabinetKeys[safeIndex].toLowerCase().contains('cabinet')
         ? effectiveCabinetKeys[safeIndex]
@@ -139,50 +140,51 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
-          child: Row(
-            children: [
-              Text(
-                '$cabLabel :',
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? AppTheme.lightTextPrimary
-                      : Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+        if (isWide)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
+            child: Row(
+              children: [
+                Text(
+                  '$cabLabel :',
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppTheme.lightTextPrimary
+                        : Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _PagerArrow(
-                icon: Icons.chevron_left_rounded,
-                enabled: safeIndex > 0,
-                onTap: () {
-                  final next = (safeIndex - 1).clamp(0, effectiveCabinetKeys.length - 1);
-                  _pageController.animateToPage(
-                    next,
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                  );
-                },
-              ),
-              const SizedBox(width: 4),
-              _PagerArrow(
-                icon: Icons.chevron_right_rounded,
-                enabled: safeIndex < effectiveCabinetKeys.length - 1,
-                onTap: () {
-                  final next = (safeIndex + 1).clamp(0, effectiveCabinetKeys.length - 1);
-                  _pageController.animateToPage(
-                    next,
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                  );
-                },
-              ),
-            ],
+                const SizedBox(width: 8),
+                _PagerArrow(
+                  icon: Icons.chevron_left_rounded,
+                  enabled: safeIndex > 0,
+                  onTap: () {
+                    final next = (safeIndex - 1).clamp(0, effectiveCabinetKeys.length - 1);
+                    _pageController.animateToPage(
+                      next,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+                _PagerArrow(
+                  icon: Icons.chevron_right_rounded,
+                  enabled: safeIndex < effectiveCabinetKeys.length - 1,
+                  onTap: () {
+                    final next = (safeIndex + 1).clamp(0, effectiveCabinetKeys.length - 1);
+                    _pageController.animateToPage(
+                      next,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
         SizedBox(
           height: widget.gaugeHeight,
           child: PageView.builder(
@@ -388,7 +390,25 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
             },
           ),
         ),
-
+        if (!isWide) ...[
+          const SizedBox(height: 10),
+          _CabinetPager(
+            label: '$cabLabel Front',
+            count: 4,
+            activeIndex: safeIndex,
+            onDotTap: (i) {
+              _pageController.animateToPage(
+                i,
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+              );
+            },
+            trailing: _GaugeStyleSwitch(
+              value: _style,
+              onChanged: (v) => setState(() => _style = v),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1389,5 +1409,142 @@ class _ThermometerPainter extends CustomPainter {
         oldDelegate.fillColor != fillColor ||
         oldDelegate.isHumidity != isHumidity ||
         oldDelegate.isLight != isLight;
+  }
+}
+
+class _CabinetPager extends StatelessWidget {
+  final String label;
+  final int count;
+  final int activeIndex;
+  final ValueChanged<int>? onDotTap;
+  final Widget? trailing;
+
+  const _CabinetPager({
+    required this.label,
+    required this.count,
+    required this.activeIndex,
+    this.onDotTap,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dots = count.clamp(1, 6);
+    final active = activeIndex.clamp(0, dots - 1);
+    return Column(
+      children: [
+        SizedBox(
+          height: 28,
+          child: Stack(
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppTheme.lightTextPrimary
+                        : Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (trailing != null)
+                Align(alignment: Alignment.centerRight, child: trailing!),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ...List.generate(dots, (i) {
+              final isActive = i == active;
+              return GestureDetector(
+                onTap: onDotTap == null ? null : () => onDotTap!(i),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isActive
+                        ? (Theme.of(context).brightness == Brightness.light
+                            ? const Color(0xFF00A3FF)
+                            : Colors.white)
+                        : (Theme.of(context).brightness == Brightness.light
+                            ? AppTheme.lightTextSecondary.withValues(alpha: 0.4)
+                            : Colors.white.withValues(alpha: 0.22)),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _GaugeStyleSwitch extends StatelessWidget {
+  final EnvironmentGaugeStyle value;
+  final ValueChanged<EnvironmentGaugeStyle> onChanged;
+
+  const _GaugeStyleSwitch({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isMeter = value == EnvironmentGaugeStyle.meter;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    const activeColor = AppTheme.accentGreen;
+    final inactiveBorder = isLight ? AppTheme.lightTextPrimary : Colors.white;
+    final inactiveKnob = (isLight ? AppTheme.lightTextPrimary : Colors.white)
+        .withValues(alpha: 0.85);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => onChanged(
+            isMeter ? EnvironmentGaugeStyle.arc : EnvironmentGaugeStyle.meter),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+          width: 44,
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isMeter ? activeColor : inactiveBorder,
+              width: 1.5,
+            ),
+            color: Colors.transparent,
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 400),
+            curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+            alignment: isMeter ? Alignment.centerRight : Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isMeter ? activeColor : inactiveKnob,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

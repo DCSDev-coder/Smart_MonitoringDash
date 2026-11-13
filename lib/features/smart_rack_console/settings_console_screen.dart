@@ -482,7 +482,7 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
           child: SizedBox(
             height: 160,
             child: Image.asset(
-              'assets/DCS_Logo/untitled_design.png',
+              'assets/DCS_Logo/DCS Logo.png',
               fit: BoxFit.contain,
             ),
           ),
@@ -505,7 +505,7 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
             child: SizedBox(
               height: 160,
               child: Image.asset(
-                'assets/DCS_Logo/untitled_design.png',
+                'assets/DCS_Logo/DCS Logo.png',
                 fit: BoxFit.contain,
               ),
             ),

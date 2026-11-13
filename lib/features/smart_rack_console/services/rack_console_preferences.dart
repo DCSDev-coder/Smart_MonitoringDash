@@ -10,22 +10,48 @@ class RackConsolePreferences extends ChangeNotifier {
   static final RackConsolePreferences instance = RackConsolePreferences._();
 
   static const String _use24HourKey = 'rack_console_use_24_hour_time';
+  static const String _selectedRackImageKey = 'rack_console_selected_rack_image';
+  static const String defaultRackImage =
+      'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-02.png';
 
   bool _use24HourTime = true;
+  String _selectedRackImage = defaultRackImage;
   bool _loaded = false;
 
   bool get use24HourTime => _use24HourTime;
+  String get selectedRackImage => _selectedRackImage;
   bool get loaded => _loaded;
 
   Future<void> _load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _use24HourTime = prefs.getBool(_use24HourKey) ?? true;
+      final savedRackImage = prefs.getString(_selectedRackImageKey);
+      if (savedRackImage != null &&
+          savedRackImage.isNotEmpty &&
+          !savedRackImage.contains('smart_rack_containment_logo')) {
+        _selectedRackImage = savedRackImage;
+      } else {
+        _selectedRackImage = defaultRackImage;
+      }
     } catch (_) {
       _use24HourTime = true;
+      _selectedRackImage = defaultRackImage;
     } finally {
       _loaded = true;
       notifyListeners();
+    }
+  }
+
+  Future<void> setSelectedRackImage(String value) async {
+    if (_selectedRackImage == value && _loaded) return;
+    _selectedRackImage = value;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_selectedRackImageKey, value);
+    } catch (_) {
+      // Keep the in-memory selection even if persistence fails.
     }
   }
 

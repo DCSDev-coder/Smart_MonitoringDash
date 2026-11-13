@@ -29,6 +29,9 @@ migrate_working_dir/
 /android/app/google-services.json
 /google-services.json
 
+# Local web clone
+monitoring_dashboard/
+
 # iOS Firebase
 /ios/Runner/GoogleService-Info.plist
 

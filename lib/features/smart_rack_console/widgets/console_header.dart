@@ -5,9 +5,20 @@ import 'package:intl/intl.dart';
 import '../../../core/network/cpanel_api_service.dart';
 import '../../../shared/widgets/safe_network_image.dart';
 import '../models/smart_rack_device_profile.dart';
+import '../models/smart_rack_console_snapshot.dart';
 import '../services/rack_console_preferences.dart';
 import '../services/smart_rack_console_repository.dart';
 import '../theme/console_theme.dart';
+
+class ConsoleHeaderTabItem {
+  final String label;
+  final IconData icon;
+
+  const ConsoleHeaderTabItem({
+    required this.label,
+    required this.icon,
+  });
+}
 
 class ConsoleHeader extends StatelessWidget {
   const ConsoleHeader({
@@ -17,6 +28,10 @@ class ConsoleHeader extends StatelessWidget {
     this.leading,
     this.onNotificationTap,
     this.onProfileTap,
+    this.menuKey,
+    this.selectedIndex,
+    this.onSelectTab,
+    this.tabs,
   });
 
   final SmartRackDeviceProfile profile;
@@ -24,9 +39,141 @@ class ConsoleHeader extends StatelessWidget {
   final Widget? leading;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onProfileTap;
+  final GlobalKey? menuKey;
+  final int? selectedIndex;
+  final ValueChanged<int>? onSelectTab;
+  final List<ConsoleHeaderTabItem>? tabs;
 
   String? _companyLogoUrl() {
     return CpanelApiService.instance.currentCompanyLogoUrl();
+  }
+
+  Widget _buildHeaderLogo(BuildContext context, String? logoUrl) {
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      return SafeNetworkImage(
+        logoUrl,
+        height: 38,
+        fit: BoxFit.contain,
+        errorBuilder: (context) => Image.asset(
+          'assets/DCS_Logo/DCS Logo.png',
+          height: 38,
+          fit: BoxFit.contain,
+        ),
+      );
+    }
+    return Image.asset(
+      'assets/DCS_Logo/DCS Logo.png',
+      height: 38,
+      fit: BoxFit.contain,
+    );
+  }
+
+  Widget _buildNavTab({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final primaryCyan = ConsoleTheme.cyan(context);
+    final primaryBlue = ConsoleTheme.primaryBlue(context);
+    final textSecondary = ConsoleTheme.textSecondary(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? primaryBlue.withValues(alpha: 0.16)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? primaryCyan.withValues(alpha: 0.45)
+                  : Colors.white.withValues(alpha: 0.05),
+              width: 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: primaryCyan.withValues(alpha: 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? primaryCyan : textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? primaryCyan : textSecondary,
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusPill(BuildContext context, SmartRackConsoleSnapshot snapshot) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: ConsoleTheme.innerSurface(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: ConsoleTheme.cardBorder(context),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: snapshot.healthColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: snapshot.healthColor.withValues(alpha: 0.55),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            snapshot.healthLabel,
+            style: TextStyle(
+              color: ConsoleTheme.textSecondary(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -37,6 +184,7 @@ class ConsoleHeader extends StatelessWidget {
       builder: (context, _) {
         final logoUrl = _companyLogoUrl();
         final snapshot = SmartRackConsoleRepository.instance.currentSnapshot();
+        final hasNavTabs = tabs != null && tabs!.isNotEmpty;
 
         return Container(
           height: ConsoleTheme.headerHeight,
@@ -46,138 +194,85 @@ class ConsoleHeader extends StatelessWidget {
           decoration: const BoxDecoration(
             color: Colors.transparent,
           ),
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
+              // ── Left: Logo + Vertical Divider + Nav Tabs ──────────────────
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Left Section: Logo (centered inside the sidebar width box) ──
-                  Row(
-                    children: [
-                      Container(
-                        width: ConsoleTheme.sidebarWidth - ConsoleTheme.xl,
-                        alignment: Alignment.centerLeft, // Pushes it left
-                        padding: const EdgeInsets.only(
-                            top: 7.0,
-                            left:
-                                40), // 'top' moves it down. 'left' pushes it right.
-                        child: Row(
-                          children: [
-                            if (leading != null) ...[
-                              leading!,
-                              const SizedBox(width: ConsoleTheme.sm),
-                            ],
-                            Expanded(
-                              child: logoUrl != null && logoUrl.isNotEmpty
-                                  ? SizedBox(
-                                      height: 85, // Enlarged logo even more
-                                      child: SafeNetworkImage(
-                                        logoUrl,
-                                        fit: BoxFit
-                                            .contain, // Fit and not stretch
-                                        errorBuilder: (context) =>
-                                            _buildDefaultProfileIcon(context),
-                                      ),
-                                    )
-                                  : _buildDefaultProfileIcon(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // ── Right Utility Section ──────────────────────────────────
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Time display
-                      const _LiveTimeDisplay(),
-                      const SizedBox(
-                          width: 24), // Expanded gap from time to notification
-
-                      // Notification Icon with Badge (Alert)
-                      _HeaderIconBadge(
-                        icon: Icons.notifications_rounded,
-                        count: snapshot.issueCount,
-                        onTap: onNotificationTap,
-                      ),
-                      const SizedBox(
-                          width:
-                              20), // Expanded gap from notification to setting
-
-                      // Settings/Hamburger Menu Icon Button (3 slice icon)
-                      InkWell(
-                        onTap: onProfileTap,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: ConsoleTheme.innerSurface(context),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: ConsoleTheme.cardBorder(context),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.menu_rounded,
-                            color: ConsoleTheme.textSecondary(context),
-                            size: 24, // Expanded icon size
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (leading != null) ...[
+                    leading!,
+                    const SizedBox(width: ConsoleTheme.sm),
+                  ],
+                  _buildHeaderLogo(context, logoUrl),
+                  if (hasNavTabs) ...[
+                    const SizedBox(width: 16),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: ConsoleTheme.cardBorder(context),
+                    ),
+                    const SizedBox(width: 12),
+                    ...tabs!.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final tab = entry.value;
+                      final isSelected = selectedIndex == i;
+                      return _buildNavTab(
+                        context: context,
+                        label: tab.label,
+                        icon: tab.icon,
+                        isSelected: isSelected,
+                        onTap: () => onSelectTab?.call(i),
+                      );
+                    }),
+                  ],
                 ],
               ),
 
-              // ── Centered Title & Status ────────────────────────────────────
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              const Spacer(),
+
+              // ── Center / Status ──────────────────────────────────────────
+              _buildStatusPill(context, snapshot),
+
+              const SizedBox(width: 24),
+
+              // ── Right Utility Section ───────────────────────────────────
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    currentPageTitle,
-                    style: TextStyle(
-                      color: ConsoleTheme.textPrimary(context),
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                    ),
+                  // Time display
+                  const _LiveTimeDisplay(),
+                  const SizedBox(width: 20),
+
+                  // Notification Icon with Badge
+                  _HeaderIconBadge(
+                    icon: Icons.notifications_rounded,
+                    count: snapshot.issueCount,
+                    onTap: onNotificationTap,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: snapshot.healthColor,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  snapshot.healthColor.withValues(alpha: 0.5),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            ),
-                          ],
+                  const SizedBox(width: 14),
+
+                  // Settings/Hamburger Menu Icon Button
+                  InkWell(
+                    key: menuKey,
+                    onTap: onProfileTap,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: ConsoleTheme.innerSurface(context),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: ConsoleTheme.cardBorder(context),
                         ),
                       ),
-                      const SizedBox(width: ConsoleTheme.sm),
-                      Text(
-                        snapshot.healthLabel,
-                        style: TextStyle(
-                          color: ConsoleTheme.textSecondary(context),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Icon(
+                        Icons.menu_rounded,
+                        color: ConsoleTheme.textSecondary(context),
+                        size: 24,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -185,18 +280,6 @@ class ConsoleHeader extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildDefaultProfileIcon(BuildContext context) {
-    return SizedBox(
-      width: 75,
-      height: 75,
-      child: Icon(
-        Icons.person_rounded,
-        color: ConsoleTheme.textSecondary(context),
-        size: 48, // Enlarged icon size to match logo height
-      ),
     );
   }
 }

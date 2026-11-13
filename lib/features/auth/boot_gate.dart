@@ -130,7 +130,7 @@ class _BootGateState extends State<BootGate> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Image.asset(
-                  'assets/DCS_Logo/untitled_design.png',
+                  'assets/DCS_Logo/DCS Logo.png',
                   width: 220,
                   fit: BoxFit.contain,
                 ),

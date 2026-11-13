@@ -685,26 +685,46 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               color: Colors.transparent,
                               borderRadius: BorderRadius.circular(24),
                               clipBehavior: Clip.antiAlias,
-                              child: SizedBox(
+                              child: Container(
                                 width: 140,
                                 height: 140,
+                                decoration: BoxDecoration(
+                                  color: isLight
+                                      ? const Color(0xFFF1F5F9)
+                                      : Colors.white.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: isLight
+                                        ? const Color(0xFFD5DAE2)
+                                        : Colors.white.withValues(alpha: 0.16),
+                                    width: 1.5,
+                                  ),
+                                ),
                                 child: Stack(
                                   fit: StackFit.expand,
                                   children: [
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(23),
-                                      child: companyLogoUrl != null
+                                      borderRadius: BorderRadius.circular(22),
+                                      child: companyLogoUrl != null &&
+                                              companyLogoUrl.isNotEmpty
                                           ? SafeNetworkImage(
                                               companyLogoUrl,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (_) => Image.asset(
-                                                'assets/DCS_Logo/untitled_design.png',
-                                                fit: BoxFit.contain,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_) =>
+                                                  const Center(
+                                                child: Icon(
+                                                  Icons.person_outline_rounded,
+                                                  size: 58,
+                                                  color: Colors.white24,
+                                                ),
                                               ),
                                             )
-                                          : Image.asset(
-                                              'assets/DCS_Logo/untitled_design.png',
-                                              fit: BoxFit.contain,
+                                          : const Center(
+                                              child: Icon(
+                                                Icons.person_outline_rounded,
+                                                size: 58,
+                                                color: Colors.white24,
+                                              ),
                                             ),
                                     ),
                                     if (canUploadLogo)
@@ -714,7 +734,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                           child: InkWell(
                                             onTap: widget.onUploadLogo,
                                             borderRadius: BorderRadius.circular(
-                                              23,
+                                              22,
                                             ),
                                             child: Container(
                                               alignment: Alignment.bottomRight,

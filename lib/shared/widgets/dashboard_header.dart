@@ -54,7 +54,7 @@ class DashboardHeader extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (logoUrl != null)
+                      if (logoUrl != null && logoUrl!.isNotEmpty)
                         SizedBox(
                           height: AppConstants.headerContentHeight,
                           child: ConstrainedBox(
@@ -63,14 +63,19 @@ class DashboardHeader extends StatelessWidget {
                               logoUrl!,
                               height: AppConstants.headerContentHeight,
                               fit: BoxFit.fitHeight,
-                              errorBuilder: (_) => Icon(
-                                Icons.business_rounded,
-                                color:
-                                    isLight ? Colors.black26 : Colors.white24,
-                                size: 36,
+                              errorBuilder: (_) => Image.asset(
+                                'assets/DCS_Logo/DCS Logo.png',
+                                height: AppConstants.headerContentHeight,
+                                fit: BoxFit.fitHeight,
                               ),
                             ),
                           ),
+                        )
+                      else
+                        Image.asset(
+                          'assets/DCS_Logo/DCS Logo.png',
+                          height: AppConstants.headerContentHeight,
+                          fit: BoxFit.fitHeight,
                         ),
                     ],
                   ),

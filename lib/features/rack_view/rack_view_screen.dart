@@ -15,6 +15,8 @@ import '../../shared/widgets/header_refresh_bar.dart';
 import '../../shared/utils/pull_to_refresh_gate.dart';
 
 import '../../shared/widgets/dashboard_glass.dart';
+import '../../shared/widgets/kiosk_user_pin_sheet.dart';
+import '../../shared/widgets/secure_action_guard.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../../shared/utils/app_toast.dart';
 
@@ -609,17 +611,23 @@ class _RackViewScreenState extends State<RackViewScreen>
                       children: [
                         showSkeleton
                             ? _buildInletCardSkeleton(uiScale)
-                            : _buildInletCard(uiScale),
+                            : (sideBySide
+                                ? _buildInletCardDesktop(uiScale)
+                                : _buildInletCardMobile(uiScale)),
                         const SizedBox(height: 16),
                         showSkeleton
                             ? _buildOutletCardSkeleton(
                                 columns: effectivePduColumns,
                                 uiScale: uiScale,
                                 sideBySide: sideBySide)
-                            : _buildOutletCard(
-                                columns: effectivePduColumns,
-                                uiScale: uiScale,
-                                sideBySide: sideBySide),
+                            : (sideBySide
+                                ? _buildOutletCardDesktop(
+                                    columns: effectivePduColumns,
+                                    uiScale: uiScale,
+                                    sideBySide: sideBySide)
+                                : _buildOutletCardMobile(
+                                    columns: effectivePduColumns,
+                                    uiScale: uiScale)),
                       ],
                     ),
                   ),
@@ -777,7 +785,179 @@ class _RackViewScreenState extends State<RackViewScreen>
     );
   }
 
-  Widget _buildInletCard(double uiScale) {
+  Future<void> _toggleOutlet({
+    required int nodeId,
+    required int outletNum,
+    required bool desiredOn,
+    String? controlMetricCode,
+  }) async {
+    final site = CpanelApiService.instance.currentSite;
+    final siteId = SiteRuntimeConfig.siteId(site);
+    final metricCode = controlMetricCode ?? 'outlet${outletNum}onoffcontrol_';
+    final targetVal = desiredOn ? 1 : 0;
+    final isRackConsoleMode =
+        CpanelApiService.instance.isCurrentSiteRackConsole(site);
+
+    RackConsoleApprovalResult? rackConsoleApproval;
+    if (isRackConsoleMode) {
+      rackConsoleApproval = await RackConsoleUserPinSheet.show(
+        context,
+        title: 'RACK CONSOLE CONTROL APPROVAL',
+        reason:
+            'Enter the approving user PIN to turn ${desiredOn ? "ON" : "OFF"} PDU $nodeId Outlet $outletNum.',
+        confirmLabel: 'Approve and Switch',
+      );
+      if (!mounted || rackConsoleApproval == null) return;
+    } else {
+      final authorized = await SecureActionGuard.ensureAuthorized(
+        context,
+        reason:
+            'Confirm to turn ${desiredOn ? "ON" : "OFF"} PDU $nodeId Outlet $outletNum',
+        ttl: const Duration(seconds: 30),
+        allowPin: true,
+      );
+      if (!mounted || !authorized) return;
+    }
+
+    if (!mounted) return;
+    AppToast.show(
+        context, 'Switching Outlet $outletNum ${desiredOn ? "ON" : "OFF"}...');
+
+    try {
+      Map<String, dynamic>? res;
+      if (isRackConsoleMode && siteId != null && rackConsoleApproval != null) {
+        res = await AdapterApiService.instance.writeNodeMetricWithUserPin(
+          siteId: siteId,
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: targetVal,
+          pin: rackConsoleApproval.pin,
+        );
+      } else if (AdapterApiService.instance.isConfigured && siteId != null) {
+        res = await AdapterApiService.instance.writeNodeMetric(
+          siteId: siteId,
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: targetVal,
+        );
+      }
+      if (!isRackConsoleMode && ApiService.instance.canUseDirectFallback) {
+        res ??= await ApiService.instance.writeNodeMetric(
+          nodeId: nodeId,
+          metricTypeLibCode: metricCode,
+          value: targetVal,
+        );
+      }
+
+      if (!mounted) return;
+      final ok = (res?['success'] == true) ||
+          (res?['code']?.toString() == '20000');
+      if (ok) {
+        AppToast.showSuccess(
+            context, 'Outlet $outletNum switched ${desiredOn ? "ON" : "OFF"}');
+        setState(() {
+          if (nodeId == 6) {
+            _pdu1OutletOnline[outletNum] = desiredOn;
+            _pdu1OutletControlValues[outletNum] = targetVal;
+          } else if (nodeId == 7) {
+            _pdu2OutletOnline[outletNum] = desiredOn;
+            _pdu2OutletControlValues[outletNum] = targetVal;
+          }
+        });
+        _fetchRackData();
+      } else {
+        final msg = res?['message']?.toString() ?? 'Failed to switch outlet';
+        AppToast.showError(context, msg);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.showError(context, 'Failed to switch outlet: $e');
+      }
+    }
+  }
+
+  Future<void> _confirmToggleOutlet({
+    required int nodeId,
+    required int outletNum,
+    required bool currentlyOn,
+    String? controlMetricCode,
+  }) async {
+    final desiredOn = !currentlyOn;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor:
+            isLight ? Colors.white : const Color(0xFF131D2A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: isLight
+                ? Colors.black.withValues(alpha: 0.1)
+                : const Color(0xFF1E2D3D),
+          ),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              desiredOn ? Icons.power_rounded : Icons.power_off_rounded,
+              color: desiredOn ? const Color(0xFF00E676) : Colors.redAccent,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '${desiredOn ? "Turn ON" : "Turn OFF"} Outlet U$outletNum?',
+              style: TextStyle(
+                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to turn ${desiredOn ? "ON" : "OFF"} PDU $nodeId Outlet $outletNum?',
+          style: TextStyle(
+            color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: TextStyle(
+                    color: isLight
+                        ? AppTheme.lightTextSecondary
+                        : Colors.white60)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: desiredOn
+                  ? const Color(0xFF00A174)
+                  : Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(desiredOn ? 'Turn ON' : 'Turn OFF'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _toggleOutlet(
+        nodeId: nodeId,
+        outletNum: outletNum,
+        desiredOn: desiredOn,
+        controlMetricCode: controlMetricCode,
+      );
+    }
+  }
+
+  Widget _buildInletCardMobile(double uiScale) {
     final loadPct = (_inletP / _totalRackMaxKw).clamp(0.0, 1.0);
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Card(
@@ -812,7 +992,7 @@ class _RackViewScreenState extends State<RackViewScreen>
                         body:
                             'Total Rack Load is the active power feeding the rack.')),
                 const Spacer(),
-                _statusPill(online: _inletOnline, uiScale: uiScale),
+                _statusPillMobile(online: _inletOnline, uiScale: uiScale),
               ],
             ),
             const SizedBox(height: 14),
@@ -835,7 +1015,6 @@ class _RackViewScreenState extends State<RackViewScreen>
               ),
             ),
             const SizedBox(height: 10),
-            // VOLTS/AMPS are omitted because many vendor builds report them as null/0.
             const SizedBox(height: 4),
             Row(
               children: [
@@ -863,7 +1042,6 @@ class _RackViewScreenState extends State<RackViewScreen>
               child: LinearProgressIndicator(
                 value: loadPct,
                 minHeight: 12,
-                // Light mode needs a visible track behind the green fill.
                 backgroundColor: isLight
                     ? const Color(0xFFD0D5DD)
                     : Colors.white.withValues(alpha: 0.12),
@@ -877,11 +1055,196 @@ class _RackViewScreenState extends State<RackViewScreen>
     );
   }
 
-  Widget _buildOutletCard(
-      {required int columns,
-      required double uiScale,
-      required bool sideBySide}) {
-    final pdu1 = _buildPduPanel(
+  Widget _buildInletCardDesktop(double uiScale) {
+    final loadPct = (_inletP / _totalRackMaxKw).clamp(0.0, 1.0);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isLight
+              ? [Colors.white, const Color(0xFFF8FAFC)]
+              : [const Color(0xFF131D2A), const Color(0xFF0C131D)],
+        ),
+        borderRadius: BorderRadius.circular(20 * uiScale),
+        border: Border.all(
+          color: isLight
+              ? Colors.black.withValues(alpha: 0.10)
+              : const Color(0xFF1E2D3D),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.05 : 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(20 * uiScale),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32 * uiScale,
+                  height: 32 * uiScale,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E5FF).withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF00E5FF).withValues(alpha: 0.35),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.flash_on_rounded,
+                    color: const Color(0xFF00E5FF),
+                    size: 18 * uiScale,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'INLET',
+                  style: TextStyle(
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    fontSize: 14 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _infoIcon(
+                  uiScale: uiScale,
+                  onTap: () => _showInfoDialog(
+                    title: 'Inlet (Total Rack Load)',
+                    body:
+                        'Total Rack Load is the active power feeding the rack.',
+                  ),
+                ),
+                const Spacer(),
+                _statusPillDesktop(online: _inletOnline, uiScale: uiScale),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  _inletP.toStringAsFixed(2),
+                  style: TextStyle(
+                    color: const Color(0xFF00E5FF),
+                    fontSize: 42 * uiScale,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'kW',
+                  style: TextStyle(
+                    color: isLight
+                        ? AppTheme.lightTextSecondary
+                        : Colors.white.withValues(alpha: 0.70),
+                    fontSize: 18 * uiScale,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Total Rack Load',
+              style: TextStyle(
+                color: isLight
+                    ? AppTheme.lightTextSecondary
+                    : Colors.white.withValues(alpha: 0.75),
+                fontSize: 13.5 * uiScale,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text(
+                  'RACK LOAD',
+                  style: TextStyle(
+                    color: isLight
+                        ? AppTheme.lightTextSecondary
+                        : Colors.white.withValues(alpha: 0.55),
+                    fontSize: 11 * uiScale,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E5FF).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    '${(loadPct * 100).round()}% of ${_totalRackMaxKw.toInt()}kW',
+                    style: TextStyle(
+                      color: isLight
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFF00E5FF),
+                      fontSize: 11.5 * uiScale,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: isLight
+                    ? const Color(0xFFE2E8F0)
+                    : Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: loadPct.clamp(0.015, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00E5FF), Color(0xFF00E676)],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutletCardMobile(
+      {required int columns, required double uiScale}) {
+    final pdu1 = _buildPduPanelMobile(
         nodeId: 6,
         title: 'RACK PDU 1',
         online: _pdu1Online,
@@ -895,13 +1258,11 @@ class _RackViewScreenState extends State<RackViewScreen>
         expanded: _pdu1Expanded,
         columns: columns,
         uiScale: uiScale,
-        onToggle: sideBySide
-            ? null
-            : () {
-                setState(() => _pdu1Expanded = !_pdu1Expanded);
-                if (_pdu1Expanded) _scrollToBottom();
-              });
-    final pdu2 = _buildPduPanel(
+        onToggle: () {
+          setState(() => _pdu1Expanded = !_pdu1Expanded);
+          if (_pdu1Expanded) _scrollToBottom();
+        });
+    final pdu2 = _buildPduPanelMobile(
         nodeId: 7,
         title: 'RACK PDU 2',
         online: _pdu2Online,
@@ -915,12 +1276,10 @@ class _RackViewScreenState extends State<RackViewScreen>
         expanded: _pdu2Expanded,
         columns: columns,
         uiScale: uiScale,
-        onToggle: sideBySide
-            ? null
-            : () {
-                setState(() => _pdu2Expanded = !_pdu2Expanded);
-                if (_pdu2Expanded) _scrollToBottom();
-              });
+        onToggle: () {
+          setState(() => _pdu2Expanded = !_pdu2Expanded);
+          if (_pdu2Expanded) _scrollToBottom();
+        });
 
     return Card(
       elevation: 0,
@@ -956,16 +1315,145 @@ class _RackViewScreenState extends State<RackViewScreen>
               ],
             ),
             const SizedBox(height: 14),
+            pdu1,
+            const SizedBox(height: 14),
+            pdu2,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutletCardDesktop(
+      {required int columns,
+      required double uiScale,
+      required bool sideBySide}) {
+    final pdu1 = _buildPduPanelDesktop(
+        nodeId: 6,
+        title: 'RACK PDU 1',
+        online: _pdu1Online,
+        pKw: _pdu1P,
+        pA: _pdu1A,
+        records: _pdu1Records,
+        outlets: _pdu1Outlets,
+        outletOnline: _pdu1OutletOnline,
+        outletControlCodes: _pdu1OutletControlCodes,
+        outletControlValues: _pdu1OutletControlValues,
+        expanded: _pdu1Expanded,
+        columns: columns,
+        uiScale: uiScale,
+        onToggle: sideBySide
+            ? null
+            : () {
+                setState(() => _pdu1Expanded = !_pdu1Expanded);
+                if (_pdu1Expanded) _scrollToBottom();
+              });
+    final pdu2 = _buildPduPanelDesktop(
+        nodeId: 7,
+        title: 'RACK PDU 2',
+        online: _pdu2Online,
+        pKw: _pdu2P,
+        pA: _pdu2A,
+        records: _pdu2Records,
+        outlets: _pdu2Outlets,
+        outletOnline: _pdu2OutletOnline,
+        outletControlCodes: _pdu2OutletControlCodes,
+        outletControlValues: _pdu2OutletControlValues,
+        expanded: _pdu2Expanded,
+        columns: columns,
+        uiScale: uiScale,
+        onToggle: sideBySide
+            ? null
+            : () {
+                setState(() => _pdu2Expanded = !_pdu2Expanded);
+                if (_pdu2Expanded) _scrollToBottom();
+              });
+
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isLight
+              ? [Colors.white, const Color(0xFFF8FAFC)]
+              : [const Color(0xFF131D2A), const Color(0xFF0C131D)],
+        ),
+        borderRadius: BorderRadius.circular(20 * uiScale),
+        border: Border.all(
+          color: isLight
+              ? Colors.black.withValues(alpha: 0.10)
+              : const Color(0xFF1E2D3D),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.05 : 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(20 * uiScale),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32 * uiScale,
+                  height: 32 * uiScale,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E5FF).withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF00E5FF).withValues(alpha: 0.35),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.outlet_rounded,
+                    color: const Color(0xFF00E5FF),
+                    size: 18 * uiScale,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'OUTLET',
+                  style: TextStyle(
+                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                    fontSize: 14 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _infoIcon(
+                  uiScale: uiScale,
+                  onTap: () => _showInfoDialog(
+                    title: 'Outlet (PDU Outputs)',
+                    body:
+                        'Each PDU card shows total power (kW) and current (A), plus individual outlet control & telemetry. Tap an outlet to toggle power or view live readings.',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             if (sideBySide) ...[
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: pdu1),
-                const SizedBox(width: 14),
-                Expanded(child: pdu2)
-              ]),
-              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: pdu1),
+                  const SizedBox(width: 16),
+                  Expanded(child: pdu2),
+                ],
+              ),
+              const SizedBox(height: 16),
               Center(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(999),
                   onTap: () {
                     setState(() {
                       _pdu1Expanded = !_pdu1Expanded;
@@ -973,26 +1461,45 @@ class _RackViewScreenState extends State<RackViewScreen>
                     });
                     if (_pdu1Expanded) _scrollToBottom();
                   },
-                  child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(_pdu1Expanded ? 'COLLAPSE ALL' : 'EXPAND ALL',
-                            style: const TextStyle(
-                                color: Colors.orangeAccent,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orangeAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.orangeAccent.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _pdu1Expanded ? 'COLLAPSE ALL' : 'EXPAND ALL',
+                          style: const TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         Icon(
-                            _pdu1Expanded
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            color: Colors.orangeAccent)
-                      ])),
+                          _pdu1Expanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: Colors.orangeAccent,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ] else ...[
               pdu1,
-              const SizedBox(height: 14),
-              pdu2
+              const SizedBox(height: 16),
+              pdu2,
             ],
           ],
         ),
@@ -1000,7 +1507,7 @@ class _RackViewScreenState extends State<RackViewScreen>
     );
   }
 
-  Widget _buildPduPanel(
+  Widget _buildPduPanelMobile(
       {required int nodeId,
       required String title,
       required bool online,
@@ -1143,21 +1650,18 @@ class _RackViewScreenState extends State<RackViewScreen>
                   crossAxisCount: columns,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
-                  mainAxisExtent: 82 *
-                      uiScale, // Fixed compact height so they are never "too big"
+                  mainAxisExtent: 82 * uiScale,
                 ),
                 itemCount: showing.length,
                 itemBuilder: (context, idx) {
                   final n = showing[idx];
                   final w = outlets[n] ?? 0.0;
-                  return _outletTile(
+                  return _outletTileMobile(
                     nodeId: nodeId,
                     outletNum: n,
                     watts: w,
                     isOn: w > 0.5,
                     records: records,
-                    controlMetricCode: outletControlCodes?[n],
-                    controlCurrentValue: outletControlValues?[n],
                     uiScale: uiScale,
                   );
                 },
@@ -1184,7 +1688,236 @@ class _RackViewScreenState extends State<RackViewScreen>
     );
   }
 
-  Future<void> _showOutletDetailsSheet({
+  Widget _buildPduPanelDesktop(
+      {required int nodeId,
+      required String title,
+      required bool online,
+      required double pKw,
+      required double pA,
+      required List<dynamic> records,
+      required Map<int, double> outlets,
+      required Map<int, bool> outletOnline,
+      Map<int, String?>? outletControlCodes,
+      Map<int, int?>? outletControlValues,
+      required bool expanded,
+      required int columns,
+      required double uiScale,
+      VoidCallback? onToggle}) {
+    final allOutlets = List.generate(16, (i) => i + 1);
+    final activeOrKnown =
+        allOutlets.where((i) => (outlets[i] ?? 0.0) > 0.5).toList();
+    final showing = expanded
+        ? allOutlets
+        : (activeOrKnown.isNotEmpty ? activeOrKnown : allOutlets);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: Container(
+        padding: EdgeInsets.all(14 * uiScale),
+        decoration: BoxDecoration(
+          color: isLight
+              ? const Color(0xFFF1F5F9)
+              : const Color(0xFF0F1722),
+          borderRadius: BorderRadius.circular(16 * uiScale),
+          border: Border.all(
+            color: isLight
+                ? Colors.black.withValues(alpha: 0.08)
+                : const Color(0xFF1B2838),
+            width: 1.0,
+          ),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8 * uiScale,
+                        height: 8 * uiScale,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: online
+                              ? const Color(0xFF00E676)
+                              : const Color(0xFF64748B),
+                          boxShadow: online
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF00E676)
+                                        .withValues(alpha: 0.6),
+                                    blurRadius: 6,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextPrimary
+                                : Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13 * uiScale,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF9100).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFFFF9100).withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.bolt_rounded,
+                            size: 13 * uiScale,
+                            color: const Color(0xFFFFB300),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${pKw.toStringAsFixed(2)} kW',
+                            style: TextStyle(
+                              color: isLight
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFFFFD15C),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11.5 * uiScale,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 13 * uiScale,
+                            color: const Color(0xFF00E5FF),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${pA.toStringAsFixed(1)}A',
+                            style: TextStyle(
+                              color: isLight
+                                  ? const Color(0xFF0284C7)
+                                  : const Color(0xFF80E5FF),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11.5 * uiScale,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              reverseDuration: const Duration(milliseconds: 340),
+              switchInCurve: Curves.easeInOutCubic,
+              switchOutCurve: Curves.easeInOutCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(
+                    sizeFactor: animation,
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                );
+              },
+              child: GridView.builder(
+                key: ValueKey<String>(
+                    'pdu_${nodeId}_${expanded}_${showing.length}'),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  mainAxisExtent: 74 *
+                      uiScale, // Fixed compact height so they are never "too big"
+                ),
+                itemCount: showing.length,
+                itemBuilder: (context, idx) {
+                  final n = showing[idx];
+                  final w = outlets[n] ?? 0.0;
+                  final ctrl = _findOutletControl(records, n);
+                  final code = outletControlCodes?[n] ?? (ctrl.code?.isNotEmpty == true ? ctrl.code : null);
+                  final val = outletControlValues?[n] ?? ctrl.value;
+                  final isOutletOn = outletOnline[n] ?? ((val != null) ? (val == 1) : (w > 0.5));
+                  return _outletTileDesktop(
+                    nodeId: nodeId,
+                    outletNum: n,
+                    watts: w,
+                    isOn: isOutletOn,
+                    records: records,
+                    controlMetricCode: code,
+                    controlCurrentValue: val,
+                    uiScale: uiScale,
+                  );
+                },
+              ),
+            ),
+            if (onToggle != null)
+              InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: AnimatedRotation(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeInOutCubic,
+                    turns: expanded ? 0.0 : 0.5,
+                    child: const Icon(Icons.keyboard_arrow_up,
+                        color: Colors.orangeAccent),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showOutletDetailsSheetMobile({
     required int nodeId,
     required int outletNum,
     required double watts,
@@ -1200,8 +1933,7 @@ class _RackViewScreenState extends State<RackViewScreen>
 
     await showModalBottomSheet<void>(
       context: context,
-      isScrollControlled:
-          true, // Allows the sheet to take up more than 50% of screen height
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         final isLight = Theme.of(context).brightness == Brightness.light;
@@ -1349,28 +2081,387 @@ class _RackViewScreenState extends State<RackViewScreen>
                     ),
                 ],
               ),
-            ), // Closes SingleChildScrollView
-          ), // Closes DashboardGlass
-        ); // Closes Padding
+            ),
+          ),
+        );
       },
     );
   }
 
-  Widget _outletTile(
+  Future<void> _showOutletDetailsSheetDesktop({
+    required int nodeId,
+    required int outletNum,
+    required double watts,
+    required bool isOn,
+    required List<dynamic> records,
+    String? controlMetricCode,
+    required double uiScale,
+  }) async {
+    final amps = _getOutletCurrent(records, outletNum);
+    final kwh = _getOutletEnergy(records, outletNum);
+    final pf = _getOutletPowerFactor(records, outletNum);
+    final hasEnergy = kwh > 0;
+    final hasPf = pf > 0;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isLight = Theme.of(context).brightness == Brightness.light;
+        final sheetTint = isLight ? Colors.white : const Color(0xFF0F1722);
+        final sheetBorder = isLight ? const Color(0xFFE2E8F0) : const Color(0xFF1E2D3D);
+        final labelColor = isLight ? const Color(0xFF64748B) : Colors.white60;
+        final valueColor = isLight ? const Color(0xFF0F172A) : Colors.white;
+
+        Widget metricCard({
+          required String label,
+          required String value,
+          required IconData icon,
+          required Color accentColor,
+        }) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isLight
+                  ? const Color(0xFFF8FAFC)
+                  : const Color(0xFF131D2A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isLight
+                    ? const Color(0xFFE2E8F0)
+                    : const Color(0xFF1F2E3E),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 16 * uiScale, color: accentColor),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: labelColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11 * uiScale,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value,
+                        style: TextStyle(
+                          color: valueColor,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13.5 * uiScale,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 28,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: sheetTint,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: sheetBorder, width: 1.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.4),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isLight
+                            ? Colors.black.withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isOn
+                              ? const Color(0xFF00E676).withValues(alpha: 0.14)
+                              : Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isOn
+                                ? const Color(0xFF00E676).withValues(alpha: 0.4)
+                                : Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: Icon(
+                          isOn ? Icons.power_rounded : Icons.power_off_rounded,
+                          size: 18 * uiScale,
+                          color: isOn ? const Color(0xFF00E676) : Colors.white60,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'PDU $nodeId • Outlet $outletNum',
+                              style: TextStyle(
+                                color: valueColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15 * uiScale,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isOn ? 'CIRCUIT ENERGIZED • ON' : 'CIRCUIT DISCONNECTED • OFF',
+                              style: TextStyle(
+                                color: isOn
+                                    ? const Color(0xFF00E676)
+                                    : const Color(0xFF94A3B8),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11 * uiScale,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            color: isLight
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white70),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Power Control Box (Interactive)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isLight
+                            ? [const Color(0xFFF8FAFC), const Color(0xFFF1F5F9)]
+                            : [const Color(0xFF131D2A), const Color(0xFF0D141E)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isOn
+                            ? const Color(0xFF00E676).withValues(alpha: 0.35)
+                            : const Color(0xFF1E2D3D),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Power Control',
+                                    style: TextStyle(
+                                      color: valueColor,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13.5 * uiScale,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isOn
+                                        ? 'Switch to cut circuit power immediately'
+                                        : 'Switch to energize outlet load',
+                                    style: TextStyle(
+                                      color: labelColor,
+                                      fontSize: 11 * uiScale,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: isOn,
+                              activeThumbColor: const Color(0xFF00E676),
+                              activeTrackColor:
+                                  const Color(0xFF00E676).withValues(alpha: 0.35),
+                              onChanged: (newVal) async {
+                                Navigator.pop(context);
+                                await _toggleOutlet(
+                                  nodeId: nodeId,
+                                  outletNum: outletNum,
+                                  desiredOn: newVal,
+                                  controlMetricCode: controlMetricCode,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: Icon(
+                              isOn
+                                  ? Icons.power_settings_new_rounded
+                                  : Icons.flash_on_rounded,
+                              size: 16 * uiScale,
+                            ),
+                            label: Text(
+                              isOn ? 'TURN OFF OUTLET' : 'TURN ON OUTLET',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isOn
+                                  ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                                  : const Color(0xFF00E676).withValues(alpha: 0.18),
+                              foregroundColor: isOn
+                                  ? const Color(0xFFF87171)
+                                  : const Color(0xFF00E676),
+                              side: BorderSide(
+                                color: isOn
+                                    ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                                    : const Color(0xFF00E676).withValues(alpha: 0.5),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await _toggleOutlet(
+                                nodeId: nodeId,
+                                outletNum: outletNum,
+                                desiredOn: !isOn,
+                                controlMetricCode: controlMetricCode,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+                  Text(
+                    'TELEMETRY READINGS',
+                    style: TextStyle(
+                      color: labelColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11 * uiScale,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: metricCard(
+                          label: 'Active Power',
+                          value: '${watts.round()} W',
+                          icon: Icons.bolt_rounded,
+                          accentColor: const Color(0xFFFFB300),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: metricCard(
+                          label: 'Current',
+                          value: '${amps.toStringAsFixed(2)} A',
+                          icon: Icons.speed_rounded,
+                          accentColor: const Color(0xFF00E5FF),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: metricCard(
+                          label: 'Energy Consumption',
+                          value: hasEnergy
+                              ? '${kwh.toStringAsFixed(2)} kWh'
+                              : '0.00 kWh',
+                          icon: Icons.stacked_line_chart_rounded,
+                          accentColor: const Color(0xFFA855F7),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: metricCard(
+                          label: 'Power Factor',
+                          value: hasPf ? pf.toStringAsFixed(2) : '--',
+                          icon: Icons.tune_rounded,
+                          accentColor: const Color(0xFF38BDF8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _outletTileMobile(
       {required int nodeId,
       required int outletNum,
       required double watts,
       required bool isOn,
       required List<dynamic> records,
-      String? controlMetricCode,
-      int? controlCurrentValue,
       required double uiScale}) {
     final pct = (watts / _outletMaxWatts).clamp(0.0, 1.0);
     final isLight = Theme.of(context).brightness == Brightness.light;
 
-    // Outlet tile palette tuned to match WhitePower.png:
-    // - ON: solid green tile with white text
-    // - OFF: solid grey tile with dark text
     const onFill = Color(0xFF00A174);
     const offFillLight = Color(0xFFD9D9D9);
     final offFillDark = Colors.white.withValues(alpha: 0.10);
@@ -1381,13 +2472,11 @@ class _RackViewScreenState extends State<RackViewScreen>
     final offTextDark = Colors.white.withValues(alpha: 0.70);
     final text = isOn ? onText : (isLight ? offTextLight : offTextDark);
 
-    // Give every slot a subtle stroke so the grid reads nicely.
-    // In light mode, use a soft black stroke; in dark mode, a soft white stroke.
     final border = isLight
         ? Colors.black.withValues(alpha: 0.10)
         : Colors.white.withValues(alpha: 0.12);
     return InkWell(
-      onTap: () => _showOutletDetailsSheet(
+      onTap: () => _showOutletDetailsSheetMobile(
         nodeId: nodeId,
         outletNum: outletNum,
         watts: watts,
@@ -1433,14 +2522,184 @@ class _RackViewScreenState extends State<RackViewScreen>
                       color: text,
                       fontSize: 11 * uiScale,
                       fontWeight: FontWeight.w900)),
-            // Tap opens a read-only details sheet (switching is in Control Panel).
           ],
         ),
       ),
     );
   }
 
-  Widget _statusPill({required bool online, required double uiScale}) {
+  Widget _outletTileDesktop(
+      {required int nodeId,
+      required int outletNum,
+      required double watts,
+      required bool isOn,
+      required List<dynamic> records,
+      String? controlMetricCode,
+      int? controlCurrentValue,
+      required double uiScale}) {
+    final pct = (watts / _outletMaxWatts).clamp(0.0, 1.0);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showOutletDetailsSheetDesktop(
+          nodeId: nodeId,
+          outletNum: outletNum,
+          watts: watts,
+          isOn: isOn,
+          records: records,
+          controlMetricCode: controlMetricCode,
+          uiScale: uiScale,
+        ),
+        onLongPress: () => _confirmToggleOutlet(
+          nodeId: nodeId,
+          outletNum: outletNum,
+          currentlyOn: isOn,
+          controlMetricCode: controlMetricCode,
+        ),
+        borderRadius: BorderRadius.circular(12 * uiScale),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          padding: EdgeInsets.symmetric(
+            horizontal: 8 * uiScale,
+            vertical: 6 * uiScale,
+          ),
+          decoration: BoxDecoration(
+            gradient: isOn
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isLight
+                        ? [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)]
+                        : [const Color(0xFF0B2419), const Color(0xFF071710)],
+                  )
+                : null,
+            color: isOn
+                ? null
+                : (isLight
+                    ? const Color(0xFFF8FAFC)
+                    : const Color(0xFF111923)),
+            borderRadius: BorderRadius.circular(12 * uiScale),
+            border: Border.all(
+              color: isOn
+                  ? (isLight
+                      ? const Color(0xFF2E7D32)
+                      : const Color(0xFF00E676).withValues(alpha: 0.5))
+                  : (isLight
+                      ? const Color(0xFFE2E8F0)
+                      : const Color(0xFF1E2D3E)),
+              width: isOn ? 1.2 : 1.0,
+            ),
+            boxShadow: isOn
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF00E676)
+                          .withValues(alpha: isLight ? 0.15 : 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'U$outletNum',
+                    style: TextStyle(
+                      color: isOn
+                          ? (isLight
+                              ? const Color(0xFF1B5E20)
+                              : const Color(0xFF86EFAC))
+                          : (isLight
+                              ? const Color(0xFF64748B)
+                              : Colors.white.withValues(alpha: 0.5)),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 10.5 * uiScale,
+                    ),
+                  ),
+                  Container(
+                    width: 5.5 * uiScale,
+                    height: 5.5 * uiScale,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isOn
+                          ? const Color(0xFF00E676)
+                          : (isLight
+                              ? const Color(0xFFCBD5E1)
+                              : const Color(0xFF334155)),
+                      boxShadow: isOn
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF00E676)
+                                    .withValues(alpha: 0.8),
+                                blurRadius: 4,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              if (isOn) ...[
+                Text(
+                  '${watts.round()}W',
+                  style: TextStyle(
+                    color: isLight
+                        ? const Color(0xFF14532D)
+                        : Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13 * uiScale,
+                  ),
+                ),
+                Text(
+                  '${(pct * 100).round()}%',
+                  style: TextStyle(
+                    color: isLight
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFF00E676),
+                    fontSize: 9.5 * uiScale,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  'OFF',
+                  style: TextStyle(
+                    color: isLight
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF64748B),
+                    fontSize: 11 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  '-',
+                  style: TextStyle(
+                    color: isLight
+                        ? const Color(0xFFCBD5E1)
+                        : const Color(0xFF334155),
+                    fontSize: 9.5 * uiScale,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusPillMobile({required bool online, required double uiScale}) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final c = online ? const Color(0xFF00A174) : AppTheme.statusError;
     return Container(
@@ -1482,6 +2741,80 @@ class _RackViewScreenState extends State<RackViewScreen>
           fontWeight: FontWeight.w900,
           letterSpacing: 0.6,
         ),
+      ),
+    );
+  }
+
+  Widget _statusPillDesktop({required bool online, required double uiScale}) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 12 * uiScale,
+        vertical: 5 * uiScale,
+      ),
+      decoration: BoxDecoration(
+        color: online
+            ? const Color(0xFF00E676).withValues(alpha: 0.12)
+            : (isLight
+                ? const Color(0xFFF1F5F9)
+                : const Color(0xFF1E293B)),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: online
+              ? const Color(0xFF00E676).withValues(alpha: 0.35)
+              : (isLight
+                  ? const Color(0xFFCBD5E1)
+                  : const Color(0xFF334155)),
+          width: 1.0,
+        ),
+        boxShadow: online
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF00E676).withValues(alpha: 0.25),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6 * uiScale,
+            height: 6 * uiScale,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: online
+                  ? const Color(0xFF00E676)
+                  : const Color(0xFF94A3B8),
+              boxShadow: online
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF00E676).withValues(alpha: 0.8),
+                        blurRadius: 6,
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            online ? 'ONLINE' : 'OFFLINE',
+            style: TextStyle(
+              color: online
+                  ? (isLight
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF00E676))
+                  : (isLight
+                      ? const Color(0xFF64748B)
+                      : const Color(0xFF94A3B8)),
+              fontSize: 11 * uiScale,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -19,6 +19,9 @@ import 'widgets/environment_gauges.dart';
 import 'widgets/service_notice_card.dart';
 import 'widgets/door_control_section.dart';
 import 'widgets/device_health_section.dart';
+import '../smart_rack_console/smart_rack_console_screen.dart';
+import '../smart_rack_console/models/smart_rack_device_profile.dart';
+import '../smart_rack_console/services/smart_rack_console_repository.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/utils/app_toast.dart';
@@ -77,6 +80,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   // Energy
   double _pue = 2.18;
   String _pueStatus = 'ok'; // ok | unavailable | error | down
+  String get pueStatus => _pueStatus;
   Map<String, double> _powerMonth = {
     'Total': 611.49,
     'IT Device': 274.47,
@@ -118,6 +122,13 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     _poller.addListener(_syncFromPoller);
     SmartPollingSettings.instance.addListener(_restartTimerIfNeeded);
     _syncFromPoller();
+    SmartRackConsoleRepository.instance.start(
+      initialSections: const {
+        RackConsoleSupplementalSection.overview,
+        RackConsoleSupplementalSection.power,
+        RackConsoleSupplementalSection.ac,
+      },
+    );
     if (widget.isActive) {
       _fetchAll(isInitial: true);
       _startTimer();
@@ -129,6 +140,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     WidgetsBinding.instance.removeObserver(this);
     _poller.removeListener(_syncFromPoller);
     SmartPollingSettings.instance.removeListener(_restartTimerIfNeeded);
+    SmartRackConsoleRepository.instance.stop();
     _stopTimer();
     _scrollController.dispose();
     super.dispose();
@@ -610,14 +622,21 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final screenW = media.size.width;
-    final bool wideLayout = screenW >= 1100;
+    final bool wideLayout = screenW >= 750;
     final uiScale = screenW >= 900 ? (screenW / 1150).clamp(1.0, 1.25) : 1.0;
-    // Keep the web/tablet dashboard feeling "grid-like": top cards taller,
-    // bottom cards shorter (per WebDashboard.png).
-    final wideTopHeight = wideLayout
-        ? (media.size.height * 0.40).clamp(360.0, 500.0) * uiScale
-        : null;
-    final envGaugeHeight = wideLayout ? (wideTopHeight! - 80) : null;
+
+    if (wideLayout) {
+      return MediaQuery(
+        data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
+        child: const Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SmartRackConsoleScreen(
+            profile: SmartRackDeviceProfiles.androidOperator,
+            compact: false,
+          ),
+        ),
+      );
+    }
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -651,148 +670,61 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                         Align(
                           alignment: Alignment.topCenter,
                           child: ConstrainedBox(
-                            // Prevent ultra-wide stretching on big screens.
-                            constraints: BoxConstraints(
-                              maxWidth: wideLayout ? 1400 : double.infinity,
+                            constraints: const BoxConstraints(
+                              maxWidth: double.infinity,
                             ),
                             child: Column(
                               children: [
-                                if (wideLayout) ...[
-                                  // ─── 1. TOP ROW: PUE HERO (Left) & ENVIRONMENT + NEXT MAINTENANCE (Right) ───
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // TOP LEFT: PUE HERO CARD
-                                      Expanded(
-                                        flex: 5,
-                                        child: PueHeroCard(
-                                          pue: _pue > 0 ? _pue : 2.18,
-                                          pueStatus: _pueStatus == 'down' ? 'ok' : _pueStatus,
-                                          totalEnergyKwh: _powerMonth[
-                                                  'Total'] ??
-                                              _powerMonth['TOTAL'] ??
-                                              _powerMonth[
-                                                  'total_power'] ??
-                                              _powerMonth['totalPower'] ??
-                                              611.49,
-                                          itEnergyKwh: _powerMonth[
-                                                  'IT Device'] ??
-                                              _powerMonth['IT DEVICE'] ??
-                                              _powerMonth['IT'] ??
-                                              _powerMonth['it_power'] ??
-                                              _powerMonth['itPower'] ??
-                                              _powerMonth['IT_DEVICE'] ??
-                                              274.47,
-                                          loading: _refreshing,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      // TOP RIGHT: CABINET ENVIRONMENT (Thermometer style) + NEXT MAINTENANCE (Calendar style)
-                                      Expanded(
-                                        flex: 6,
-                                        child: Column(
-                                          children: [
-                                            EnvironmentRow(
-                                              temperatures: _temperatures,
-                                              humidities: _humidities,
-                                              alarms: _poller.recentAlarms,
-                                              gaugeHeight:
-                                                  envGaugeHeight ?? 180,
-                                              initialStyle:
-                                                  EnvironmentGaugeStyle.thermometer,
-                                              loading: _refreshing,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            ServiceNoticeCard(
-                                              lastService: _lastMaintenance ?? DateTime(2026, 11, 5),
-                                              cycleDays: 90,
-                                              calendarStyle: true,
-                                              onTap: () {
-                                                GlobalEventBus
-                                                    .targetMaintenancePage
-                                                    .value = true;
-                                                widget.onNavigateToReport
-                                                    ?.call();
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // ─── 2. MIDDLE ROW: SUBSYSTEM DEVICE HEALTH (Spanning across full width) ───
-                                  DeviceHealthSection(
-                                    smokeStatus: _smokeStatus,
-                                    floodStatus: _floodStatus,
-                                    alarms: _poller.recentAlarms,
-                                    devices: _devices,
-                                    temperatures: _temperatures,
-                                    humidities: _humidities,
-                                    twoColumn: false,
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // ─── 3. BOTTOM ROW: DOOR CONTROLS (With visual door open / closed graphics) ───
-                                  DoorControlSection(
-                                    doors: _doors ?? const [],
-                                    loading: false,
-                                    canUnlock: _canControlDoors,
-                                    onUnlock: _handleDoorUnlock,
-                                  ),
-                                ]
-                                else ...[
-                                  PueHeroCard(
-                                    pue: _pue,
-                                    pueStatus: _pueStatus,
-                                    totalEnergyKwh: _powerMonth['Total'] ??
-                                        _powerMonth['TOTAL'] ??
-                                        _powerMonth['total_power'] ??
-                                        _powerMonth['totalPower'],
-                                    itEnergyKwh: _powerMonth['IT Device'] ??
-                                        _powerMonth['IT DEVICE'] ??
-                                        _powerMonth['IT'] ??
-                                        _powerMonth['it_power'] ??
-                                        _powerMonth['itPower'] ??
-                                        _powerMonth['IT_DEVICE'],
-                                    loading: _loading || _refreshing,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  EnvironmentRow(
-                                    temperatures: _temperatures,
-                                    humidities: _humidities,
-                                    alarms: _poller.recentAlarms,
-                                    loading: _loading || _refreshing,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  DoorControlSection(
-                                    doors: _doors ?? const [],
-                                    loading: _doors == null && _loading,
-                                    canUnlock: _canControlDoors,
-                                    onUnlock: _handleDoorUnlock,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ServiceNoticeCard(
-                                    lastService: _lastMaintenance,
-                                    cycleDays: 90,
-                                    onTap: () {
-                                      GlobalEventBus
-                                          .targetMaintenancePage.value = true;
-                                      widget.onNavigateToReport?.call();
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  DeviceHealthSection(
-                                    smokeStatus: _smokeStatus,
-                                    floodStatus: _floodStatus,
-                                    alarms: _poller.recentAlarms,
-                                    devices: _devices,
-                                    temperatures: _temperatures,
-                                    humidities: _humidities,
-                                  ),
-                                ],
+                                PueHeroCard(
+                                  pue: _pue,
+                                  pueStatus: _pueStatus,
+                                  totalEnergyKwh: _powerMonth['Total'] ??
+                                      _powerMonth['TOTAL'] ??
+                                      _powerMonth['total_power'] ??
+                                      _powerMonth['totalPower'],
+                                  itEnergyKwh: _powerMonth['IT Device'] ??
+                                      _powerMonth['IT DEVICE'] ??
+                                      _powerMonth['IT'] ??
+                                      _powerMonth['it_power'] ??
+                                      _powerMonth['itPower'] ??
+                                      _powerMonth['IT_DEVICE'],
+                                  loading: _loading || _refreshing,
+                                ),
+                                const SizedBox(height: 20),
+                                EnvironmentRow(
+                                  temperatures: _temperatures,
+                                  humidities: _humidities,
+                                  alarms: _poller.recentAlarms,
+                                  initialStyle: EnvironmentGaugeStyle.arc,
+                                  loading: _loading || _refreshing,
+                                ),
+                                const SizedBox(height: 16),
+                                DoorControlSection(
+                                  doors: _doors ?? const [],
+                                  loading: _doors == null && _loading,
+                                  canUnlock: _canControlDoors,
+                                  onUnlock: _handleDoorUnlock,
+                                ),
+                                const SizedBox(height: 16),
+                                ServiceNoticeCard(
+                                  lastService: _lastMaintenance,
+                                  cycleDays: 90,
+                                  calendarStyle: false,
+                                  onTap: () {
+                                    GlobalEventBus
+                                        .targetMaintenancePage.value = true;
+                                    widget.onNavigateToReport?.call();
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                DeviceHealthSection(
+                                  smokeStatus: _smokeStatus,
+                                  floodStatus: _floodStatus,
+                                  alarms: _poller.recentAlarms,
+                                  devices: _devices,
+                                  temperatures: _temperatures,
+                                  humidities: _humidities,
+                                ),
                               ],
                             ),
                           ),

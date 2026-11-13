@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/skeleton.dart';
 import 'dashboard_typography.dart';
+import 'pue_history_dialog.dart';
 
 class PueHeroCard extends StatelessWidget {
   final double pue;
@@ -361,13 +362,16 @@ class PueHeroCard extends StatelessWidget {
 
               return Column(
                 children: [
-                  SizedBox(
-                    height: gaugeH,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned.fill(
-                          child: TweenAnimationBuilder<double>(
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => showPueHistoryDialog(context, currentPue: pue),
+                    child: SizedBox(
+                      height: gaugeH,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned.fill(
+                            child: TweenAnimationBuilder<double>(
                             tween:
                                 Tween<double>(begin: 0, end: _pueProgress(pue)),
                             duration: const Duration(milliseconds: 1800),
@@ -431,7 +435,8 @@ class PueHeroCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: gap),
+                ),
+                const SizedBox(height: gap),
                   Container(
                     decoration: BoxDecoration(
                       color: isLight
@@ -516,13 +521,28 @@ class PueHeroCard extends StatelessWidget {
           Positioned(
             top: 4,
             right: 0,
-            child: IconButton(
-              icon: Icon(
-                Icons.info_outline_rounded,
-                color: Colors.white.withValues(alpha: 0.5),
-                size: 20,
-              ),
-              onPressed: () => _showPueInfo(context),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'PUE History',
+                  icon: Icon(
+                    Icons.history_rounded,
+                    color: Colors.white.withValues(alpha: 0.75),
+                    size: 20,
+                  ),
+                  onPressed: () => showPueHistoryDialog(context, currentPue: pue),
+                ),
+                IconButton(
+                  tooltip: 'PUE Info',
+                  icon: Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.white.withValues(alpha: 0.5),
+                    size: 19,
+                  ),
+                  onPressed: () => _showPueInfo(context),
+                ),
+              ],
             ),
           ),
         ],

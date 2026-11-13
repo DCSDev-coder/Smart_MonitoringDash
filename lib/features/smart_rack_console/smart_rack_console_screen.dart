@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../dashboard/widgets/device_health_section.dart';
 import '../dashboard/widgets/environment_gauges.dart';
+import '../dashboard/widgets/pue_history_dialog.dart';
 import 'models/smart_rack_console_snapshot.dart';
 import 'models/smart_rack_device_profile.dart';
+import 'services/rack_console_preferences.dart';
 import 'services/smart_rack_console_repository.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
@@ -24,13 +26,45 @@ class SmartRackConsoleScreen extends StatefulWidget {
 
 class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
   static const List<String> _rackImageOptions = [
-    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-02.png',
-    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-03.png',
-    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-04.png',
-    'assets/images/SMART RACK CONTAINMENT NEW LOGO DCS-05.png',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-02.png',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-04.png',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-03.png',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-05.png',
   ];
 
-  String _selectedRackImage = 'assets/images/smart_rack_containment_logo.png';
+  static const Map<String, String> _rackImageLabels = {
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-02.png':
+        'Smart Rack',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-04.png':
+        'Smart Modular',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-03.png':
+        'Smart Modular R2',
+    'assets/DCS_Logo/SMART-RACK-CONTAINMENT-NEW-LOGO-DCS-05.png':
+        'Smart Modular R3',
+  };
+
+  late String _selectedRackImage;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRackImage = RackConsolePreferences.instance.selectedRackImage;
+    RackConsolePreferences.instance.addListener(_onPrefsChanged);
+  }
+
+  @override
+  void dispose() {
+    RackConsolePreferences.instance.removeListener(_onPrefsChanged);
+    super.dispose();
+  }
+
+  void _onPrefsChanged() {
+    if (!mounted) return;
+    final current = RackConsolePreferences.instance.selectedRackImage;
+    if (current != _selectedRackImage) {
+      setState(() => _selectedRackImage = current);
+    }
+  }
 
   Future<void> _showRackImagePicker(BuildContext context) async {
     final selected = await showDialog<String>(
@@ -38,7 +72,8 @@ class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
       builder: (context) {
         return Dialog(
           backgroundColor: ConsoleTheme.panelBg(context),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 960),
             child: Padding(
@@ -48,7 +83,7 @@ class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Select Smart Rack Image',
+                    'Select Smart Rack Model',
                     style: TextStyle(
                       color: ConsoleTheme.textPrimary(context),
                       fontSize: 18,
@@ -61,6 +96,8 @@ class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
                     runSpacing: 14,
                     children: _rackImageOptions.map((assetPath) {
                       final isSelected = assetPath == _selectedRackImage;
+                      final label = _rackImageLabels[assetPath] ??
+                          assetPath.split('/').last.replaceAll('.png', '');
                       return InkWell(
                         onTap: () => Navigator.of(context).pop(assetPath),
                         borderRadius: BorderRadius.circular(14),
@@ -82,18 +119,21 @@ class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
                             children: [
                               SizedBox(
                                 height: 132,
-                                child: Image.asset(assetPath, fit: BoxFit.contain),
+                                child:
+                                    Image.asset(assetPath, fit: BoxFit.contain),
                               ),
                               const SizedBox(height: 10),
                               Text(
-                                assetPath.split('/').last.replaceAll('.png', ''),
+                                label,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: isSelected
-                                      ? ConsoleTheme.textPrimary(context)
-                                      : ConsoleTheme.textSecondary(context),
+                                      ? ConsoleTheme.primaryBlue(context)
+                                      : ConsoleTheme.textPrimary(context),
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -111,6 +151,7 @@ class _SmartRackConsoleScreenState extends State<SmartRackConsoleScreen> {
     );
 
     if (!mounted || selected == null || selected == _selectedRackImage) return;
+    await RackConsolePreferences.instance.setSelectedRackImage(selected);
     setState(() {
       _selectedRackImage = selected;
     });
@@ -210,15 +251,11 @@ class _MainGrid extends StatelessWidget {
 
     const rowGap = ConsoleTheme.sm;
     const columnGap = ConsoleTheme.sm;
-    final usableHeight = (viewportHeight ?? 620).clamp(520.0, 920.0);
-    final topRowHeight = (usableHeight * 0.52).clamp(272.0, 420.0);
-    final bottomRowHeight = usableHeight - topRowHeight - rowGap;
 
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(
-          height: topRowHeight,
+        Expanded(
+          flex: 52,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -231,8 +268,8 @@ class _MainGrid extends StatelessWidget {
           ),
         ),
         const SizedBox(height: rowGap),
-        SizedBox(
-          height: bottomRowHeight,
+        Expanded(
+          flex: 48,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -265,9 +302,9 @@ class _MainGrid extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardHeight = constraints.maxHeight;
-          final rackImageHeight = (cardHeight * 0.72).clamp(120.0, 240.0);
-          final double valueFontSize = (cardHeight * 0.16).clamp(32.0, 60.0);
-          final double labelFontSize = (cardHeight * 0.05).clamp(11.0, 16.0);
+          final rackImageHeight = (cardHeight * 0.72).clamp(120.0, 360.0);
+          final double valueFontSize = (cardHeight * 0.16).clamp(32.0, 68.0);
+          final double labelFontSize = (cardHeight * 0.05).clamp(11.0, 18.0);
 
           return Stack(
             children: [
@@ -389,7 +426,7 @@ class _MainGrid extends StatelessWidget {
         builder: (context, constraints) {
           final cardHeight = constraints.maxHeight;
           // Subtract a safe fixed offset for the pager and spacing to avoid vertical overflows
-          final double calculatedGaugeHeight = (cardHeight - 84).clamp(110.0, 260.0);
+          final double calculatedGaugeHeight = (cardHeight - 84).clamp(110.0, 360.0);
 
           return Padding(
             padding: const EdgeInsets.only(top: 2.0),
@@ -429,98 +466,155 @@ class _MainGrid extends StatelessWidget {
       title: 'Current PUE',
       minHeight: 190,
       expand: true,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      trailing: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Tooltip(
+          message: 'View PUE History & Past Trends',
+          child: InkWell(
+            onTap: () => showPueHistoryDialog(context, currentPue: pueValue),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.35),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 15,
+                    color: ConsoleTheme.cyan(context),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'History',
+                    style: TextStyle(
+                      color: ConsoleTheme.cyan(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardHeight = constraints.maxHeight;
-          final double chartSize = (cardHeight - 96).clamp(110.0, 220.0);
-          final double valueFontSize = (chartSize * 0.20).clamp(22.0, 44.0);
-          final double labelFontSize = (chartSize * 0.08).clamp(10.0, 15.0);
-          final double strokeWidth = (chartSize * 0.09).clamp(8.0, 18.0);
-          final double titleFontSize = (cardHeight * 0.046).clamp(11.0, 16.0);
-          final double energyValFontSize = (cardHeight * 0.088).clamp(18.0, 32.0);
+          final double chartSize = (cardHeight - 118).clamp(65.0, 300.0);
+          final double valueFontSize = (chartSize * 0.20).clamp(18.0, 52.0);
+          final double labelFontSize = (chartSize * 0.08).clamp(9.0, 16.0);
+          final double strokeWidth = (chartSize * 0.09).clamp(7.0, 20.0);
+          final double titleFontSize = (cardHeight * 0.042).clamp(10.0, 15.0);
+          final double energyValFontSize = (cardHeight * 0.080).clamp(16.0, 34.0);
 
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              SizedBox(
-                width: chartSize,
-                height: chartSize,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    ArcGauge(
-                      progress: pueValue == null
-                          ? 0
-                          : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
-                      glowColor: pueColor,
-                      baseColor: ConsoleTheme.isDark(context) ? const Color(0xFF3A3A3A) : const Color(0xFFC0D3EB),
-                      strokeWidth: strokeWidth,
-                      sweepDegrees: 255,
-                      startDegrees: 145,
-                      glowIntensity: 0.0,
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 12),
-                        Text(
-                          pueValue?.toStringAsFixed(2) ?? '--',
-                          style: TextStyle(
-                            fontSize: valueFontSize,
-                            fontWeight: FontWeight.bold,
-                            color: ConsoleTheme.textPrimary(context),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => showPueHistoryDialog(context, currentPue: pueValue),
+                  child: Tooltip(
+                    message: 'Click to view PUE History',
+                    child: SizedBox(
+                      width: chartSize,
+                      height: chartSize,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          ArcGauge(
+                            progress: pueValue == null
+                                ? 0
+                                : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
+                            glowColor: pueColor,
+                            baseColor: ConsoleTheme.isDark(context)
+                                ? const Color(0xFF3A3A3A)
+                                : const Color(0xFFC0D3EB),
+                            strokeWidth: strokeWidth,
+                            sweepDegrees: 255,
+                            startDegrees: 145,
+                            glowIntensity: 0.0,
                           ),
-                        ),
-                        Text(
-                          'PUE',
-                          style: TextStyle(
-                            fontSize: labelFontSize,
-                            color: pueColor,
-                            fontWeight: FontWeight.w600,
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 12),
+                              Text(
+                                pueValue?.toStringAsFixed(2) ?? '--',
+                                style: TextStyle(
+                                  fontSize: valueFontSize,
+                                  fontWeight: FontWeight.bold,
+                                  color: ConsoleTheme.textPrimary(context),
+                                ),
+                              ),
+                              Text(
+                                'PUE',
+                                style: TextStyle(
+                                  fontSize: labelFontSize,
+                                  color: pueColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Total Energy Consumption Of The Month',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: ConsoleTheme.textPrimary(context),
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
-                    style: TextStyle(
-                      color: ConsoleTheme.cyan(context),
-                      fontSize: energyValFontSize,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Padding(
-                    padding: EdgeInsets.only(bottom: energyValFontSize * 0.15),
-                    child: Text(
-                      'kW·h',
-                      style: TextStyle(
-                        color: ConsoleTheme.textPrimary(context),
-                        fontSize: energyValFontSize * 0.38,
-                        fontWeight: FontWeight.w500,
+                        ],
                       ),
                     ),
                   ),
-                ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Total Energy Consumption Of The Month',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: ConsoleTheme.textPrimary(context),
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
+                      style: TextStyle(
+                        color: ConsoleTheme.cyan(context),
+                        fontSize: energyValFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: energyValFontSize * 0.15),
+                      child: Text(
+                        'kW·h',
+                        style: TextStyle(
+                          color: ConsoleTheme.textPrimary(context),
+                          fontSize: energyValFontSize * 0.38,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           );

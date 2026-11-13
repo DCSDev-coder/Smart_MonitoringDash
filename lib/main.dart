@@ -34,16 +34,15 @@ import 'shared/widgets/notifications_overlay.dart';
 import 'shared/widgets/sticky_header_bar.dart';
 import 'shared/widgets/dashboard_header.dart';
 import 'shared/widgets/settings_overlay.dart';
-import 'shared/widgets/safe_network_image.dart';
 import 'features/dashboard/widgets/critical_alert_banner.dart';
 import 'features/rack_view/rack_view_screen.dart';
+import 'features/smart_rack_console/widgets/console_header.dart';
+import 'features/smart_rack_console/models/smart_rack_device_profile.dart';
+import 'features/smart_rack_console/services/smart_rack_console_repository.dart';
 import 'shared/utils/app_toast.dart';
 import 'shared/widgets/set_pin_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/network/adapter_api_service.dart';
-
-const Duration _sidebarMotionDuration = Duration(milliseconds: 360);
-const Curve _sidebarMotionCurve = Curves.easeInOutCubic;
 
 bool _canManageUsersFromCurrentSite({required int? portalUserId}) {
   final site = CpanelApiService.instance.currentSite;
@@ -336,7 +335,7 @@ class _HomeLaunchHoldState extends State<_HomeLaunchHold> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Image.asset(
-                          'assets/DCS_Logo/untitled_design.png',
+                          'assets/DCS_Logo/DCS Logo.png',
                           width: 220,
                           fit: BoxFit.contain,
                         ),
@@ -377,10 +376,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   final GlobalKey _mobileSettingsKey = GlobalKey();
   final GlobalKey _desktopSettingsKey = GlobalKey();
   late AnimationController _headerController;
-  late AnimationController _sidebarController;
   bool _isHeaderVisible = true;
-  bool _sidebarHovered = false;
-  bool _sidebarSwiped = false;
 
   late final List<_NavTab> _tabs;
   static const ValueKey<String> _dashboardKey =
@@ -453,18 +449,17 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 250),
       value: 1.0,
     );
-    _sidebarController = AnimationController(
-      vsync: this,
-      duration: _sidebarMotionDuration,
-      reverseDuration: const Duration(milliseconds: 150),
-      value: 0.0,
-    )..addListener(() {
-        if (mounted) setState(() {});
-      });
 
     _tabs = _computeTabs();
     _selectedIndex = _selectedIndex.clamp(0, _tabs.length - 1);
     _poller.start();
+    SmartRackConsoleRepository.instance.start(
+      initialSections: const {
+        RackConsoleSupplementalSection.overview,
+        RackConsoleSupplementalSection.power,
+        RackConsoleSupplementalSection.ac,
+      },
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPinSetup();
@@ -474,30 +469,18 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   @override
   void dispose() {
     _poller.stop();
+    SmartRackConsoleRepository.instance.stop();
     _headerController.dispose();
-    _sidebarController.dispose();
     super.dispose();
   }
 
-  void _syncSidebarAnimation() {
-    final shouldExpand = _sidebarHovered || _sidebarSwiped;
-    if (shouldExpand) {
-      _sidebarController.forward();
-    } else {
-      _sidebarController.reverse();
+  String _currentDesktopPageTitle() {
+    if (_selectedIndex >= 0 && _selectedIndex < _tabs.length) {
+      final tab = _tabs[_selectedIndex];
+      if (tab.id == _TabId.dashboard) return 'Overview';
+      return tab.label;
     }
-  }
-
-  void _setSidebarHovered(bool value) {
-    if (_sidebarHovered == value) return;
-    setState(() => _sidebarHovered = value);
-    _syncSidebarAnimation();
-  }
-
-  void _setSidebarSwiped(bool value) {
-    if (_sidebarSwiped == value) return;
-    setState(() => _sidebarSwiped = value);
-    _syncSidebarAnimation();
+    return 'Overview';
   }
 
   void _onNavTapped(int index) {
@@ -524,8 +507,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     // Senior Logic: Determine if we are on a Wide Screen (Tablet/Monitor)
     final double width = MediaQuery.of(context).size.width;
     final bool isWide = width >= 600;
-    final double sidebarProgress = _sidebarController.value;
-    final bool sidebarExpanded = sidebarProgress > 0.001;
 
     return PopScope(
         canPop: false,
@@ -544,10 +525,34 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 ),
               // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ MAIN CONTENT AREA ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
               Positioned.fill(
-                left: isWide ? 80.0 : 0.0,
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _handleScrollNotification,
-                  child: Stack(
+                left: 0.0,
+                child: Column(
+                  children: [
+                    if (isWide)
+                      ConsoleHeader(
+                        profile: SmartRackDeviceProfiles.androidOperator,
+                        currentPageTitle: _currentDesktopPageTitle(),
+                        menuKey: _desktopSettingsKey,
+                        selectedIndex: _selectedIndex,
+                        onSelectTab: _onNavTapped,
+                        tabs: _tabs.map((t) {
+                          final label = t.id == _TabId.dashboard ? 'Overview' : t.label;
+                          return ConsoleHeaderTabItem(label: label, icon: t.icon);
+                        }).toList(),
+                        onNotificationTap: () =>
+                            _showNotificationsOverlay(context),
+                        onProfileTap: () => SettingsOverlay.show(
+                          context,
+                          originRect: SettingsOverlay.rectFromKey(
+                              _desktopSettingsKey),
+                          onUploadLogo: _handleLogoUpload,
+                          onGoHome: () => _onNavTapped(0),
+                        ),
+                      ),
+                    Expanded(
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _handleScrollNotification,
+                        child: Stack(
                     children: [
                       // Global Video Background Layer
                       IndexedStack(
@@ -706,86 +711,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+            ],
+          ),
+        ),
 
-              // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ SIDEBAR OVERLAY BARRIER ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-              if (isWide)
-                Positioned.fill(
-                  left: 80.0,
-                  child: IgnorePointer(
-                    ignoring: !sidebarExpanded,
-                    child: GestureDetector(
-                      onTap: () => _setSidebarSwiped(false),
-                      child: AnimatedContainer(
-                        duration: _sidebarMotionDuration,
-                        curve: _sidebarMotionCurve,
-                        color: sidebarExpanded
-                            ? Colors.black.withValues(alpha: 0.15)
-                            : Colors.transparent,
-                      ),
-                    ),
-                  ),
-                ),
-
-              // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ NAVIGATION RAIL (Wide Screen Tablet/TV) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-              if (isWide)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  child: MouseRegion(
-                    onEnter: (_) => _setSidebarHovered(true),
-                    onExit: (_) => _setSidebarHovered(false),
-                    child: GestureDetector(
-                      onHorizontalDragUpdate: (details) {
-                        if (details.primaryDelta! > 5) {
-                          _setSidebarSwiped(true);
-                        } else if (details.primaryDelta! < -5) {
-                          _setSidebarSwiped(false);
-                        }
-                      },
-                      child: AnimatedBuilder(
-                        animation: Listenable.merge([
-                          _poller,
-                          _sidebarController,
-                          CpanelApiService.instance,
-                        ]),
-                        builder: (context, _) {
-                          // Keep "Alerts" consistent across the app:
-                          final totalNotifications = _getTotalNotifications();
-                          final criticalGlow = _poller.hasAnyIssue;
-                          return Container(
-                            color: Colors
-                                .transparent, // Ensures the entire padded area catches gestures
-                            padding: const EdgeInsets.only(
-                                right: 40.0), // The expanded gesture area
-                            child: _MainSidebar(
-                              progress: sidebarProgress,
-                              selectedIndex: _selectedIndex,
-                              tabs: _tabs,
-                              logoUrl: _companyLogoUrl(),
-                              hasNotifications: totalNotifications > 0,
-                              criticalGlow: criticalGlow,
-                              onSelectTab: (i) {
-                                _setSidebarSwiped(false);
-                                _onNavTapped(i);
-                              },
-                              onTapNotifications: () =>
-                                  _showNotificationsOverlay(context),
-                              onTapSettings: () => SettingsOverlay.show(
-                                context,
-                                originRect: SettingsOverlay.rectFromKey(
-                                    _desktopSettingsKey),
-                                onUploadLogo: _handleLogoUpload,
-                                onGoHome: () => _onNavTapped(0),
-                              ),
-                              settingsKey: _desktopSettingsKey,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ));
@@ -823,7 +752,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     }
 
     // 3. Control
-    if (_hasPerm('can_view_control', defaultValue: false) ||
+    if (_hasPerm('can_view_control', defaultValue: true) ||
         _hasPerm('can_manage_users', defaultValue: false)) {
       tabs.add(
         _NavTab(
@@ -1072,342 +1001,6 @@ class _NoAccessScreen extends StatelessWidget {
         child: Text(
           'No Access Permissions',
           style: TextStyle(color: AppTheme.textSecondary),
-        ),
-      ),
-    );
-  }
-}
-
-class _MainSidebar extends StatelessWidget {
-  final double progress;
-  final int selectedIndex;
-  final List<_NavTab> tabs;
-  final String? logoUrl;
-  final bool hasNotifications;
-  final bool criticalGlow;
-  final ValueChanged<int> onSelectTab;
-  final VoidCallback onTapNotifications;
-  final VoidCallback onTapSettings;
-  final GlobalKey settingsKey;
-
-  const _MainSidebar({
-    required this.progress,
-    required this.selectedIndex,
-    required this.tabs,
-    this.logoUrl,
-    required this.hasNotifications,
-    required this.criticalGlow,
-    required this.onSelectTab,
-    required this.onTapNotifications,
-    required this.onTapSettings,
-    required this.settingsKey,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final easedProgress = _sidebarMotionCurve.transform(progress);
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final sidebarBg = isLight
-        ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFF0E141B);
-    final sidebarBorder =
-        isLight ? AppTheme.lightStroke : const Color(0x22FFFFFF);
-    final sidebarMaxAlpha = isLight ? 0.05 : 0.28;
-
-    return Container(
-      width: lerpDouble(80, 240, easedProgress)!,
-      decoration: BoxDecoration(
-        color: sidebarBg,
-        border: Border(right: BorderSide(color: sidebarBorder)),
-        boxShadow: progress > 0.01
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                      alpha: sidebarMaxAlpha * (0.15 + (0.85 * progress))),
-                  blurRadius: lerpDouble(10, 34, easedProgress)!,
-                  spreadRadius: lerpDouble(0, 1, easedProgress)!,
-                  offset: const Offset(6, 0),
-                ),
-              ]
-            : null,
-      ),
-      child: ClipRect(
-        child: OverflowBox(
-          minWidth: 240,
-          maxWidth: 240,
-          alignment: Alignment.centerLeft,
-          child: Column(
-            children: [
-              const SizedBox(height: 50),
-              _buildLogo(context),
-              const SizedBox(height: 40),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: tabs.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, i) {
-                          final t = tabs[i];
-                          final active = selectedIndex == i;
-                          return _SidebarItem(
-                            key: ValueKey(t.label),
-                            icon: t.icon,
-                            label: t.label,
-                            active: active,
-                            progress: progress,
-                            onTap: () => onSelectTab(i),
-                          );
-                        },
-                      ),
-                      const SizedBox(
-                          height: 8), // Match the separatorBuilder spacing
-                      _buildBottomActions(),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogo(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      height: 80, // Fixed height so the logo's vertical center never shifts
-      child: OverflowBox(
-        minWidth: 0,
-        maxWidth: 240,
-        minHeight: 0,
-        maxHeight: double.infinity,
-        alignment: Alignment.centerLeft,
-        child: SizedBox(
-          width: 56 + (150 * progress),
-          child: Center(
-            child: logoUrl != null
-                ? SafeNetworkImage(
-                    logoUrl!,
-                    width: 44 + (80 * progress),
-                    height: 44 + (44 * progress),
-                    fit: BoxFit.contain,
-                  )
-                : Icon(
-                    Icons.business_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 44 + (44 * progress),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomActions() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        children: [
-          _SidebarItem(
-            icon: Icons.notifications_none_rounded,
-            label: 'Alerts',
-            active: false,
-            progress: progress,
-            onTap: onTapNotifications,
-            hasDot: hasNotifications,
-            critical: criticalGlow,
-          ),
-          const SizedBox(height: 8),
-          _SidebarItem(
-            key: settingsKey,
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            active: false,
-            progress: progress,
-            onTap: onTapSettings,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarItem extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final double progress;
-  final VoidCallback onTap;
-  final bool hasDot;
-  final bool critical;
-
-  const _SidebarItem({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.progress,
-    required this.onTap,
-    this.hasDot = false,
-    this.critical = false,
-  });
-
-  @override
-  State<_SidebarItem> createState() => _SidebarItemState();
-}
-
-class _SidebarItemState extends State<_SidebarItem> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final activeColor = isLight
-        ? const Color(0xFF164E87)
-        : Theme.of(context).colorScheme.primary;
-    final c = widget.active
-        ? activeColor
-        : (isLight
-            ? AppTheme.lightTextSecondary.withValues(alpha: 0.90)
-            : Colors.white.withValues(alpha: 0.7));
-
-    final hoverColor = isLight
-        ? Colors.black.withValues(alpha: 0.04)
-        : Colors.white.withValues(alpha: 0.06);
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          height: 48,
-          decoration: BoxDecoration(
-            color: widget.active
-                ? activeColor.withValues(alpha: isLight ? 0.12 : 0.10)
-                : (_isHovered ? hoverColor : Colors.transparent),
-            borderRadius: BorderRadius.circular(12),
-            border: isLight && widget.active
-                ? Border.all(
-                    color: activeColor.withValues(alpha: 0.25),
-                  )
-                : null,
-          ),
-          child: OverflowBox(
-            minWidth: 0,
-            maxWidth: 240,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 56, // 80 total - 24 horizontal padding
-                  child: Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Icon(widget.icon, color: c, size: 24),
-                        if (widget.hasDot)
-                          Positioned(
-                            right: -2,
-                            top: -2,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: widget.critical
-                                    ? AppTheme.statusError
-                                    : Theme.of(context).colorScheme.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isLight
-                                      ? const Color(0xFFF7FBFF)
-                                      : const Color(0xFF0E141B),
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Transform.translate(
-                    offset: Offset((1 - widget.progress) * -22, 0),
-                    child: _SidebarRevealText(
-                      progress: widget.progress,
-                      start: 0.16,
-                      end: 0.66,
-                      text: widget.label,
-                      style: TextStyle(
-                        color: c,
-                        fontWeight:
-                            widget.active ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SidebarRevealText extends StatelessWidget {
-  final double progress;
-  final double start;
-  final double end;
-  final String text;
-  final TextStyle style;
-
-  const _SidebarRevealText({
-    required this.progress,
-    required this.start,
-    required this.end,
-    required this.text,
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = ((progress - start) / (end - start)).clamp(0.0, 1.0);
-    final reveal = Curves.easeOutCubic.transform(normalized);
-    final opacity = const Interval(
-      0.0,
-      0.82,
-      curve: Curves.easeOutCubic,
-    ).transform(normalized);
-
-    return Opacity(
-      opacity: opacity,
-      child: Transform.translate(
-        offset: Offset((1 - reveal) * -8, 0),
-        child: ClipRect(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              text,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              style: style,
-            ),
-          ),
         ),
       ),
     );

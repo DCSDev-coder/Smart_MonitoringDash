@@ -120,8 +120,7 @@ class DoorControlSection extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                mainAxisExtent:
-                    220, // Fixed card height instead of square aspect ratio
+                mainAxisExtent: 200, // Clean proportion matching original mobile cards
               ),
               itemBuilder: (_, i) => tiles[i],
             );
@@ -308,20 +307,24 @@ class _DoorTileState extends State<_DoorTile> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
-              width: 90,
-              height: 100,
-              alignment: Alignment.center,
-              child: _DoorVisualGraphic(
-                isUnlocked: isUnlocked,
-                doorName: rawName,
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: isLight
+                    ? const Color(0xFFF1F5F9)
+                    : Colors.white.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: _DoorLockIcon(isUnlocked: isUnlocked, size: 36),
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
             Text(
               rawName,
               style: TextStyle(
@@ -332,10 +335,10 @@ class _DoorTileState extends State<_DoorTile> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              height: 42,
+              height: 38,
               child: _AnimatedUnlockButton(
                 enabled: enabled,
                 label: isUnlocked
@@ -1371,14 +1374,15 @@ class _UnlockDoorSheetState extends State<UnlockDoorSheet> {
 
 class _DoorLockIcon extends StatelessWidget {
   final bool isUnlocked;
-  const _DoorLockIcon({required this.isUnlocked});
+  final double size;
+  const _DoorLockIcon({required this.isUnlocked, this.size = 28});
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     return Icon(
       isUnlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
-      size: 28,
+      size: size,
       color: isUnlocked
           ? Theme.of(context).colorScheme.primary
           : (isLight ? AppTheme.lightTextSecondary : Colors.white54),
@@ -1389,11 +1393,12 @@ class _DoorLockIcon extends StatelessWidget {
 /// Visual door graphic showing Door Open when unlocked and Door Closed when locked
 /// Visual door graphic showing Door Open when unlocked and Door Closed when locked
 /// Exactly matching the user's wireframe sketch
-class _DoorVisualGraphic extends StatelessWidget {
+class DoorVisualGraphic extends StatelessWidget {
   final bool isUnlocked;
   final String doorName;
 
-  const _DoorVisualGraphic({
+  const DoorVisualGraphic({
+    super.key,
     required this.isUnlocked,
     required this.doorName,
   });
