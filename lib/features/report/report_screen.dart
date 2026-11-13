@@ -1219,10 +1219,6 @@ class _ReportScreenState extends State<ReportScreen>
       _otherPowerRange,
     );
 
-    final double itRatio = (pmTotal != null && pmTotal > 0 && pmIt != null)
-        ? (pmIt / pmTotal * 100.0)
-        : 72.0;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1237,74 +1233,59 @@ class _ReportScreenState extends State<ReportScreen>
                   totalDevices: totalDevices,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Expanded(
                 child: _sparklineCard(
-                  icon: Icons.bolt_rounded,
                   title: 'Total Power',
-                  subtitle: 'Aggregated Facility Infeed',
+                  subtitle: 'Facility Total',
                   color: const Color(0xFF00E5FF),
                   valueText: pmTotal == null
                       ? '0.00 kW'
                       : '${pmTotal.toStringAsFixed(2)} kW',
-                  numericValue: pmTotal ?? 0.0,
-                  statusText: pmTotal == null ? 'STANDBY' : 'LIVE FEED',
                   spots: slicedTotal.spots,
                   labels: slicedTotal.labels,
                   currentRange: _totalPowerRange,
                   onRangeChanged: (r) =>
                       setState(() => _totalPowerRange = r),
-                  extraMetricLabel: 'POWER QUALITY',
-                  extraMetricValue: '230V / 50Hz',
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         // Right Column (IT Devices & Other/Cooling)
         Expanded(
           child: Column(
             children: [
               Expanded(
                 child: _sparklineCard(
-                  icon: Icons.dns_rounded,
                   title: 'IT Devices',
-                  subtitle: 'Active Server & Compute Load',
+                  subtitle: 'Active Load',
                   color: const Color(0xFF38BDF8),
                   valueText: pmIt == null
                       ? '0.00 kW'
                       : '${pmIt.toStringAsFixed(2)} kW',
-                  numericValue: pmIt ?? 0.0,
-                  statusText: pmIt == null ? 'STANDBY' : 'ACTIVE LOAD',
                   spots: slicedIt.spots,
                   labels: slicedIt.labels,
                   currentRange: _itPowerRange,
                   onRangeChanged: (r) =>
                       setState(() => _itPowerRange = r),
-                  extraMetricLabel: 'IT RATIO',
-                  extraMetricValue: '${itRatio.toStringAsFixed(0)}% Load',
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Expanded(
                 child: _sparklineCard(
-                  icon: Icons.ac_unit_rounded,
                   title: 'Other/Cooling',
-                  subtitle: 'Cooling, Losses & Overhead',
+                  subtitle: 'Losses & Overhead',
                   color: const Color(0xFFF59E0B),
                   valueText: pmOther == null
                       ? '0.00 kW'
                       : '${pmOther.toStringAsFixed(2)} kW',
-                  numericValue: pmOther ?? 0.0,
-                  statusText: pmOther == null ? 'STANDBY' : 'OPTIMAL',
                   spots: slicedOther.spots,
                   labels: slicedOther.labels,
                   currentRange: _otherPowerRange,
                   onRangeChanged: (r) =>
                       setState(() => _otherPowerRange = r),
-                  extraMetricLabel: 'PUE IMPACT',
-                  extraMetricValue: '1.25 Est.',
                 ),
               ),
             ],
@@ -1355,66 +1336,51 @@ class _ReportScreenState extends State<ReportScreen>
           SizedBox(
             height: 270,
             child: _sparklineCard(
-              icon: Icons.bolt_rounded,
               title: 'Total Power',
-              subtitle: 'Aggregated Facility Infeed',
+              subtitle: 'Facility Total',
               color: const Color(0xFF00E5FF),
               valueText: pmTotal == null
                   ? '0.00 kW'
                   : '${pmTotal.toStringAsFixed(2)} kW',
-              numericValue: pmTotal ?? 0.0,
-              statusText: pmTotal == null ? 'STANDBY' : 'LIVE FEED',
               spots: slicedTotal.spots,
               labels: slicedTotal.labels,
               currentRange: _totalPowerRange,
               onRangeChanged: (r) =>
                   setState(() => _totalPowerRange = r),
-              extraMetricLabel: 'POWER QUALITY',
-              extraMetricValue: '230V / 50Hz',
             ),
           ),
           const SizedBox(height: 14),
           SizedBox(
             height: 270,
             child: _sparklineCard(
-              icon: Icons.dns_rounded,
               title: 'IT Devices',
-              subtitle: 'Active Server & Compute Load',
+              subtitle: 'Active Load',
               color: const Color(0xFF38BDF8),
               valueText: pmIt == null
                   ? '0.00 kW'
                   : '${pmIt.toStringAsFixed(2)} kW',
-              numericValue: pmIt ?? 0.0,
-              statusText: pmIt == null ? 'STANDBY' : 'ACTIVE LOAD',
               spots: slicedIt.spots,
               labels: slicedIt.labels,
               currentRange: _itPowerRange,
               onRangeChanged: (r) =>
                   setState(() => _itPowerRange = r),
-              extraMetricLabel: 'IT RATIO',
-              extraMetricValue: 'Active',
             ),
           ),
           const SizedBox(height: 14),
           SizedBox(
             height: 270,
             child: _sparklineCard(
-              icon: Icons.ac_unit_rounded,
               title: 'Other/Cooling',
-              subtitle: 'Cooling, Losses & Overhead',
+              subtitle: 'Losses & Overhead',
               color: const Color(0xFFF59E0B),
               valueText: pmOther == null
                   ? '0.00 kW'
                   : '${pmOther.toStringAsFixed(2)} kW',
-              numericValue: pmOther ?? 0.0,
-              statusText: pmOther == null ? 'STANDBY' : 'OPTIMAL',
               spots: slicedOther.spots,
               labels: slicedOther.labels,
               currentRange: _otherPowerRange,
               onRangeChanged: (r) =>
                   setState(() => _otherPowerRange = r),
-              extraMetricLabel: 'PUE IMPACT',
-              extraMetricValue: '1.25 Est.',
             ),
           ),
         ],
@@ -1429,235 +1395,67 @@ class _ReportScreenState extends State<ReportScreen>
   }) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final scoreClamped = score.clamp(0, 100);
-    final isOperational = scoreClamped >= 90;
-    final isDegraded = scoreClamped < 70;
-    final statusColor = isOperational
-        ? const Color(0xFF10B981)
-        : (isDegraded ? const Color(0xFFEF4444) : const Color(0xFFF59E0B));
-    final statusLabel = isOperational
-        ? 'OPERATIONAL'
-        : (isDegraded ? 'DEGRADED' : 'NORMAL');
+    final statusText = scoreClamped >= 90
+        ? 'Operational'
+        : (scoreClamped >= 70 ? 'Normal' : 'Degraded');
 
     return DashboardGlass(
       radius: 18,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
       tint: isLight ? Colors.white : null,
       borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 1. Header Row
           Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: statusColor.withValues(alpha: 0.35),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(
-                  Icons.health_and_safety_rounded,
-                  color: statusColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Site Health Index',
-                          style: TextStyle(
-                            color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _infoIconButton(
-                          iconColor: isLight
-                              ? AppTheme.lightTextSecondary.withValues(alpha: 0.6)
-                              : Colors.white60,
-                          onTap: () => _showSiteHealthInfo(context),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Continuous availability & telemetry diagnostics',
-                      style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : const Color(0xFF8FA0B5),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Live status pill badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: statusColor.withValues(alpha: 0.38),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: statusColor.withValues(alpha: 0.6),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      statusLabel,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 2. Middle Body: Radial gauge on left + Health breakdown telemetry on right
-          Expanded(
-            child: Row(
-              children: [
-                // Circular gauge
-                _CircularHealthGauge(
-                  score: scoreClamped,
-                  color: statusColor,
-                  isLight: isLight,
-                ),
-                const SizedBox(width: 18),
-                // Diagnostics list
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHealthMetricTile(
-                        icon: Icons.dns_rounded,
-                        title: 'Discovered Devices',
-                        value: '$onlineDevices of $totalDevices Normal',
-                        isLight: isLight,
-                        accentColor: statusColor,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildHealthMetricTile(
-                        icon: Icons.sensors_rounded,
-                        title: 'Sensors (Smoke / Water)',
-                        value: _smokeStatus == 0 && _floodStatus == 0
-                            ? 'All Clear / Safe'
-                            : 'Attention Required',
-                        isLight: isLight,
-                        accentColor: _smokeStatus == 0 && _floodStatus == 0
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFF59E0B),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildHealthMetricTile(
-                        icon: Icons.electrical_services_rounded,
-                        title: 'Telemetry Stream',
-                        value: 'Active / Sampling',
-                        isLight: isLight,
-                        accentColor: const Color(0xFF00E5FF),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          // 3. Footer Health Bar
-          _SimpleHealthBar(score: scoreClamped),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHealthMetricTile({
-    required IconData icon,
-    required String title,
-    required String value,
-    required bool isLight,
-    required Color accentColor,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: accentColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(icon, size: 14, color: accentColor),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                title,
+                'Site Health Index',
                 style: TextStyle(
                   color: isLight
                       ? AppTheme.lightTextSecondary
                       : const Color(0xFF8FA0B5),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-              Text(
-                value,
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 8),
+              _infoIconButton(
+                iconColor: isLight
+                    ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
+                    : Colors.white.withValues(alpha: 0.55),
+                onTap: () => _showSiteHealthInfo(context),
               ),
             ],
           ),
-        ),
-      ],
+          const Spacer(),
+          Text(
+            statusText,
+            style: TextStyle(
+              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            totalDevices > 0
+                ? '$onlineDevices of $totalDevices devices online'
+                : 'All systems operational',
+            style: TextStyle(
+              color: isLight
+                  ? AppTheme.lightTextSecondary
+                  : const Color(0xFF8FA0B5),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          _SimpleHealthBar(score: scoreClamped),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 
@@ -1881,19 +1679,14 @@ class _ReportScreenState extends State<ReportScreen>
 
   Widget _sparklineCard({
     Key? key,
-    required IconData icon,
     required String title,
     required String subtitle,
     required Color color,
     required String valueText,
-    required double numericValue,
-    required String statusText,
     required List<FlSpot> spots,
     List<String>? labels,
     required String currentRange,
     required ValueChanged<String> onRangeChanged,
-    required String extraMetricLabel,
-    required String extraMetricValue,
   }) {
     // Determine bounds for chart
     double minY = 0.0;
@@ -1917,37 +1710,20 @@ class _ReportScreenState extends State<ReportScreen>
     final dividerColor =
         isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D);
 
-    final double avgValue = spots.isNotEmpty
-        ? (spots.map((s) => s.y).reduce((a, b) => a + b) / spots.length)
-        : numericValue;
-
     return DashboardGlass(
       key: key,
       radius: 18,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       tint: isLight ? Colors.white : null,
       borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Header Row
+          // Header Row
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: color.withValues(alpha: 0.35),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1956,21 +1732,22 @@ class _ReportScreenState extends State<ReportScreen>
                       title,
                       style: TextStyle(
                         color: effectiveTextColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: TextStyle(
                         color: isLight
                             ? AppTheme.lightTextSecondary
-                            : const Color(0xFF8FA0B5),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                            : color.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2036,86 +1813,22 @@ class _ReportScreenState extends State<ReportScreen>
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          // 2. Primary Metric Readout & Live Status Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    numericValue.toStringAsFixed(2),
-                    style: TextStyle(
-                      color: effectiveTextColor,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                      height: 1.0,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'kW',
-                    style: TextStyle(
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : const Color(0xFF8FA0B5),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: color.withValues(alpha: 0.35)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.6),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           // Chart
           Expanded(
             child: spots.length < 2
-                ? _TelemetryStandbyWaveWidget(color: color, isLight: isLight)
+                ? Center(
+                    child: Text(
+                      'No data recorded ($currentRange)',
+                      style: TextStyle(
+                        color: isLight
+                            ? AppTheme.lightTextSecondary.withValues(alpha: 0.6)
+                            : color.withValues(alpha: 0.5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
                 : LineChart(
                     LineChartData(
                       minY: minY,
@@ -2267,284 +1980,67 @@ class _ReportScreenState extends State<ReportScreen>
                     ),
                   ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           // Divider
           Divider(color: dividerColor, thickness: 1, height: 1),
-          const SizedBox(height: 8),
-          // Footer Stats
+          const SizedBox(height: 12),
+          // Footer
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildMiniStat('MIN', '${minY.toStringAsFixed(2)} kW', isLight, color),
-              _buildMiniStat('MAX', '${maxY.toStringAsFixed(2)} kW', isLight, color),
-              _buildMiniStat('AVG', '${avgValue.toStringAsFixed(2)} kW', isLight, color),
-              _buildMiniStat(extraMetricLabel, extraMetricValue, isLight, color),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniStat(
-      String label, String value, bool isLight, Color accentColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: isLight
-                ? AppTheme.lightTextSecondary
-                : const Color(0xFF8FA0B5),
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          value,
-          style: TextStyle(
-            color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CircularHealthGauge extends StatelessWidget {
-  final int score;
-  final Color color;
-  final bool isLight;
-
-  const _CircularHealthGauge({
-    required this.score,
-    required this.color,
-    required this.isLight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 96,
-      height: 96,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: const Size(96, 96),
-            painter: _CircularGaugePainter(
-              progress: score / 100.0,
-              color: color,
-              trackColor: isLight
-                  ? const Color(0xFFE2E8F0)
-                  : const Color(0xFF1E2D3D),
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$score%',
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  height: 1.0,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Min ${minY.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : effectiveTextColor.withValues(alpha: 0.75),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Max ${maxY.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : effectiveTextColor.withValues(alpha: 0.75),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                'HEALTH',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CircularGaugePainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final Color trackColor;
-
-  _CircularGaugePainter({
-    required this.progress,
-    required this.color,
-    required this.trackColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - 12) / 2;
-    const strokeWidth = 8.0;
-
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius, trackPaint);
-
-    final progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    final sweepAngle = 2 * math.pi * progress.clamp(0.01, 1.0);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      sweepAngle,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _CircularGaugePainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.color != color ||
-      oldDelegate.trackColor != trackColor;
-}
-
-class _TelemetryStandbyWaveWidget extends StatelessWidget {
-  final Color color;
-  final bool isLight;
-
-  const _TelemetryStandbyWaveWidget({
-    required this.color,
-    required this.isLight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _StandbyWavePainter(color: color, isLight: isLight),
-          ),
-        ),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: (isLight ? Colors.white : const Color(0xFF0F1722))
-                  .withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: color.withValues(alpha: 0.28),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.show_chart_rounded, size: 13, color: color),
-                const SizedBox(width: 5),
-                Text(
-                  'Live Telemetry Standby',
-                  style: TextStyle(
-                    color: isLight
-                        ? AppTheme.lightTextSecondary
-                        : color.withValues(alpha: 0.9),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      valueText,
+                      style: TextStyle(
+                        color: effectiveTextColor,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                        height: 1.0,
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
-}
-
-class _StandbyWavePainter extends CustomPainter {
-  final Color color;
-  final bool isLight;
-
-  _StandbyWavePainter({required this.color, required this.isLight});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
-
-    final gridPaint = Paint()
-      ..color = (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05)
-      ..strokeWidth = 1.0;
-
-    canvas.drawLine(
-        Offset(0, size.height * 0.25), Offset(size.width, size.height * 0.25), gridPaint);
-    canvas.drawLine(
-        Offset(0, size.height * 0.50), Offset(size.width, size.height * 0.50), gridPaint);
-    canvas.drawLine(
-        Offset(0, size.height * 0.75), Offset(size.width, size.height * 0.75), gridPaint);
-
-    final wavePath = Path();
-    final fillPath = Path();
-    final midY = size.height * 0.55;
-    final amp = size.height * 0.16;
-
-    wavePath.moveTo(0, midY);
-    fillPath.moveTo(0, size.height);
-    fillPath.lineTo(0, midY);
-
-    const steps = 40;
-    for (int i = 0; i <= steps; i++) {
-      final x = (size.width / steps) * i;
-      final progress = i / steps;
-      final y = midY +
-          math.sin(progress * math.pi * 4) *
-              amp *
-              (0.6 + 0.4 * math.sin(progress * math.pi * 2));
-      wavePath.lineTo(x, y);
-      fillPath.lineTo(x, y);
-    }
-
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-
-    final fillPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, midY - amp),
-        Offset(0, size.height),
-        [
-          color.withValues(alpha: 0.16),
-          color.withValues(alpha: 0.0),
-        ],
-      );
-    canvas.drawPath(fillPath, fillPaint);
-
-    final strokePaint = Paint()
-      ..color = color.withValues(alpha: 0.75)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8;
-    canvas.drawPath(wavePath, strokePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _StandbyWavePainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.isLight != isLight;
 }
 
 class _AuraPill extends StatelessWidget {
