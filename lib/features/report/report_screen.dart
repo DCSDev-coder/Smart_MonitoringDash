@@ -1090,7 +1090,12 @@ class _ReportScreenState extends State<ReportScreen>
                                     maintainAnimation: true,
                                     maintainSize: false,
                                     child: _buildEnergyPage(
-                                        hPadding, totalPower, healthScore),
+                                        hPadding,
+                                        totalPower,
+                                        healthScore,
+                                        onlinePhysicalDevices,
+                                        totalPhysicalDevices,
+                                      ),
                                   ),
                                   Visibility(
                                     visible: _selectedTabIndex == 1,
@@ -1163,8 +1168,16 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Widget _buildEnergyPage(double hPadding, double totalPower, int healthScore) {
-    final isWide = MediaQuery.sizeOf(context).width >= 1100;
+  Widget _buildEnergyPage(
+    double hPadding,
+    double totalPower,
+    int healthScore,
+    int onlineDevices,
+    int totalDevices,
+  ) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktopWide = width >= 1100;
+    final isTablet = width >= 650 && width < 1100;
 
     final double? pmTotal = _powerMonth['Total'];
     final double? pmIt = _powerMonth['IT Device'];
@@ -1184,126 +1197,228 @@ class _ReportScreenState extends State<ReportScreen>
       _otherPowerRange,
     );
 
+    final summaryCard = _buildSummaryCard(
+      healthScore,
+      onlineDevices: onlineDevices,
+      totalDevices: totalDevices,
+    );
+
+    final totalPowerCard = _sparklineCard(
+      title: 'Total Power',
+      subtitle: 'Facility Infeed',
+      icon: Icons.bolt_rounded,
+      color: const Color(0xFF00E5FF),
+      valueText: pmTotal == null ? 'Offline' : pmTotal.toStringAsFixed(2),
+      spots: slicedTotal.spots,
+      labels: slicedTotal.labels,
+      currentRange: _totalPowerRange,
+      onRangeChanged: (r) => setState(() => _totalPowerRange = r),
+    );
+
+    final itDevicesCard = _sparklineCard(
+      title: 'IT Devices',
+      subtitle: 'Active Compute Load',
+      icon: Icons.dns_rounded,
+      color: const Color(0xFF3B82F6),
+      valueText: pmIt == null ? 'Offline' : pmIt.toStringAsFixed(2),
+      spots: slicedIt.spots,
+      labels: slicedIt.labels,
+      currentRange: _itPowerRange,
+      onRangeChanged: (r) => setState(() => _itPowerRange = r),
+    );
+
+    final coolingCard = _sparklineCard(
+      title: 'Other/Cooling',
+      subtitle: 'Losses & Chillers',
+      icon: Icons.ac_unit_rounded,
+      color: const Color(0xFFF59E0B),
+      valueText: pmOther == null ? 'Offline' : pmOther.toStringAsFixed(2),
+      spots: slicedOther.spots,
+      labels: slicedOther.labels,
+      currentRange: _otherPowerRange,
+      onRangeChanged: (r) => setState(() => _otherPowerRange = r),
+    );
+
+    final distributionCard = _buildEnergyDistributionCard(
+      pmTotal: pmTotal,
+      pmIt: pmIt,
+      pmOther: pmOther,
+    );
+
     return Padding(
       // Let the global bottom nav / safe area handle spacing.
       padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
       child: Column(
         children: [
-          if (isWide) ...[
+          if (isDesktopWide) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 260,
-                        child: _buildSummaryCard(healthScore),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        height: 260,
-                        child: _sparklineCard(
-                          title: 'Total Power',
-                          subtitle: 'Facility Total',
-                          color: const Color(0xFFD3F928), // Lime Green
-                          textColor: Colors.black,
-                          valueText: pmTotal == null
-                              ? 'Offline'
-                              : '${pmTotal.toStringAsFixed(1)} kW',
-                          spots: slicedTotal.spots,
-                          labels: slicedTotal.labels,
-                          currentRange: _totalPowerRange,
-                          onRangeChanged: (r) =>
-                              setState(() => _totalPowerRange = r),
-                        ),
-                      ),
-                    ],
+                  child: SizedBox(
+                    height: 260,
+                    child: summaryCard,
                   ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 260,
-                        child: _sparklineCard(
-                          title: 'IT Devices',
-                          subtitle: 'Active Load',
-                          color: const Color(0xFFFFFFFF), // White
-                          textColor: Colors.black,
-                          valueText: pmIt == null
-                              ? 'Offline'
-                              : '${pmIt.toStringAsFixed(1)} kW',
-                          spots: slicedIt.spots,
-                          labels: slicedIt.labels,
-                          currentRange: _itPowerRange,
-                          onRangeChanged: (r) =>
-                              setState(() => _itPowerRange = r),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        height: 260,
-                        child: _sparklineCard(
-                          title: 'Other/Cooling',
-                          subtitle: 'Losses & Overhead',
-                          color: const Color(0xFFFF6B57), // Coral Red
-                          textColor: Colors.white,
-                          valueText: pmOther == null
-                              ? 'Offline'
-                              : '${(pmOther).toStringAsFixed(1)} kW',
-                          spots: slicedOther.spots,
-                          labels: slicedOther.labels,
-                          currentRange: _otherPowerRange,
-                          onRangeChanged: (r) =>
-                              setState(() => _otherPowerRange = r),
-                        ),
-                      ),
-                    ],
+                  child: SizedBox(
+                    height: 260,
+                    child: totalPowerCard,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: SizedBox(
+                    height: 260,
+                    child: itDevicesCard,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: SizedBox(
+                    height: 260,
+                    child: coolingCard,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+            distributionCard,
+          ] else if (isTablet) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 260,
+                    child: summaryCard,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: SizedBox(
+                    height: 260,
+                    child: totalPowerCard,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 260,
+                    child: itDevicesCard,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: SizedBox(
+                    height: 260,
+                    child: coolingCard,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            distributionCard,
           ] else ...[
             SizedBox(
               height: 260,
-              child: _buildSummaryCard(healthScore),
+              child: summaryCard,
             ),
-            const SizedBox(height: AppSpacing.cardGap),
-            _buildTrendAnalysisGrid(),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 260,
+              child: totalPowerCard,
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 260,
+              child: itDevicesCard,
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 260,
+              child: coolingCard,
+            ),
+            const SizedBox(height: 14),
+            distributionCard,
           ],
         ],
       ),
     );
   }
 
-  Widget _buildSummaryCard(int score) {
-    // Light mode mock uses a brighter cyan/blue block rather than the darker
-    // "navy" gradient.
+  Widget _buildSummaryCard(
+    int score, {
+    int onlineDevices = 0,
+    int totalDevices = 0,
+  }) {
     final isLight = Theme.of(context).brightness == Brightness.light;
 
     return DashboardGlass(
       radius: 18,
-      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+      padding: const EdgeInsets.all(16),
       tint: isLight ? Colors.white : null,
       borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 8),
+          // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Site Health Index',
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      border: Border.all(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.verified_user_rounded,
+                      size: 16,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SITE HEALTH',
+                        style: TextStyle(
+                          color: isLight
+                              ? AppTheme.lightTextPrimary
+                              : Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        'Availability Index',
+                        style: TextStyle(
+                          color: isLight
+                              ? AppTheme.lightTextSecondary
+                              : const Color(0xFF8FA0B5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
               _infoIconButton(
                 iconColor: isLight
                     ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
@@ -1312,18 +1427,71 @@ class _ReportScreenState extends State<ReportScreen>
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Operational',
-            style: TextStyle(
-              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 8),
+          // Ring Gauge Center
+          Expanded(
+            child: Center(
+              child: _HealthGaugeRing(score: score),
             ),
           ),
-          const Spacer(),
-          _BatteryGauge(score: score),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          // Footer Status & Diagnostics
+          Column(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      score >= 90
+                          ? 'OPTIMAL HEALTH'
+                          : (score >= 70 ? 'NORMAL OPERATION' : 'DEGRADED'),
+                      style: const TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                totalDevices > 0
+                    ? '$onlineDevices of $totalDevices monitored nodes normal'
+                    : 'All systems operating within safe limits',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : const Color(0xFF8FA0B5),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1551,9 +1719,10 @@ class _ReportScreenState extends State<ReportScreen>
     Key? key,
     required String title,
     required String subtitle,
+    required IconData icon,
     required Color color,
-    required Color textColor,
     required String valueText,
+    String unit = 'kW',
     required List<FlSpot> spots,
     List<String>? labels,
     required String currentRange,
@@ -1567,7 +1736,7 @@ class _ReportScreenState extends State<ReportScreen>
       maxY = spots.map((s) => s.y).reduce(math.max);
       if (minY == maxY) {
         maxY += 1;
-        minY -= 1;
+        minY = math.max(0, minY - 1);
       } else {
         final diff = maxY - minY;
         maxY += diff * 0.1;
@@ -1576,50 +1745,74 @@ class _ReportScreenState extends State<ReportScreen>
     }
 
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final bool useDarkTheme = !isLight;
-
-    // In dark mode, we use the card's accent color for text and lines, and a dark glass background.
-    // In light mode, we use the vibrant solid background and the provided text color.
-    final effectiveTextColor = useDarkTheme ? color : textColor;
-    final chartLineColor = useDarkTheme ? color : textColor;
-    final dividerColor = useDarkTheme
-        ? const Color(0x22FFFFFF)
-        : textColor.withValues(alpha: 0.2);
+    final bool isStandby = valueText == 'Offline' ||
+        valueText == '0.0' ||
+        valueText == '0.00' ||
+        valueText == '0';
 
     return DashboardGlass(
       key: key,
       radius: 18,
-      padding: const EdgeInsets.all(20),
-      tint: useDarkTheme ? null : color,
-      borderColor: useDarkTheme ? const Color(0xFF1E2D3D) : Colors.transparent,
+      padding: const EdgeInsets.all(16),
+      tint: isLight ? Colors.white : null,
+      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: effectiveTextColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color.withValues(alpha: 0.15),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 16,
+                        color: color,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: effectiveTextColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title.toUpperCase(),
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : const Color(0xFF8FA0B5),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1633,42 +1826,48 @@ class _ReportScreenState extends State<ReportScreen>
                     .map(
                       (option) => PopupMenuItem<String>(
                         value: option,
-                        child: Text(option,
-                            style: TextStyle(
-                                color: isLight
-                                    ? AppTheme.lightTextPrimary
-                                    : Colors.white)),
+                        child: Text(
+                          option,
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextPrimary
+                                : Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     )
                     .toList(),
                 child: DashboardGlass(
-                  radius: 14,
+                  radius: 10,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                   tint: isLight
-                      ? color
-                      : const Color(0xFF111922).withValues(alpha: 0.92),
+                      ? const Color(0xFFF1F5F9)
+                      : const Color(0xFF0F1722),
                   borderColor: isLight
-                      ? effectiveTextColor.withValues(alpha: 0.15)
-                      : const Color(0x22FFFFFF),
+                      ? AppTheme.lightStroke
+                      : const Color(0xFF1E2D3D),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         currentRange,
                         style: TextStyle(
-                          color: isLight ? effectiveTextColor : Colors.white,
+                          color: isLight
+                              ? AppTheme.lightTextPrimary
+                              : Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
                       Icon(
                         Icons.keyboard_arrow_down_rounded,
                         color: isLight
-                            ? effectiveTextColor.withValues(alpha: 0.7)
-                            : Colors.white.withValues(alpha: 0.75),
-                        size: 18,
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white70,
+                        size: 14,
                       ),
                     ],
                   ),
@@ -1676,34 +1875,159 @@ class _ReportScreenState extends State<ReportScreen>
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          // Chart
+          const SizedBox(height: 12),
+          // Value & Status Pill Row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                isStandby ? '0.00' : valueText,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : const Color(0xFF8FA0B5),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              if (isStandby)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141C26),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF223142)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 5,
+                        height: 5,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF8FA0B5),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 5),
+                      Text(
+                        'STANDBY',
+                        style: TextStyle(
+                          color: Color(0xFF8FA0B5),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: color.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'ONLINE',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Chart Area
           Expanded(
             child: spots.length < 2
-                ? Center(
-                    child: Text(
-                      'Insufficient data',
-                      style: TextStyle(
-                        color: effectiveTextColor.withValues(alpha: 0.5),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                ? Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _TelemetryStandbyWavePainter(
+                            color: color,
+                            isLight: isLight,
+                          ),
+                        ),
                       ),
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isLight
+                              ? Colors.white.withValues(alpha: 0.85)
+                              : const Color(0xFF0F1722).withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isLight
+                                ? AppTheme.lightStroke
+                                : const Color(0xFF1E2D3D),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.sensors_rounded, size: 12, color: color),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Telemetry Active',
+                              style: TextStyle(
+                                color: isLight
+                                    ? AppTheme.lightTextSecondary
+                                    : Colors.white70,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   )
                 : LineChart(
                     LineChartData(
                       minY: minY,
                       maxY: maxY,
-                      minX: spots.isNotEmpty
-                          ? (spots.first.x == spots.last.x
-                              ? spots.first.x - 1
-                              : spots.first.x)
-                          : 0,
-                      maxX: spots.isNotEmpty
-                          ? (spots.first.x == spots.last.x
-                              ? spots.first.x + 1
-                              : spots.last.x)
-                          : 1,
+                      minX: spots.isNotEmpty ? spots.first.x : 0,
+                      maxX: spots.isNotEmpty ? spots.last.x : 1,
                       lineTouchData: labels != null
                           ? LineTouchData(
                               enabled: true,
@@ -1713,19 +2037,18 @@ class _ReportScreenState extends State<ReportScreen>
                                   spotIndexes.map((index) {
                                 return TouchedSpotIndicatorData(
                                   FlLine(
-                                    color:
-                                        chartLineColor.withValues(alpha: 0.9),
-                                    strokeWidth: 3.5,
+                                    color: color.withValues(alpha: 0.9),
+                                    strokeWidth: 2.5,
                                   ),
                                   FlDotData(
-                                    getDotPainter:
-                                        (spot, percent, bar, index) =>
-                                            FlDotCirclePainter(
-                                      radius: 5.5,
-                                      color: chartLineColor,
+                                    getDotPainter: (spot, percent, bar, index) =>
+                                        FlDotCirclePainter(
+                                      radius: 4.5,
+                                      color: color,
                                       strokeWidth: 2,
-                                      strokeColor:
-                                          Theme.of(context).colorScheme.surface,
+                                      strokeColor: Theme.of(context)
+                                          .colorScheme
+                                          .surface,
                                     ),
                                   ),
                                 );
@@ -1734,47 +2057,44 @@ class _ReportScreenState extends State<ReportScreen>
                                 fitInsideHorizontally: true,
                                 fitInsideVertically: true,
                                 showOnTopOfTheChartBoxArea: true,
-                                tooltipRoundedRadius: 10,
-                                tooltipMargin: 28,
+                                tooltipRoundedRadius: 8,
+                                tooltipMargin: 20,
                                 tooltipPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
+                                  horizontal: 10,
+                                  vertical: 8,
                                 ),
                                 getTooltipItems: (touchedSpots) {
-                                  return touchedSpots
-                                      .map((LineBarSpot touchedSpot) {
-                                    final textStyle = TextStyle(
-                                      color: chartLineColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    );
+                                  return touchedSpots.map((touchedSpot) {
                                     final idx = touchedSpot.x
                                         .round()
                                         .clamp(0, labels.length - 1);
                                     final label = labels[idx];
                                     return LineTooltipItem(
-                                      '$label\n${touchedSpot.y.toStringAsFixed(2)} kW',
-                                      textStyle,
+                                      '$label\n${touchedSpot.y.toStringAsFixed(2)} $unit',
+                                      TextStyle(
+                                        color: color,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
                                     );
                                   }).toList();
                                 },
                               ),
                             )
                           : const LineTouchData(enabled: false),
-                      gridData: labels != null
-                          ? FlGridData(
-                              show: true,
-                              drawVerticalLine: false,
-                              horizontalInterval:
-                                  math.max(0.1, (maxY - minY) / 3),
-                              getDrawingHorizontalLine: (value) {
-                                return FlLine(
-                                  color: chartLineColor.withValues(alpha: 0.15),
-                                  strokeWidth: 1,
-                                );
-                              },
-                            )
-                          : const FlGridData(show: false),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: math.max(0.1, (maxY - minY) / 3),
+                        getDrawingHorizontalLine: (value) {
+                          return FlLine(
+                            color: isLight
+                                ? Colors.black.withValues(alpha: 0.05)
+                                : Colors.white.withValues(alpha: 0.06),
+                            strokeWidth: 1,
+                          );
+                        },
+                      ),
                       titlesData: labels != null
                           ? FlTitlesData(
                               show: true,
@@ -1782,12 +2102,14 @@ class _ReportScreenState extends State<ReportScreen>
                                   sideTitles: SideTitles(showTitles: false)),
                               topTitles: const AxisTitles(
                                   sideTitles: SideTitles(showTitles: false)),
+                              leftTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false)),
                               bottomTitles: AxisTitles(
                                 sideTitles: SideTitles(
                                   showTitles: true,
-                                  reservedSize: 22,
+                                  reservedSize: 20,
                                   interval: math.max(
-                                      1, (spots.length / 5).floorToDouble()),
+                                      1, (spots.length / 4).floorToDouble()),
                                   getTitlesWidget: (value, meta) {
                                     final int idx = value.toInt();
                                     if (idx < 0 || idx >= labels.length) {
@@ -1795,29 +2117,29 @@ class _ReportScreenState extends State<ReportScreen>
                                     }
                                     final timeStr = labels[idx];
                                     final parts = timeStr.split(' ');
-                                    String timePart =
-                                        parts.length > 1 ? parts.last : timeStr;
+                                    String timePart = parts.length > 1
+                                        ? parts.last
+                                        : timeStr;
                                     final timeTokens = timePart.split(':');
                                     if (timeTokens.length >= 2) {
                                       timePart =
                                           '${timeTokens[0]}:${timeTokens[1]}';
                                     }
                                     return Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
+                                      padding: const EdgeInsets.only(top: 6.0),
                                       child: Text(
                                         timePart,
                                         style: TextStyle(
-                                          color: effectiveTextColor.withValues(
-                                              alpha: 0.7),
-                                          fontSize: 10,
+                                          color: isLight
+                                              ? AppTheme.lightTextSecondary
+                                              : const Color(0xFF8FA0B5),
+                                          fontSize: 9.5,
                                         ),
                                       ),
                                     );
                                   },
                                 ),
                               ),
-                              leftTitles: const AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false)),
                             )
                           : const FlTitlesData(show: false),
                       borderData: FlBorderData(show: false),
@@ -1825,53 +2147,72 @@ class _ReportScreenState extends State<ReportScreen>
                         LineChartBarData(
                           spots: spots,
                           isCurved: true,
-                          color: chartLineColor,
+                          curveSmoothness: 0.35,
+                          color: color,
                           barWidth: 2,
                           isStrokeCapRound: true,
                           dotData: const FlDotData(show: false),
-                          belowBarData: BarAreaData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                color.withValues(alpha: 0.25),
+                                color.withValues(alpha: 0.0),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
           ),
-          const SizedBox(height: 24),
-          // Divider
-          Divider(color: dividerColor, thickness: 1, height: 1),
-          const SizedBox(height: 16),
-          // Metadata and Value
+          const SizedBox(height: 10),
+          Divider(
+            color: isLight ? AppTheme.lightStroke : const Color(0x1AFFFFFF),
+            height: 1,
+            thickness: 1,
+          ),
+          const SizedBox(height: 8),
+          // Footer Stats
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Min ${minY.toStringAsFixed(2)}',
-                    style: TextStyle(
-                        color: effectiveTextColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Max ${maxY.toStringAsFixed(2)}',
-                    style: TextStyle(
-                        color: effectiveTextColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ],
+              Text(
+                'MIN ',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : const Color(0xFF8FA0B5),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Text(
-                valueText,
+                '${minY.toStringAsFixed(2)} $unit',
                 style: TextStyle(
-                  color: effectiveTextColor,
-                  fontSize: 32, // slightly smaller so it fits well
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
-                  height: 1,
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Text(
+                'MAX ',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : const Color(0xFF8FA0B5),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                '${maxY.toStringAsFixed(2)} $unit',
+                style: TextStyle(
+                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1881,78 +2222,352 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Widget _buildTrendAnalysisGrid() {
-    final double? pmTotal = _powerMonth['Total'];
-    final double? pmIt = _powerMonth['IT Device'];
-    final double? pmOther = _powerMonth['Other'];
+  Widget _buildEnergyDistributionCard({
+    required double? pmTotal,
+    required double? pmIt,
+    required double? pmOther,
+  }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
-    final slicedTotal = _sliceSeriesForRange(
-        _totalPowerSpots, _totalPowerLabels, _totalPowerRange);
-    final slicedIt =
-        _sliceSeriesForRange(_itPowerSpots, _itPowerLabels, _itPowerRange);
-    final slicedOther = _sliceSeriesForRange(
-      List.generate(
-        math.min(_totalPowerSpots.length, _itPowerSpots.length),
-        (i) => FlSpot(_totalPowerSpots[i].x,
-            math.max(0, _totalPowerSpots[i].y - _itPowerSpots[i].y)),
+    final totalVal = (pmTotal != null && pmTotal > 0)
+        ? pmTotal
+        : ((pmIt ?? 0.0) + (pmOther ?? 0.0));
+    final itVal = pmIt ?? 0.0;
+    final otherVal = pmOther ?? (totalVal > itVal ? totalVal - itVal : 0.0);
+
+    final double itPct =
+        totalVal > 0 ? (itVal / totalVal).clamp(0.0, 1.0) : 0.70;
+    final double otherPct = (1.0 - itPct).clamp(0.0, 1.0);
+    final double pueEstimate =
+        (itVal > 0 && totalVal > 0) ? (totalVal / itVal).clamp(1.0, 3.5) : 1.25;
+
+    final isNarrow = MediaQuery.sizeOf(context).width < 650;
+
+    return DashboardGlass(
+      radius: 18,
+      padding: const EdgeInsets.all(20),
+      tint: isLight ? Colors.white : null,
+      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                        border: Border.all(
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.pie_chart_rounded,
+                        size: 16,
+                        color: Color(0xFF00E5FF),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'FACILITY ENERGY ALLOCATION & LOAD DISTRIBUTION',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Dynamic power partitioning across computing infrastructure and cooling subsystems',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : const Color(0xFF8FA0B5),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'PUE ~ ${pueEstimate.toStringAsFixed(2)} OPTIMAL',
+                      style: const TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Split Progress Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: math.max(1, (itPct * 1000).toInt()),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: math.max(1, (otherPct * 1000).toInt()),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          // 4 Metric Columns
+          if (isNarrow)
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _distributionMetricTile(
+                        color: const Color(0xFF3B82F6),
+                        title: 'IT COMPUTE LOAD',
+                        value: '${itVal.toStringAsFixed(2)} kW',
+                        subtitle:
+                            '${(itPct * 100).toStringAsFixed(1)}% Active Payload',
+                        isLight: isLight,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _distributionMetricTile(
+                        color: const Color(0xFFF59E0B),
+                        title: 'COOLING & LOSSES',
+                        value: '${otherVal.toStringAsFixed(2)} kW',
+                        subtitle:
+                            '${(otherPct * 100).toStringAsFixed(1)}% Infrastructure',
+                        isLight: isLight,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _distributionMetricTile(
+                        color: const Color(0xFF00E5FF),
+                        title: 'TOTAL INFEED',
+                        value: '${totalVal.toStringAsFixed(2)} kW',
+                        subtitle: 'Aggregated Demand',
+                        isLight: isLight,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _distributionMetricTile(
+                        color: const Color(0xFF10B981),
+                        title: 'DESIGN PUE RATIO',
+                        value: '${pueEstimate.toStringAsFixed(2)} PUE',
+                        subtitle: 'Target < 1.40 Benchmark',
+                        isLight: isLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _distributionMetricTile(
+                    color: const Color(0xFF3B82F6),
+                    title: 'IT COMPUTE LOAD',
+                    value: '${itVal.toStringAsFixed(2)} kW',
+                    subtitle:
+                        '${(itPct * 100).toStringAsFixed(1)}% Active Payload',
+                    isLight: isLight,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _distributionMetricTile(
+                    color: const Color(0xFFF59E0B),
+                    title: 'COOLING & LOSSES',
+                    value: '${otherVal.toStringAsFixed(2)} kW',
+                    subtitle:
+                        '${(otherPct * 100).toStringAsFixed(1)}% Infrastructure',
+                    isLight: isLight,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _distributionMetricTile(
+                    color: const Color(0xFF00E5FF),
+                    title: 'TOTAL INFEED',
+                    value: '${totalVal.toStringAsFixed(2)} kW',
+                    subtitle: 'Aggregated Demand',
+                    isLight: isLight,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _distributionMetricTile(
+                    color: const Color(0xFF10B981),
+                    title: 'DESIGN PUE RATIO',
+                    value: '${pueEstimate.toStringAsFixed(2)} PUE',
+                    subtitle: 'Target < 1.40 Benchmark',
+                    isLight: isLight,
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
-      _totalPowerLabels,
-      _otherPowerRange,
     );
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          height: 300,
-          child: _sparklineCard(
-            title: 'Total Power',
-            subtitle: 'Facility Total',
-            color: const Color(0xFFD3F928), // Lime Green
-            textColor: Colors.black,
-            valueText: pmTotal == null
-                ? 'Offline'
-                : '${pmTotal.toStringAsFixed(1)} kW',
-            spots: slicedTotal.spots,
-            labels: slicedTotal.labels,
-            currentRange: _totalPowerRange,
-            onRangeChanged: (r) => setState(() => _totalPowerRange = r),
-          ),
+  Widget _distributionMetricTile({
+    required Color color,
+    required String title,
+    required String value,
+    required String subtitle,
+    required bool isLight,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF0E1520),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isLight ? AppTheme.lightStroke : const Color(0xFF1B2838),
         ),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 300,
-          child: _sparklineCard(
-            title: 'IT Devices',
-            subtitle: 'Active Load',
-            color: const Color(0xFFFFFFFF), // White
-            textColor: Colors.black,
-            valueText:
-                pmIt == null ? 'Offline' : '${pmIt.toStringAsFixed(1)} kW',
-            spots: slicedIt.spots,
-            labels: slicedIt.labels,
-            currentRange: _itPowerRange,
-            onRangeChanged: (r) => setState(() => _itPowerRange = r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: isLight
+                        ? AppTheme.lightTextSecondary
+                        : const Color(0xFF8FA0B5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 300,
-          child: _sparklineCard(
-            title: 'Other/Cooling',
-            subtitle: 'Losses & Overhead',
-            color: const Color(0xFFFF6B57), // Coral Red
-            textColor: Colors.white,
-            valueText: pmOther == null
-                ? 'Offline'
-                : '${pmOther.toStringAsFixed(1)} kW',
-            spots: slicedOther.spots,
-            labels: slicedOther.labels,
-            currentRange: _otherPowerRange,
-            onRangeChanged: (r) => setState(() => _otherPowerRange = r),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: isLight
+                  ? AppTheme.lightTextSecondary
+                  : const Color(0xFF8FA0B5),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2090,16 +2705,16 @@ class _MiniRingState extends State<_MiniRing>
   }
 }
 
-class _BatteryGauge extends StatefulWidget {
+class _HealthGaugeRing extends StatefulWidget {
   final int score;
 
-  const _BatteryGauge({required this.score});
+  const _HealthGaugeRing({required this.score});
 
   @override
-  State<_BatteryGauge> createState() => _BatteryGaugeState();
+  State<_HealthGaugeRing> createState() => _HealthGaugeRingState();
 }
 
-class _BatteryGaugeState extends State<_BatteryGauge>
+class _HealthGaugeRingState extends State<_HealthGaugeRing>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
   late final Animation<double> _anim;
@@ -2109,17 +2724,17 @@ class _BatteryGaugeState extends State<_BatteryGauge>
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1400),
     );
     final targetPct = (widget.score.clamp(0, 100)) / 100.0;
-    _anim = Tween<double>(begin: 1.0, end: targetPct).animate(
+    _anim = Tween<double>(begin: 0.0, end: targetPct).animate(
       CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
     );
     _c.forward();
   }
 
   @override
-  void didUpdateWidget(covariant _BatteryGauge oldWidget) {
+  void didUpdateWidget(covariant _HealthGaugeRing oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.score != widget.score) {
       final oldPct = (oldWidget.score.clamp(0, 100)) / 100.0;
@@ -2139,104 +2754,146 @@ class _BatteryGaugeState extends State<_BatteryGauge>
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: AnimatedBuilder(
-          animation: _anim,
-          builder: (context, _) {
-            final pct = _anim.value;
-            final isLight = Theme.of(context).brightness == Brightness.light;
+    const size = 96.0;
+    const stroke = 8.0;
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
-            return CustomPaint(
-              painter: _BatteryPainter(
-                progress: pct,
-                isLight: isLight,
-              ),
-              child: Center(
-                child: Text(
-                  '${(pct * 100).toInt()}%',
-                  style: bitcount(
-                    context,
-                    fontSize: 24,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
-                  ).copyWith(fontWeight: FontWeight.w900),
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final pct = _anim.value;
+        final scoreVal = (pct * 100).round();
+
+        final Color primaryColor = scoreVal >= 90
+            ? const Color(0xFF10B981)
+            : (scoreVal >= 70
+                ? const Color(0xFF38BDF8)
+                : const Color(0xFFF59E0B));
+
+        final List<Color> gradient = scoreVal >= 90
+            ? const [
+                Color(0xFF34D399),
+                Color(0xFF10B981),
+                Color(0xFF059669),
+                Color(0xFF10B981),
+              ]
+            : [
+                primaryColor.withValues(alpha: 0.8),
+                primaryColor,
+                primaryColor.withValues(alpha: 0.6),
+                primaryColor,
+              ];
+
+        return SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size.square(size),
+                painter: _RingPainter(
+                  color: primaryColor,
+                  progress: pct,
+                  stroke: stroke,
+                  trackColor: isLight
+                      ? Colors.black.withValues(alpha: 0.06)
+                      : const Color(0x26FFFFFF),
+                  glow: true,
+                  gradientColors: gradient,
                 ),
               ),
-            );
-          },
-        ),
-      ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$scoreVal%',
+                    style: TextStyle(
+                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                      height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'HEALTH',
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : const Color(0xFF8FA0B5),
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-class _BatteryPainter extends CustomPainter {
-  final double progress;
+class _TelemetryStandbyWavePainter extends CustomPainter {
+  final Color color;
   final bool isLight;
 
-  _BatteryPainter({
-    required this.progress,
-    required this.isLight,
+  const _TelemetryStandbyWavePainter({
+    required this.color,
+    this.isLight = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
+    final w = size.width;
+    final h = size.height;
+    final midY = h / 2;
 
-    // Background track
-    final trackRect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final trackRRect =
-        RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
+    // Draw subtle horizontal grid lines
+    final gridPaint = Paint()
+      ..color = (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05)
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, h * 0.25), Offset(w, h * 0.25), gridPaint);
+    canvas.drawLine(Offset(0, midY), Offset(w, midY), gridPaint);
+    canvas.drawLine(Offset(0, h * 0.75), Offset(w, h * 0.75), gridPaint);
 
-    final trackColor = isLight
-        ? Colors.black.withValues(alpha: 0.05)
-        : Colors.white.withValues(alpha: 0.1);
+    // Smooth pulse wave (Gaussian-enveloped damped sine wave)
+    final path = Path();
+    path.moveTo(0, midY);
 
-    final trackPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = trackColor;
-
-    canvas.drawRRect(trackRRect, trackPaint);
-
-    // Fill
-    final currentFillWidth = size.width * progress;
-
-    if (currentFillWidth > 0) {
-      final fillRect = Rect.fromLTWH(0, 0, currentFillWidth, size.height);
-      final fillRRect = RRect.fromRectAndRadius(
-          fillRect, Radius.circular(size.height * 0.15));
-
-      Color baseColor;
-      if (progress >= 0.80) {
-        baseColor = const Color(0xFF4CAF50);
-      } else if (progress >= 0.40) {
-        baseColor = const Color(0xFFE6A600);
-      } else {
-        baseColor = const Color(0xFFE53935);
-      }
-
-      final fillPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..color = baseColor;
-
-      canvas.drawRRect(fillRRect, fillPaint);
-
-      final glowPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..color = baseColor.withValues(alpha: 0.3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      canvas.drawRRect(fillRRect, glowPaint);
+    for (double x = 0; x <= w; x += 2) {
+      final normX = (x / w) * 2.0 - 1.0; // -1 to 1
+      final bell = math.exp(-normX * normX * 4.5); // Gaussian bell envelope
+      final wave = math.sin(normX * math.pi * 5.0) * (h * 0.30) * bell;
+      path.lineTo(x, midY - wave);
     }
+
+    // Ambient glow
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawPath(path, glowPaint);
+
+    // Core stroke
+    final linePaint = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, linePaint);
   }
 
   @override
-  bool shouldRepaint(covariant _BatteryPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
+  bool shouldRepaint(covariant _TelemetryStandbyWavePainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.isLight != isLight;
 }
 
 class _RingPainter extends CustomPainter {
