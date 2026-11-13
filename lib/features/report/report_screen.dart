@@ -1053,8 +1053,6 @@ class _ReportScreenState extends State<ReportScreen>
                             child: _buildDesktopEnergyGrid(
                               totalPower: totalPower,
                               healthScore: healthScore,
-                              onlineDevices: onlinePhysicalDevices,
-                              totalDevices: totalPhysicalDevices,
                             ),
                           ),
                         ],
@@ -1118,8 +1116,6 @@ class _ReportScreenState extends State<ReportScreen>
                                           hPadding,
                                           totalPower,
                                           healthScore,
-                                          onlinePhysicalDevices,
-                                          totalPhysicalDevices,
                                         ),
                                       ),
                                       Visibility(
@@ -1198,8 +1194,6 @@ class _ReportScreenState extends State<ReportScreen>
   Widget _buildDesktopEnergyGrid({
     required double totalPower,
     required int healthScore,
-    required int onlineDevices,
-    required int totalDevices,
   }) {
     final double? pmTotal = _powerMonth['Total'];
     final double? pmIt = _powerMonth['IT Device'];
@@ -1227,11 +1221,7 @@ class _ReportScreenState extends State<ReportScreen>
           child: Column(
             children: [
               Expanded(
-                child: _buildSiteHealthCard(
-                  score: healthScore,
-                  onlineDevices: onlineDevices,
-                  totalDevices: totalDevices,
-                ),
+                child: _buildSummaryCard(healthScore),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -1239,9 +1229,10 @@ class _ReportScreenState extends State<ReportScreen>
                   title: 'Total Power',
                   subtitle: 'Facility Total',
                   color: const Color(0xFF00E5FF),
+                  textColor: Colors.black,
                   valueText: pmTotal == null
-                      ? '0.00 kW'
-                      : '${pmTotal.toStringAsFixed(2)} kW',
+                      ? 'Offline'
+                      : '${pmTotal.toStringAsFixed(1)} kW',
                   spots: slicedTotal.spots,
                   labels: slicedTotal.labels,
                   currentRange: _totalPowerRange,
@@ -1262,9 +1253,10 @@ class _ReportScreenState extends State<ReportScreen>
                   title: 'IT Devices',
                   subtitle: 'Active Load',
                   color: const Color(0xFF38BDF8),
+                  textColor: Colors.black,
                   valueText: pmIt == null
-                      ? '0.00 kW'
-                      : '${pmIt.toStringAsFixed(2)} kW',
+                      ? 'Offline'
+                      : '${pmIt.toStringAsFixed(1)} kW',
                   spots: slicedIt.spots,
                   labels: slicedIt.labels,
                   currentRange: _itPowerRange,
@@ -1278,9 +1270,10 @@ class _ReportScreenState extends State<ReportScreen>
                   title: 'Other/Cooling',
                   subtitle: 'Losses & Overhead',
                   color: const Color(0xFFF59E0B),
+                  textColor: Colors.white,
                   valueText: pmOther == null
-                      ? '0.00 kW'
-                      : '${pmOther.toStringAsFixed(2)} kW',
+                      ? 'Offline'
+                      : '${pmOther.toStringAsFixed(1)} kW',
                   spots: slicedOther.spots,
                   labels: slicedOther.labels,
                   currentRange: _otherPowerRange,
@@ -1299,8 +1292,6 @@ class _ReportScreenState extends State<ReportScreen>
     double hPadding,
     double totalPower,
     int healthScore,
-    int onlineDevices,
-    int totalDevices,
   ) {
     final double? pmTotal = _powerMonth['Total'];
     final double? pmIt = _powerMonth['IT Device'];
@@ -1325,23 +1316,20 @@ class _ReportScreenState extends State<ReportScreen>
       child: Column(
         children: [
           SizedBox(
-            height: 270,
-            child: _buildSiteHealthCard(
-              score: healthScore,
-              onlineDevices: onlineDevices,
-              totalDevices: totalDevices,
-            ),
+            height: 260,
+            child: _buildSummaryCard(healthScore),
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 270,
+            height: 260,
             child: _sparklineCard(
               title: 'Total Power',
               subtitle: 'Facility Total',
               color: const Color(0xFF00E5FF),
+              textColor: Colors.black,
               valueText: pmTotal == null
-                  ? '0.00 kW'
-                  : '${pmTotal.toStringAsFixed(2)} kW',
+                  ? 'Offline'
+                  : '${pmTotal.toStringAsFixed(1)} kW',
               spots: slicedTotal.spots,
               labels: slicedTotal.labels,
               currentRange: _totalPowerRange,
@@ -1351,14 +1339,15 @@ class _ReportScreenState extends State<ReportScreen>
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 270,
+            height: 260,
             child: _sparklineCard(
               title: 'IT Devices',
               subtitle: 'Active Load',
               color: const Color(0xFF38BDF8),
+              textColor: Colors.black,
               valueText: pmIt == null
-                  ? '0.00 kW'
-                  : '${pmIt.toStringAsFixed(2)} kW',
+                  ? 'Offline'
+                  : '${pmIt.toStringAsFixed(1)} kW',
               spots: slicedIt.spots,
               labels: slicedIt.labels,
               currentRange: _itPowerRange,
@@ -1368,14 +1357,15 @@ class _ReportScreenState extends State<ReportScreen>
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 270,
+            height: 260,
             child: _sparklineCard(
               title: 'Other/Cooling',
               subtitle: 'Losses & Overhead',
               color: const Color(0xFFF59E0B),
+              textColor: Colors.white,
               valueText: pmOther == null
-                  ? '0.00 kW'
-                  : '${pmOther.toStringAsFixed(2)} kW',
+                  ? 'Offline'
+                  : '${pmOther.toStringAsFixed(1)} kW',
               spots: slicedOther.spots,
               labels: slicedOther.labels,
               currentRange: _otherPowerRange,
@@ -1388,34 +1378,26 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Widget _buildSiteHealthCard({
-    required int score,
-    required int onlineDevices,
-    required int totalDevices,
-  }) {
+  Widget _buildSummaryCard(int score) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final scoreClamped = score.clamp(0, 100);
-    final statusText = scoreClamped >= 90
-        ? 'Operational'
-        : (scoreClamped >= 70 ? 'Normal' : 'Degraded');
 
     return DashboardGlass(
       radius: 18,
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
       tint: isLight ? Colors.white : null,
       borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 'Site Health Index',
                 style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : const Color(0xFF8FA0B5),
+                  color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1431,29 +1413,16 @@ class _ReportScreenState extends State<ReportScreen>
           ),
           const Spacer(),
           Text(
-            statusText,
+            'Operational',
             style: TextStyle(
               color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontSize: 34,
+              fontSize: 32,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            totalDevices > 0
-                ? '$onlineDevices of $totalDevices devices online'
-                : 'All systems operational',
-            style: TextStyle(
-              color: isLight
-                  ? AppTheme.lightTextSecondary
-                  : const Color(0xFF8FA0B5),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
           const Spacer(),
-          _SimpleHealthBar(score: scoreClamped),
-          const SizedBox(height: 8),
+          _BatteryGauge(score: scoreClamped),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -1682,6 +1651,7 @@ class _ReportScreenState extends State<ReportScreen>
     required String title,
     required String subtitle,
     required Color color,
+    Color textColor = Colors.white,
     required String valueText,
     required List<FlSpot> spots,
     List<String>? labels,
@@ -1819,11 +1789,9 @@ class _ReportScreenState extends State<ReportScreen>
             child: spots.length < 2
                 ? Center(
                     child: Text(
-                      'No data recorded ($currentRange)',
+                      'Insufficient data',
                       style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary.withValues(alpha: 0.6)
-                            : color.withValues(alpha: 0.5),
+                        color: effectiveTextColor.withValues(alpha: 0.5),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2176,16 +2144,16 @@ class _MiniRingState extends State<_MiniRing>
   }
 }
 
-class _SimpleHealthBar extends StatefulWidget {
+class _BatteryGauge extends StatefulWidget {
   final int score;
 
-  const _SimpleHealthBar({required this.score});
+  const _BatteryGauge({required this.score});
 
   @override
-  State<_SimpleHealthBar> createState() => _SimpleHealthBarState();
+  State<_BatteryGauge> createState() => _BatteryGaugeState();
 }
 
-class _SimpleHealthBarState extends State<_SimpleHealthBar>
+class _BatteryGaugeState extends State<_BatteryGauge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
   late final Animation<double> _anim;
@@ -2195,17 +2163,17 @@ class _SimpleHealthBarState extends State<_SimpleHealthBar>
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1500),
     );
     final targetPct = (widget.score.clamp(0, 100)) / 100.0;
-    _anim = Tween<double>(begin: 0.0, end: targetPct).animate(
+    _anim = Tween<double>(begin: 1.0, end: targetPct).animate(
       CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
     );
     _c.forward();
   }
 
   @override
-  void didUpdateWidget(covariant _SimpleHealthBar oldWidget) {
+  void didUpdateWidget(covariant _BatteryGauge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.score != widget.score) {
       final oldPct = (oldWidget.score.clamp(0, 100)) / 100.0;
@@ -2225,69 +2193,102 @@ class _SimpleHealthBarState extends State<_SimpleHealthBar>
 
   @override
   Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Align(
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: AnimatedBuilder(
+          animation: _anim,
+          builder: (context, _) {
+            final pct = _anim.value;
+            final isLight = Theme.of(context).brightness == Brightness.light;
 
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, _) {
-        final pct = _anim.value;
-        final scoreVal = (pct * 100).round();
-
-        final Color barColor = scoreVal >= 80
-            ? const Color(0xFF10B981)
-            : (scoreVal >= 50
-                ? const Color(0xFFF59E0B)
-                : const Color(0xFFEF4444));
-
-        return Container(
-          height: 34,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: isLight ? const Color(0xFFE2E8F0) : const Color(0xFF0F1722),
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              FractionallySizedBox(
-                widthFactor: pct.clamp(0.02, 1.0),
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        barColor.withValues(alpha: 0.8),
-                        barColor,
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: barColor.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                ),
+            return CustomPaint(
+              painter: _BatteryPainter(
+                progress: pct,
+                isLight: isLight,
               ),
-              Center(
+              child: Center(
                 child: Text(
-                  '$scoreVal%',
-                  style: const TextStyle(
+                  '${(pct * 100).toInt()}%',
+                  style: bitcount(
+                    context,
+                    fontSize: 24,
                     color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                  ),
+                    letterSpacing: 1.2,
+                  ).copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
-            ],
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
+  }
+}
+
+class _BatteryPainter extends CustomPainter {
+  final double progress;
+  final bool isLight;
+
+  _BatteryPainter({
+    required this.progress,
+    required this.isLight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    // Background track
+    final trackRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final trackRRect =
+        RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
+
+    final trackColor = isLight
+        ? Colors.black.withValues(alpha: 0.05)
+        : Colors.white.withValues(alpha: 0.1);
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = trackColor;
+
+    canvas.drawRRect(trackRRect, trackPaint);
+
+    // Fill
+    final currentFillWidth = size.width * progress;
+
+    if (currentFillWidth > 0) {
+      final fillRect = Rect.fromLTWH(0, 0, currentFillWidth, size.height);
+      final fillRRect = RRect.fromRectAndRadius(
+          fillRect, Radius.circular(size.height * 0.15));
+
+      Color baseColor;
+      if (progress >= 0.80) {
+        baseColor = const Color(0xFF4CAF50);
+      } else if (progress >= 0.40) {
+        baseColor = const Color(0xFFE6A600);
+      } else {
+        baseColor = const Color(0xFFE53935);
+      }
+
+      final fillPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = baseColor;
+
+      canvas.drawRRect(fillRRect, fillPaint);
+
+      final glowPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = baseColor.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawRRect(fillRRect, glowPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BatteryPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
