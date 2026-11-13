@@ -501,9 +501,13 @@ class _ControlScreenState extends State<ControlScreen>
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isLight ? Colors.white : const Color(0xFF162436),
+              color: isLight ? Colors.white : const Color(0xFF0F1722),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.transparent),
+              border: Border.all(
+                color: isLight
+                    ? Colors.black.withValues(alpha: 0.10)
+                    : const Color(0xFF1E2D3D),
+              ),
             ),
             child: SizedBox(
               height: 44,
@@ -622,9 +626,13 @@ class _ControlScreenState extends State<ControlScreen>
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF162436),
+          color: isLight ? Colors.white : const Color(0xFF0F1722),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.transparent),
+          border: Border.all(
+            color: isLight
+                ? Colors.black.withValues(alpha: 0.10)
+                : const Color(0xFF1E2D3D),
+          ),
         ),
         child: SizedBox(
           height: 36,
@@ -671,9 +679,13 @@ class _ControlScreenState extends State<ControlScreen>
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF162436),
+          color: isLight ? Colors.white : const Color(0xFF0F1722),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.transparent),
+          border: Border.all(
+            color: isLight
+                ? Colors.black.withValues(alpha: 0.10)
+                : const Color(0xFF1E2D3D),
+          ),
         ),
         child: SizedBox(
           height: 36,
@@ -776,17 +788,28 @@ class _ControlScreenState extends State<ControlScreen>
       children: [
         Container(
           decoration: BoxDecoration(
-            color: isLight ? Colors.white : Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: isLight
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ]
-                : null,
+            gradient: isLight
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF131D2A), Color(0xFF0C131D)],
+                  ),
+            color: isLight ? Colors.white : null,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isLight
+                  ? Colors.black.withValues(alpha: 0.10)
+                  : const Color(0xFF1E2D3D),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isLight ? 0.05 : 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           clipBehavior: Clip.antiAlias,
           child: visibleRows.isEmpty
@@ -815,7 +838,7 @@ class _ControlScreenState extends State<ControlScreen>
                       thickness: 1,
                       color: isLight
                           ? Colors.black.withValues(alpha: 0.05)
-                          : Colors.white.withValues(alpha: 0.05),
+                          : const Color(0xFF1E2D3D),
                     ),
                   ),
                   itemBuilder: (context, idx) {
@@ -876,19 +899,33 @@ class _ControlScreenState extends State<ControlScreen>
           ),
         Container(
           decoration: BoxDecoration(
+            gradient: Theme.of(context).brightness == Brightness.light
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF131D2A), Color(0xFF0C131D)],
+                  ),
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
-                : Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: Theme.of(context).brightness == Brightness.light
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ]
                 : null,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.black.withValues(alpha: 0.10)
+                  : const Color(0xFF1E2D3D),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.light
+                        ? 0.05
+                        : 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           clipBehavior: Clip.antiAlias,
           child: ListView.separated(
@@ -903,7 +940,7 @@ class _ControlScreenState extends State<ControlScreen>
                 thickness: 1,
                 color: Theme.of(context).brightness == Brightness.light
                     ? Colors.black.withValues(alpha: 0.05)
-                    : Colors.white.withValues(alpha: 0.05),
+                    : const Color(0xFF1E2D3D),
               ),
             ),
             itemBuilder: (context, idx) {

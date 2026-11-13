@@ -33,10 +33,8 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
     return DashboardGlass(
       radius: 22,
       padding: const EdgeInsets.all(18),
-      tint: isLight
-          ? Colors.white
-          : const Color(0xFF111922).withValues(alpha: 0.92),
-      borderColor: Colors.transparent,
+      tint: isLight ? Colors.white : null,
+      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -367,10 +365,8 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
     return DashboardGlass(
       radius: 20,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      tint: isLight
-          ? Colors.white
-          : const Color(0xFF111922).withValues(alpha: 0.92),
-      borderColor: Colors.transparent,
+      tint: isLight ? Colors.white : null,
+      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -584,12 +580,12 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       decoration: BoxDecoration(
         color: isLight
             ? Colors.white
-            : const Color(0xFF111922).withValues(alpha: 0.92),
+            : const Color(0xFF131D2A),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isLight
               ? Colors.black.withValues(alpha: 0.10)
-              : Colors.transparent,
+              : const Color(0xFF1E2D3D),
         ),
       ),
       child: Row(

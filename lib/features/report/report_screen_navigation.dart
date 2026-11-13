@@ -11,9 +11,13 @@ extension _ReportScreenNavigation on _ReportScreenState {
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
-                : const Color(0xFF111922),
+                : const Color(0xFF0F1722),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.transparent),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.black.withValues(alpha: 0.10)
+                  : const Color(0xFF1E2D3D),
+            ),
           ),
           child: SizedBox(
             height: 44,

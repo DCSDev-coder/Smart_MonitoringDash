@@ -1286,10 +1286,8 @@ class _ReportScreenState extends State<ReportScreen>
     return DashboardGlass(
       radius: 18,
       padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-      tint: isLight
-          ? Colors.white
-          : const Color(0xFF111922).withValues(alpha: 0.92),
-      borderColor: Colors.transparent,
+      tint: isLight ? Colors.white : null,
+      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -1592,10 +1590,8 @@ class _ReportScreenState extends State<ReportScreen>
       key: key,
       radius: 18,
       padding: const EdgeInsets.all(20),
-      tint: useDarkTheme
-          ? const Color(0xFF111922).withValues(alpha: 0.92)
-          : color,
-      borderColor: Colors.transparent,
+      tint: useDarkTheme ? null : color,
+      borderColor: useDarkTheme ? const Color(0xFF1E2D3D) : Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
