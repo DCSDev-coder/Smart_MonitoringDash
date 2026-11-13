@@ -33,6 +33,7 @@ import 'shared/widgets/app_lock_gate.dart';
 import 'shared/widgets/notifications_overlay.dart';
 import 'shared/widgets/sticky_header_bar.dart';
 import 'shared/widgets/dashboard_header.dart';
+import 'shared/widgets/desktop_side_nav_rail.dart';
 import 'shared/widgets/settings_overlay.dart';
 import 'features/dashboard/widgets/critical_alert_banner.dart';
 import 'features/rack_view/rack_view_screen.dart';
@@ -525,7 +526,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 ),
               // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ MAIN CONTENT AREA ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
               Positioned.fill(
-                left: 0.0,
+                left: isWide ? 84.0 : 0.0,
                 child: Column(
                   children: [
                     if (isWide)
@@ -533,12 +534,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                         profile: SmartRackDeviceProfiles.androidOperator,
                         currentPageTitle: _currentDesktopPageTitle(),
                         menuKey: _desktopSettingsKey,
-                        selectedIndex: _selectedIndex,
-                        onSelectTab: _onNavTapped,
-                        tabs: _tabs.map((t) {
-                          final label = t.id == _TabId.dashboard ? 'Overview' : t.label;
-                          return ConsoleHeaderTabItem(label: label, icon: t.icon);
-                        }).toList(),
                         onNotificationTap: () =>
                             _showNotificationsOverlay(context),
                         onProfileTap: () => SettingsOverlay.show(
@@ -714,7 +709,21 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             ],
           ),
         ),
-
+              if (isWide)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: 84.0,
+                  child: DesktopSideNavRail(
+                    selectedIndex: _selectedIndex,
+                    tabs: _tabs.map((t) {
+                      final label = t.id == _TabId.dashboard ? 'Overview' : t.label;
+                      return DesktopNavTabItem(label: label, icon: t.icon);
+                    }).toList(),
+                    onSelectTab: _onNavTapped,
+                  ),
+                ),
             ],
           ),
         ));

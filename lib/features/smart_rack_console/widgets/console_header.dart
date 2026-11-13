@@ -186,6 +186,80 @@ class ConsoleHeader extends StatelessWidget {
         final snapshot = SmartRackConsoleRepository.instance.currentSnapshot();
         final hasNavTabs = tabs != null && tabs!.isNotEmpty;
 
+        if (!hasNavTabs) {
+          return Container(
+            height: ConsoleTheme.headerHeight,
+            padding: const EdgeInsets.symmetric(
+              horizontal: ConsoleTheme.xl,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.transparent,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (leading != null) leading! else const SizedBox.shrink(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _LiveTimeDisplay(),
+                        const SizedBox(width: 20),
+                        _HeaderIconBadge(
+                          icon: Icons.notifications_rounded,
+                          count: snapshot.issueCount,
+                          onTap: onNotificationTap,
+                        ),
+                        const SizedBox(width: 14),
+                        InkWell(
+                          key: menuKey,
+                          onTap: onProfileTap,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: ConsoleTheme.innerSurface(context),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: ConsoleTheme.cardBorder(context),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.menu_rounded,
+                              color: ConsoleTheme.textSecondary(context),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentPageTitle,
+                      style: TextStyle(
+                        color: ConsoleTheme.textPrimary(context),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildStatusPill(context, snapshot),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
         return Container(
           height: ConsoleTheme.headerHeight,
           padding: const EdgeInsets.symmetric(
