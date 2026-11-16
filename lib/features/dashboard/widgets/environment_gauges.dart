@@ -185,7 +185,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                 const Spacer(),
                 Tooltip(
                   message: _style == EnvironmentGaugeStyle.meter
-                      ? 'Switch to Arc View (Original Mobile Structure)'
+                      ? 'Switch to Arc View'
                       : 'Switch to Meter View',
                   child: _GaugeStyleSwitch(
                     value: _style,
@@ -415,7 +415,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
             },
             trailing: Tooltip(
               message: _style == EnvironmentGaugeStyle.meter
-                  ? 'Switch to Arc View (Original Mobile Structure)'
+                  ? 'Switch to Arc View'
                   : 'Switch to Meter View',
               child: _GaugeStyleSwitch(
                 value: _style,
@@ -1537,13 +1537,13 @@ class _GaugeStyleSwitch extends StatelessWidget {
               style: TextStyle(
                 color: isLight
                     ? AppTheme.lightTextSecondary
-                    : Colors.white.withValues(alpha: 0.75),
+                    : Colors.white.withValues(alpha: 0.85),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.3,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             AnimatedContainer(
               duration: const Duration(milliseconds: 400),
               curve: const Cubic(0.34, 1.56, 0.64, 1.0),

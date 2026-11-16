@@ -197,102 +197,165 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
   }
 
   Widget _buildMaintenanceCard() {
-    final isOverdue = _lastMaintenance != null &&
-        DateTime.now().difference(_lastMaintenance!).inDays >= 90;
+    final daysAgo = _lastMaintenance != null
+        ? DateTime.now().difference(_lastMaintenance!).inDays
+        : null;
+    final isOverdue = daysAgo != null && daysAgo >= 90;
     final isLight = Theme.of(context).brightness == Brightness.light;
-    const orange = Color(0xFFFF7A00);
 
-    final cardBg = isLight ? const Color(0xFFFF8A3D) : const Color(0xFF2D1A0D);
-    final updateBtnBg =
-        isLight ? const Color(0xFFC86A2C) : const Color(0xFF8E4A1E);
+    final Color statusColor;
+    final String statusLabel;
+    if (_lastMaintenance == null) {
+      statusColor = isLight ? AppTheme.lightTextSecondary : Colors.white54;
+      statusLabel = 'NO RECORD';
+    } else if (isOverdue) {
+      statusColor = Colors.redAccent;
+      statusLabel = 'OVERDUE';
+    } else {
+      statusColor = AppTheme.accentGreen;
+      statusLabel = 'ON SCHEDULE';
+    }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isLight
-              ? Colors.black.withValues(alpha: 0.06)
-              : Colors.white.withValues(alpha: 0.05),
-        ),
-      ),
-      child: Row(
+    final String subtitleText;
+    if (daysAgo == null) {
+      subtitleText = 'Log the most recent maintenance date';
+    } else if (isOverdue) {
+      subtitleText = 'Overdue by ${daysAgo - 90} days (90-day cycle)';
+    } else {
+      subtitleText = '$daysAgo days ago • ${90 - daysAgo} days until next due';
+    }
+
+    final accentColor = isOverdue ? Colors.redAccent : AppTheme.accentBlue;
+
+    return DashboardGlass(
+      radius: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      tint: isLight ? Colors.white : null,
+      borderColor: isOverdue
+          ? Colors.redAccent.withValues(alpha: 0.45)
+          : (isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isOverdue ? Colors.redAccent : orange,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isOverdue
-                  ? Icons.warning_amber_rounded
-                  : Icons.construction_rounded,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Last Service',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Last Service',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.35),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: accentColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Icon(
+                  isOverdue
+                      ? Icons.warning_amber_rounded
+                      : Icons.calendar_month_rounded,
+                  color: accentColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       _lastMaintenance == null
                           ? 'No Service Record'
                           : DateFormat('d MMMM yyyy').format(_lastMaintenance!),
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isOverdue ? Colors.redAccent : Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        color: isOverdue
+                            ? Colors.redAccent
+                            : (isLight
+                                ? AppTheme.lightTextPrimary
+                                : Colors.white),
                       ),
                     ),
-                    // const SizedBox(width: 8),
-                    // if (_lastMaintenance != null)
-                    //   Text(
-                    //     '( $days Days Ago )',
-                    //     style: TextStyle(
-                    //       color: Colors.white.withValues(alpha: 0.92),
-                    //       fontSize: 14,
-                    //       fontWeight: FontWeight.w600,
-                    //     ),
-                    //   ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitleText,
+                      style: TextStyle(
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.65),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          if (_canUpdateMaintenance)
-            TextButton(
-              onPressed: _pickMaintenanceDate,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: updateBtnBg,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
-              child: const Text('Update'),
-            ),
+              if (_canUpdateMaintenance) ...[
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _pickMaintenanceDate,
+                  icon: const Icon(Icons.edit_calendar_rounded, size: 15),
+                  label: const Text('Update'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.accentBlue,
+                    elevation: 0,
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -304,17 +367,26 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
       initialDate: _lastMaintenance ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
+      helpText: 'SELECT LAST SERVICE DATE',
       builder: (context, child) {
         final theme = Theme.of(context);
         final isLight = theme.brightness == Brightness.light;
+        final surface = isLight ? Colors.white : const Color(0xFF0F1722);
         return Theme(
           data: theme.copyWith(
             colorScheme: theme.colorScheme.copyWith(
               primary: AppTheme.accentBlue,
-              surface: isLight ? Colors.white : const Color(0xFF0B0F14),
+              onPrimary: Colors.white,
+              surface: surface,
+              onSurface: isLight ? AppTheme.lightTextPrimary : Colors.white,
             ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: isLight ? Colors.white : const Color(0xFF0B0F14),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: surface,
+              headerBackgroundColor: AppTheme.accentBlue,
+              headerForegroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
             ),
           ),
           child: child!,

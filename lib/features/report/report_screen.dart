@@ -1381,182 +1381,48 @@ class _ReportScreenState extends State<ReportScreen>
   Widget _buildSummaryCard(int score) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final scoreClamped = score.clamp(0, 100);
-    final isHealthy = scoreClamped >= 80;
-    final Color accentColor = isHealthy
-        ? const Color(0xFF10B981)
-        : (scoreClamped >= 50
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444));
-    final String statusLabel = scoreClamped >= 90
-        ? 'Operational'
-        : (scoreClamped >= 70 ? 'Normal' : 'Degraded');
 
     return DashboardGlass(
       radius: 18,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
       tint: isLight ? Colors.white : null,
       borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Header Row
+          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.shield_outlined,
-                      color: accentColor,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'SITE HEALTH',
-                    style: TextStyle(
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : const Color(0xFF8FA0B5),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  _infoIconButton(
-                    iconColor: isLight
-                        ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
-                        : Colors.white.withValues(alpha: 0.55),
-                    onTap: () => _showSiteHealthInfo(context),
-                  ),
-                ],
+              Text(
+                'Site Health Index',
+                style: TextStyle(
+                  color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: accentColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: accentColor.withValues(alpha: 0.6),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      statusLabel,
-                      style: TextStyle(
-                        color: accentColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(width: 8),
+              _infoIconButton(
+                iconColor: isLight
+                    ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
+                    : Colors.white.withValues(alpha: 0.55),
+                onTap: () => _showSiteHealthInfo(context),
               ),
             ],
           ),
           const Spacer(),
-          // Hero Readout (Highlighted Numbers)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$scoreClamped',
-                style: TextStyle(
-                  color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  fontSize: 56,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1.5,
-                  height: 1.0,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '%',
-                style: TextStyle(
-                  color: accentColor,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
           Text(
-            'System Availability & Telemetry Normal',
+            'Operational',
             style: TextStyle(
-              color: isLight
-                  ? AppTheme.lightTextSecondary
-                  : const Color(0xFF8FA0B5),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const Spacer(),
-          // Footer with sleek progress pill bar
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'HEALTH INDEX',
-                    style: TextStyle(
-                      color: isLight
-                          ? AppTheme.lightTextSecondary
-                          : const Color(0xFF8FA0B5),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  Text(
-                    '$scoreClamped% NOMINAL',
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _ModernHealthBar(
-                progress: scoreClamped / 100.0,
-                color: accentColor,
-                isLight: isLight,
-              ),
-            ],
-          ),
+          _BatteryGauge(score: scoreClamped),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -2278,53 +2144,151 @@ class _MiniRingState extends State<_MiniRing>
   }
 }
 
-class _ModernHealthBar extends StatelessWidget {
+class _BatteryGauge extends StatefulWidget {
+  final int score;
+
+  const _BatteryGauge({required this.score});
+
+  @override
+  State<_BatteryGauge> createState() => _BatteryGaugeState();
+}
+
+class _BatteryGaugeState extends State<_BatteryGauge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    final targetPct = (widget.score.clamp(0, 100)) / 100.0;
+    _anim = Tween<double>(begin: 1.0, end: targetPct).animate(
+      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
+    );
+    _c.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BatteryGauge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.score != widget.score) {
+      final oldPct = (oldWidget.score.clamp(0, 100)) / 100.0;
+      final newPct = (widget.score.clamp(0, 100)) / 100.0;
+      _anim = Tween<double>(begin: oldPct, end: newPct).animate(
+        CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
+      );
+      _c.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: AnimatedBuilder(
+          animation: _anim,
+          builder: (context, _) {
+            final pct = _anim.value;
+            final isLight = Theme.of(context).brightness == Brightness.light;
+
+            return CustomPaint(
+              painter: _BatteryPainter(
+                progress: pct,
+                isLight: isLight,
+              ),
+              child: Center(
+                child: Text(
+                  '${(pct * 100).toInt()}%',
+                  style: bitcount(
+                    context,
+                    fontSize: 24,
+                    color: Colors.white,
+                    letterSpacing: 1.2,
+                  ).copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _BatteryPainter extends CustomPainter {
   final double progress;
-  final Color color;
   final bool isLight;
 
-  const _ModernHealthBar({
+  _BatteryPainter({
     required this.progress,
-    required this.color,
     required this.isLight,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 8,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isLight ? const Color(0xFFE2E8F0) : const Color(0xFF0F1722),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: FractionallySizedBox(
-        widthFactor: progress.clamp(0.02, 1.0),
-        alignment: Alignment.centerLeft,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            gradient: LinearGradient(
-              colors: [
-                color.withValues(alpha: 0.7),
-                color,
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.5),
-                blurRadius: 6,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    // Background track
+    final trackRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final trackRRect =
+        RRect.fromRectAndRadius(trackRect, Radius.circular(size.height * 0.15));
+
+    final trackColor = isLight
+        ? Colors.black.withValues(alpha: 0.05)
+        : Colors.white.withValues(alpha: 0.1);
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = trackColor;
+
+    canvas.drawRRect(trackRRect, trackPaint);
+
+    // Fill
+    final currentFillWidth = size.width * progress;
+
+    if (currentFillWidth > 0) {
+      final fillRect = Rect.fromLTWH(0, 0, currentFillWidth, size.height);
+      final fillRRect = RRect.fromRectAndRadius(
+          fillRect, Radius.circular(size.height * 0.15));
+
+      Color baseColor;
+      if (progress >= 0.80) {
+        baseColor = const Color(0xFF4CAF50);
+      } else if (progress >= 0.40) {
+        baseColor = const Color(0xFFE6A600);
+      } else {
+        baseColor = const Color(0xFFE53935);
+      }
+
+      final fillPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = baseColor;
+
+      canvas.drawRRect(fillRRect, fillPaint);
+
+      final glowPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = baseColor.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawRRect(fillRRect, glowPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BatteryPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
