@@ -33,58 +33,65 @@ class ConsoleSectionCard extends StatelessWidget {
         ? ConsoleTheme.md
         : ConsoleTheme.lg;
 
-    return Container(
-      constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
-      decoration: BoxDecoration(
-        gradient: ConsoleTheme.cardBgGradient(context),
-        borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),
-        border: Border.all(color: cardBorder),
-        boxShadow: ConsoleTheme.glowShadow(context),
-      ),
-      child: Padding(
-        padding: resolvedPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (title != null && title!.isNotEmpty) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title!,
-                          style: TextStyle(
-                            color: textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle!,
-                            style: TextStyle(
-                              color: textSecondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w400,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final canExpand = expand && constraints.hasBoundedHeight;
+
+        return Container(
+          constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
+          decoration: BoxDecoration(
+            gradient: ConsoleTheme.cardBgGradient(context),
+            borderRadius: BorderRadius.circular(ConsoleTheme.cardRadius),
+            border: Border.all(color: cardBorder),
+            boxShadow: ConsoleTheme.glowShadow(context),
+          ),
+          child: Padding(
+            padding: resolvedPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: canExpand ? MainAxisSize.max : MainAxisSize.min,
+              children: [
+                if (title != null && title!.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title!,
+                              style: TextStyle(
+                                color: textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                subtitle!,
+                                style: TextStyle(
+                                  color: textSecondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (trailing != null) trailing!,
+                    ],
                   ),
-                  if (trailing != null) trailing!,
+                  SizedBox(height: titleGap),
                 ],
-              ),
-              SizedBox(height: titleGap),
-            ],
-            expand ? Expanded(child: child) : child,
-          ],
-        ),
-      ),
+                canExpand ? Expanded(child: child) : child,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

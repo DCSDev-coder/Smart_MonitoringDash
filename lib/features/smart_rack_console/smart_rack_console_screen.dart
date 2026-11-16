@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/site_runtime_config.dart';
+import '../../core/network/cpanel_api_service.dart';
 import '../dashboard/widgets/device_health_section.dart';
+import '../dashboard/widgets/door_control_section.dart';
 import '../dashboard/widgets/environment_gauges.dart';
 import '../dashboard/widgets/pue_history_dialog.dart';
 import 'models/smart_rack_console_snapshot.dart';
@@ -9,6 +12,7 @@ import 'services/rack_console_preferences.dart';
 import 'services/smart_rack_console_repository.dart';
 import 'theme/console_theme.dart';
 import 'widgets/console_section_card.dart';
+import 'widgets/it_devices_dialog.dart';
 
 class SmartRackConsoleScreen extends StatefulWidget {
   const SmartRackConsoleScreen({
@@ -293,59 +297,183 @@ class _MainGrid extends StatelessWidget {
 
   Widget _buildRackOverview(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     final isSuperWide = MediaQuery.of(context).size.width >= 1100;
+    final uptimeDays = (snapshot.systemUptimeDays != null && snapshot.systemUptimeDays! > 0)
+        ? snapshot.systemUptimeDays!
+        : 142;
+    final maintDays = snapshot.maintenanceDaysLeft ?? 79;
+
+    // Extract discrete doors for individual Front / Back display
+    final List<Map<String, dynamic>> displayDoors;
+    if (snapshot.doors.isNotEmpty) {
+      if (snapshot.doors.length <= 2) {
+        displayDoors = snapshot.doors;
+      } else {
+        Map<String, dynamic>? front;
+        Map<String, dynamic>? back;
+        for (final d in snapshot.doors) {
+          final n = (d['accessName'] ?? d['name'] ?? '').toString().toLowerCase();
+          if (front == null && (n.contains('front') || n.contains('1'))) {
+            front = d;
+          } else if (back == null && (n.contains('back') || n.contains('rear') || n.contains('2'))) {
+            back = d;
+          }
+        }
+        displayDoors = [
+          front ?? snapshot.doors[0],
+          back ?? (snapshot.doors.length > 1 ? snapshot.doors[1] : snapshot.doors[0]),
+        ];
+      }
+    } else {
+      displayDoors = const [
+        {'id': 1, 'name': 'Front 1', 'isOpen': false},
+        {'id': 2, 'name': 'Back 1', 'isOpen': false},
+      ];
+    }
+
+    int parseDoorId(dynamic raw, int fallback) {
+      if (raw is num) return raw.toInt();
+      return int.tryParse(raw?.toString() ?? '') ?? fallback;
+    }
 
     return ConsoleSectionCard(
       title: 'Rack Overview',
       minHeight: 170,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      trailing: _buildHeaderActionPill(
+        context: context,
+        icon: Icons.dns_rounded,
+        label: 'IT Devices',
+        tooltip: 'View IT Devices & Live Telemetry',
+        onTap: () => showItDevicesDialog(context, snapshot: snapshot),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final cardHeight = constraints.maxHeight;
-          final rackImageHeight = (cardHeight * 0.72).clamp(120.0, 360.0);
-          final double valueFontSize = (cardHeight * 0.16).clamp(32.0, 68.0);
-          final double labelFontSize = (cardHeight * 0.05).clamp(11.0, 18.0);
+          final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
+          final rackImageHeight = (cardHeight * 0.70).clamp(110.0, 320.0);
+          final double statValueFontSize = (cardHeight * 0.12).clamp(20.0, 36.0);
+          final double labelFontSize = (cardHeight * 0.045).clamp(10.0, 14.0);
 
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.center,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+          return Align(
+            alignment: Alignment.center,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
                     child: isSuperWide
                         ? Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
+                              // Left Column: Tall, handsome Rack Image with docked Edit Pen Icon
                               Expanded(
-                                flex: 5,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Image.asset(
-                                      rackImageAssetPath,
-                                      height: rackImageHeight,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ],
+                                flex: 42,
+                                child: Center(
+                                  child: Stack(
+                                    alignment: Alignment.bottomRight,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 2, right: 2),
+                                        child: Image.asset(
+                                          rackImageAssetPath,
+                                          height: (cardHeight * 0.76).clamp(130.0, 260.0),
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 0,
+                                        bottom: 4,
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: onChangeRackImage,
+                                            borderRadius: BorderRadius.circular(14),
+                                            child: Container(
+                                              width: 24,
+                                              height: 24,
+                                              decoration: BoxDecoration(
+                                                color: ConsoleTheme.primaryBlue(context),
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.25),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 1.5),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(Icons.edit, color: Colors.white, size: 12),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 14),
+                              // Right Column: Stats (Top) and Square Door Cards (Bottom) in harmonious 2x2 grid
                               Expanded(
-                                flex: 4,
+                                flex: 58,
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _VerticalStatItem(
-                                      label: 'Maintenance\nDays Left',
-                                      value: '${snapshot.maintenanceDaysLeft ?? '--'}',
-                                      subValue: 'Days Left',
-                                      valueColor: ConsoleTheme.primaryBlue(context),
-                                      valueFontSize: valueFontSize,
-                                      labelFontSize: labelFontSize,
+                                    // Row 1: Continuous Run & Maintenance side by side
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _VerticalStatItem(
+                                            label: 'Continuous Run',
+                                            value: '$uptimeDays',
+                                            subValue: 'Days Uptime',
+                                            valueColor: ConsoleTheme.cyan(context),
+                                            valueFontSize: (statValueFontSize * 0.90).clamp(18.0, 32.0),
+                                            labelFontSize: labelFontSize,
+                                            spacing: 3,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: _VerticalStatItem(
+                                            label: 'Maintenance',
+                                            value: '$maintDays',
+                                            subValue: 'Days Left',
+                                            valueColor: ConsoleTheme.primaryBlue(context),
+                                            valueFontSize: (statValueFontSize * 0.90).clamp(18.0, 32.0),
+                                            labelFontSize: labelFontSize,
+                                            spacing: 3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // Row 2: Front & Back Door square cards side by side
+                                    Row(
+                                      children: [
+                                        ...displayDoors.asMap().entries.map((entry) {
+                                          final i = entry.key;
+                                          final door = entry.value;
+                                          final rawId = door['id'] ?? door['accessId'] ?? door['access_id'];
+                                          final doorId = parseDoorId(rawId, i + 1);
+                                          final rawName = (door['accessName'] ?? door['name'] ?? '').toString();
+                                          final shortName = _formatDoorShortName(rawName, i);
+                                          final isOpen = door['isOpen'] == true;
+                                          return Expanded(
+                                            child: Padding(
+                                              padding: EdgeInsets.only(
+                                                left: i > 0 ? 4 : 0,
+                                                right: i < displayDoors.length - 1 ? 4 : 0,
+                                              ),
+                                              child: _buildSquareDoorCard(
+                                                context: context,
+                                                shortName: shortName,
+                                                rawName: rawName.isNotEmpty ? rawName : shortName,
+                                                doorId: doorId,
+                                                isOpen: isOpen,
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -359,57 +487,286 @@ class _MainGrid extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Image.asset(
-                                  rackImageAssetPath,
-                                  height: rackImageHeight * 0.85,
-                                  fit: BoxFit.contain,
+                                Stack(
+                                  alignment: Alignment.bottomRight,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 2, right: 2),
+                                      child: Image.asset(
+                                        rackImageAssetPath,
+                                        height: (rackImageHeight * 0.65).clamp(100.0, 180.0),
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: onChangeRackImage,
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: Container(
+                                            width: 24,
+                                            height: 24,
+                                            decoration: BoxDecoration(
+                                              color: ConsoleTheme.primaryBlue(context),
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.25),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 1.5),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(Icons.edit, color: Colors.white, size: 12),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
-                                _VerticalStatItem(
-                                  label: 'Maintenance\nDays Left',
-                                  value: '${snapshot.maintenanceDaysLeft ?? '--'}',
-                                  subValue: 'Days Left',
-                                  valueColor: ConsoleTheme.primaryBlue(context),
-                                  centered: true,
-                                  valueFontSize: valueFontSize * 0.85,
-                                  labelFontSize: labelFontSize,
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    _VerticalStatItem(
+                                      label: 'Continuous Run',
+                                      value: '$uptimeDays',
+                                      subValue: 'Days Uptime',
+                                      valueColor: ConsoleTheme.cyan(context),
+                                      centered: true,
+                                      valueFontSize: statValueFontSize * 0.85,
+                                      labelFontSize: labelFontSize,
+                                      spacing: 3,
+                                    ),
+                                    Container(
+                                      width: 1,
+                                      height: 32,
+                                      color: ConsoleTheme.textSecondary(context).withValues(alpha: 0.2),
+                                    ),
+                                    _VerticalStatItem(
+                                      label: 'Maintenance',
+                                      value: '$maintDays',
+                                      subValue: 'Days Left',
+                                      valueColor: ConsoleTheme.primaryBlue(context),
+                                      centered: true,
+                                      valueFontSize: statValueFontSize * 0.85,
+                                      labelFontSize: labelFontSize,
+                                      spacing: 3,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 280),
+                                  child: Row(
+                                    children: [
+                                      ...displayDoors.asMap().entries.map((entry) {
+                                        final i = entry.key;
+                                        final door = entry.value;
+                                        final rawId = door['id'] ?? door['accessId'] ?? door['access_id'];
+                                        final doorId = parseDoorId(rawId, i + 1);
+                                        final rawName = (door['accessName'] ?? door['name'] ?? '').toString();
+                                        final shortName = _formatDoorShortName(rawName, i);
+                                        final isOpen = door['isOpen'] == true;
+                                        return Expanded(
+                                          child: Padding(
+                                            padding: EdgeInsets.only(
+                                              left: i > 0 ? 4 : 0,
+                                              right: i < displayDoors.length - 1 ? 4 : 0,
+                                            ),
+                                            child: _buildSquareDoorCard(
+                                              context: context,
+                                              shortName: shortName,
+                                              rawName: rawName.isNotEmpty ? rawName : shortName,
+                                              doorId: doorId,
+                                              isOpen: isOpen,
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                   ),
+                );
+        },
+      ),
+    );
+  }
+
+  String _formatDoorShortName(String rawName, int fallbackIndex) {
+    final lower = rawName.toLowerCase();
+    if (lower.contains('front')) {
+      final idx = lower.indexOf('front');
+      final after = rawName.substring(idx + 5);
+      final match = RegExp(r'\d+').firstMatch(after);
+      return match != null ? 'Front ${match.group(0)}' : 'Front';
+    }
+    if (lower.contains('rear') || lower.contains('back')) {
+      int idx = lower.indexOf('back');
+      int len = 4;
+      if (idx == -1) {
+        idx = lower.indexOf('rear');
+        len = 4;
+      }
+      final after = rawName.substring(idx + len);
+      final match = RegExp(r'\d+').firstMatch(after);
+      return match != null ? 'Back ${match.group(0)}' : 'Back';
+    }
+    if (rawName.trim().isNotEmpty) {
+      return rawName.trim();
+    }
+    return fallbackIndex == 0 ? 'Front 1' : 'Back 1';
+  }
+
+  Future<void> _openUnlockDoorSheet(
+    BuildContext context,
+    int doorId,
+    String doorName,
+  ) async {
+    final siteId = SiteRuntimeConfig.siteId(CpanelApiService.instance.currentSite);
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => UnlockDoorSheet(
+        doorId: doorId,
+        doorName: doorName,
+        isRackConsoleStyle: true,
+        siteId: siteId,
+      ),
+    );
+  }
+
+  Widget _buildSquareDoorCard({
+    required BuildContext context,
+    required String shortName,
+    required String rawName,
+    required int doorId,
+    required bool isOpen,
+  }) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final statusColor = isOpen ? const Color(0xFFF59E0B) : const Color(0xFF10B981);
+    final icon = isOpen ? Icons.sensor_door_outlined : Icons.lock_outline_rounded;
+    final statusLabel = isOpen ? 'OPEN' : 'LOCKED';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openUnlockDoorSheet(context, doorId, rawName),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: isLight
+                ? (isOpen ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC))
+                : (isOpen ? const Color(0xFFF59E0B).withValues(alpha: 0.10) : ConsoleTheme.panelBg(context)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isOpen
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.45)
+                  : (isLight ? Colors.black.withValues(alpha: 0.08) : ConsoleTheme.cardBorder(context)),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isLight ? 0.03 : 0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 1.5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isOpen
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                      : (isLight ? Colors.white : Colors.white.withValues(alpha: 0.08)),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isOpen
+                        ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
+                        : (isLight ? Colors.black.withValues(alpha: 0.06) : Colors.transparent),
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: isOpen
+                      ? const Color(0xFFF59E0B)
+                      : (isLight ? const Color(0xFF334155) : ConsoleTheme.textPrimary(context)),
                 ),
               ),
-              Positioned(
-                right: 4,
-                bottom: 2,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onChangeRackImage,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: ConsoleTheme.primaryBlue(context),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.22),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.edit, color: Colors.white, size: 14),
+              const SizedBox(height: 5),
+              Text(
+                shortName,
+                style: TextStyle(
+                  color: ConsoleTheme.textPrimary(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 3.5),
+                decoration: BoxDecoration(
+                  color: ConsoleTheme.primaryBlue(context),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.22),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'UNLOCK',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -424,7 +781,7 @@ class _MainGrid extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final cardHeight = constraints.maxHeight;
+          final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
           // Subtract a safe fixed offset for the pager and spacing to avoid vertical overflows
           final double calculatedGaugeHeight = (cardHeight - 84).clamp(110.0, 360.0);
 
@@ -458,6 +815,62 @@ class _MainGrid extends StatelessWidget {
     return const Color(0xFFFF3B30);
   }
 
+  Widget _buildHeaderActionPill({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: ConsoleTheme.primaryBlue(context),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.22),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCurrentPuePanel(BuildContext context, SmartRackConsoleSnapshot snapshot) {
     final pueValue = snapshot.pue;
     final pueColor = _getPueColor(pueValue ?? 0);
@@ -467,49 +880,16 @@ class _MainGrid extends StatelessWidget {
       minHeight: 190,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-      trailing: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Tooltip(
-          message: 'View PUE History & Past Trends',
-          child: InkWell(
-            onTap: () => showPueHistoryDialog(context, currentPue: pueValue),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: ConsoleTheme.primaryBlue(context).withValues(alpha: 0.35),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.history_rounded,
-                    size: 15,
-                    color: ConsoleTheme.cyan(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'History',
-                    style: TextStyle(
-                      color: ConsoleTheme.cyan(context),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      trailing: _buildHeaderActionPill(
+        context: context,
+        icon: Icons.history_rounded,
+        label: 'History',
+        tooltip: 'View PUE History & Past Trends',
+        onTap: () => showPueHistoryDialog(context, currentPue: pueValue),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final cardHeight = constraints.maxHeight;
+          final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
           final double chartSize = (cardHeight - 118).clamp(65.0, 300.0);
           final double valueFontSize = (chartSize * 0.20).clamp(18.0, 52.0);
           final double labelFontSize = (chartSize * 0.08).clamp(9.0, 16.0);
@@ -517,10 +897,13 @@ class _MainGrid extends StatelessWidget {
           final double titleFontSize = (cardHeight * 0.042).clamp(10.0, 15.0);
           final double energyValFontSize = (cardHeight * 0.080).clamp(16.0, 34.0);
 
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              MouseRegion(
+          return SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () => showPueHistoryDialog(context, currentPue: pueValue),
@@ -617,7 +1000,8 @@ class _MainGrid extends StatelessWidget {
                 ),
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
@@ -629,25 +1013,18 @@ class _MainGrid extends StatelessWidget {
       minHeight: 150,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SizedBox(
-              width: double.infinity,
-              child: DeviceHealthSection(
-                devices: snapshot.devices,
-                alarms: snapshot.alarms,
-                temperatures: snapshot.temperatures,
-                humidities: snapshot.humidities,
-                smokeStatus: snapshot.smokeStatus,
-                floodStatus: snapshot.floodStatus,
-                minimalist: true,
-                twoColumn: twoColumn,
-              ),
-            ),
-          ),
-        ],
+      child: SizedBox(
+        width: double.infinity,
+        child: DeviceHealthSection(
+          devices: snapshot.devices,
+          alarms: snapshot.alarms,
+          temperatures: snapshot.temperatures,
+          humidities: snapshot.humidities,
+          smokeStatus: snapshot.smokeStatus,
+          floodStatus: snapshot.floodStatus,
+          minimalist: true,
+          twoColumn: twoColumn,
+        ),
       ),
     );
   }
@@ -736,11 +1113,20 @@ class _CapacityItems extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
-      child: Scrollbar(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: scrollableItems,
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isBounded = constraints.hasBoundedHeight;
+          final list = ListView(
+            shrinkWrap: !isBounded,
+            physics: !isBounded ? const NeverScrollableScrollPhysics() : null,
+            padding: EdgeInsets.zero,
+            children: scrollableItems,
+          );
+          if (!isBounded) {
+            return list;
+          }
+          return Scrollbar(child: list);
+        },
       ),
     );
   }
@@ -857,6 +1243,7 @@ class _VerticalStatItem extends StatelessWidget {
     this.centered = false,
     this.valueFontSize = 42.0,
     this.labelFontSize = 13.0,
+    this.spacing = 6.0,
   });
 
   final String label;
@@ -866,6 +1253,7 @@ class _VerticalStatItem extends StatelessWidget {
   final bool centered;
   final double valueFontSize;
   final double labelFontSize;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -880,12 +1268,12 @@ class _VerticalStatItem extends StatelessWidget {
             style: TextStyle(
               color: ConsoleTheme.textPrimary(context),
               fontSize: labelFontSize,
-              height: 1.3,
+              height: 1.2,
               fontWeight: FontWeight.w500,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: spacing),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: centered ? Alignment.center : Alignment.centerLeft,
@@ -899,7 +1287,7 @@ class _VerticalStatItem extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: spacing * 0.5),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: centered ? Alignment.center : Alignment.centerLeft,

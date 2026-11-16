@@ -304,33 +304,31 @@ class _DoorConsoleScreenState extends State<DoorConsoleScreen> {
               ),
             ],
           )
-        : IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _DoorAccessPanel(
-                    doorLabel: _doorLabel(frontDoor, 'Front Door'),
-                    positionLabel: _doorPosition(frontDoor, 'Front'),
-                    isUnlocked: _isDoorUnlocked(frontDoor),
-                    enabled: _doorId(frontDoor) != 0,
-                    busy: _unlockingDoors.contains(_doorId(frontDoor)),
-                    onUnlock: () => _unlockDoor(frontDoor, 'Front Door'),
-                  ),
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _DoorAccessPanel(
+                  doorLabel: _doorLabel(frontDoor, 'Front Door'),
+                  positionLabel: _doorPosition(frontDoor, 'Front'),
+                  isUnlocked: _isDoorUnlocked(frontDoor),
+                  enabled: _doorId(frontDoor) != 0,
+                  busy: _unlockingDoors.contains(_doorId(frontDoor)),
+                  onUnlock: () => _unlockDoor(frontDoor, 'Front Door'),
                 ),
-                const SizedBox(width: ConsoleTheme.lg),
-                Expanded(
-                  child: _DoorAccessPanel(
-                    doorLabel: _doorLabel(backDoor, 'Back Door'),
-                    positionLabel: _doorPosition(backDoor, 'Back'),
-                    isUnlocked: _isDoorUnlocked(backDoor),
-                    enabled: _doorId(backDoor) != 0,
-                    busy: _unlockingDoors.contains(_doorId(backDoor)),
-                    onUnlock: () => _unlockDoor(backDoor, 'Back Door'),
-                  ),
+              ),
+              const SizedBox(width: ConsoleTheme.lg),
+              Expanded(
+                child: _DoorAccessPanel(
+                  doorLabel: _doorLabel(backDoor, 'Back Door'),
+                  positionLabel: _doorPosition(backDoor, 'Back'),
+                  isUnlocked: _isDoorUnlocked(backDoor),
+                  enabled: _doorId(backDoor) != 0,
+                  busy: _unlockingDoors.contains(_doorId(backDoor)),
+                  onUnlock: () => _unlockDoor(backDoor, 'Back Door'),
                 ),
-              ],
-            ),
+              ),
+            ],
           );
 
     return Padding(
