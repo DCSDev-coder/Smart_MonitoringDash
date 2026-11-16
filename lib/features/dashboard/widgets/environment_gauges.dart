@@ -140,61 +140,6 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isWide)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
-            child: Row(
-              children: [
-                Text(
-                  '$cabLabel :',
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? AppTheme.lightTextPrimary
-                        : Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _PagerArrow(
-                  icon: Icons.chevron_left_rounded,
-                  enabled: safeIndex > 0,
-                  onTap: () {
-                    final next = (safeIndex - 1).clamp(0, effectiveCabinetKeys.length - 1);
-                    _pageController.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-                ),
-                const SizedBox(width: 4),
-                _PagerArrow(
-                  icon: Icons.chevron_right_rounded,
-                  enabled: safeIndex < effectiveCabinetKeys.length - 1,
-                  onTap: () {
-                    final next = (safeIndex + 1).clamp(0, effectiveCabinetKeys.length - 1);
-                    _pageController.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-                ),
-                const Spacer(),
-                Tooltip(
-                  message: _style == EnvironmentGaugeStyle.meter
-                      ? 'Switch to Arc View'
-                      : 'Switch to Meter View',
-                  child: _GaugeStyleSwitch(
-                    value: _style,
-                    onChanged: (v) => setState(() => _style = v),
-                  ),
-                ),
-              ],
-            ),
-          ),
         SizedBox(
           height: widget.gaugeHeight,
           child: PageView.builder(
@@ -400,7 +345,63 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
             },
           ),
         ),
-        if (!isWide) ...[
+        if (isWide)
+          Padding(
+            padding: const EdgeInsets.only(top: 10, left: 4, right: 4),
+            child: Row(
+              children: [
+                Text(
+                  '$cabLabel :',
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? AppTheme.lightTextPrimary
+                        : Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _PagerArrow(
+                  icon: Icons.chevron_left_rounded,
+                  enabled: safeIndex > 0,
+                  onTap: () {
+                    final next = (safeIndex - 1).clamp(0, effectiveCabinetKeys.length - 1);
+                    _pageController.animateToPage(
+                      next,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+                _PagerArrow(
+                  icon: Icons.chevron_right_rounded,
+                  enabled: safeIndex < effectiveCabinetKeys.length - 1,
+                  onTap: () {
+                    final next = (safeIndex + 1).clamp(0, effectiveCabinetKeys.length - 1);
+                    _pageController.animateToPage(
+                      next,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                ),
+                const Spacer(),
+                Tooltip(
+                  message: _style == EnvironmentGaugeStyle.meter
+                      ? 'Switch to Arc View'
+                      : 'Switch to Meter View',
+                  child: _GaugeStyleSwitch(
+                    value: _style,
+                    showLabel: false,
+                    onChanged: (v) => setState(() => _style = v),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else ...[
           const SizedBox(height: 10),
           _CabinetPager(
             label: '$cabLabel Front',
@@ -1508,10 +1509,12 @@ class _CabinetPager extends StatelessWidget {
 class _GaugeStyleSwitch extends StatelessWidget {
   final EnvironmentGaugeStyle value;
   final ValueChanged<EnvironmentGaugeStyle> onChanged;
+  final bool showLabel;
 
   const _GaugeStyleSwitch({
     required this.value,
     required this.onChanged,
+    this.showLabel = true,
   });
 
   @override
@@ -1532,18 +1535,20 @@ class _GaugeStyleSwitch extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              isMeter ? 'Meter' : 'Arc',
-              style: TextStyle(
-                color: isLight
-                    ? AppTheme.lightTextSecondary
-                    : Colors.white.withValues(alpha: 0.85),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
+            if (showLabel) ...[
+              Text(
+                isMeter ? 'Meter' : 'Arc',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.85),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
               ),
-            ),
-            const SizedBox(width: 7),
+              const SizedBox(width: 7),
+            ],
             AnimatedContainer(
               duration: const Duration(milliseconds: 400),
               curve: const Cubic(0.34, 1.56, 0.64, 1.0),

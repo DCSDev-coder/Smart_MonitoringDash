@@ -34,13 +34,26 @@ import 'shared/widgets/app_lock_gate.dart';
 import 'shared/widgets/notifications_overlay.dart';
 import 'shared/widgets/sticky_header_bar.dart';
 import 'shared/widgets/dashboard_header.dart';
-import 'shared/widgets/desktop_side_nav_rail.dart';
 import 'shared/widgets/settings_overlay.dart';
 import 'features/dashboard/widgets/critical_alert_banner.dart';
 import 'features/rack_view/rack_view_screen.dart';
 import 'features/smart_rack_console/widgets/console_header.dart';
+import 'features/smart_rack_console/widgets/console_sidebar.dart';
+import 'features/smart_rack_console/widgets/coming_soon_panel.dart';
 import 'features/smart_rack_console/models/smart_rack_device_profile.dart';
+import 'features/smart_rack_console/models/smart_rack_console_snapshot.dart';
 import 'features/smart_rack_console/services/smart_rack_console_repository.dart';
+import 'features/smart_rack_console/theme/console_theme.dart';
+import 'features/smart_rack_console/smart_rack_console_screen.dart';
+import 'features/smart_rack_console/ac_console_screen.dart';
+import 'features/smart_rack_console/ups_console_screen.dart';
+import 'features/smart_rack_console/power_console_screen.dart';
+import 'features/smart_rack_console/pdu_console_screen.dart';
+import 'features/smart_rack_console/it_device_console_screen.dart';
+import 'features/smart_rack_console/door_console_screen.dart';
+import 'features/smart_rack_console/pue_console_screen.dart';
+import 'features/smart_rack_console/settings_console_screen.dart';
+import 'features/smart_rack_console/alarm_console_screen.dart';
 import 'shared/utils/app_toast.dart';
 import 'shared/widgets/set_pin_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -384,6 +397,7 @@ class _HomeLaunchHoldState extends State<_HomeLaunchHold> {
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   int _selectedIndex = 0;
+  int _desktopConsoleIndex = 0;
   final GlobalStatusPoller _poller = GlobalStatusPoller.instance;
   final GlobalKey _mobileSettingsKey = GlobalKey();
   final GlobalKey _desktopSettingsKey = GlobalKey();
@@ -486,13 +500,103 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  String _currentDesktopPageTitle() {
-    if (_selectedIndex >= 0 && _selectedIndex < _tabs.length) {
-      final tab = _tabs[_selectedIndex];
-      if (tab.id == _TabId.dashboard) return 'Overview';
-      return tab.label;
+  void _selectDesktopConsoleTab(int index) {
+    setState(() {
+      _desktopConsoleIndex = index;
+    });
+    _requestDesktopSupplementalForIndex(index);
+  }
+
+  void _requestDesktopSupplementalForIndex(int index) {
+    final section = switch (index) {
+      0 => RackConsoleSupplementalSection.overview,
+      1 => RackConsoleSupplementalSection.ac,
+      2 => RackConsoleSupplementalSection.ups,
+      3 => RackConsoleSupplementalSection.power,
+      4 => RackConsoleSupplementalSection.pdu,
+      7 => RackConsoleSupplementalSection.overview,
+      _ => null,
+    };
+    if (section == null) return;
+    SmartRackConsoleRepository.instance.requestSection(section);
+  }
+
+  String _desktopConsolePageTitle(int index) {
+    switch (index) {
+      case 0:
+        return 'Overview';
+      case 1:
+        return 'AC';
+      case 2:
+        return 'UPS';
+      case 3:
+        return 'Power';
+      case 4:
+        return 'PDU';
+      case 5:
+        return 'IT Device';
+      case 6:
+        return 'Door';
+      case 7:
+        return 'PUE';
+      case 8:
+        return 'Settings';
+      case 9:
+        return 'Alarm';
+      default:
+        return 'Console';
     }
-    return 'Overview';
+  }
+
+  SmartRackConsoleSnapshot _desktopSnapshot() {
+    return SmartRackConsoleRepository.instance.currentSnapshot();
+  }
+
+  Widget _buildDesktopConsoleContent(int index) {
+    if (index == 0) {
+      return const SmartRackConsoleScreen(
+        profile: SmartRackDeviceProfiles.androidOperator,
+        compact: false,
+      );
+    } else if (index == 1) {
+      return const AcConsoleScreen(
+        compact: false,
+      );
+    } else if (index == 2) {
+      return UpsConsoleScreen(
+        snapshot: _desktopSnapshot(),
+      );
+    } else if (index == 3) {
+      return PowerConsoleScreen(
+        snapshot: _desktopSnapshot(),
+      );
+    } else if (index == 4) {
+      return PduConsoleScreen(
+        snapshot: _desktopSnapshot(),
+      );
+    } else if (index == 5) {
+      return ItDeviceConsoleScreen(
+        snapshot: _desktopSnapshot(),
+      );
+    } else if (index == 6) {
+      return DoorConsoleScreen(
+        snapshot: _desktopSnapshot(),
+      );
+    } else if (index == 7) {
+      return PueConsoleScreen(
+        snapshot: _desktopSnapshot(),
+        compact: false,
+      );
+    } else if (index == 8) {
+      return const SettingsConsoleScreen(
+        compact: false,
+      );
+    } else if (index == 9) {
+      return const AlarmConsoleScreen(
+        compact: false,
+      );
+    }
+    return ComingSoonPanel(title: _desktopConsolePageTitle(index));
   }
 
   void _onNavTapped(int index) {
@@ -520,6 +624,69 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     final double width = MediaQuery.of(context).size.width;
     final bool isWide = width >= 600;
 
+    if (isWide) {
+      return PopScope(
+        canPop: false,
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          backgroundColor: ConsoleTheme.appBg(context),
+          body: SafeArea(
+            child: Column(
+              children: [
+                ConsoleHeader(
+                  profile: SmartRackDeviceProfiles.androidOperator,
+                  currentPageTitle: _desktopConsolePageTitle(_desktopConsoleIndex),
+                  menuKey: _desktopSettingsKey,
+                  onNotificationTap: () => _showNotificationsOverlay(context),
+                  onProfileTap: () => SettingsOverlay.show(
+                    context,
+                    originRect: SettingsOverlay.rectFromKey(_desktopSettingsKey),
+                    onUploadLogo: _handleLogoUpload,
+                    onGoHome: () => _selectDesktopConsoleTab(0),
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      ConsoleSidebar(
+                        profile: SmartRackDeviceProfiles.androidOperator,
+                        selectedIndex: _desktopConsoleIndex,
+                        onItemSelected: _selectDesktopConsoleTab,
+                      ),
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(
+                            right: ConsoleTheme.lg,
+                            bottom: ConsoleTheme.lg,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ConsoleTheme.panelBg(context)
+                                .withValues(alpha: 0.6),
+                            borderRadius:
+                                BorderRadius.circular(ConsoleTheme.cardRadius),
+                            border: Border.all(
+                              color: ConsoleTheme.divider(context),
+                              width: 1.0,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListenableBuilder(
+                            listenable: SmartRackConsoleRepository.instance,
+                            builder: (context, _) =>
+                                _buildDesktopConsoleContent(_desktopConsoleIndex),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return PopScope(
         canPop: false,
         child: Scaffold(
@@ -537,24 +704,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 ),
               // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ MAIN CONTENT AREA ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
               Positioned.fill(
-                left: isWide ? 84.0 : 0.0,
                 child: Column(
                   children: [
-                    if (isWide)
-                      ConsoleHeader(
-                        profile: SmartRackDeviceProfiles.androidOperator,
-                        currentPageTitle: _currentDesktopPageTitle(),
-                        menuKey: _desktopSettingsKey,
-                        onNotificationTap: () =>
-                            _showNotificationsOverlay(context),
-                        onProfileTap: () => SettingsOverlay.show(
-                          context,
-                          originRect: SettingsOverlay.rectFromKey(
-                              _desktopSettingsKey),
-                          onUploadLogo: _handleLogoUpload,
-                          onGoHome: () => _onNavTapped(0),
-                        ),
-                      ),
                     Expanded(
                       child: NotificationListener<ScrollNotification>(
                         onNotification: _handleScrollNotification,
@@ -720,21 +871,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
             ],
           ),
         ),
-              if (isWide)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  width: 84.0,
-                  child: DesktopSideNavRail(
-                    selectedIndex: _selectedIndex,
-                    tabs: _tabs.map((t) {
-                      final label = t.id == _TabId.dashboard ? 'Overview' : t.label;
-                      return DesktopNavTabItem(label: label, icon: t.icon);
-                    }).toList(),
-                    onSelectTab: _onNavTapped,
-                  ),
-                ),
             ],
           ),
         ));
@@ -960,7 +1096,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     NotificationsOverlay.show(
       context,
       alarms: combined,
-      onNavigateToReport: () => _onNavTapped(3),
+      onNavigateToReport: () {
+        if (MediaQuery.of(context).size.width >= 600) {
+          _selectDesktopConsoleTab(9);
+        } else {
+          _onNavTapped(3);
+        }
+      },
     );
   }
 
