@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
+import '../dashboard/fullscreen_monitoring_screen.dart';
 import '../dashboard/widgets/device_health_section.dart';
 import '../dashboard/widgets/environment_gauges.dart';
 import 'models/smart_rack_console_snapshot.dart';
@@ -302,6 +304,37 @@ class _MainGrid extends StatelessWidget {
       minHeight: 170,
       expand: true,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      trailing: AppConfig.isRackConsoleBuild
+          ? null
+          : Tooltip(
+              message: 'Open Fullscreen Monitoring',
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const FullscreenMonitoringScreen(),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: ConsoleTheme.primaryBlue(context)
+                        .withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: ConsoleTheme.cyan(context).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.fullscreen_rounded,
+                    size: 18,
+                    color: ConsoleTheme.cyan(context),
+                  ),
+                ),
+              ),
+            ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
