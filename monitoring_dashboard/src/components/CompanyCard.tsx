@@ -23,6 +23,7 @@ import {
   Edit3,
   Pencil,
   Server,
+  Clock,
 } from 'lucide-react';
 import { CompanyItem, CompanyAccount, MonitorIssueType } from '../types';
 import { SiteCredentialsModal } from './SiteCredentialsModal';
@@ -300,10 +301,16 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
         {/* ─── Last Service Date, Next Service Date, and Issue: Beside It ─── */}
         <div className="mt-6 pt-5 border-t border-[#1e2836]/80 flex flex-wrap items-center justify-between gap-4">
-          {/* Service Schedule Dates: Distinct Mini Calendar Look (Red if near expected/overdue, Green if okay) */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            {/* ─── 1. LAST SERVICE: Completed Historical Calendar ─── */}
-            <div className="flex items-center gap-3.5 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-[#0b1119] border border-[#1e2836] shadow-md hover:border-[#2a3a4e] transition-all">
+          {/* Service Schedule Dates: Unified Timeline with Last Service on Left, Days Left in Middle, Expected Service on Right */}
+          <div
+            className={`flex-1 min-w-[320px] flex items-center justify-between gap-3 sm:gap-6 px-4 py-3 rounded-2xl bg-[#0b1119] border shadow-md transition-all ${
+              isExpectedRed
+                ? 'border-[#FF3B30]/50 shadow-[#FF3B30]/5 ring-1 ring-[#FF3B30]/20'
+                : 'border-[#00C08B]/40 shadow-[#00C08B]/5 ring-1 ring-[#00C08B]/15'
+            }`}
+          >
+            {/* ─── 1. LAST SERVICE: Far Left End ─── */}
+            <div className="flex items-center gap-3 shrink-0">
               {/* Calendar Sheet: Neutral Slate Style with Binder Rings */}
               <div className="relative w-11 h-13 sm:w-12 sm:h-14 rounded-xl overflow-hidden bg-[#141d27] border border-slate-700/70 shadow-sm flex flex-col items-center shrink-0">
                 {/* Spiral/Binder ring indicators */}
@@ -342,14 +349,34 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
               </div>
             </div>
 
-            {/* ─── 2. EXPECTED SERVICE: Active Forward Calendar (Red if near expected, Green if okay) ─── */}
-            <div
-              className={`flex items-center gap-3.5 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-[#0b1119] border shadow-md transition-all ${
-                isExpectedRed
-                  ? 'border-[#FF3B30]/60 shadow-[#FF3B30]/10 ring-1 ring-[#FF3B30]/30'
-                  : 'border-[#00C08B]/50 shadow-[#00C08B]/10 ring-1 ring-[#00C08B]/20'
-              }`}
-            >
+            {/* ─── 2. COUNTDOWN BADGE: Middle (Expanded with connecting track lines) ─── */}
+            <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-6 py-1">
+              <div className="w-full flex items-center justify-center gap-2 sm:gap-3">
+                <div className="flex-1 max-w-[80px] sm:max-w-[140px] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-white/10" />
+                <div
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black tracking-wide border shadow-sm ${
+                    isNextOverdue
+                      ? 'bg-[#FF3B30]/20 text-[#FF6961] border-[#FF3B30]/40'
+                      : isNearExpected
+                      ? 'bg-[#FF9500]/20 text-[#FF9500] border-[#FF9500]/40'
+                      : 'bg-[#00C08B]/20 text-[#00C08B] border-[#00C08B]/40'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    {isNextOverdue
+                      ? `Overdue (${Math.abs(diffDays)}d ago)`
+                      : isNearExpected
+                      ? `${diffDays}d left (Near)`
+                      : `${diffDays}d left`}
+                  </span>
+                </div>
+                <div className="flex-1 max-w-[80px] sm:max-w-[140px] h-[1px] bg-gradient-to-l from-transparent via-white/20 to-white/10" />
+              </div>
+            </div>
+
+            {/* ─── 3. EXPECTED SERVICE: Far Right End (Right beside ISSUE) ─── */}
+            <div className="flex items-center gap-3 shrink-0">
               {/* Calendar Sheet: Red if near expected / overdue, Green if okay */}
               <div
                 className={`relative w-11 h-13 sm:w-12 sm:h-14 rounded-xl overflow-hidden bg-[#141d27] border shadow-sm flex flex-col items-center shrink-0 ${
@@ -388,31 +415,13 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
               {/* Text Info */}
               <div className="min-w-0 pr-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span
-                    className={`text-[10px] font-black uppercase tracking-wider ${
-                      isExpectedRed ? 'text-[#FF6961]' : 'text-[#00C08B]'
-                    }`}
-                  >
-                    EXPECTED SERVICE
-                  </span>
-                  {/* Status Badge: Red if near expected or overdue, Green if okay */}
-                  <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded-md font-extrabold ${
-                      isNextOverdue
-                        ? 'bg-[#FF3B30]/20 text-[#FF6961] border border-[#FF3B30]/40'
-                        : isNearExpected
-                        ? 'bg-[#FF3B30]/20 text-[#FF6961] border border-[#FF3B30]/40'
-                        : 'bg-[#00C08B]/20 text-[#00C08B] border border-[#00C08B]/40'
-                    }`}
-                  >
-                    {isNextOverdue
-                      ? `Overdue (${Math.abs(diffDays)}d ago)`
-                      : isNearExpected
-                      ? `Near (${diffDays}d left)`
-                      : `Okay (${diffDays}d left)`}
-                  </span>
-                </div>
+                <span
+                  className={`text-[10px] font-black uppercase tracking-wider block ${
+                    isExpectedRed ? 'text-[#FF6961]' : 'text-[#00C08B]'
+                  }`}
+                >
+                  EXPECTED SERVICE
+                </span>
                 <span
                   className={`text-xs sm:text-sm font-extrabold tracking-wider block mt-0.5 font-mono ${
                     isExpectedRed ? 'text-[#FF6961]' : 'text-white'
@@ -425,7 +434,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
           </div>
 
           {/* ─── Issue: Beside It (Only shows active issues, or 'None') ─── */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <span className="text-xs font-bold text-white/50 tracking-wider">
               ISSUE:
             </span>
@@ -524,57 +533,57 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
               {/* Door Environment: Temperature & Humidity per door (Front & Rear) */}
               <div className="pt-2.5 border-t border-[#1e2836]/60 flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Front Door */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
-                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                      Front Door:
-                    </span>
-                    <span className="font-mono font-bold text-[#00C08B] text-xs">
-                      {rack.frontDoor ? `${rack.frontDoor.temperature}°C` : '24.5°C'}
-                    </span>
-                    <span className="text-white/20">|</span>
-                    <span className="font-mono font-bold text-[#00E5FF] text-xs">
-                      {rack.frontDoor ? `${rack.frontDoor.humidity}% RH` : '48% RH'}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Front Door */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                        Front Door:
+                      </span>
+                      <span className="font-mono font-bold text-[#00C08B] text-xs">
+                        {rack.frontDoor ? `${rack.frontDoor.temperature}°C` : '24.5°C'}
+                      </span>
+                      <span className="text-white/20">|</span>
+                      <span className="font-mono font-bold text-[#00E5FF] text-xs">
+                        {rack.frontDoor ? `${rack.frontDoor.humidity}% RH` : '48% RH'}
+                      </span>
+                    </div>
+
+                    {/* Rear Door */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                        Rear Door:
+                      </span>
+                      <span className="font-mono font-bold text-[#FF9500] text-xs">
+                        {rack.rearDoor
+                          ? `${rack.rearDoor.temperature}°C`
+                          : rack.temperature
+                          ? `${rack.temperature}°C`
+                          : '33.0°C'}
+                      </span>
+                      <span className="text-white/20">|</span>
+                      <span className="font-mono font-bold text-[#00E5FF] text-xs">
+                        {rack.rearDoor
+                          ? `${rack.rearDoor.humidity}% RH`
+                          : rack.humidity
+                          ? `${rack.humidity}% RH`
+                          : '38% RH'}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Rear Door */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
-                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                      Rear Door:
-                    </span>
-                    <span className="font-mono font-bold text-[#FF9500] text-xs">
-                      {rack.rearDoor
-                        ? `${rack.rearDoor.temperature}°C`
-                        : rack.temperature
-                        ? `${rack.temperature}°C`
-                        : '33.0°C'}
-                    </span>
-                    <span className="text-white/20">|</span>
-                    <span className="font-mono font-bold text-[#00E5FF] text-xs">
-                      {rack.rearDoor
-                        ? `${rack.rearDoor.humidity}% RH`
-                        : rack.humidity
-                        ? `${rack.humidity}% RH`
-                        : '38% RH'}
-                    </span>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedRackForCredentials(rack.id);
+                      setShowSiteCredentials(true);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#00C08B] hover:text-[#00d89c] transition-colors cursor-pointer shrink-0 ml-auto"
+                  >
+                    <KeyRound className="w-3 h-3" />
+                    Credentials
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => {
-                    setSelectedRackForCredentials(rack.id);
-                    setShowSiteCredentials(true);
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#00C08B] hover:text-[#00d89c] transition-colors cursor-pointer shrink-0 ml-auto"
-                >
-                  <KeyRound className="w-3 h-3" />
-                  Credentials
-                </button>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 

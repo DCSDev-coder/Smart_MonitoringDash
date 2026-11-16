@@ -82,6 +82,7 @@ class SmartRackConsoleSnapshot {
     this.packetLossPct,
     required this.pue,
     this.totalMonthEnergyKwh,
+    this.itPowerKw,
     this.capacityBreakdown = const [],
     this.powerInletRows = const [],
     this.powerOutletRows = const [],
@@ -131,6 +132,7 @@ class SmartRackConsoleSnapshot {
   final double? packetLossPct;
   final double? pue;
   final double? totalMonthEnergyKwh;
+  final double? itPowerKw;
   final List<ConsoleBreakdownItem> capacityBreakdown;
   final List<ConsoleMetricRow> powerInletRows;
   final List<ConsoleMetricRow> powerOutletRows;
@@ -261,6 +263,11 @@ class SmartRackConsoleSnapshot {
       responseTimeMs: poller.itResponseMs,
       packetLossPct: poller.itPacketLossPct,
       pue: pueVal,
+      itPowerKw: itPower > 0
+          ? itPower
+          : (calculatedPue != null && totalPower > 0
+              ? totalPower / calculatedPue
+              : null),
       temperatures: poller.rawTemperatures,
       humidities: poller.rawHumidities,
       alarms: poller.recentAlarms,
@@ -294,6 +301,7 @@ class SmartRackConsoleSnapshot {
     double? packetLossPct,
     double? pue,
     double? totalMonthEnergyKwh,
+    double? itPowerKw,
     List<ConsoleBreakdownItem>? capacityBreakdown,
     List<ConsoleMetricRow>? powerInletRows,
     List<ConsoleMetricRow>? powerOutletRows,
@@ -343,6 +351,7 @@ class SmartRackConsoleSnapshot {
       packetLossPct: packetLossPct ?? this.packetLossPct,
       pue: pue ?? this.pue,
       totalMonthEnergyKwh: totalMonthEnergyKwh ?? this.totalMonthEnergyKwh,
+      itPowerKw: itPowerKw ?? this.itPowerKw,
       capacityBreakdown: capacityBreakdown ?? this.capacityBreakdown,
       powerInletRows: powerInletRows ?? this.powerInletRows,
       powerOutletRows: powerOutletRows ?? this.powerOutletRows,

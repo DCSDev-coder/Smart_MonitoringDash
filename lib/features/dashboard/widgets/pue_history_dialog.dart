@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import '../../../core/config/site_runtime_config.dart';
 import '../../../core/network/adapter_api_service.dart';
 import '../../../core/network/cpanel_api_service.dart';
+import '../../smart_rack_console/theme/console_theme.dart';
+import 'environment_gauges.dart';
 
 enum PueHistoryRange {
   hours24('24 Hours', 24),
@@ -57,12 +59,12 @@ Future<void> showPueHistoryDialog(
       barrierDismissible: true,
       barrierLabel: 'PUE History',
       barrierColor: Colors.black.withValues(alpha: 0.65),
-      transitionDuration: const Duration(milliseconds: 300),
+      transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (ctx, anim1, anim2) => Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            maxWidth: 780,
-            maxHeight: 740,
+            maxWidth: 680,
+            maxHeight: 680,
           ),
           child: PueHistoryView(
             currentPue: currentPue,
@@ -73,9 +75,9 @@ Future<void> showPueHistoryDialog(
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic);
         return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10 * anim1.value, sigmaY: 10 * anim1.value),
+          filter: ImageFilter.blur(sigmaX: 12 * anim1.value, sigmaY: 12 * anim1.value),
           child: Transform.scale(
-            scale: 0.92 + (0.08 * curve.value),
+            scale: 0.90 + (0.10 * curve.value),
             child: FadeTransition(
               opacity: anim1,
               child: child,
@@ -90,7 +92,7 @@ Future<void> showPueHistoryDialog(
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.88,
+        heightFactor: 0.92,
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: PueHistoryView(
@@ -121,6 +123,7 @@ class _PueHistoryViewState extends State<PueHistoryView> {
   PueHistoryRange _selectedRange = PueHistoryRange.hours24;
   bool _isLoading = true;
   List<PueHistoryRecord> _records = [];
+  PueHistoryRecord? _inspectedRecord;
   double _avgPue = 0;
   double _minPue = 0;
   double _maxPue = 0;
@@ -295,27 +298,58 @@ class _PueHistoryViewState extends State<PueHistoryView> {
     return list;
   }
 
+  double _pueProgress(double pue) {
+    if (pue <= 0) return 0.0;
+    return ((pue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0);
+  }
+
+  Color _getPueColor(double pue) {
+    if (pue <= 0) return const Color(0xFF8A94A6);
+    if (pue <= 1.2) return const Color(0xFF00C08B);
+    if (pue < 1.6) return const Color(0xFFFF8A00);
+    return const Color(0xFFFF3B30);
+  }
+
+  String _getPueStatusText(double pue) {
+    if (pue <= 0) return 'DOWN';
+    if (pue <= 1.2) return 'IDEAL';
+    if (pue < 1.6) return 'AVERAGE';
+    return 'POOR';
+  }
+
+  String _pueRatingText(double pue) {
+    if (pue <= 0) return 'Unavailable';
+    if (pue <= 1.2) return 'Ideal Efficiency';
+    if (pue < 1.5) return 'Good Efficiency';
+    if (pue < 2.0) return 'Average Overhead';
+    return 'High Consumption';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF111721) : Colors.white;
-    final borderColor = isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0);
-    final primaryCyan = isDark ? const Color(0xFF26D7FF) : const Color(0xFF007AFF);
+    final isDark = ConsoleTheme.isDark(context);
+    final cardBg = ConsoleTheme.panelBg(context);
+    final borderColor = ConsoleTheme.cardBorder(context);
+    final primaryCyan = ConsoleTheme.cyan(context);
+    final isWide = MediaQuery.of(context).size.width >= 700;
+
+    final double displayPue = _inspectedRecord?.pue ??
+        widget.currentPue ??
+        (_records.isNotEmpty ? _records.last.pue : (_avgPue > 0 ? _avgPue : 1.25));
 
     return Material(
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: borderColor, width: 1.2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 1.0),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
-              blurRadius: 32,
-              spreadRadius: 4,
-              offset: const Offset(0, 12),
+              blurRadius: 24,
+              spreadRadius: 2,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -325,22 +359,26 @@ class _PueHistoryViewState extends State<PueHistoryView> {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: primaryCyan.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: primaryCyan.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Icon(
-                        Icons.history_rounded,
+                        Icons.speed_rounded,
                         color: primaryCyan,
                         size: 22,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,10 +388,9 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                               Text(
                                 'PUE History & Trends',
                                 style: TextStyle(
-                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  color: ConsoleTheme.textPrimary(context),
                                   fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.3,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -383,7 +420,7 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                           Text(
                             'Historical power usage effectiveness and baseline comparisons',
                             style: TextStyle(
-                              color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                              color: ConsoleTheme.textSecondary(context),
                               fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -394,7 +431,7 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                     IconButton(
                       icon: Icon(
                         Icons.close_rounded,
-                        color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                        color: ConsoleTheme.textSecondary(context),
                       ),
                       onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
                       tooltip: 'Close',
@@ -412,6 +449,101 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ─── Hero Animated PUE Gauge & KPIs ───
+                      if (isWide)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: _buildHeroGauge(context, displayPue, isDark, primaryCyan),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 6,
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      _buildKpiCard(
+                                        title: 'AVERAGE',
+                                        value: _avgPue > 0 ? _avgPue.toStringAsFixed(2) : '--',
+                                        numVal: _avgPue,
+                                        subtext: _pueRatingText(_avgPue),
+                                        color: primaryCyan,
+                                        icon: Icons.speed_rounded,
+                                        isDark: isDark,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      _buildKpiCard(
+                                        title: 'LOWEST (BEST)',
+                                        value: _minPue > 0 ? _minPue.toStringAsFixed(2) : '--',
+                                        numVal: _minPue,
+                                        subtext: 'Peak Efficiency',
+                                        color: const Color(0xFF00C08B),
+                                        icon: Icons.arrow_downward_rounded,
+                                        isDark: isDark,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _buildKpiCard(
+                                        title: 'HIGHEST',
+                                        value: _maxPue > 0 ? _maxPue.toStringAsFixed(2) : '--',
+                                        numVal: _maxPue,
+                                        subtext: 'Max Overhead',
+                                        color: const Color(0xFFFF8A00),
+                                        icon: Icons.arrow_upward_rounded,
+                                        isDark: isDark,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        _buildHeroGauge(context, displayPue, isDark, primaryCyan),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _buildKpiCard(
+                              title: 'AVERAGE',
+                              value: _avgPue > 0 ? _avgPue.toStringAsFixed(2) : '--',
+                              numVal: _avgPue,
+                              subtext: _pueRatingText(_avgPue),
+                              color: primaryCyan,
+                              icon: Icons.speed_rounded,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildKpiCard(
+                              title: 'LOWEST',
+                              value: _minPue > 0 ? _minPue.toStringAsFixed(2) : '--',
+                              numVal: _minPue,
+                              subtext: 'Best',
+                              color: const Color(0xFF00C08B),
+                              icon: Icons.arrow_downward_rounded,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildKpiCard(
+                              title: 'HIGHEST',
+                              value: _maxPue > 0 ? _maxPue.toStringAsFixed(2) : '--',
+                              numVal: _maxPue,
+                              subtext: 'Peak',
+                              color: const Color(0xFFFF8A00),
+                              icon: Icons.arrow_upward_rounded,
+                              isDark: isDark,
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      const SizedBox(height: 16),
                       // Time Range Selector Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -476,45 +608,11 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                         ],
                       ),
 
-                      const SizedBox(height: 14),
-
-                      // KPI Summary Cards
-                      Row(
-                        children: [
-                          _buildKpiCard(
-                            title: 'AVERAGE',
-                            value: _avgPue > 0 ? _avgPue.toStringAsFixed(2) : '--',
-                            subtext: _pueRatingText(_avgPue),
-                            color: primaryCyan,
-                            icon: Icons.speed_rounded,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(width: 10),
-                          _buildKpiCard(
-                            title: 'LOWEST (BEST)',
-                            value: _minPue > 0 ? _minPue.toStringAsFixed(2) : '--',
-                            subtext: 'Peak Efficiency',
-                            color: const Color(0xFF00C08B),
-                            icon: Icons.arrow_downward_rounded,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(width: 10),
-                          _buildKpiCard(
-                            title: 'HIGHEST',
-                            value: _maxPue > 0 ? _maxPue.toStringAsFixed(2) : '--',
-                            subtext: 'Max Load',
-                            color: const Color(0xFFFF8A00),
-                            icon: Icons.arrow_upward_rounded,
-                            isDark: isDark,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
 
                       // Chart Area
                       Container(
-                        height: 250,
+                        height: 200,
                         padding: const EdgeInsets.fromLTRB(10, 16, 16, 8),
                         decoration: BoxDecoration(
                           color: isDark ? const Color(0xFF0C1017) : const Color(0xFFF8FAFC),
@@ -564,54 +662,75 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                           itemBuilder: (ctx, index) {
                             // Display reverse chronological (most recent first)
                             final item = _records[_records.length - 1 - index];
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time_rounded,
-                                    size: 15,
-                                    color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    DateFormat('MMM dd, yyyy  HH:mm').format(item.timestamp),
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white70 : const Color(0xFF334155),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                            final isSelected = _inspectedRecord == item;
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _inspectedRecord = isSelected ? null : item;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? primaryCyan.withValues(alpha: isDark ? 0.12 : 0.08)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: isSelected
+                                      ? Border.all(color: primaryCyan.withValues(alpha: 0.45), width: 1)
+                                      : null,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isSelected ? Icons.touch_app_rounded : Icons.access_time_rounded,
+                                      size: 15,
+                                      color: isSelected ? primaryCyan : (isDark ? Colors.white38 : const Color(0xFF94A3B8)),
                                     ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'PUE ${item.pue.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: item.statusColor.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: item.statusColor.withValues(alpha: 0.35),
-                                        width: 0.8,
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      DateFormat('MMM dd, yyyy  HH:mm').format(item.timestamp),
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                                            : (isDark ? Colors.white70 : const Color(0xFF334155)),
+                                        fontSize: 12,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                                       ),
                                     ),
-                                    child: Text(
-                                      item.statusText,
+                                    const Spacer(),
+                                    Text(
+                                      'PUE ${item.pue.toStringAsFixed(2)}',
                                       style: TextStyle(
-                                        color: item.statusColor,
-                                        fontSize: 10,
+                                        color: isSelected ? primaryCyan : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                        fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: item.statusColor.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: item.statusColor.withValues(alpha: 0.35),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        item.statusText,
+                                        style: TextStyle(
+                                          color: item.statusColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -628,17 +747,181 @@ class _PueHistoryViewState extends State<PueHistoryView> {
     );
   }
 
-  String _pueRatingText(double pue) {
-    if (pue <= 0) return 'Unavailable';
-    if (pue <= 1.2) return 'Ideal Efficiency';
-    if (pue < 1.5) return 'Good Efficiency';
-    if (pue < 2.0) return 'Average';
-    return 'High Consumption';
+  Widget _buildHeroGauge(
+    BuildContext context,
+    double displayPue,
+    bool isDark,
+    Color primaryCyan,
+  ) {
+    final statusColor = _getPueColor(displayPue);
+    final statusText = _getPueStatusText(displayPue);
+    final isInspecting = _inspectedRecord != null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F1520) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isInspecting
+              ? primaryCyan.withValues(alpha: 0.5)
+              : (isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0)),
+          width: isInspecting ? 1.4 : 1.0,
+        ),
+        boxShadow: isInspecting
+            ? [
+                BoxShadow(
+                  color: primaryCyan.withValues(alpha: 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isInspecting ? 'INSPECTED READING' : 'CURRENT STATUS',
+                style: TextStyle(
+                  color: isInspecting
+                      ? primaryCyan
+                      : (isDark ? Colors.white54 : const Color(0xFF64748B)),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              if (isInspecting)
+                InkWell(
+                  onTap: () => setState(() => _inspectedRecord = null),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: primaryCyan.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: primaryCyan.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.restart_alt_rounded, size: 12, color: primaryCyan),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Reset',
+                          style: TextStyle(
+                            color: primaryCyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: 160,
+            height: 160,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                TweenAnimationBuilder<double>(
+                  key: ValueKey('pue_gauge_${displayPue.toStringAsFixed(2)}'),
+                  tween: Tween<double>(begin: 0.0, end: _pueProgress(displayPue)),
+                  duration: const Duration(milliseconds: 1400),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, animatedProgress, _) {
+                    return ArcGauge(
+                      progress: animatedProgress,
+                      glowColor: statusColor,
+                      baseColor: isDark
+                          ? const Color(0xFF262D3D)
+                          : const Color(0xFFC0D3EB),
+                      strokeWidth: 13.0,
+                      sweepDegrees: 255,
+                      startDegrees: 145,
+                      glowIntensity: isDark ? 0.75 : 0.35,
+                    );
+                  },
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 6),
+                    TweenAnimationBuilder<double>(
+                      key: ValueKey('pue_val_${displayPue.toStringAsFixed(2)}'),
+                      tween: Tween<double>(
+                        begin: (displayPue - 0.25).clamp(1.0, 3.0),
+                        end: displayPue,
+                      ),
+                      duration: const Duration(milliseconds: 1000),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, animatedVal, _) {
+                        return Text(
+                          animatedVal.toStringAsFixed(2),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: ConsoleTheme.textPrimary(context),
+                            letterSpacing: -0.5,
+                          ),
+                        );
+                      },
+                    ),
+                    Text(
+                      'PUE',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.38),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildKpiCard({
     required String title,
     required String value,
+    double? numVal,
     required String subtext,
     required Color color,
     required IconData icon,
@@ -676,14 +959,32 @@ class _PueHistoryViewState extends State<PueHistoryView> {
               ],
             ),
             const SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            if (numVal != null && numVal > 0)
+              TweenAnimationBuilder<double>(
+                key: ValueKey('kpi_${title}_${numVal.toStringAsFixed(2)}'),
+                tween: Tween<double>(begin: (numVal - 0.2).clamp(1.0, 3.0), end: numVal),
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeOutCubic,
+                builder: (context, animatedVal, _) {
+                  return Text(
+                    animatedVal.toStringAsFixed(2),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                },
+              )
+            else
+              Text(
+                value,
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
             const SizedBox(height: 2),
             Text(
               subtext,
@@ -772,6 +1073,19 @@ class _PueHistoryViewState extends State<PueHistoryView> {
         borderData: FlBorderData(show: false),
         lineTouchData: LineTouchData(
           enabled: true,
+          touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+            if (event is FlTapUpEvent || event is FlPanUpdateEvent) {
+              final spot = touchResponse?.lineBarSpots?.firstOrNull;
+              if (spot != null) {
+                final idx = spot.x.toInt();
+                if (idx >= 0 && idx < _records.length) {
+                  setState(() {
+                    _inspectedRecord = _records[idx];
+                  });
+                }
+              }
+            }
+          },
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (_) => isDark ? const Color(0xFF1E293B) : Colors.white,
             tooltipBorder: BorderSide(

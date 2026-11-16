@@ -38,6 +38,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   final Map<int, int> _outletNodeIdBySite = <int, int>{};
   DateTime? _lastSupplementalFetchAt;
   double? _totalMonthEnergyKwh;
+  double? _itMonthEnergyKwh;
   double? _capacityUsedPct;
   List<ConsoleBreakdownItem> _capacityBreakdown = const [];
   List<ConsoleMetricRow> _powerInletRows = const [];
@@ -129,6 +130,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
   bool get _hasSupplementalCache =>
       _activeSiteId != null ||
       _totalMonthEnergyKwh != null ||
+      _itMonthEnergyKwh != null ||
       _capacityBreakdown.isNotEmpty ||
       _powerInletRows.isNotEmpty ||
       _powerOutletRows.isNotEmpty ||
@@ -153,6 +155,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     _loadedSections.clear();
     _lastSupplementalFetchAt = null;
     _totalMonthEnergyKwh = null;
+    _itMonthEnergyKwh = null;
     _capacityUsedPct = null;
     _capacityBreakdown = const [];
     _powerInletRows = const [];
@@ -197,6 +200,10 @@ class SmartRackConsoleRepository extends ChangeNotifier {
                 const <String, dynamic>{};
         final totalMonthEnergyKwh =
             _readDouble(powerMonthResult, const ['Total', 'total']);
+        final itMonthEnergyKwh = _readDouble(
+          powerMonthResult,
+          const ['IT Device', 'it_device', 'itDevice', 'IT', 'it'],
+        );
 
         final cabinetCapacity =
             await AdapterApiService.instance.fetchCabinetCapacity(
@@ -207,6 +214,8 @@ class SmartRackConsoleRepository extends ChangeNotifier {
 
         _totalMonthEnergyKwh =
             totalMonthEnergyKwh > 0 ? totalMonthEnergyKwh : null;
+        _itMonthEnergyKwh =
+            itMonthEnergyKwh > 0 ? itMonthEnergyKwh : null;
         _capacityUsedPct = _readOptionalDouble(
           cabinetCapacityResult,
           const ['usedPercent', 'used_percent', 'capacityUsedPct'],
@@ -2202,6 +2211,7 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     final base = SmartRackConsoleSnapshot.fromPoller(_poller);
     return base.copyWith(
       totalMonthEnergyKwh: _totalMonthEnergyKwh,
+      itPowerKw: _itMonthEnergyKwh ?? base.itPowerKw,
       capacityUsedPct: _capacityUsedPct,
       capacityBreakdown: _capacityBreakdown,
       powerInletRows: _powerInletRows,

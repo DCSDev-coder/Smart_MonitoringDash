@@ -23,10 +23,38 @@ import {
   AlertTriangle,
   Search,
   X,
-  Inbox,
   Filter,
   LogOut,
 } from 'lucide-react';
+
+function SmartRackIcon({ className = "w-12 h-12" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Outer Single Door / Cabinet Frame */}
+      <rect x="5" y="2" width="14" height="20" rx="2" strokeWidth="1.6" />
+
+      {/* Upper Window Box (Thicker) */}
+      <rect x="7" y="3.75" width="10" height="6" rx="1.2" strokeWidth="1.3" opacity="0.85" />
+
+      {/* Middle Space with Small Tablet Monitor (Thin) */}
+      <rect x="8.75" y="10.75" width="6.5" height="3" rx="0.5" strokeWidth="0.75" opacity="0.6" />
+      <line x1="10.2" y1="12.25" x2="13.8" y2="12.25" strokeWidth="0.5" opacity="0.45" />
+
+      {/* Lower Window Box (Thicker) */}
+      <rect x="7" y="14.75" width="10" height="5.5" rx="1.2" strokeWidth="1.3" opacity="0.85" />
+
+      {/* Door Handle */}
+      <line x1="5.8" y1="10.8" x2="5.8" y2="13.2" strokeWidth="1.2" />
+    </svg>
+  );
+}
 
 export function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -494,9 +522,9 @@ export function App() {
         {/* ─── 3. COMPANIES LIST ─── */}
         {filteredCompanies.length === 0 ? (
           <div className="py-20 text-center rounded-2xl bg-[#111922] border border-[#1e2836]">
-            <Inbox className="w-12 h-12 mx-auto text-white/20 mb-3" />
+            <SmartRackIcon className="w-12 h-12 sm:w-14 sm:h-14 mx-auto text-white/20 mb-3" />
             <h3 className="text-base font-bold text-white/70">No companies found</h3>
-            <p className="text-xs text-white/40 mt-1">
+            <p className="text-xs text-white/40 mt-1 max-w-sm mx-auto">
               {searchQuery || filter !== 'all'
                 ? 'Try adjusting your search query or selected filter.'
                 : 'Click "Add Company" in the header to register your first datacenter.'}

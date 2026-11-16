@@ -135,19 +135,17 @@ class _SideRailButtonState extends State<_SideRailButton> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cyan = ConsoleTheme.cyan(context);
     final primaryBlue = ConsoleTheme.primaryBlue(context);
     final textSecondary = ConsoleTheme.textSecondary(context);
 
-    // Matching the glowing rounded pill style in the reference image
     final Color bg = widget.isSelected
-        ? primaryBlue.withValues(alpha: 0.18)
+        ? primaryBlue
         : (_isHovered
             ? (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04))
             : Colors.transparent);
 
     final Border border = widget.isSelected
-        ? Border.all(color: cyan, width: 1.5)
+        ? Border.all(color: primaryBlue, width: 1.5)
         : Border.all(
             color: _isHovered
                 ? (isDark ? Colors.white.withValues(alpha: 0.16) : const Color(0xFFCBD5E1))
@@ -158,16 +156,15 @@ class _SideRailButtonState extends State<_SideRailButton> {
     final List<BoxShadow>? shadows = widget.isSelected
         ? [
             BoxShadow(
-              color: cyan.withValues(alpha: 0.30),
-              blurRadius: 10,
-              spreadRadius: 0.5,
+              color: primaryBlue.withValues(alpha: 0.24),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ]
         : null;
 
     final Color contentColor = widget.isSelected
-        ? cyan
+        ? Colors.white
         : (_isHovered
             ? (isDark ? Colors.white : AppTheme.lightTextPrimary)
             : textSecondary);
