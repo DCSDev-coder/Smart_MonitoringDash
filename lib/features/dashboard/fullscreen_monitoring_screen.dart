@@ -1260,33 +1260,52 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
               Widget buildNodeWidget(_TopologyNode node, double depth) {
                 final color = node.ok ? accent : const Color(0xFFFF4D4F);
                 final scale = 0.80 + (depth + 1) * 0.15; // 0.80 behind -> 1.10 front
-                final opacity = (0.48 + (depth + 1) * 0.26).clamp(0.48, 1.0);
+                final opacity = (0.50 + (depth + 1) * 0.25).clamp(0.50, 1.0);
                 return Opacity(
                   opacity: opacity,
                   child: Transform.scale(
                     scale: scale,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
+                          horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
-                        color: ConsoleTheme.innerSurface(context)
-                            .withValues(alpha: 0.94),
-                        borderRadius: BorderRadius.circular(11),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            color.withValues(alpha: 0.22),
+                            ConsoleTheme.innerSurface(context)
+                                .withValues(alpha: 0.96),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: color.withValues(alpha: 0.65),
-                          width: 1.2,
+                          color: color.withValues(alpha: 0.7),
+                          width: 1.3,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withValues(alpha: 0.22),
-                            blurRadius: 14,
+                            color: color.withValues(alpha: 0.28),
+                            blurRadius: 16,
+                            spreadRadius: 1,
                           ),
                         ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(node.icon, size: 19, color: color),
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: color.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Icon(node.icon, size: 16, color: color),
+                          ),
                           const SizedBox(width: 8),
                           Column(
                             mainAxisSize: MainAxisSize.min,
@@ -1296,7 +1315,7 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                                 node.label,
                                 style: ConsoleTheme.font(
                                   color: ConsoleTheme.textPrimary(context),
-                                  fontSize: 12,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1305,7 +1324,7 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                                 style: ConsoleTheme.font(
                                   color: color,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ],
@@ -1356,13 +1375,36 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                     ),
                     ...backNodes,
 
-                    // 2. Grounded Smart Rack Centerpiece
+                    // 2. Modern Smart Rack Centerpiece with radial tech aura & live scan line
                     SizedBox(
-                      width: rackW,
-                      height: rackH * 0.90,
-                      child: Image.asset(
-                        RackConsolePreferences.instance.selectedRackImage,
-                        fit: BoxFit.contain,
+                      width: rackW * 1.15,
+                      height: rackH * 0.92,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: rackW * 0.95,
+                            height: rackH * 0.85,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  accent.withValues(alpha: 0.26),
+                                  accent.withValues(alpha: 0.06),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: rackW,
+                            height: rackH * 0.90,
+                            child: Image.asset(
+                              RackConsolePreferences.instance.selectedRackImage,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
@@ -2664,17 +2706,43 @@ class _TopologyRingPainter extends CustomPainter {
       }
     }
 
-    // 4. Inner bright ring around Smart Rack base
+    // 4. Inner bright ring + soft radial disc around Smart Rack base
     final innerRect = Rect.fromCenter(
       center: Offset.zero,
-      width: rx * 1.20,
-      height: ry * 1.20,
+      width: rx * 1.18,
+      height: ry * 1.18,
     );
+    final discFill = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          accent.withValues(alpha: 0.14 * alphaScale),
+          accent.withValues(alpha: 0.03 * alphaScale),
+          Colors.transparent,
+        ],
+      ).createShader(mainRect);
+    canvas.drawArc(mainRect, startArc, sweepArc, true, discFill);
+
     final innerPaint = Paint()
-      ..color = accent.withValues(alpha: 0.35 * alphaScale)
+      ..color = accent.withValues(alpha: 0.42 * alphaScale)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
+      ..strokeWidth = 1.6;
     canvas.drawArc(innerRect, startArc, sweepArc, false, innerPaint);
+
+    // Subtle radial telemetry spoke lines on the POV disc
+    final spokePaint = Paint()
+      ..color = accent.withValues(alpha: 0.14 * alphaScale)
+      ..strokeWidth = 1.0;
+    for (var i = 0; i < 6; i++) {
+      final a = spin + (i * math.pi / 3);
+      final isBackSpoke = math.sin(a) < 0;
+      if ((isBackSpoke && drawBack) || (!isBackSpoke && drawFront)) {
+        canvas.drawLine(
+          Offset(math.cos(a) * rx * 0.59, math.sin(a) * ry * 0.59),
+          Offset(math.cos(a) * rx * 1.0, math.sin(a) * ry * 1.0),
+          spokePaint,
+        );
+      }
+    }
 
     // 5. Traveling glowing energy orbs along the main orbital ring
     final orbPaint = Paint()..color = accent.withValues(alpha: alphaScale);

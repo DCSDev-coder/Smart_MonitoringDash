@@ -46,7 +46,6 @@ dist/
 .env
 .env.*
 /android/
-/assets/
 /ios/
 !/ios/
 /ios/**
