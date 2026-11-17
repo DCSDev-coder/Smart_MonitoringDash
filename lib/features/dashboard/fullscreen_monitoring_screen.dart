@@ -175,7 +175,10 @@ class _FullscreenMonitoringScreenState
             ),
             SafeArea(
               child: ListenableBuilder(
-                listenable: SmartRackConsoleRepository.instance,
+                listenable: Listenable.merge([
+                  SmartRackConsoleRepository.instance,
+                  RackConsolePreferences.instance,
+                ]),
                 builder: (context, _) {
                   final snapshot =
                       SmartRackConsoleRepository.instance.currentSnapshot();
@@ -622,93 +625,100 @@ class _HealthStatisticsCard extends StatelessWidget {
 
     return _NocPanel(
       title: 'System & Health Statistics',
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Center(
-              child: SizedBox(
-                width: 110,
-                height: 110,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 900),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, anim, child) => CustomPaint(
-                    painter: _RingChartPainter(
-                      progress: anim,
-                      trackColor: ConsoleTheme.isDark(context)
-                          ? const Color(0xFF16243A)
-                          : const Color(0xFFDCE7F5),
-                      segments: [
-                        _RingSegment(
-                          fraction: normalPct / 100.0,
-                          color: ConsoleTheme.isDark(context)
-                              ? const Color(0xFF26D7FF)
-                              : ConsoleTheme.primaryBlue(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final ringSize =
+              (math.min(constraints.maxWidth * 0.42, constraints.maxHeight * 0.88))
+                  .clamp(96.0, 175.0);
+          return Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Center(
+                  child: SizedBox(
+                    width: ringSize,
+                    height: ringSize,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, anim, child) => CustomPaint(
+                        painter: _RingChartPainter(
+                          progress: anim,
+                          trackColor: ConsoleTheme.isDark(context)
+                              ? const Color(0xFF16243A)
+                              : const Color(0xFFDCE7F5),
+                          segments: [
+                            _RingSegment(
+                              fraction: normalPct / 100.0,
+                              color: ConsoleTheme.isDark(context)
+                                  ? const Color(0xFF26D7FF)
+                                  : ConsoleTheme.primaryBlue(context),
+                            ),
+                            _RingSegment(
+                              fraction: (100 - normalPct) / 100.0,
+                              color: const Color(0xFFFF4D4F),
+                            ),
+                          ],
                         ),
-                        _RingSegment(
-                          fraction: (100 - normalPct) / 100.0,
-                          color: const Color(0xFFFF4D4F),
+                        child: child,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$normalPct%',
+                              style: ConsoleTheme.font(
+                                color: ConsoleTheme.textPrimary(context),
+                                fontSize: (ringSize * 0.2).clamp(18.0, 30.0),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Normal',
+                              style: ConsoleTheme.font(
+                                color: ConsoleTheme.textSecondary(context),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: child,
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$normalPct%',
-                          style: ConsoleTheme.font(
-                            color: ConsoleTheme.textPrimary(context),
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Normal',
-                          style: ConsoleTheme.font(
-                            color: ConsoleTheme.textSecondary(context),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _LegendStatRow(
-                  color: const Color(0xFF26D7FF),
-                  label: 'Normal',
-                  value: '$normalPct%',
+              Expanded(
+                flex: 5,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _LegendStatRow(
+                      color: const Color(0xFF26D7FF),
+                      label: 'Normal',
+                      value: '$normalPct%',
+                    ),
+                    const SizedBox(height: 12),
+                    _LegendStatRow(
+                      color: const Color(0xFFFF4D4F),
+                      label: 'Abnormal',
+                      value: '${100 - normalPct}%',
+                    ),
+                    const SizedBox(height: 12),
+                    _LegendStatRow(
+                      color: snapshot.healthColor,
+                      label: 'Status',
+                      value: snapshot.healthLabel,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                _LegendStatRow(
-                  color: const Color(0xFFFF4D4F),
-                  label: 'Abnormal',
-                  value: '${100 - normalPct}%',
-                ),
-                const SizedBox(height: 10),
-                _LegendStatRow(
-                  color: snapshot.healthColor,
-                  label: 'Status',
-                  value: snapshot.healthLabel,
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -873,9 +883,9 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
                                 child: child,
                               ),
                               child: Container(
-                                width: 12,
+                                width: 18,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(7),
                                   gradient: const LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
@@ -977,110 +987,117 @@ class _AlarmStatisticsCardState extends State<_AlarmStatisticsCard> {
         selected: _range,
         onSelected: (v) => setState(() => _range = v),
       ),
-      child: Row(
+      child: LayoutBuilder(
         key: ValueKey<String>('alarm_stats_$_range'),
-        children: [
-          Expanded(
-            flex: 5,
-            child: Center(
-              child: SizedBox(
-                width: 104,
-                height: 104,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 900),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, anim, child) => CustomPaint(
-                    painter: _RingChartPainter(
-                      progress: anim,
-                      trackColor: ConsoleTheme.isDark(context)
-                          ? const Color(0xFF16243A)
-                          : const Color(0xFFDCE7F5),
-                      segments: total == 0
-                          ? [
-                              _RingSegment(
-                                fraction: 1.0,
-                                color: ConsoleTheme.isDark(context)
-                                    ? const Color(0xFF24344D)
-                                    : const Color(0xFFDCE7F5),
-                              ),
-                            ]
-                          : [
-                              _RingSegment(
-                                fraction: info / denom,
-                                color: const Color(0xFF26D7FF),
-                              ),
-                              _RingSegment(
-                                fraction: minor / denom,
-                                color: const Color(0xFF10B981),
-                              ),
-                              _RingSegment(
-                                fraction: major / denom,
-                                color: const Color(0xFFF59E0B),
-                              ),
-                              _RingSegment(
-                                fraction: critical / denom,
-                                color: const Color(0xFFFF4D4F),
-                              ),
-                            ],
-                    ),
-                    child: child,
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$total',
-                          style: ConsoleTheme.font(
-                            color: ConsoleTheme.textPrimary(context),
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
+        builder: (context, constraints) {
+          final ringSize =
+              (math.min(constraints.maxWidth * 0.42, constraints.maxHeight * 0.88))
+                  .clamp(92.0, 165.0);
+          return Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Center(
+                  child: SizedBox(
+                    width: ringSize,
+                    height: ringSize,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, anim, child) => CustomPaint(
+                        painter: _RingChartPainter(
+                          progress: anim,
+                          trackColor: ConsoleTheme.isDark(context)
+                              ? const Color(0xFF16243A)
+                              : const Color(0xFFDCE7F5),
+                          segments: total == 0
+                              ? [
+                                  _RingSegment(
+                                    fraction: 1.0,
+                                    color: ConsoleTheme.isDark(context)
+                                        ? const Color(0xFF24344D)
+                                        : const Color(0xFFDCE7F5),
+                                  ),
+                                ]
+                              : [
+                                  _RingSegment(
+                                    fraction: info / denom,
+                                    color: const Color(0xFF26D7FF),
+                                  ),
+                                  _RingSegment(
+                                    fraction: minor / denom,
+                                    color: const Color(0xFF10B981),
+                                  ),
+                                  _RingSegment(
+                                    fraction: major / denom,
+                                    color: const Color(0xFFF59E0B),
+                                  ),
+                                  _RingSegment(
+                                    fraction: critical / denom,
+                                    color: const Color(0xFFFF4D4F),
+                                  ),
+                                ],
                         ),
-                        Text(
-                          'Total',
-                          style: ConsoleTheme.font(
-                            color: ConsoleTheme.textSecondary(context),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: child,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$total',
+                              style: ConsoleTheme.font(
+                                color: ConsoleTheme.textPrimary(context),
+                                fontSize: (ringSize * 0.2).clamp(18.0, 30.0),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Total',
+                              style: ConsoleTheme.font(
+                                color: ConsoleTheme.textSecondary(context),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _LegendStatRow(
-                    color: const Color(0xFF26D7FF),
-                    label: 'Info',
-                    value: '$info'),
-                const SizedBox(height: 6),
-                _LegendStatRow(
-                    color: const Color(0xFF10B981),
-                    label: 'Minor',
-                    value: '$minor'),
-                const SizedBox(height: 6),
-                _LegendStatRow(
-                    color: const Color(0xFFF59E0B),
-                    label: 'Major',
-                    value: '$major'),
-                const SizedBox(height: 6),
-                _LegendStatRow(
-                    color: const Color(0xFFFF4D4F),
-                    label: 'Critical',
-                    value: '$critical'),
-              ],
-            ),
-          ),
-        ],
+              Expanded(
+                flex: 5,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _LegendStatRow(
+                        color: const Color(0xFF26D7FF),
+                        label: 'Info',
+                        value: '$info'),
+                    const SizedBox(height: 8),
+                    _LegendStatRow(
+                        color: const Color(0xFF10B981),
+                        label: 'Minor',
+                        value: '$minor'),
+                    const SizedBox(height: 8),
+                    _LegendStatRow(
+                        color: const Color(0xFFF59E0B),
+                        label: 'Major',
+                        value: '$major'),
+                    const SizedBox(height: 8),
+                    _LegendStatRow(
+                        color: const Color(0xFFFF4D4F),
+                        label: 'Critical',
+                        value: '$critical'),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1232,43 +1249,45 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
             builder: (context, _) {
               final spin = _spinController.value * 2 * math.pi;
               const tilt = 0.0;
-              final rx = (constraints.maxWidth * 0.40).clamp(140.0, 360.0);
-              final ry = (constraints.maxHeight * 0.24).clamp(52.0, 125.0);
-              final rackW = (constraints.maxHeight * 0.42).clamp(90.0, 180.0);
-              final rackH = (constraints.maxHeight * 0.56).clamp(110.0, 220.0);
+              final rx = (constraints.maxWidth * 0.42).clamp(150.0, 390.0);
+              final ry = (constraints.maxHeight * 0.24).clamp(56.0, 120.0);
+              final rackW = (constraints.maxHeight * 0.56).clamp(110.0, 225.0);
+              final rackH = (constraints.maxHeight * 0.74).clamp(140.0, 295.0);
               final accent = ConsoleTheme.isDark(context)
                   ? const Color(0xFF26D7FF)
                   : ConsoleTheme.primaryBlue(context);
 
               Widget buildNodeWidget(_TopologyNode node, double depth) {
                 final color = node.ok ? accent : const Color(0xFFFF4D4F);
-                final scale = 0.86 + (depth + 1) * 0.1; // 0.86..1.06
-                final opacity = (0.72 + (depth + 1) * 0.14).clamp(0.7, 1.0);
+                final scale = 0.80 + (depth + 1) * 0.15; // 0.80 behind -> 1.10 front
+                final opacity = (0.48 + (depth + 1) * 0.26).clamp(0.48, 1.0);
                 return Opacity(
                   opacity: opacity,
                   child: Transform.scale(
                     scale: scale,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                          horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: ConsoleTheme.innerSurface(context),
-                        borderRadius: BorderRadius.circular(10),
+                        color: ConsoleTheme.innerSurface(context)
+                            .withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(11),
                         border: Border.all(
-                          color: color.withValues(alpha: 0.55),
+                          color: color.withValues(alpha: 0.65),
+                          width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withValues(alpha: 0.16),
-                            blurRadius: 10,
+                            color: color.withValues(alpha: 0.22),
+                            blurRadius: 14,
                           ),
                         ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(node.icon, size: 15, color: color),
-                          const SizedBox(width: 6),
+                          Icon(node.icon, size: 19, color: color),
+                          const SizedBox(width: 8),
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1277,7 +1296,7 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                                 node.label,
                                 style: ConsoleTheme.font(
                                   color: ConsoleTheme.textPrimary(context),
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1285,8 +1304,8 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                                 node.value,
                                 style: ConsoleTheme.font(
                                   color: color,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -1322,79 +1341,70 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // 1. Back half of Saturn ring + back orbiting nodes (behind rack)
+                    // 1. Back half of orbital ring + back orbiting nodes (behind rack)
                     CustomPaint(
-                      size: Size(rx * 2.2, ry * 2.4),
+                      size: Size(rx * 2.2, ry * 2.6),
                       painter: _TopologyRingPainter(
                         tiltRadians: tilt,
                         rx: rx,
                         ry: ry,
                         accent: accent,
+                        spin: spin,
                         drawBack: true,
                         drawFront: false,
                       ),
                     ),
                     ...backNodes,
 
-                    // 2. Center Smart Rack (floating cleanly in the middle)
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: ConsoleTheme.innerSurface(context)
-                                .withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: accent.withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: Text(
-                            'PUE $pueText  •  $energyText',
-                            style: ConsoleTheme.font(
-                              color: accent,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          width: rackW,
-                          height: rackH,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: accent.withValues(alpha: 0.22),
-                                blurRadius: 42,
-                                spreadRadius: 6,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset(
-                            RackConsolePreferences.instance.selectedRackImage,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ],
+                    // 2. Grounded Smart Rack Centerpiece
+                    SizedBox(
+                      width: rackW,
+                      height: rackH * 0.90,
+                      child: Image.asset(
+                        RackConsolePreferences.instance.selectedRackImage,
+                        fit: BoxFit.contain,
+                      ),
                     ),
 
-                    // 3. Front half of Saturn ring + front orbiting nodes (in front of rack)
+                    // 3. Front half of orbital ring + front orbiting nodes (in front of rack)
                     CustomPaint(
-                      size: Size(rx * 2.2, ry * 2.4),
+                      size: Size(rx * 2.2, ry * 2.6),
                       painter: _TopologyRingPainter(
                         tiltRadians: tilt,
                         rx: rx,
                         ry: ry,
                         accent: accent,
+                        spin: spin,
                         drawBack: false,
                         drawFront: true,
                       ),
                     ),
                     ...frontNodes,
+
+                    // 4. PUE & Energy pill anchored cleanly above the orbit so nodes never cover it
+                    Positioned(
+                      top: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: ConsoleTheme.innerSurface(context)
+                              .withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Text(
+                          'PUE $pueText  •  $energyText',
+                          style: ConsoleTheme.font(
+                            color: accent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -1582,6 +1592,9 @@ class _EnvironmentCardState extends State<_EnvironmentCard> {
             children: rows.map((r) {
               final tempFrac = (r.temp / 50.0).clamp(0.05, 1.0);
               final humFrac = (r.hum / 100.0).clamp(0.05, 1.0);
+              final trackColor = ConsoleTheme.isDark(context)
+                  ? const Color(0xFF1A283D)
+                  : const Color(0xFFDCE7F5);
               return Row(
                 children: [
                   SizedBox(
@@ -1597,48 +1610,69 @@ class _EnvironmentCardState extends State<_EnvironmentCard> {
                     ),
                   ),
                   Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.05, end: tempFrac),
-                        duration: const Duration(milliseconds: 750),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, val, child) => FractionallySizedBox(
-                          widthFactor: val,
-                          child: child,
-                        ),
-                        child: Container(
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            borderRadius: BorderRadius.horizontal(
-                                left: Radius.circular(4)),
-                            gradient: LinearGradient(
-                              colors: [Color(0xFFF59E0B), Color(0xFFFF8A00)],
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: trackColor,
+                        borderRadius: const BorderRadius.horizontal(
+                            left: Radius.circular(4)),
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.05, end: tempFrac),
+                          duration: const Duration(milliseconds: 750),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, val, child) => FractionallySizedBox(
+                            widthFactor: val,
+                            child: child,
+                          ),
+                          child: Container(
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              borderRadius: BorderRadius.horizontal(
+                                  left: Radius.circular(4)),
+                              gradient: LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFFF8A00)],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  Container(
+                    width: 2,
+                    height: 12,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    color: ConsoleTheme.textMuted(context).withValues(alpha: 0.6),
+                  ),
                   Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.05, end: humFrac),
-                        duration: const Duration(milliseconds: 750),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, val, child) => FractionallySizedBox(
-                          widthFactor: val,
-                          child: child,
-                        ),
-                        child: Container(
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            borderRadius: BorderRadius.horizontal(
-                                right: Radius.circular(4)),
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF18D2C3), Color(0xFF26D7FF)],
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: trackColor,
+                        borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(4)),
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.05, end: humFrac),
+                          duration: const Duration(milliseconds: 750),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, val, child) => FractionallySizedBox(
+                            widthFactor: val,
+                            child: child,
+                          ),
+                          child: Container(
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              borderRadius: BorderRadius.horizontal(
+                                  right: Radius.circular(4)),
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF18D2C3), Color(0xFF26D7FF)],
+                              ),
                             ),
                           ),
                         ),
@@ -1817,16 +1851,20 @@ class _PowerOutletPduCardState extends State<_PowerOutletPduCard> {
                 ),
               ),
             )
-          : GridView.builder(
-              key: ValueKey<String>('pdu_$_tab'),
-              itemCount: math.min(rows.length, 6),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 8,
-                mainAxisExtent: 46,
-              ),
-              itemBuilder: (context, i) {
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final tileHeight =
+                    ((constraints.maxHeight - 16) / 3).clamp(44.0, 92.0);
+                return GridView.builder(
+                  key: ValueKey<String>('pdu_$_tab'),
+                  itemCount: math.min(rows.length, 6),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 8,
+                    mainAxisExtent: tileHeight,
+                  ),
+                  itemBuilder: (context, i) {
                 final r = rows[i];
                 final numVal = _parseNumericValue(r.value);
                 final frac = numVal == null
@@ -1899,7 +1937,9 @@ class _PowerOutletPduCardState extends State<_PowerOutletPduCard> {
                   ),
                 );
               },
-            ),
+            );
+          },
+        ),
     );
   }
 }
@@ -1979,9 +2019,9 @@ class _DoorsAndCapacityCard extends StatelessWidget {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    itemCount: math.min(logs.length, 4),
-                    itemBuilder: (context, i) {
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(math.min(logs.length, 4), (i) {
                       final log = logs[i];
                       final user = (log['opUser'] ??
                               log['openUser'] ??
@@ -2004,82 +2044,85 @@ class _DoorsAndCapacityCard extends StatelessWidget {
                       final initial =
                           user.trim().isNotEmpty ? user.trim()[0].toUpperCase() : 'U';
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: ConsoleTheme.innerSurface(context),
-                            borderRadius: BorderRadius.circular(9),
-                            border: Border.all(
-                              color: doorColor.withValues(alpha: 0.25),
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                              bottom: i < math.min(logs.length, 4) - 1 ? 6 : 0),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: ConsoleTheme.innerSurface(context),
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: doorColor.withValues(alpha: 0.25),
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: doorColor.withValues(alpha: 0.16),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: doorColor.withValues(alpha: 0.45),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: doorColor.withValues(alpha: 0.16),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: doorColor.withValues(alpha: 0.45),
+                                    ),
                                   ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    initial,
-                                    style: ConsoleTheme.font(
-                                      color: doorColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
+                                  child: Center(
+                                    child: Text(
+                                      initial,
+                                      style: ConsoleTheme.font(
+                                        color: doorColor,
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  user,
-                                  style: ConsoleTheme.font(
-                                    color: ConsoleTheme.textPrimary(context),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: doorColor.withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                child: Text(
-                                  door,
-                                  style: ConsoleTheme.font(
-                                    color: doorColor,
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    user,
+                                    style: ConsoleTheme.font(
+                                      color: ConsoleTheme.textPrimary(context),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                time,
-                                style: ConsoleTheme.font(
-                                  color: ConsoleTheme.textMuted(context),
-                                  fontSize: 9.5,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: doorColor.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    door,
+                                    style: ConsoleTheme.font(
+                                      color: doorColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  time,
+                                  style: ConsoleTheme.font(
+                                    color: ConsoleTheme.textMuted(context),
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
-                    },
+                    }),
                   ),
           ),
         ],
@@ -2509,6 +2552,7 @@ class _TopologyRingPainter extends CustomPainter {
     required this.rx,
     required this.ry,
     required this.accent,
+    required this.spin,
     required this.drawBack,
     required this.drawFront,
   });
@@ -2517,6 +2561,7 @@ class _TopologyRingPainter extends CustomPainter {
   final double rx;
   final double ry;
   final Color accent;
+  final double spin;
   final bool drawBack;
   final bool drawFront;
 
@@ -2527,33 +2572,123 @@ class _TopologyRingPainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.rotate(tiltRadians);
 
-    final outerRect = Rect.fromCenter(
+    final startArc = drawBack ? math.pi : 0.0;
+    const sweepArc = math.pi;
+    final alphaScale = drawBack ? 0.45 : 1.0;
+
+    // 1. Modern beveled gear-tooth outer ring (36 precision-cut gear blocks)
+    const gearTeeth = 36;
+    const toothSpan = (2 * math.pi / gearTeeth) * 0.46;
+    final gearFill = Paint()
+      ..color = accent.withValues(alpha: 0.22 * alphaScale)
+      ..style = PaintingStyle.fill;
+    final gearStroke = Paint()
+      ..color = accent.withValues(alpha: 0.55 * alphaScale)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    for (var i = 0; i < gearTeeth; i++) {
+      final a1 = (2 * math.pi * i / gearTeeth) + spin;
+      final a2 = a1 + toothSpan;
+      final mid = (a1 + a2) / 2;
+      final isBackTooth = math.sin(mid) < 0;
+      if ((isBackTooth && drawBack) || (!isBackTooth && drawFront)) {
+        final path = Path()
+          ..moveTo(math.cos(a1) * rx * 1.05, math.sin(a1) * ry * 1.05)
+          ..lineTo(math.cos(a1 + 0.015) * rx * 1.13,
+              math.sin(a1 + 0.015) * ry * 1.13)
+          ..lineTo(math.cos(a2 - 0.015) * rx * 1.13,
+              math.sin(a2 - 0.015) * ry * 1.13)
+          ..lineTo(math.cos(a2) * rx * 1.05, math.sin(a2) * ry * 1.05)
+          ..close();
+        canvas.drawPath(path, gearFill);
+        canvas.drawPath(path, gearStroke);
+      }
+    }
+
+    // 2. Main orbital ring + glowing segmented arcs
+    final mainRect = Rect.fromCenter(
       center: Offset.zero,
       width: rx * 2.0,
       height: ry * 2.0,
     );
+    final mainTrackPaint = Paint()
+      ..color = accent.withValues(alpha: 0.25 * alphaScale)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawArc(mainRect, startArc, sweepArc, false, mainTrackPaint);
+
+    final segGlowPaint = Paint()
+      ..color = accent.withValues(alpha: 0.28 * alphaScale)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final segPaint = Paint()
+      ..color = accent.withValues(alpha: 0.78 * alphaScale)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round;
+
+    for (var i = 0; i < 4; i++) {
+      final a = spin + i * (math.pi / 2);
+      const segSweep = 0.65;
+      for (var step = 0; step < 12; step++) {
+        final p1 = a + (step / 12) * segSweep;
+        final p2 = a + ((step + 1) / 12) * segSweep;
+        final isBackSeg = math.sin((p1 + p2) / 2) < 0;
+        if ((isBackSeg && drawBack) || (!isBackSeg && drawFront)) {
+          canvas.drawArc(mainRect, p1, p2 - p1, false, segGlowPaint);
+          canvas.drawArc(mainRect, p1, p2 - p1, false, segPaint);
+        }
+      }
+    }
+
+    // 3. Counter-rotating dashed middle ring (POV depth)
+    final midRx = rx * 0.80;
+    final midRy = ry * 0.80;
+    final midRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: midRx * 2.0,
+      height: midRy * 2.0,
+    );
+    final dashPaint = Paint()
+      ..color = accent.withValues(alpha: 0.42 * alphaScale)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    const dashCount = 24;
+    for (var i = 0; i < dashCount; i++) {
+      final a = -spin * 0.7 + (2 * math.pi * i / dashCount);
+      final isBackDash = math.sin(a) < 0;
+      if ((isBackDash && drawBack) || (!isBackDash && drawFront)) {
+        canvas.drawArc(midRect, a, 0.12, false, dashPaint);
+      }
+    }
+
+    // 4. Inner bright ring around Smart Rack base
     final innerRect = Rect.fromCenter(
       center: Offset.zero,
-      width: rx * 1.66,
-      height: ry * 1.66,
+      width: rx * 1.20,
+      height: ry * 1.20,
     );
-
-    final backPaint = Paint()
-      ..color = accent.withValues(alpha: 0.22)
+    final innerPaint = Paint()
+      ..color = accent.withValues(alpha: 0.35 * alphaScale)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
-    final frontPaint = Paint()
-      ..color = accent.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+    canvas.drawArc(innerRect, startArc, sweepArc, false, innerPaint);
 
-    if (drawBack) {
-      canvas.drawArc(outerRect, math.pi, math.pi, false, backPaint);
-      canvas.drawArc(innerRect, math.pi, math.pi, false, backPaint);
-    }
-    if (drawFront) {
-      canvas.drawArc(outerRect, 0, math.pi, false, frontPaint);
-      canvas.drawArc(innerRect, 0, math.pi, false, frontPaint);
+    // 5. Traveling glowing energy orbs along the main orbital ring
+    final orbPaint = Paint()..color = accent.withValues(alpha: alphaScale);
+    final orbGlow = Paint()
+      ..color = accent.withValues(alpha: 0.55 * alphaScale)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    for (var i = 0; i < 3; i++) {
+      final a = (spin * 1.6) + (i * 2 * math.pi / 3);
+      final isBackOrb = math.sin(a) < 0;
+      if ((isBackOrb && drawBack) || (!isBackOrb && drawFront)) {
+        final pos = Offset(math.cos(a) * rx, math.sin(a) * ry);
+        canvas.drawCircle(pos, 5.5, orbGlow);
+        canvas.drawCircle(pos, 2.8, orbPaint);
+      }
     }
     canvas.restore();
   }
@@ -2564,6 +2699,7 @@ class _TopologyRingPainter extends CustomPainter {
       oldDelegate.rx != rx ||
       oldDelegate.ry != ry ||
       oldDelegate.accent != accent ||
+      oldDelegate.spin != spin ||
       oldDelegate.drawBack != drawBack ||
       oldDelegate.drawFront != drawFront;
 }
