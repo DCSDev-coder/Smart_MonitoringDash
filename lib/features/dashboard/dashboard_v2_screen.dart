@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/app_log.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/config/site_runtime_config.dart';
 import '../../core/controllers/global_status_poller.dart';
@@ -97,6 +98,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
 
   Duration _tickInterval = const Duration(seconds: 10);
   bool _loggedPuePayload = false;
+  static bool _promptedRecoveryEmailThisSession = false;
   int _adapterMissStreak = 0;
   bool get _showAdapterDegraded => _adapterMissStreak >= 2;
 
@@ -132,6 +134,144 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
     if (widget.isActive) {
       _fetchAll(isInitial: true);
       _startTimer();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkRecoveryEmailReminder();
+    });
+  }
+
+  Future<void> _checkRecoveryEmailReminder() async {
+    if (_promptedRecoveryEmailThisSession || !mounted) return;
+    final currentEmail =
+        (CpanelApiService.instance.currentUser?['email'] ?? '').toString().trim();
+    if (CpanelApiService.instance.currentUser == null || currentEmail.isEmpty) {
+      final token = CpanelApiService.instance.getAuthTokenInMemory();
+      if (token != null && token.isNotEmpty) {
+        await CpanelApiService.instance.authMe(token: token);
+      }
+    }
+    if (!mounted) return;
+    final user = CpanelApiService.instance.currentUser;
+    if (user == null) return;
+    final email = (user['email'] ?? '').toString().trim();
+    if (email.isNotEmpty) return;
+
+    _promptedRecoveryEmailThisSession = true;
+    final emailController = TextEditingController();
+    String? errorText;
+    bool saving = false;
+
+    final savedEmail = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final isLight = Theme.of(ctx).brightness == Brightness.light;
+        final dialogBg = isLight ? Colors.white : const Color(0xFF111922);
+        final fieldBg =
+            isLight ? const Color(0xFFF3F6FA) : const Color(0xFF0B1119);
+        final titleColor =
+            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final bodyColor =
+            isLight ? AppTheme.lightTextSecondary : Colors.white70;
+        final hintColor = isLight ? Colors.black38 : Colors.white38;
+        final borderColor = isLight
+            ? Colors.black.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.14);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: borderColor),
+              ),
+              title: Text(
+                'Set Recovery Email',
+                style: TextStyle(
+                  color: titleColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'You have not set a recovery email yet. Add one so you can receive verification codes for password reset, username change, and Door PIN.',
+                    style: TextStyle(color: bodyColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Recovery Email',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      hintText: 'you@company.com',
+                      hintStyle: TextStyle(color: hintColor),
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Remind me later'),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final val = emailController.text.trim();
+                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                              .hasMatch(val)) {
+                            setDialogState(() {
+                              errorText = 'Please enter a valid email address';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            saving = true;
+                            errorText = null;
+                          });
+                          final res =
+                              await CpanelApiService.instance.updateMyEmail(val);
+                          if (!ctx.mounted) return;
+                          if (res?['status']?.toString() == 'success') {
+                            Navigator.of(ctx).pop(val);
+                          } else {
+                            setDialogState(() {
+                              saving = false;
+                              errorText = res?['message']?.toString() ??
+                                  'Failed to save recovery email';
+                            });
+                          }
+                        },
+                  child: Text(saving ? 'Saving...' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      emailController.dispose();
+    });
+    if (savedEmail != null && mounted) {
+      AppToast.showSuccess(context, 'Recovery email saved.');
     }
   }
 

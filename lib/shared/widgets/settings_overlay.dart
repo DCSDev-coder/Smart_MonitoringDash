@@ -16,6 +16,7 @@ import 'glass_confirm_dialog.dart';
 import 'reset_password_dialog.dart';
 import 'secure_action_guard.dart';
 import 'set_pin_dialog.dart';
+import 'site_switcher_button.dart';
 import '../../core/network/adapter_api_service.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../utils/app_toast.dart';
@@ -412,6 +413,518 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     }
   }
 
+  Future<void> _handleEditRecoveryEmail() async {
+    final currentEmail =
+        (CpanelApiService.instance.currentUser?['email'] ?? '')
+            .toString()
+            .trim();
+
+    final emailController = TextEditingController(text: currentEmail);
+    String? errorText;
+    bool saving = false;
+
+    final savedEmail = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final isLight = Theme.of(ctx).brightness == Brightness.light;
+        final dialogBg = isLight ? Colors.white : const Color(0xFF111922);
+        final fieldBg =
+            isLight ? const Color(0xFFF3F6FA) : const Color(0xFF0B1119);
+        final titleColor =
+            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final bodyColor =
+            isLight ? AppTheme.lightTextSecondary : Colors.white70;
+        final hintColor = isLight ? Colors.black38 : Colors.white38;
+        final borderColor = isLight
+            ? Colors.black.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.14);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: borderColor),
+              ),
+              title: Text(
+                'Recovery Email',
+                style: TextStyle(
+                  color: titleColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Set your own recovery email to receive verification codes for password reset, username change, and Door PIN.',
+                    style: TextStyle(color: bodyColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Recovery Email',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      hintText: 'you@company.com',
+                      hintStyle: TextStyle(color: hintColor),
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim();
+                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                              .hasMatch(email)) {
+                            setDialogState(() {
+                              errorText = 'Please enter a valid email address';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            saving = true;
+                            errorText = null;
+                          });
+                          final res = await CpanelApiService.instance
+                              .updateMyEmail(email);
+                          if (!ctx.mounted) return;
+                          if (res?['status']?.toString() == 'success') {
+                            Navigator.of(ctx).pop(email);
+                          } else {
+                            setDialogState(() {
+                              saving = false;
+                              errorText = res?['message']?.toString() ??
+                                  'Failed to save recovery email';
+                            });
+                          }
+                        },
+                  child: Text(saving ? 'Saving...' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      emailController.dispose();
+    });
+    if (savedEmail != null && mounted) {
+      setState(() {});
+      AppToast.showSuccess(context, 'Recovery email saved.');
+    }
+  }
+
+  Future<bool> _verifyEmailCodeBeforeAction(String actionTitle) async {
+    final email =
+        (CpanelApiService.instance.currentUser?['email'] ?? '')
+            .toString()
+            .trim();
+    if (email.isEmpty) {
+      if (mounted) {
+        AppToast.showError(
+            context, 'Please set your Recovery Email in Settings first.');
+      }
+      return false;
+    }
+
+    final codeController = TextEditingController();
+    String? errorText;
+    String? statusText;
+    bool sending = false;
+    bool verifying = false;
+    bool codeRequested = false;
+
+    final verified = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isLight = Theme.of(ctx).brightness == Brightness.light;
+        final dialogBg = isLight ? Colors.white : const Color(0xFF111922);
+        final fieldBg =
+            isLight ? const Color(0xFFF3F6FA) : const Color(0xFF0B1119);
+        final titleColor =
+            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final bodyColor =
+            isLight ? AppTheme.lightTextSecondary : Colors.white70;
+        final borderColor = isLight
+            ? Colors.black.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.14);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: borderColor),
+              ),
+              title: Text(
+                'Verify $actionTitle',
+                style: TextStyle(
+                  color: titleColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Request a 6-digit verification code to $email.',
+                    style: TextStyle(color: bodyColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: (sending || verifying)
+                          ? null
+                          : () async {
+                              setDialogState(() {
+                                sending = true;
+                                errorText = null;
+                                statusText = null;
+                              });
+                              final reqRes = await CpanelApiService.instance
+                                  .requestMyVerificationCode();
+                              if (!ctx.mounted) return;
+                              setDialogState(() {
+                                sending = false;
+                                if (reqRes?['status']?.toString() == 'success') {
+                                  codeRequested = true;
+                                  statusText = reqRes?['message']?.toString() ??
+                                      'Verification code sent.';
+                                } else {
+                                  errorText = reqRes?['message']?.toString() ??
+                                      'Failed to send verification code.';
+                                }
+                              });
+                            },
+                      icon: const Icon(Icons.mark_email_read_outlined, size: 18),
+                      label: Text(
+                        sending
+                            ? 'Sending...'
+                            : (codeRequested ? 'Resend Code' : 'Request Code'),
+                      ),
+                    ),
+                  ),
+                  if (statusText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      statusText!,
+                      style: const TextStyle(
+                        color: Color(0xFF00C08B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: codeController,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: '6-Digit Code',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      verifying ? null : () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: verifying
+                      ? null
+                      : () async {
+                          final code = codeController.text.trim();
+                          if (code.length < 4) {
+                            setDialogState(() {
+                              errorText = 'Enter the 6-digit code';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            verifying = true;
+                            errorText = null;
+                          });
+                          final res = await CpanelApiService.instance
+                              .verifyMyCode(code);
+                          if (!ctx.mounted) return;
+                          if (res?['status']?.toString() == 'success') {
+                            Navigator.of(ctx).pop(true);
+                          } else {
+                            setDialogState(() {
+                              verifying = false;
+                              errorText = res?['message']?.toString() ??
+                                  'Invalid or expired code';
+                            });
+                          }
+                        },
+                  child: Text(verifying ? 'Verifying...' : 'Verify'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      codeController.dispose();
+    });
+    return verified == true;
+  }
+
+  Future<void> _handleChangeUsername() async {
+    final email =
+        (CpanelApiService.instance.currentUser?['email'] ?? '')
+            .toString()
+            .trim();
+    if (email.isEmpty) {
+      if (mounted) {
+        AppToast.showError(
+            context, 'Please set your Recovery Email in Settings first.');
+      }
+      return;
+    }
+
+    final usernameController = TextEditingController(text: _username ?? '');
+    final codeController = TextEditingController();
+    String? errorText;
+    String? statusText;
+    bool sending = false;
+    bool saving = false;
+    bool codeRequested = false;
+
+    final savedUsername = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final isLight = Theme.of(ctx).brightness == Brightness.light;
+        final dialogBg = isLight ? Colors.white : const Color(0xFF111922);
+        final fieldBg =
+            isLight ? const Color(0xFFF3F6FA) : const Color(0xFF0B1119);
+        final titleColor =
+            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final bodyColor =
+            isLight ? AppTheme.lightTextSecondary : Colors.white70;
+        final borderColor = isLight
+            ? Colors.black.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.14);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: borderColor),
+              ),
+              title: Text(
+                'Change Username',
+                style: TextStyle(
+                  color: titleColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter your new username and request a 6-digit code to $email.',
+                    style: TextStyle(color: bodyColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: usernameController,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'New Username',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: (sending || saving)
+                          ? null
+                          : () async {
+                              setDialogState(() {
+                                sending = true;
+                                errorText = null;
+                                statusText = null;
+                              });
+                              final reqRes = await CpanelApiService.instance
+                                  .requestMyVerificationCode();
+                              if (!ctx.mounted) return;
+                              setDialogState(() {
+                                sending = false;
+                                if (reqRes?['status']?.toString() == 'success') {
+                                  codeRequested = true;
+                                  statusText = reqRes?['message']?.toString() ??
+                                      'Verification code sent.';
+                                } else {
+                                  errorText = reqRes?['message']?.toString() ??
+                                      'Failed to send verification code.';
+                                }
+                              });
+                            },
+                      icon: const Icon(Icons.mark_email_read_outlined, size: 18),
+                      label: Text(
+                        sending
+                            ? 'Sending...'
+                            : (codeRequested ? 'Resend Code' : 'Request Code'),
+                      ),
+                    ),
+                  ),
+                  if (statusText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      statusText!,
+                      style: const TextStyle(
+                        color: Color(0xFF00C08B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: codeController,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: '6-Digit Verification Code',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final newUsername = usernameController.text.trim();
+                          final code = codeController.text.trim();
+                          if (newUsername.length < 3) {
+                            setDialogState(() {
+                              errorText =
+                                  'Username must be at least 3 characters';
+                            });
+                            return;
+                          }
+                          if (code.length < 4) {
+                            setDialogState(() {
+                              errorText = 'Enter the 6-digit verification code';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            saving = true;
+                            errorText = null;
+                          });
+                          final res = await CpanelApiService.instance
+                              .changeMyUsername(newUsername, code);
+                          if (!ctx.mounted) return;
+                          if (res?['status']?.toString() == 'success') {
+                            Navigator.of(ctx).pop(newUsername);
+                          } else {
+                            setDialogState(() {
+                              saving = false;
+                              errorText = res?['message']?.toString() ??
+                                  'Failed to update username';
+                            });
+                          }
+                        },
+                  child: Text(saving ? 'Saving...' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      usernameController.dispose();
+      codeController.dispose();
+    });
+    if (savedUsername != null && mounted) {
+      setState(() {
+        _username = savedUsername;
+      });
+      AppToast.showSuccess(context, 'Username updated.');
+    }
+  }
+
   Future<void> _handleChangePassword() async {
     final username = _username;
     if (username == null || username.isEmpty) {
@@ -424,6 +937,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       reason: 'Please authenticate to reset password.',
     );
     if (!authorized) return;
+    if (!await _verifyEmailCodeBeforeAction('Reset Password')) return;
 
     if (!context.mounted) return;
 
@@ -443,6 +957,8 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   }
 
   Future<void> _handleSetPin() async {
+    if (!await _verifyEmailCodeBeforeAction('Set Door PIN')) return;
+    if (!mounted) return;
     final result = await showDialog<String>(
       context: context,
       builder: (_) => const SetPinDialog(),
@@ -617,7 +1133,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final site = CpanelApiService.instance.currentSite;
-    final canUploadLogo = widget.onUploadLogo != null && _canChangeSettings;
+    final canUploadLogo = widget.onUploadLogo != null &&
+        (CpanelApiService.instance
+                .isCurrentUserSiteOwner(portalUserId: _portalUserId) ||
+            CpanelApiService.instance.currentSiteHasAdminRole());
     final companyLogoUrl = CpanelApiService.instance.currentCompanyLogoUrl();
     if (!_loadingUser && !_loggedLogoPermission) {
       _loggedLogoPermission = true;
@@ -683,50 +1202,33 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                           children: [
                             Material(
                               color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(24),
-                              clipBehavior: Clip.antiAlias,
-                              child: Container(
-                                width: 140,
-                                height: 140,
-                                decoration: BoxDecoration(
-                                  color: isLight
-                                      ? const Color(0xFFF1F5F9)
-                                      : Colors.white.withValues(alpha: 0.04),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: isLight
-                                        ? const Color(0xFFD5DAE2)
-                                        : Colors.white.withValues(alpha: 0.16),
-                                    width: 1.5,
-                                  ),
-                                ),
+                              child: SizedBox(
+                                width: 220,
+                                height: 110,
                                 child: Stack(
                                   fit: StackFit.expand,
                                   children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(22),
-                                      child: companyLogoUrl != null &&
-                                              companyLogoUrl.isNotEmpty
-                                          ? SafeNetworkImage(
-                                              companyLogoUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_) =>
-                                                  const Center(
-                                                child: Icon(
-                                                  Icons.person_outline_rounded,
-                                                  size: 58,
-                                                  color: Colors.white24,
-                                                ),
-                                              ),
-                                            )
-                                          : const Center(
+                                    companyLogoUrl != null &&
+                                            companyLogoUrl.isNotEmpty
+                                        ? SafeNetworkImage(
+                                            companyLogoUrl,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_) =>
+                                                const Center(
                                               child: Icon(
                                                 Icons.person_outline_rounded,
                                                 size: 58,
                                                 color: Colors.white24,
                                               ),
                                             ),
-                                    ),
+                                          )
+                                        : const Center(
+                                            child: Icon(
+                                              Icons.person_outline_rounded,
+                                              size: 58,
+                                              color: Colors.white24,
+                                            ),
+                                          ),
                                     if (canUploadLogo)
                                       Positioned.fill(
                                         child: Material(
@@ -734,11 +1236,11 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                           child: InkWell(
                                             onTap: widget.onUploadLogo,
                                             borderRadius: BorderRadius.circular(
-                                              22,
+                                              16,
                                             ),
                                             child: Container(
                                               alignment: Alignment.bottomRight,
-                                              padding: const EdgeInsets.all(8),
+                                              padding: const EdgeInsets.all(6),
                                               child: Container(
                                                 padding: const EdgeInsets.all(
                                                   6,
@@ -764,20 +1266,67 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              _loadingUser ? '...' : (_username ?? 'ADMIN'),
-                              textAlign: TextAlign.center,
-                              style: bitcount(
-                                context,
-                                fontSize: 22,
-                                color: headerTextColor,
-                                letterSpacing: 1.5,
+                            InkWell(
+                              onTap: _loadingUser ? null : _handleChangeUsername,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _loadingUser ? '...' : (_username ?? 'ADMIN'),
+                                      textAlign: TextAlign.center,
+                                      style: bitcount(
+                                        context,
+                                        fontSize: 22,
+                                        color: headerTextColor,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                    if (!_loadingUser) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        Icons.edit_outlined,
+                                        size: 16,
+                                        color: headerTextColor.withValues(alpha: 0.6),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 32),
+
+                      if (!isRackConsole &&
+                          (CpanelApiService.instance.hasMultipleSites ||
+                              CpanelApiService.instance.hasMultipleMonitors)) ...[
+                        _buildGroup(
+                          'Active Site & Server Rack',
+                          const [
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              child: Center(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SiteSwitcherButton(),
+                                ),
+                              ),
+                            ),
+                          ],
+                          isLight,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       if (!isRackConsole)
                         _buildGroup(
@@ -790,6 +1339,23 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                   iconColor: const Color(0xFF007AFF),
                                   onTap: widget.onManageUsers,
                                 ),
+                              _SettingsTile(
+                                title: 'Recovery Email',
+                                subtitle: (CpanelApiService
+                                            .instance.currentUser?['email'] ??
+                                        '')
+                                    .toString()
+                                    .trim()
+                                    .isEmpty
+                                    ? 'Not set — tap to add'
+                                    : (CpanelApiService
+                                            .instance.currentUser?['email'] ??
+                                        '')
+                                        .toString(),
+                                icon: Icons.mark_email_read_outlined,
+                                iconColor: const Color(0xFF00C08B),
+                                onTap: _handleEditRecoveryEmail,
+                              ),
                               _SettingsTile(
                                 title: 'Reset Password',
                                 icon: Icons.lock_reset_rounded,
@@ -809,6 +1375,29 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                 icon: Icons.delete_forever_rounded,
                                 iconColor: const Color(0xFFFF3B30),
                                 onTap: _handleDeleteAccount,
+                              ),
+                            ],
+                            isLight)
+                      else
+                        _buildGroup(
+                            'Account Recovery',
+                            [
+                              _SettingsTile(
+                                title: 'Recovery Email',
+                                subtitle: (CpanelApiService
+                                            .instance.currentUser?['email'] ??
+                                        '')
+                                    .toString()
+                                    .trim()
+                                    .isEmpty
+                                    ? 'Not set — tap to add'
+                                    : (CpanelApiService
+                                            .instance.currentUser?['email'] ??
+                                        '')
+                                        .toString(),
+                                icon: Icons.mark_email_read_outlined,
+                                iconColor: const Color(0xFF00C08B),
+                                onTap: _handleEditRecoveryEmail,
                               ),
                             ],
                             isLight),

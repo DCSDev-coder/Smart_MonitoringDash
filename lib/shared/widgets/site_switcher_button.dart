@@ -235,9 +235,12 @@ class _SiteSwitcherButtonState extends State<SiteSwitcherButton> {
                 child: _buildPill(
                   context: context,
                   icon: Icons.apartment_rounded,
-                  label: (api.currentSite?['site_name'] ?? 'Select Site')
-                      .toString()
-                      .trim(),
+                  label: () {
+                    final name = (api.currentSite?['site_name'] ?? 'Select Site')
+                        .toString()
+                        .trim();
+                    return widget.compact ? name : 'Site: $name';
+                  }(),
                   accent: cyan,
                 ),
               ),
@@ -322,7 +325,8 @@ class _SiteSwitcherButtonState extends State<SiteSwitcherButton> {
                     final m = api.currentMonitor;
                     final cab = (m?['cabinet_id'] ?? '').toString().trim();
                     final lbl = (m?['label'] ?? 'Rack').toString().trim();
-                    return cab.isNotEmpty ? cab : lbl;
+                    final rackName = cab.isNotEmpty ? cab : lbl;
+                    return widget.compact ? rackName : 'Rack: $rackName';
                   }(),
                   accent: blue,
                 ),

@@ -1,8 +1,26 @@
 import { CompanyItem, CompanyAccount, RackMonitor } from '../types';
 
 export const CPANEL_API_URL = 'https://portal.dcstack.my/api/index.php';
-export const DEFAULT_API_USER = 'admin';
-export const DEFAULT_API_PASS = 'Dtct+1234';
+
+export function calculateNextServiceDate(lastService: string, cycleDays = 90): string {
+  if (!lastService) return '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(lastService.trim());
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
+    const dt = new Date(Date.UTC(year, month, day + cycleDays));
+    if (!isNaN(dt.getTime())) {
+      return dt.toISOString().split('T')[0];
+    }
+  }
+  const parsed = new Date(lastService);
+  if (!isNaN(parsed.getTime())) {
+    parsed.setDate(parsed.getDate() + cycleDays);
+    return parsed.toISOString().split('T')[0];
+  }
+  return '';
+}
 
 const STORAGE_KEY_TOKEN = 'dcstack_api_token';
 const STORAGE_KEY_USER = 'dcstack_api_user';
@@ -10,6 +28,8 @@ const STORAGE_KEY_USER = 'dcstack_api_user';
 export interface ApiUser {
   id: number;
   username: string;
+  email?: string | null;
+  can_access_monitoring_web?: number | boolean;
   license_type?: string;
   expiry_date?: string;
 }
@@ -43,6 +63,13 @@ export interface ApiSite {
   license_type?: string;
   expiry_date?: string;
   role?: string;
+  cctv_ip?: string;
+  cctv_user?: string;
+  cctv_pass?: string;
+  face_scanner_ip?: string;
+  face_scanner_user?: string;
+  face_scanner_pass?: string;
+  tech_notes?: string;
   monitors?: ApiSiteMonitor[];
 }
 
@@ -51,8 +78,12 @@ class ApiService {
   private user: ApiUser | null = null;
 
   constructor() {
-    this.token = localStorage.getItem(STORAGE_KEY_TOKEN);
-    const cachedUser = localStorage.getItem(STORAGE_KEY_USER);
+    this.token =
+      localStorage.getItem(STORAGE_KEY_TOKEN) ||
+      sessionStorage.getItem(STORAGE_KEY_TOKEN);
+    const cachedUser =
+      localStorage.getItem(STORAGE_KEY_USER) ||
+      sessionStorage.getItem(STORAGE_KEY_USER);
     if (cachedUser) {
       try {
         this.user = JSON.parse(cachedUser);
@@ -63,7 +94,11 @@ class ApiService {
   }
 
   getAuthToken(): string | null {
-    return this.token || localStorage.getItem(STORAGE_KEY_TOKEN);
+    return (
+      this.token ||
+      localStorage.getItem(STORAGE_KEY_TOKEN) ||
+      sessionStorage.getItem(STORAGE_KEY_TOKEN)
+    );
   }
 
   getUser(): ApiUser | null {
@@ -75,15 +110,10 @@ class ApiService {
   }
 
   /**
-   * Ensures the client has a valid token. If missing, automatically authenticates
-   * using the default credentials (admin / Dtct+1234).
+   * Ensures the client has a stored bearer token.
    */
   async ensureAuthenticated(): Promise<boolean> {
-    if (this.isAuthenticated()) {
-      return true;
-    }
-    const res = await this.login(DEFAULT_API_USER, DEFAULT_API_PASS);
-    return res.success;
+    return this.isAuthenticated();
   }
 
   logout() {
@@ -91,12 +121,18 @@ class ApiService {
     this.user = null;
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_USER);
+    sessionStorage.removeItem(STORAGE_KEY_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEY_USER);
   }
 
   /**
    * Login against https://portal.dcstack.my/api/index.php?action=login
    */
-  async login(username: string, password: string): Promise<{
+  async login(
+    username: string,
+    password: string,
+    rememberMe = true
+  ): Promise<{
     success: boolean;
     token?: string;
     user?: ApiUser;
@@ -107,7 +143,7 @@ class ApiService {
       formParams.append('action', 'login');
       formParams.append('username', username);
       formParams.append('password', password);
-      formParams.append('remember_me', '1');
+      formParams.append('remember_me', rememberMe ? '1' : '0');
 
       const response = await fetch(`${CPANEL_API_URL}?action=login`, {
         method: 'POST',
@@ -126,11 +162,32 @@ class ApiService {
 
       const data = await response.json();
       if (data.status === 'success' && data.auth_token) {
-        this.token = data.auth_token;
-        this.user = data.user || { id: 3, username };
+        const user: ApiUser = data.user || { id: 0, username };
+        const canAccess =
+          user.can_access_monitoring_web === 1 ||
+          user.can_access_monitoring_web === true ||
+          String(user.can_access_monitoring_web) === '1';
 
-        localStorage.setItem(STORAGE_KEY_TOKEN, this.token!);
-        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        if (!canAccess) {
+          this.logout();
+          return {
+            success: false,
+            message:
+              'Access denied: Monitoring website access is disabled for this account. Enable it in the main app.',
+          };
+        }
+
+        this.token = data.auth_token;
+        this.user = user;
+
+        localStorage.removeItem(STORAGE_KEY_TOKEN);
+        localStorage.removeItem(STORAGE_KEY_USER);
+        sessionStorage.removeItem(STORAGE_KEY_TOKEN);
+        sessionStorage.removeItem(STORAGE_KEY_USER);
+
+        const store = rememberMe ? localStorage : sessionStorage;
+        store.setItem(STORAGE_KEY_TOKEN, this.token!);
+        store.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
 
         return {
           success: true,
@@ -165,7 +222,7 @@ class ApiService {
     }
 
     try {
-      let response = await fetch(`${CPANEL_API_URL}?action=get_sites`, {
+      const response = await fetch(`${CPANEL_API_URL}?action=get_sites`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -173,19 +230,9 @@ class ApiService {
         },
       });
 
-      // If token expired or rejected, re-authenticate and retry once
       if (response.status === 401 || response.status === 403) {
-        const reauth = await this.login(DEFAULT_API_USER, DEFAULT_API_PASS);
-        if (reauth.success && reauth.token) {
-          token = reauth.token;
-          response = await fetch(`${CPANEL_API_URL}?action=get_sites`, {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'X-Auth-Token': token || '',
-            },
-          });
-        }
+        this.logout();
+        return { success: false, sites: [], message: 'Session expired. Please sign in again.' };
       }
 
       if (!response.ok) {
@@ -206,72 +253,163 @@ class ApiService {
   /**
    * Fetch live rack telemetry directly from Adapter backend (Dahua eCTRL)
    */
-  async fetchLiveRackTelemetry(siteId: number): Promise<{
+  async fetchLiveRackTelemetry(
+    siteId: number,
+    monitorId?: number
+  ): Promise<{
     pue?: number;
+    totalEnergyKwh?: number;
+    itEnergyKwh?: number;
+    doorsEnv?: Array<{ doorName: string; temperature: number; humidity: number }>;
     frontDoor?: { temperature: number; humidity: number };
     rearDoor?: { temperature: number; humidity: number };
   } | null> {
     try {
       const token = this.getAuthToken();
       if (!token) return null;
-      const res = await fetch(`https://adapter.dcstack.my/v1/sites/${siteId}/dashboard`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      };
+      const mParam = monitorId && monitorId > 0 ? `monitor_id=${monitorId}` : '';
+      const qPrefix = mParam ? `?${mParam}` : '';
+      const powerUrl = `https://adapter.dcstack.my/v1/sites/${siteId}/pue/power?powerType=1${mParam ? `&${mParam}` : ''}`;
+
+      const [pueRes, powerRes, thRes] = await Promise.all([
+        fetch(`https://adapter.dcstack.my/v1/sites/${siteId}/pue/current${qPrefix}`, { headers }).catch(() => null),
+        fetch(powerUrl, { headers }).catch(() => null),
+        fetch(`https://adapter.dcstack.my/v1/sites/${siteId}/temp-hum-top-n${qPrefix}`, { headers }).catch(() => null),
+      ]);
 
       let pueVal: number | undefined;
-      if (data.pue && data.pue.pue != null) {
-        const parsed = parseFloat(String(data.pue.pue));
-        if (!isNaN(parsed) && parsed > 0) pueVal = parsed;
+      if (pueRes && pueRes.ok) {
+        const pueData = await pueRes.json();
+        const rawPue = pueData?.pue ?? pueData?.result?.pue ?? pueData?.data?.pue;
+        if (rawPue != null) {
+          const parsed = parseFloat(String(rawPue));
+          if (!isNaN(parsed) && parsed > 0) pueVal = parsed;
+        }
       }
 
+      let totalEnergyKwh: number | undefined;
+      let itEnergyKwh: number | undefined;
+      if (powerRes && powerRes.ok) {
+        const powerData = await powerRes.json();
+        const pResult = powerData?.result ?? powerData;
+        const totalRaw = pResult?.Total ?? pResult?.total;
+        const itRaw = pResult?.['IT Device'] ?? pResult?.itDevice;
+        if (totalRaw != null) {
+          const t = parseFloat(String(totalRaw));
+          if (!isNaN(t) && t >= 0) totalEnergyKwh = t;
+        }
+        if (itRaw != null) {
+          const it = parseFloat(String(itRaw));
+          if (!isNaN(it) && it >= 0) itEnergyKwh = it;
+        }
+        if (pueVal === undefined && totalEnergyKwh && itEnergyKwh && itEnergyKwh > 0) {
+          pueVal = Number((totalEnergyKwh / itEnergyKwh).toFixed(2));
+        }
+      }
+
+      let doorsEnv: Array<{ doorName: string; temperature: number; humidity: number }> | undefined;
       let frontDoor: { temperature: number; humidity: number } | undefined;
       let rearDoor: { temperature: number; humidity: number } | undefined;
 
-      const thResult = data.tempHumTopN?.result;
-      if (thResult) {
-        const temps = Array.isArray(thResult.temperature) ? thResult.temperature : [];
-        const hums = Array.isArray(thResult.humidity) ? thResult.humidity : [];
+      if (thRes && thRes.ok) {
+        const thData = await thRes.json();
+        const thResult = thData?.result ?? thData;
+        const temps: Array<{ name?: unknown; value?: unknown }> = Array.isArray(thResult?.temperature)
+          ? thResult.temperature
+          : [];
+        const hums: Array<{ name?: unknown; value?: unknown }> = Array.isArray(thResult?.humidity)
+          ? thResult.humidity
+          : [];
 
-        if (temps.length > 0) {
-          const frontT =
-            temps.find((t: any) => String(t.name || '').toLowerCase().includes('front')) || temps[0];
-          const rearT =
-            temps.find(
-              (t: any) =>
-                String(t.name || '').toLowerCase().includes('rear') ||
-                String(t.name || '').toLowerCase().includes('back')
-            ) || temps[temps.length - 1];
+        const normalizeSensorKey = (rawName: unknown) =>
+          String(rawName ?? 'Sensor').replace(/^\d+-/, '').trim() || 'Sensor';
 
-          const frontH =
-            hums.find((h: any) => String(h.name || '').toLowerCase().includes('front')) || hums[0];
-          const rearH =
-            hums.find(
-              (h: any) =>
-                String(h.name || '').toLowerCase().includes('rear') ||
-                String(h.name || '').toLowerCase().includes('back')
-            ) || hums[hums.length - 1];
+        const tempByKey = new Map<string, number>();
+        const humByKey = new Map<string, number>();
+        const keySet = new Set<string>();
 
-          if (frontT) {
-            frontDoor = {
-              temperature: parseFloat(frontT.value) || 24.5,
-              humidity: frontH ? parseFloat(frontH.value) || 48 : 48,
-            };
+        temps.forEach((t) => {
+          const key = normalizeSensorKey(t.name);
+          const val = parseFloat(String(t.value ?? ''));
+          if (!isNaN(val)) {
+            if (!tempByKey.has(key)) tempByKey.set(key, val);
+            keySet.add(key);
           }
-          if (rearT) {
-            rearDoor = {
-              temperature: parseFloat(rearT.value) || 33.0,
-              humidity: rearH ? parseFloat(rearH.value) || 38 : 38,
+        });
+
+        hums.forEach((h) => {
+          const key = normalizeSensorKey(h.name);
+          const val = parseFloat(String(h.value ?? ''));
+          if (!isNaN(val)) {
+            if (!humByKey.has(key)) humByKey.set(key, val);
+            keySet.add(key);
+          }
+        });
+
+        const sortedKeys = Array.from(keySet).sort((a, b) => {
+          const aDigits = a.replace(/[^0-9]/g, '');
+          const bDigits = b.replace(/[^0-9]/g, '');
+          const aNum = aDigits ? parseInt(aDigits, 10) : 999;
+          const bNum = bDigits ? parseInt(bDigits, 10) : 999;
+          if (aNum !== bNum) return aNum - bNum;
+
+          const aLower = a.toLowerCase();
+          const bLower = b.toLowerCase();
+          if (aLower.includes('front') && (bLower.includes('back') || bLower.includes('rear'))) return -1;
+          if ((aLower.includes('back') || aLower.includes('rear')) && bLower.includes('front')) return 1;
+          return a.localeCompare(b);
+        });
+
+        if (sortedKeys.length > 0) {
+          doorsEnv = sortedKeys.map((key, idx) => {
+            const tempVal = tempByKey.get(key);
+            let humVal = humByKey.get(key);
+            if (humVal === undefined && hums[idx]) {
+              const fallbackH = parseFloat(String(hums[idx].value ?? ''));
+              if (!isNaN(fallbackH)) humVal = fallbackH;
+            }
+            return {
+              doorName: key,
+              temperature: tempVal ?? 0,
+              humidity: humVal ?? 0,
             };
+          });
+
+          const frontMatch =
+            doorsEnv.find((d) => d.doorName.toLowerCase().includes('front')) || doorsEnv[0];
+          const rearMatch =
+            doorsEnv.find(
+              (d) =>
+                d.doorName.toLowerCase().includes('rear') ||
+                d.doorName.toLowerCase().includes('back')
+            ) || doorsEnv[doorsEnv.length - 1];
+
+          if (frontMatch) {
+            frontDoor = { temperature: frontMatch.temperature, humidity: frontMatch.humidity };
+          }
+          if (rearMatch) {
+            rearDoor = { temperature: rearMatch.temperature, humidity: rearMatch.humidity };
           }
         }
       }
 
-      return { pue: pueVal, frontDoor, rearDoor };
+      if (
+        pueVal === undefined &&
+        totalEnergyKwh === undefined &&
+        itEnergyKwh === undefined &&
+        (!doorsEnv || doorsEnv.length === 0) &&
+        !frontDoor &&
+        !rearDoor
+      ) {
+        return null;
+      }
+
+      return { pue: pueVal, totalEnergyKwh, itEnergyKwh, doorsEnv, frontDoor, rearDoor };
     } catch {
       return null;
     }
@@ -282,34 +420,13 @@ class ApiService {
    * Accurately reflects live DCS site data (PUE: 2.19, 90-day service cycle, Secure sensors)
    */
   mapApiSiteToCompany(site: ApiSite, existing?: CompanyItem): CompanyItem {
-    const lastService = site.last_maintenance || existing?.lastService || '2026-11-05';
+    const lastService =
+      site.last_maintenance || existing?.lastService || new Date().toISOString().split('T')[0];
 
-    // Standard 90-day service maintenance cycle: 2026-11-05 + 90 days = 2027-02-03 (84 days left)
-    let nextService = '2027-02-03';
-    try {
-      const last = new Date(lastService);
-      last.setDate(last.getDate() + 90);
-      nextService = last.toISOString().split('T')[0];
-    } catch {
-      nextService = '2027-02-03';
-    }
+    // Auto-calculate next maintenance date (90-day / ~3-month cycle, matching main app)
+    const nextService = calculateNextServiceDate(lastService);
 
-    const accounts: CompanyAccount[] = existing?.accounts && existing.accounts.length > 0
-      ? existing.accounts
-      : [
-          {
-            id: `acc-site-${site.site_id}-1`,
-            username: site.site_user || 'admin',
-            password: site.site_pass || 'Dtct+123',
-            isRackConsole: false,
-          },
-          {
-            id: `acc-site-${site.site_id}-2`,
-            username: 'rack_console',
-            password: 'Console#Access88',
-            isRackConsole: true,
-          },
-        ];
+    const accounts: CompanyAccount[] = existing?.accounts ?? [];
 
     const monitors: RackMonitor[] = Array.isArray(site.monitors) && site.monitors.length > 0
       ? site.monitors.map((m) => ({
@@ -322,17 +439,6 @@ class ApiService {
           siteUser: m.site_user,
           sitePassword: m.site_pass,
           isActive: m.is_active === 1,
-          pue: 2.19,
-          temperature: 33,
-          humidity: 38,
-          frontDoor: {
-            temperature: 24.5,
-            humidity: 48,
-          },
-          rearDoor: {
-            temperature: 33.0,
-            humidity: 38,
-          },
           activeIssues: [],
         }))
       : (existing?.monitors && existing.monitors.length > 0
@@ -343,41 +449,37 @@ class ApiService {
                 cabinetId: site.cabinet_id || 'CAB-01',
                 dahuaCabinetId: site.dahua_cabinet_id,
                 label: `${site.site_name || 'Primary'} Rack 1`,
-                openIp: site.open_ip || '219.92.246.237',
-                localIp: site.local_ip || '172.16.200.2',
-                siteUser: site.site_user || 'admin',
-                sitePassword: site.site_pass || 'Dtct+123',
+                openIp: site.open_ip || '',
+                localIp: site.local_ip || '',
+                siteUser: site.site_user || '',
+                sitePassword: site.site_pass || '',
                 isActive: site.is_active !== 0,
-                pue: 2.19,
-                temperature: 33,
-                humidity: 38,
-                frontDoor: {
-                  temperature: 24.5,
-                  humidity: 48,
-                },
-                rearDoor: {
-                  temperature: 33.0,
-                  humidity: 38,
-                },
                 activeIssues: [],
               },
             ]);
 
     return {
       id: `site-${site.site_id}`,
-      name: site.site_name || 'DCS HQ Office',
-      openIp: site.open_ip || '219.92.246.237',
-      localIp: site.local_ip || '172.16.200.2',
-      siteUser: site.site_user || 'admin',
-      sitePassword: site.site_pass || 'Dtct+123',
+      name: site.site_name || `Site #${site.site_id}`,
+      openIp: site.open_ip || '',
+      localIp: site.local_ip || '',
+      siteUser: site.site_user || '',
+      sitePassword: site.site_pass || '',
       isBlocked: site.is_active === 0,
-      pue: 2.19, // Live PUE from Dahua eCTRL controller
-      totalEnergyKwh: 610.25, // Monthly Energy Consumption
-      itEnergyKwh: 273.83, // IT Energy Consumption
-      temperature: 33, // 33°C
-      humidity: 38, // 38%
+      pue: existing?.pue ?? 0,
+      totalEnergyKwh: existing?.totalEnergyKwh,
+      itEnergyKwh: existing?.itEnergyKwh,
+      temperature: existing?.temperature,
+      humidity: existing?.humidity,
       lastService,
       nextService,
+      cctvIp: site.cctv_ip ?? existing?.cctvIp ?? '',
+      cctvUser: site.cctv_user ?? existing?.cctvUser ?? '',
+      cctvPassword: site.cctv_pass ?? existing?.cctvPassword ?? '',
+      faceScannerIp: site.face_scanner_ip ?? existing?.faceScannerIp ?? '',
+      faceScannerUser: site.face_scanner_user ?? existing?.faceScannerUser ?? '',
+      faceScannerPassword: site.face_scanner_pass ?? existing?.faceScannerPassword ?? '',
+      techNotes: site.tech_notes ?? existing?.techNotes ?? '',
       activeIssues: [], // All 7 subsystems (AC, T.H, Power, UPS, Smoke, Leak, PDU) Secure
       accounts,
       monitors,
@@ -397,8 +499,16 @@ class ApiService {
     site_pass: string;
     account_user?: string;
     account_pass?: string;
+    account_email?: string;
     console_user?: string;
     console_pass?: string;
+    cctv_ip?: string;
+    cctv_user?: string;
+    cctv_pass?: string;
+    face_scanner_ip?: string;
+    face_scanner_user?: string;
+    face_scanner_pass?: string;
+    tech_notes?: string;
   }): Promise<{ success: boolean; site_id?: number; message?: string }> {
     try {
       await this.ensureAuthenticated();
@@ -535,6 +645,213 @@ class ApiService {
       });
       const data = await res.json();
       return { success: res.ok && data.status === 'success' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  /**
+   * Admin API: Update Hikvision CCTV, Face Scanner, and Technician Notes for a site
+   */
+  async updateSiteTechDetails(
+    siteId: number,
+    payload: {
+      cctv_ip: string;
+      cctv_user: string;
+      cctv_pass: string;
+      face_scanner_ip: string;
+      face_scanner_user: string;
+      face_scanner_pass: string;
+      tech_notes: string;
+    }
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      await this.ensureAuthenticated();
+      const token = this.getAuthToken();
+      const res = await fetch(`${CPANEL_API_URL}?action=admin_update_site_tech_details`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token || '',
+        },
+        body: JSON.stringify({
+          action: 'admin_update_site_tech_details',
+          site_id: siteId,
+          ...payload,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.message || 'Failed to update tech details' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  /**
+   * Update site's last_maintenance date in the database (next service is auto-calculated +90 days)
+   */
+  async updateSiteMaintenance(
+    siteId: number,
+    maintenanceDate: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      await this.ensureAuthenticated();
+      const token = this.getAuthToken();
+      const res = await fetch(`${CPANEL_API_URL}?action=update_maintenance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token || '',
+        },
+        body: JSON.stringify({
+          action: 'update_maintenance',
+          site_id: siteId,
+          maintenance_date: maintenanceDate,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.message || 'Failed to update maintenance date' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  /**
+   * Request a 6-digit password recovery code sent to the account's registered email
+   */
+  async requestPasswordResetCode(
+    identifier: string
+  ): Promise<{ success: boolean; message?: string; maskedEmail?: string }> {
+    try {
+      const res = await fetch(`${CPANEL_API_URL}?action=request_password_reset_code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request_password_reset_code',
+          username: identifier,
+          email: identifier,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        return {
+          success: true,
+          message: data.message,
+          maskedEmail: data.masked_email,
+        };
+      }
+      return { success: false, message: data.message || 'Failed to send recovery code' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  /**
+   * Verify a 6-digit recovery code and set a new password
+   */
+  async verifyPasswordResetCode(
+    identifier: string,
+    code: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch(`${CPANEL_API_URL}?action=verify_password_reset_code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify_password_reset_code',
+          username: identifier,
+          email: identifier,
+          code,
+          new_password: newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.message || 'Invalid or expired recovery code' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  /**
+   * Fetch site members (username, email, rack console status) for a site
+   */
+  async fetchSiteMembers(siteId: number): Promise<
+    Array<{
+      user_id: number;
+      username: string;
+      email?: string | null;
+      role?: string;
+      is_kiosk?: number | boolean;
+    }>
+  > {
+    try {
+      const token = this.getAuthToken();
+      if (!token) return [];
+      const res = await fetch(`${CPANEL_API_URL}?action=list_site_members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token,
+        },
+        body: JSON.stringify({
+          action: 'list_site_members',
+          site_id: siteId,
+        }),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.members)) {
+        return data.members;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Update a site member's recovery email in the database
+   */
+  async updateSiteMemberEmail(
+    siteId: number,
+    memberUserId: number,
+    email: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const token = this.getAuthToken();
+      if (!token) return { success: false, message: 'Not authenticated' };
+      const res = await fetch(`${CPANEL_API_URL}?action=admin_update_user_email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token,
+        },
+        body: JSON.stringify({
+          action: 'admin_update_user_email',
+          site_id: siteId,
+          member_user_id: memberUserId,
+          email: email.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        return { success: true };
+      }
+      return { success: false, message: data.message || 'Failed to update recovery email' };
     } catch (err: any) {
       return { success: false, message: err.message || 'Network error' };
     }

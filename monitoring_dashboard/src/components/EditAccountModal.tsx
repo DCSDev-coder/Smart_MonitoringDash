@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Edit, Terminal, UserCheck, Eye, EyeOff, Save } from 'lucide-react';
+import { X, Edit, Terminal, UserCheck, Mail, Save } from 'lucide-react';
 import { CompanyAccount } from '../types';
+import { apiService } from '../services/apiService';
 
 interface EditAccountModalProps {
   companyId: string;
@@ -18,30 +19,48 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   onUpdateAccount,
 }) => {
   const [username, setUsername] = useState(account.username);
-  const [password, setPassword] = useState(account.password);
+  const [email, setEmail] = useState(account.email || '');
   const [isRackConsole, setIsRackConsole] = useState(account.isRackConsole);
-  const [showPassword, setShowPassword] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
       setError('Username is required');
       return;
     }
-    if (!password.trim()) {
-      setError('Password is required');
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address');
       return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    if (companyId.startsWith('site-') && account.id.startsWith('member-')) {
+      const siteId = parseInt(companyId.replace('site-', ''), 10);
+      const memberUserId = parseInt(account.id.replace('member-', ''), 10);
+      if (!isNaN(siteId) && !isNaN(memberUserId)) {
+        const res = await apiService.updateSiteMemberEmail(siteId, memberUserId, trimmedEmail);
+        if (!res.success) {
+          setSaving(false);
+          setError(res.message || 'Failed to save recovery email');
+          return;
+        }
+      }
     }
 
     const updatedAcc: CompanyAccount = {
       ...account,
       username: username.trim(),
-      password: password.trim(),
+      email: trimmedEmail || undefined,
       isRackConsole,
     };
 
     onUpdateAccount(companyId, updatedAcc);
+    setSaving(false);
     onClose();
   };
 
@@ -121,30 +140,20 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
             />
           </div>
 
-          {/* Password */}
+          {/* Recovery Email */}
           <div>
             <label className="text-[11px] font-bold text-white/50 tracking-wider block mb-1">
-              PASSWORD *
+              RECOVERY EMAIL (BACKUP FOR PASSWORD RESET)
             </label>
             <div className="relative">
+              <Mail className="w-4 h-4 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-[#00C08B] transition-colors pr-10 font-mono"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@company.com"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00C08B] transition-colors font-mono"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer"
-              >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4 text-white/70" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
             </div>
           </div>
 
@@ -159,10 +168,11 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d69b] text-[#060B11] transition-all shadow-lg shadow-[#00C08B]/20 cursor-pointer flex items-center gap-1.5"
+              disabled={saving}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d69b] disabled:opacity-60 text-[#060B11] transition-all shadow-lg shadow-[#00C08B]/20 cursor-pointer flex items-center gap-1.5"
             >
               <Save className="w-4 h-4" />
-              Save Changes
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

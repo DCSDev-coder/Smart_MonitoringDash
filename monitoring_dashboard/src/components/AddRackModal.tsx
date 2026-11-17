@@ -161,7 +161,7 @@ export const AddRackModal: React.FC<AddRackModalProps> = ({
                   type="text"
                   value={openIp}
                   onChange={(e) => setOpenIp(e.target.value)}
-                  placeholder="e.g. 219.92.246.237:8002"
+                  placeholder="e.g. 192.168.1.100:8002"
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00E5FF] transition-colors"
                   required
                 />

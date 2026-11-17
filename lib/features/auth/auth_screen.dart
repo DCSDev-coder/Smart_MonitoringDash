@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/network/cpanel_api_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/config/app_config.dart';
 import '../../core/auth/session_flow_service.dart';
 import '../../core/security/app_lock_controller.dart';
@@ -261,6 +262,8 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         if (!mounted) return;
         AppToast.showSuccess(context, 'Login successful!');
+        await _promptRecoveryEmailIfMissing();
+        if (!mounted) return;
         AppLockController.instance.prepareForHomeEntry(
           requireImmediateUnlock: false,
         );
@@ -308,6 +311,168 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!mounted) return;
     setState(() => _suppressLogoHero = false);
+  }
+
+  Future<void> _promptRecoveryEmailIfMissing() async {
+    final existingEmail =
+        (CpanelApiService.instance.currentUser?['email'] ?? '')
+            .toString()
+            .trim();
+    if (existingEmail.isNotEmpty || !mounted) return;
+
+    final currentUsername =
+        (CpanelApiService.instance.currentUser?['username'] ?? '')
+            .toString()
+            .trim();
+    final usernameController = TextEditingController(text: currentUsername);
+    final controller = TextEditingController();
+    String? errorText;
+    bool saving = false;
+
+    final savedUsername = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final isLight = Theme.of(ctx).brightness == Brightness.light;
+        final dialogBg = isLight ? Colors.white : const Color(0xFF111922);
+        final fieldBg =
+            isLight ? const Color(0xFFF3F6FA) : const Color(0xFF0B1119);
+        final titleColor =
+            isLight ? AppTheme.lightTextPrimary : Colors.white;
+        final bodyColor =
+            isLight ? AppTheme.lightTextSecondary : Colors.white70;
+        final hintColor = isLight ? Colors.black38 : Colors.white38;
+        final borderColor = isLight
+            ? Colors.black.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.14);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: borderColor),
+              ),
+              title: Text(
+                'Complete Account Setup',
+                style: TextStyle(
+                  color: titleColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add your recovery email (and optionally update your username) so you can reset your password if you forget it.',
+                    style: TextStyle(color: bodyColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: usernameController,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.emailAddress,
+                    style: TextStyle(color: titleColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Recovery Email',
+                      labelStyle: TextStyle(color: bodyColor, fontSize: 12),
+                      hintText: 'you@company.com',
+                      hintStyle: TextStyle(color: hintColor),
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: fieldBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Skip for now'),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final newUsername = usernameController.text.trim();
+                          final email = controller.text.trim();
+                          if (newUsername.length < 3) {
+                            setDialogState(() {
+                              errorText = 'Username must be at least 3 characters';
+                            });
+                            return;
+                          }
+                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                              .hasMatch(email)) {
+                            setDialogState(() {
+                              errorText = 'Please enter a valid email address';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            saving = true;
+                            errorText = null;
+                          });
+                          final res = await CpanelApiService.instance
+                              .updateMyEmail(email, username: newUsername);
+                          if (!ctx.mounted) return;
+                          if (res?['status']?.toString() == 'success') {
+                            if (_rememberMe && newUsername.isNotEmpty) {
+                              await rememberMeStore.setUsername(newUsername);
+                            }
+                            if (!ctx.mounted) return;
+                            Navigator.of(ctx).pop(newUsername);
+                          } else {
+                            setDialogState(() {
+                              saving = false;
+                              errorText = res?['message']?.toString() ??
+                                  'Failed to save details';
+                            });
+                          }
+                        },
+                  child: Text(saving ? 'Saving...' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      usernameController.dispose();
+      controller.dispose();
+    });
+    if (savedUsername != null && mounted) {
+      AppToast.showSuccess(context, 'Account setup saved.');
+    }
   }
 
   Future<void> _openResetPassword() async {

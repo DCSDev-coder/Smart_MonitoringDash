@@ -9,13 +9,31 @@ import { AddRackModal } from './components/AddRackModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { apiService } from './services/apiService';
-import {
-  loadCompanies,
-  saveCompanies,
-  loadRecoveryEmail,
-  saveRecoveryEmail,
-} from './mockData';
 import { CompanyItem, CompanyAccount, CompanyFilter, RackMonitor } from './types';
+
+const STORAGE_KEY_COMPANIES = 'dcstack_monitoring_companies';
+const STORAGE_KEY_EMAIL = 'dcstack_recovery_email';
+
+function loadCompanies(): CompanyItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_COMPANIES);
+    return raw ? (JSON.parse(raw) as CompanyItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCompanies(companies: CompanyItem[]): void {
+  localStorage.setItem(STORAGE_KEY_COMPANIES, JSON.stringify(companies));
+}
+
+function loadRecoveryEmail(): string {
+  return localStorage.getItem(STORAGE_KEY_EMAIL) || '';
+}
+
+function saveRecoveryEmail(email: string): void {
+  localStorage.setItem(STORAGE_KEY_EMAIL, email);
+}
 import {
   Building2,
   CheckCircle2,
@@ -61,21 +79,29 @@ function SmartRackIcon({ className = "w-12 h-12" }: { className?: string }) {
 
 export function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('dcstack_auth_session') === 'true';
+    return (
+      apiService.isAuthenticated() &&
+      (localStorage.getItem('dcstack_auth_session') === 'true' ||
+        sessionStorage.getItem('dcstack_auth_session') === 'true')
+    );
   });
   const [companies, setCompanies] = useState<CompanyItem[]>([]);
-  const [recoveryEmail, setRecoveryEmail] = useState<string>('admin@dcstack.my');
+  const [recoveryEmail, setRecoveryEmail] = useState<string>('');
   const [apiConnected, setApiConnected] = useState(false);
   const [isSyncingApi, setIsSyncingApi] = useState(false);
 
-  const handleLogin = () => {
-    localStorage.setItem('dcstack_auth_session', 'true');
+  const handleLogin = (_username: string, rememberMe = true) => {
+    localStorage.removeItem('dcstack_auth_session');
+    sessionStorage.removeItem('dcstack_auth_session');
+    const store = rememberMe ? localStorage : sessionStorage;
+    store.setItem('dcstack_auth_session', 'true');
     setIsLoggedIn(true);
   };
 
   const handleSignOut = () => {
     apiService.logout();
     localStorage.removeItem('dcstack_auth_session');
+    sessionStorage.removeItem('dcstack_auth_session');
     setIsLoggedIn(false);
   };
 
@@ -144,29 +170,117 @@ export function App() {
 
             saveCompanies(updated);
 
-            // Fetch live telemetry (doors temperature & humidity, live PUE) from adapter
+            // Fetch live telemetry (doors temperature & humidity, live PUE) + site members (username & email) from adapter/portal
             res.sites.forEach(async (apiSite) => {
-              const live = await apiService.fetchLiveRackTelemetry(apiSite.site_id);
-              if (live) {
-                setCompanies((curr) => {
-                  const refreshed = curr.map((comp) => {
-                    if (comp.id === `site-${apiSite.site_id}`) {
-                      const updatedMonitors = (comp.monitors || []).map((m) => ({
-                        ...m,
-                        frontDoor: live.frontDoor || m.frontDoor,
-                        rearDoor: live.rearDoor || m.rearDoor,
-                      }));
-                      return {
-                        ...comp,
-                        pue: live.pue ?? comp.pue,
-                        monitors: updatedMonitors,
-                      };
-                    }
-                    return comp;
+              const membersPromise = apiService.fetchSiteMembers(apiSite.site_id);
+              const monitors = apiSite.monitors || [];
+              if (monitors.length > 1) {
+                const [results, members] = await Promise.all([
+                  Promise.all(
+                    monitors.map(async (mon) => ({
+                      monitorId: mon.id,
+                      live: await apiService.fetchLiveRackTelemetry(apiSite.site_id, mon.id),
+                    }))
+                  ),
+                  membersPromise,
+                ]);
+                const byMonitorId = new Map(results.map((r) => [r.monitorId, r.live]));
+                const firstLive = results.find((r) => r.live)?.live;
+
+                if (firstLive || results.some((r) => r.live) || members.length > 0) {
+                  setCompanies((curr) => {
+                    const refreshed = curr.map((comp) => {
+                      if (comp.id === `site-${apiSite.site_id}`) {
+                        const existingByUser = new Map(
+                          (comp.accounts || []).map((a) => [a.username.toLowerCase(), a])
+                        );
+                        const mergedAccounts =
+                          members.length > 0
+                            ? members.map((mem) => {
+                                const prev = existingByUser.get(mem.username.toLowerCase());
+                                return {
+                                  id: prev?.id || `member-${mem.user_id}`,
+                                  username: mem.username,
+                                  email: mem.email || prev?.email || undefined,
+                                  password: prev?.password || 'Hashed in Portal',
+                                  isRackConsole:
+                                    mem.is_kiosk === 1 || mem.is_kiosk === true || Boolean(prev?.isRackConsole),
+                                };
+                              })
+                            : comp.accounts;
+                        const updatedMonitors = (comp.monitors || []).map((m) => {
+                          const numericId = Number(String(m.id).replace(/^mon-/, ''));
+                          const mLive = (!isNaN(numericId) ? byMonitorId.get(numericId) : undefined) || firstLive;
+                          if (!mLive) return m;
+                          return {
+                            ...m,
+                            doorsEnv: mLive.doorsEnv || m.doorsEnv,
+                            frontDoor: mLive.frontDoor || m.frontDoor,
+                            rearDoor: mLive.rearDoor || m.rearDoor,
+                          };
+                        });
+                        return {
+                          ...comp,
+                          pue: firstLive?.pue ?? comp.pue,
+                          totalEnergyKwh: firstLive?.totalEnergyKwh ?? comp.totalEnergyKwh,
+                          itEnergyKwh: firstLive?.itEnergyKwh ?? comp.itEnergyKwh,
+                          monitors: updatedMonitors,
+                          accounts: mergedAccounts,
+                        };
+                      }
+                      return comp;
+                    });
+                    saveCompanies(refreshed);
+                    return refreshed;
                   });
-                  saveCompanies(refreshed);
-                  return refreshed;
-                });
+                }
+              } else {
+                const [live, members] = await Promise.all([
+                  apiService.fetchLiveRackTelemetry(apiSite.site_id, monitors[0]?.id),
+                  membersPromise,
+                ]);
+                if (live || members.length > 0) {
+                  setCompanies((curr) => {
+                    const refreshed = curr.map((comp) => {
+                      if (comp.id === `site-${apiSite.site_id}`) {
+                        const existingByUser = new Map(
+                          (comp.accounts || []).map((a) => [a.username.toLowerCase(), a])
+                        );
+                        const mergedAccounts =
+                          members.length > 0
+                            ? members.map((mem) => {
+                                const prev = existingByUser.get(mem.username.toLowerCase());
+                                return {
+                                  id: prev?.id || `member-${mem.user_id}`,
+                                  username: mem.username,
+                                  email: mem.email || prev?.email || undefined,
+                                  password: prev?.password || 'Hashed in Portal',
+                                  isRackConsole:
+                                    mem.is_kiosk === 1 || mem.is_kiosk === true || Boolean(prev?.isRackConsole),
+                                };
+                              })
+                            : comp.accounts;
+                        const updatedMonitors = (comp.monitors || []).map((m) => ({
+                          ...m,
+                          doorsEnv: live?.doorsEnv || m.doorsEnv,
+                          frontDoor: live?.frontDoor || m.frontDoor,
+                          rearDoor: live?.rearDoor || m.rearDoor,
+                        }));
+                        return {
+                          ...comp,
+                          pue: live?.pue ?? comp.pue,
+                          totalEnergyKwh: live?.totalEnergyKwh ?? comp.totalEnergyKwh,
+                          itEnergyKwh: live?.itEnergyKwh ?? comp.itEnergyKwh,
+                          monitors: updatedMonitors,
+                          accounts: mergedAccounts,
+                        };
+                      }
+                      return comp;
+                    });
+                    saveCompanies(refreshed);
+                    return refreshed;
+                  });
+                }
               }
             });
 
@@ -174,6 +288,9 @@ export function App() {
           });
         }
       } else {
+        if (!apiService.isAuthenticated()) {
+          handleSignOut();
+        }
         setApiConnected(authOk && apiService.isAuthenticated());
       }
     } catch {

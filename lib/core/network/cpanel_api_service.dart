@@ -1573,4 +1573,186 @@ class CpanelApiService extends ChangeNotifier {
     }
     return null;
   }
+
+  Future<Map<String, dynamic>?> updateMyEmail(
+    String email, {
+    String? username,
+  }) async {
+    try {
+      final trimmedEmail = email.trim();
+      final trimmedUser = username?.trim();
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=update_my_email"),
+            headers: _authHeaders(
+              extra: {"Content-Type": "application/json"},
+            ),
+            body: jsonEncode({
+              "action": "update_my_email",
+              "email": trimmedEmail,
+              if (trimmedUser != null && trimmedUser.isNotEmpty)
+                "username": trimmedUser,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        if (decoded['status']?.toString() == 'success') {
+          final updatedUsername =
+              decoded['username']?.toString() ?? trimmedUser;
+          currentUser = {
+            ...?currentUser,
+            'email': trimmedEmail,
+            if (updatedUsername != null && updatedUsername.isNotEmpty)
+              'username': updatedUsername,
+          };
+        }
+        return decoded;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('updateMyEmail error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> requestMyVerificationCode() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=request_my_verification_code"),
+            headers: _authHeaders(
+              extra: {"Content-Type": "application/json"},
+            ),
+            body: jsonEncode({"action": "request_my_verification_code"}),
+          )
+          .timeout(const Duration(seconds: 12));
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('requestMyVerificationCode error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> verifyMyCode(String code) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=verify_my_code"),
+            headers: _authHeaders(
+              extra: {"Content-Type": "application/json"},
+            ),
+            body: jsonEncode({
+              "action": "verify_my_code",
+              "code": code.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('verifyMyCode error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> changeMyUsername(
+    String newUsername,
+    String code,
+  ) async {
+    try {
+      final trimmed = newUsername.trim();
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=change_my_username"),
+            headers: _authHeaders(
+              extra: {"Content-Type": "application/json"},
+            ),
+            body: jsonEncode({
+              "action": "change_my_username",
+              "new_username": trimmed,
+              "code": code.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        if (decoded['status']?.toString() == 'success') {
+          currentUser = {
+            ...?currentUser,
+            'username': trimmed,
+          };
+        }
+        return decoded;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('changeMyUsername error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> requestPasswordResetCode(
+    String identifier,
+  ) async {
+    try {
+      final id = identifier.trim();
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=request_password_reset_code"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "action": "request_password_reset_code",
+              "username": id,
+              "email": id,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('requestPasswordResetCode error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> verifyPasswordResetCode({
+    required String identifier,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      final id = identifier.trim();
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=verify_password_reset_code"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "action": "verify_password_reset_code",
+              "username": id,
+              "email": id,
+              "code": code.trim(),
+              "new_password": newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('verifyPasswordResetCode error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
 }

@@ -1,6 +1,7 @@
 export interface CompanyAccount {
   id: string;
   username: string;
+  email?: string;
   password: string;
   isRackConsole: boolean; // true = Rack Console, false = Standard Account
 }
@@ -70,6 +71,13 @@ export interface CompanyItem {
   activeIssues: MonitorIssueType[]; // Only issues that exist! If empty -> "None"
   accounts: CompanyAccount[];
   monitors?: RackMonitor[];
+  cctvIp?: string;
+  cctvUser?: string;
+  cctvPassword?: string;
+  faceScannerIp?: string;
+  faceScannerUser?: string;
+  faceScannerPassword?: string;
+  techNotes?: string;
 }
 
 export type CompanyFilter = 'all' | 'active' | 'blocked' | 'issues';

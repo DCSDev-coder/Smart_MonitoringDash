@@ -3,8 +3,6 @@ import {
   Building2,
   MoreVertical,
   KeyRound,
-  Eye,
-  EyeOff,
   Copy,
   Check,
   Ban,
@@ -52,8 +50,6 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
   const [showSiteCredentials, setShowSiteCredentials] = useState(false);
   const [selectedRackForCredentials, setSelectedRackForCredentials] = useState<string | number | undefined>(undefined);
   const [showMenu, setShowMenu] = useState(false);
-  // Default to false so passwords are automatically hidden first as requested
-  const [revealedAccountPasses, setRevealedAccountPasses] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showConfirmBlock, setShowConfirmBlock] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
@@ -62,13 +58,6 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
-  };
-
-  const toggleAccountPass = (id: string) => {
-    setRevealedAccountPasses((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
   };
 
   // Helper to parse dates into calendar tear-off format
@@ -531,44 +520,69 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                 </span>
               </div>
 
-              {/* Door Environment: Temperature & Humidity per door (Front & Rear) */}
+              {/* Door Environment: Dynamic Temperature & Humidity per door/sensor */}
               <div className="pt-2.5 border-t border-[#1e2836]/60 flex flex-wrap items-center justify-between gap-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Front Door */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
-                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                        Front Door:
-                      </span>
-                      <span className="font-mono font-bold text-[#00C08B] text-xs">
-                        {rack.frontDoor ? `${rack.frontDoor.temperature}°C` : '24.5°C'}
-                      </span>
-                      <span className="text-white/20">|</span>
-                      <span className="font-mono font-bold text-[#00E5FF] text-xs">
-                        {rack.frontDoor ? `${rack.frontDoor.humidity}% RH` : '48% RH'}
-                      </span>
-                    </div>
+                    {(() => {
+                      const doors =
+                        rack.doorsEnv && rack.doorsEnv.length > 0
+                          ? rack.doorsEnv
+                          : [
+                              ...(rack.frontDoor
+                                ? [
+                                    {
+                                      doorName: 'Front Door',
+                                      temperature: rack.frontDoor.temperature,
+                                      humidity: rack.frontDoor.humidity,
+                                    },
+                                  ]
+                                : []),
+                              ...(rack.rearDoor
+                                ? [
+                                    {
+                                      doorName: 'Rear Door',
+                                      temperature: rack.rearDoor.temperature,
+                                      humidity: rack.rearDoor.humidity,
+                                    },
+                                  ]
+                                : []),
+                            ];
 
-                    {/* Rear Door */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
-                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                        Rear Door:
-                      </span>
-                      <span className="font-mono font-bold text-[#FF9500] text-xs">
-                        {rack.rearDoor
-                          ? `${rack.rearDoor.temperature}°C`
-                          : rack.temperature
-                          ? `${rack.temperature}°C`
-                          : '33.0°C'}
-                      </span>
-                      <span className="text-white/20">|</span>
-                      <span className="font-mono font-bold text-[#00E5FF] text-xs">
-                        {rack.rearDoor
-                          ? `${rack.rearDoor.humidity}% RH`
-                          : rack.humidity
-                          ? `${rack.humidity}% RH`
-                          : '38% RH'}
-                      </span>
-                    </div>
+                      if (doors.length === 0) {
+                        return (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm">
+                            <span className="text-[10px] font-medium text-white/40">
+                              Waiting for live sensor telemetry...
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return doors.map((door, idx) => {
+                        const isRear =
+                          door.doorName.toLowerCase().includes('rear') ||
+                          door.doorName.toLowerCase().includes('back') ||
+                          door.temperature >= 30;
+                        const tempColor = isRear ? 'text-[#FF9500]' : 'text-[#00C08B]';
+                        return (
+                          <div
+                            key={`${door.doorName}-${idx}`}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm"
+                          >
+                            <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                              {door.doorName}:
+                            </span>
+                            <span className={`font-mono font-bold ${tempColor} text-xs`}>
+                              {door.temperature}°C
+                            </span>
+                            <span className="text-white/20">|</span>
+                            <span className="font-mono font-bold text-[#00E5FF] text-xs">
+                              {door.humidity}% RH
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
 
                   <button
@@ -611,8 +625,6 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {company.accounts.map((acc) => {
-              // Default to hidden (false) first as requested
-              const isRevealed = Boolean(revealedAccountPasses[acc.id]);
               return (
                 <div
                   key={acc.id}
@@ -654,11 +666,11 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                         </span>
                       </div>
 
-                      {/* Password: Automatically masked first */}
-                      <div className="text-xs text-white/60 flex items-center gap-1.5 font-mono">
-                        <span className="text-white/40">Password:</span>
-                        <span className={isRevealed ? 'text-[#00C08B] font-bold select-all' : 'text-white/40 tracking-wider'}>
-                          {isRevealed ? acc.password : '••••••••'}
+                      {/* Recovery Email */}
+                      <div className="text-xs text-white/60 flex items-center gap-1.5 font-mono truncate">
+                        <span className="text-white/40">Recovery Email:</span>
+                        <span className={acc.email ? 'text-[#00E5FF] truncate select-all' : 'text-white/30 italic'}>
+                          {acc.email || 'Not set'}
                         </span>
                       </div>
                     </div>
@@ -666,32 +678,23 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
                   {/* Actions for this account */}
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => toggleAccountPass(acc.id)}
-                      className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-white transition-colors cursor-pointer"
-                      title={isRevealed ? 'Mask Password' : 'Show Password'}
-                    >
-                      {isRevealed ? (
-                        <EyeOff className="w-3.5 h-3.5 text-white/70" />
-                      ) : (
-                        <Eye className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => copyToClipboard(acc.password, `accPass-${acc.id}`)}
-                      className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-white transition-colors cursor-pointer"
-                      title="Copy Password"
-                    >
-                      {copiedKey === `accPass-${acc.id}` ? (
-                        <Check className="w-3.5 h-3.5 text-[#00C08B]" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    {acc.email && (
+                      <button
+                        onClick={() => copyToClipboard(acc.email!, `accEmail-${acc.id}`)}
+                        className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-white transition-colors cursor-pointer"
+                        title="Copy Recovery Email"
+                      >
+                        {copiedKey === `accEmail-${acc.id}` ? (
+                          <Check className="w-3.5 h-3.5 text-[#00C08B]" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={() => onOpenEditAccount(company.id, acc)}
                       className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-[#00C08B] transition-colors cursor-pointer"
-                      title="Edit Credentials"
+                      title="Set Recovery Email"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>

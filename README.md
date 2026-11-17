@@ -105,6 +105,30 @@ flutter build ipa --release --build-number=11 --dart-define-from-file=.env.json 
   - `https://portal.dcstack.my` = cPanel PHP API & assets
   - `https://adapter.dcstack.my` = adapter API
 
+## Architecture & Recent Features
+
+### 1. Backup Recovery Email & 6-Digit Email OTP Verification
+- **Email Registration:** Users register their own personal backup recovery email in **Settings > Recovery Email** (or via first-login reminder dialog).
+- **Cryptographic OTP Codes:** Critical actions require requesting a 6-digit email verification code:
+  - **Reset Password** (from login via `Forgot Password` or in-app Settings)
+  - **Change Username** (directly from profile pencil icon in Settings)
+  - **Set Door PIN** (in-app Door Access PIN configuration)
+- **Manual Request Workflow:** Codes are dispatched only when the user explicitly clicks **Request Code**, avoiding unintentional email delivery. Codes expire after 15 minutes (`DATE_ADD(NOW(), INTERVAL 15 MINUTE)`).
+
+### 2. Credential Separation & Web Monitoring Access Gating
+- **Dahua Hardware Isolation:** Dahua controller hardware credentials (`site_user`, `site_pass`) are kept strictly separated from portal user logins (`users` table). Hardware passwords are never exposed in user interface cards.
+- **Monitoring Web Gating (`can_access_monitoring_web`):** The React/Vite web monitoring interface (`monitoring_dashboard`) is restricted to the primary DCS HQ company (`MONITORING_WEB_COMPANY_SITE_ID`, site `1`). Non-DCS users are blocked with `403 Forbidden`. DCS administrators can selectively toggle web access for individual team members in **Manage Users**.
+
+### 3. Dynamic Telemetry & 90-Day Maintenance Automation
+- **Multi-Sensor Door Environment:** Automatically discovers and pairs multiple door contacts (2, 4, or more) matching `temp-hum-top-n` telemetry rather than assuming a single front/rear pair.
+- **Dynamic PUE:** Calculates real-time Power Usage Effectiveness directly from active hardware draw, removing obsolete manual sliders and simulator inputs.
+- **90-Day Servicing Cycle:** Computes next required maintenance as exactly `+90 days` from `sites.last_maintenance` and synchronizes service updates back to cPanel via `action=update_maintenance`.
+
+### 4. UI Polish & Native Safety
+- **Unboxed Logo Display:** Settings overlay renders company logos without rigid square bounding boxes (`220x110` max container, `BoxFit.contain`), preserving clean visual aspect ratios.
+- **Deferred Controller Disposal:** All modal and dialog `TextEditingController` instances defer disposal until dialog dismissal animations complete, preventing `TextEditingController was used after being disposed` crashes.
+- **Responsive Layouts:** PUE trend chips and metric tags utilize `Wrap` layouts to prevent `RenderFlex` overflow errors on compact phone viewports.
+
 ## Current Release State
 
 - Flutter source version in [pubspec.yaml](pubspec.yaml): `1.0.1+8`

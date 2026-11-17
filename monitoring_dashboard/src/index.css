@@ -45,3 +45,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0 !important;
   z-index: 10;
 }
+
+/* Keep dark background and white text when browser autofill suggestions are selected */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #0b1119 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

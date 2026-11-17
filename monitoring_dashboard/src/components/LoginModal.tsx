@@ -4,18 +4,25 @@ import { AnimatedDcsLogo } from './AnimatedDcsLogo';
 import { apiService } from '../services/apiService';
 
 interface LoginModalProps {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, rememberMe?: boolean) => void;
   recoveryEmail: string;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotSent, setForgotSent] = useState(false);
+  const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify' | 'done'>('request');
+  const [recoveryStatus, setRecoveryStatus] = useState('');
+  const [recoveryError, setRecoveryError] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +35,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
 
     try {
       // Connect and authenticate against live DCStack Portal API
-      const res = await apiService.login(username.trim(), password.trim());
+      const res = await apiService.login(username.trim(), password.trim(), rememberMe);
       if (res.success) {
-        onLogin(username.trim());
+        onLogin(username.trim(), rememberMe);
         return;
       }
 
@@ -42,8 +49,47 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
     }
   };
 
-  const handleSendRecovery = () => {
-    setForgotSent(true);
+  const handleSendRecoveryCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = recoveryIdentifier.trim() || username.trim() || recoveryEmail.trim();
+    if (!id) {
+      setRecoveryError('Please enter your username or registered email');
+      return;
+    }
+    setRecoveryLoading(true);
+    setRecoveryError('');
+    setRecoveryStatus('');
+    const res = await apiService.requestPasswordResetCode(id);
+    setRecoveryLoading(false);
+    if (res.success) {
+      setRecoveryIdentifier(id);
+      setRecoveryStatus(res.message || 'Recovery code sent to your email.');
+      setRecoveryStep('verify');
+    } else {
+      setRecoveryError(res.message || 'Unable to send recovery code');
+    }
+  };
+
+  const handleVerifyRecoveryCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryCode.trim() || newPassword.length < 6) {
+      setRecoveryError('Enter the 6-digit code and a new password (min 6 chars)');
+      return;
+    }
+    setRecoveryLoading(true);
+    setRecoveryError('');
+    const res = await apiService.verifyPasswordResetCode(
+      recoveryIdentifier.trim(),
+      recoveryCode.trim(),
+      newPassword
+    );
+    setRecoveryLoading(false);
+    if (res.success) {
+      setRecoveryStep('done');
+      setRecoveryStatus('Password reset successfully! You can now sign in.');
+    } else {
+      setRecoveryError(res.message || 'Invalid or expired recovery code');
+    }
   };
 
   return (
@@ -112,17 +158,31 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
             </div>
           </div>
 
-          {/* Email Recovery Shortcut */}
-          <div className="flex justify-end">
+          {/* Keep signed in + Email Recovery */}
+          <div className="flex items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-xs text-white/60 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-[#1e2836] bg-[#0b1119] text-[#00C08B] focus:ring-[#00C08B]"
+              />
+              <span>Keep me signed in</span>
+            </label>
             <button
               type="button"
               onClick={() => {
-                setForgotSent(false);
+                setRecoveryIdentifier(username.trim());
+                setRecoveryCode('');
+                setNewPassword('');
+                setRecoveryStep('request');
+                setRecoveryError('');
+                setRecoveryStatus('');
                 setShowForgotModal(true);
               }}
               className="text-xs font-bold text-[#00C08B] hover:text-[#00d89c] transition-colors cursor-pointer"
             >
-              Forgot password? (Email Recovery)
+              Forgot password?
             </button>
           </div>
 
@@ -154,7 +214,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
         </form>
       </div>
 
-      {/* Forgot Password / Email Recovery Dialog */}
+      {/* Forgot Password / Email Recovery Code Dialog */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md p-6 rounded-2xl bg-[#111922] border border-[#1e2836] shadow-2xl">
@@ -162,39 +222,99 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
               <div className="p-2 rounded-xl bg-[#00E5FF]/15 text-[#00E5FF]">
                 <Mail className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-white">Admin Password Recovery</h3>
+              <h3 className="text-base font-bold text-white">Password Recovery Code</h3>
             </div>
 
-            <p className="text-xs text-white/70 mt-4 leading-relaxed">
-              Send a password reset link to your registered recovery email:
-            </p>
-            <div className="mt-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836] font-mono text-xs text-[#00E5FF]">
-              {recoveryEmail}
-            </div>
+            {recoveryError && (
+              <div className="mt-4 p-3 rounded-xl bg-[#FF3B30]/15 border border-[#FF3B30]/30 text-xs text-[#FF6961]">
+                {recoveryError}
+              </div>
+            )}
 
-            {forgotSent ? (
+            {recoveryStatus && (
               <div className="mt-4 p-3 rounded-xl bg-[#00C08B]/15 border border-[#00C08B]/30 text-xs text-[#00C08B] flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Recovery email sent! Check your inbox to reset your password.</span>
+                <span>{recoveryStatus}</span>
               </div>
-            ) : null}
+            )}
 
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowForgotModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white/60 hover:text-white transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-              {!forgotSent && (
+            {recoveryStep === 'request' && (
+              <form onSubmit={handleSendRecoveryCode} className="mt-4 space-y-4">
+                <p className="text-xs text-white/70 leading-relaxed">
+                  Enter your portal username or registered recovery email to receive a 6-digit recovery code.
+                </p>
+                <input
+                  type="text"
+                  value={recoveryIdentifier}
+                  onChange={(e) => setRecoveryIdentifier(e.target.value)}
+                  placeholder="Username or recovery email"
+                  className="w-full px-3.5 py-2.5 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#00C08B]"
+                />
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white/60 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={recoveryLoading}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] disabled:opacity-60 text-[#060B11] transition-all cursor-pointer"
+                  >
+                    {recoveryLoading ? 'Sending...' : 'Send Code'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {recoveryStep === 'verify' && (
+              <form onSubmit={handleVerifyRecoveryCode} className="mt-4 space-y-3">
+                <input
+                  type="text"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
+                  placeholder="6-digit recovery code"
+                  className="w-full px-3.5 py-2.5 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white font-mono placeholder-white/30 focus:outline-none focus:border-[#00C08B]"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password (min 6 chars)"
+                  className="w-full px-3.5 py-2.5 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#00C08B]"
+                />
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white/60 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={recoveryLoading}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] disabled:opacity-60 text-[#060B11] transition-all cursor-pointer"
+                  >
+                    {recoveryLoading ? 'Resetting...' : 'Reset Password'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {recoveryStep === 'done' && (
+              <div className="mt-6 flex justify-end">
                 <button
-                  onClick={handleSendRecovery}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] transition-all cursor-pointer shadow-lg shadow-[#00C08B]/20"
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] transition-all cursor-pointer"
                 >
-                  Send Recovery Email
+                  Back to Sign In
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}

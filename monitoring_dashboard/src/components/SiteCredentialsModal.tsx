@@ -12,6 +12,9 @@ import {
   Shield,
   Edit3,
   Server,
+  Camera,
+  ScanFace,
+  FileText,
 } from 'lucide-react';
 import { CompanyItem, RackMonitor } from '../types';
 
@@ -55,6 +58,7 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
 
   const [showPassword, setShowPassword] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'rack' | 'cctv' | 'face' | 'notes'>('rack');
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -84,8 +88,36 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
           </button>
         </div>
 
+        {/* Device Category Tabs */}
+        <div className="mt-4 grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-[#0b1119] border border-[#1e2836]">
+          {[
+            { id: 'rack', label: 'Rack', icon: Server },
+            { id: 'cctv', label: 'CCTV', icon: Camera },
+            { id: 'face', label: 'Face Scan', icon: ScanFace },
+            { id: 'notes', label: 'Notes', icon: FileText },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                className={`px-2 py-1.5 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-[#00C08B] text-[#060B11]'
+                    : 'text-white/55 hover:text-white'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Rack Selector Tabs if multiple racks exist */}
-        {monitors.length > 1 && (
+        {activeTab === 'rack' && monitors.length > 1 && (
           <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
             {monitors.map((rack, idx) => (
               <button
@@ -107,8 +139,10 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
           </div>
         )}
 
-        {/* Rack Label Banner */}
-        <div className="mt-4 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836] flex items-center justify-between">
+        {/* Rack Label Banner & Credentials List */}
+        {activeTab === 'rack' && (
+          <>
+            <div className="mt-4 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="px-2 py-0.5 rounded-md bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/30 text-xs font-mono font-bold">
               {activeRack.cabinetId}
@@ -266,6 +300,173 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
             </div>
           </div>
         </div>
+          </>
+        )}
+
+        {activeTab === 'cctv' && (
+          <div className="mt-5 space-y-3">
+            {[
+              { label: 'Hikvision CCTV IP', value: company.cctvIp || '', key: 'cctvIp', icon: Globe },
+              { label: 'CCTV Username', value: company.cctvUser || '', key: 'cctvUser', icon: User },
+            ].map((row) => {
+              const Icon = row.icon;
+              return (
+                <div
+                  key={row.key}
+                  className="p-3.5 rounded-xl bg-[#0b1119] border border-[#1e2836] flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 text-[#00E5FF]" />
+                    <div>
+                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
+                        {row.label}
+                      </span>
+                      <span className="text-sm font-mono font-semibold text-white">
+                        {row.value || 'Not configured'}
+                      </span>
+                    </div>
+                  </div>
+                  {row.value && (
+                    <button
+                      onClick={() => copyToClipboard(row.value, row.key)}
+                      className="p-1.5 rounded-lg bg-[#141d27] border border-[#1e2836] text-white/50 hover:text-white transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
+                    >
+                      {copiedKey === row.key ? (
+                        <Check className="w-3.5 h-3.5 text-[#00C08B]" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>{copiedKey === row.key ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <div className="p-3.5 rounded-xl bg-[#0b1119] border border-[#1e2836] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Key className="w-4 h-4 text-[#FF9500]" />
+                <div>
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
+                    CCTV Password
+                  </span>
+                  <span className="text-sm font-mono font-semibold text-white">
+                    {company.cctvPassword
+                      ? showPassword
+                        ? company.cctvPassword
+                        : '••••••••'
+                      : 'Not configured'}
+                  </span>
+                </div>
+              </div>
+              {company.cctvPassword && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-1.5 rounded-lg bg-[#141d27] border border-[#1e2836] text-white/50 hover:text-white cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(company.cctvPassword || '', 'cctvPass')}
+                    className="p-1.5 rounded-lg bg-[#141d27] border border-[#1e2836] text-white/50 hover:text-white cursor-pointer flex items-center gap-1 text-[11px]"
+                  >
+                    {copiedKey === 'cctvPass' ? <Check className="w-3.5 h-3.5 text-[#00C08B]" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'cctvPass' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'face' && (
+          <div className="mt-5 space-y-3">
+            {[
+              { label: 'Hikvision Face Scanner IP', value: company.faceScannerIp || '', key: 'faceIp', icon: Globe },
+              { label: 'Face Scanner Username', value: company.faceScannerUser || '', key: 'faceUser', icon: User },
+            ].map((row) => {
+              const Icon = row.icon;
+              return (
+                <div
+                  key={row.key}
+                  className="p-3.5 rounded-xl bg-[#0b1119] border border-[#1e2836] flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 text-[#00E5FF]" />
+                    <div>
+                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
+                        {row.label}
+                      </span>
+                      <span className="text-sm font-mono font-semibold text-white">
+                        {row.value || 'Not configured'}
+                      </span>
+                    </div>
+                  </div>
+                  {row.value && (
+                    <button
+                      onClick={() => copyToClipboard(row.value, row.key)}
+                      className="p-1.5 rounded-lg bg-[#141d27] border border-[#1e2836] text-white/50 hover:text-white transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
+                    >
+                      {copiedKey === row.key ? (
+                        <Check className="w-3.5 h-3.5 text-[#00C08B]" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>{copiedKey === row.key ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <div className="p-3.5 rounded-xl bg-[#0b1119] border border-[#1e2836] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Key className="w-4 h-4 text-[#FF9500]" />
+                <div>
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
+                    Face Scanner Password
+                  </span>
+                  <span className="text-sm font-mono font-semibold text-white">
+                    {company.faceScannerPassword
+                      ? showPassword
+                        ? company.faceScannerPassword
+                        : '••••••••'
+                      : 'Not configured'}
+                  </span>
+                </div>
+              </div>
+              {company.faceScannerPassword && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-1.5 rounded-lg bg-[#141d27] border border-[#1e2836] text-white/50 hover:text-white cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(company.faceScannerPassword || '', 'facePass')}
+                    className="p-1.5 rounded-lg bg-[#141d27] border border-[#1e2836] text-white/50 hover:text-white cursor-pointer flex items-center gap-1 text-[11px]"
+                  >
+                    {copiedKey === 'facePass' ? <Check className="w-3.5 h-3.5 text-[#00C08B]" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'facePass' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'notes' && (
+          <div className="mt-5">
+            <div className="p-4 rounded-xl bg-[#0b1119] border border-[#1e2836]">
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block mb-2">
+                Technician Notes &amp; Site Remarks
+              </span>
+              <p className="text-xs text-white/85 whitespace-pre-wrap leading-relaxed min-h-[96px]">
+                {company.techNotes?.trim() || 'No technician notes recorded yet. Click "Edit Details" below to add notes.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Footer Actions */}
         <div className="mt-6 flex items-center justify-between pt-4 border-t border-[#1e2836]">

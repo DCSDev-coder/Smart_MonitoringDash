@@ -19,6 +19,7 @@ class ManageUsersScreen extends StatefulWidget {
 class _ManageUsersScreenState extends State<ManageUsersScreen> {
   bool _loading = false;
   List<dynamic> _members = [];
+  bool _isMonitoringWebCompany = false;
 
   int? _portalUserId;
   String? _adminPasswordSession;
@@ -146,9 +147,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     final members =
         (res?['members'] is List) ? (res?['members'] as List) : <dynamic>[];
+    final isWebCompany = res?['is_monitoring_web_company'] == true;
     setState(() {
       _loading = false;
       _members = members;
+      _isMonitoringWebCompany = isWebCompany;
     });
   }
 
@@ -422,6 +425,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     bool canChangeSettings = flag('can_change_settings', defaultValue: false);
     bool canManageUsers = flag('can_manage_users', defaultValue: false);
     bool isRackConsole = flag('is_kiosk', defaultValue: false);
+    bool canAccessMonitoringWeb =
+        flag('can_access_monitoring_web', defaultValue: false);
+    final email = (member['email'] ?? '').toString();
+    final ownerId = int.tryParse(
+      (CpanelApiService.instance.currentSite?['owner_user_id'] ?? '')
+          .toString(),
+    );
+    final isOwnerSelf = ownerId != null &&
+        ownerId == memberUserId &&
+        _portalUserId != null &&
+        _portalUserId == memberUserId;
 
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -438,6 +452,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           canChangeSettings: canChangeSettings,
           canManageUsers: canManageUsers,
           isRackConsole: isRackConsole,
+          email: email,
+          canAccessMonitoringWeb: canAccessMonitoringWeb,
+          isOwnerSelf: isOwnerSelf,
+          isMonitoringWebCompany: _isMonitoringWebCompany,
         ),
       ),
     );
@@ -777,6 +795,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final username = map['username']?.toString() ??
         map['member_username']?.toString() ??
         'user';
+    final email = (map['email'] ?? '').toString().trim();
     final role = map['role']?.toString() ?? 'user';
 
     final memberUserId = int.tryParse(map['user_id']?.toString() ?? '');
@@ -792,7 +811,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final isAdminRole = role.toLowerCase() == 'admin';
     final canDelete =
         memberUserId != null && !isOwner && !isSelf && !isAdminRole;
-    final canEdit = memberUserId != null && !isOwner && !isSelf;
+    final canEdit = memberUserId != null && ((!isOwner && !isSelf) || (isOwner && isSelf));
 
     bool flag(String key) {
       final v = map[key];
@@ -852,15 +871,34 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     size: 18),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    username,
-                    style: TextStyle(
-                      color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        username,
+                        style: TextStyle(
+                          color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (email.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextSecondary
+                                : Colors.white.withValues(alpha: 0.55),
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),

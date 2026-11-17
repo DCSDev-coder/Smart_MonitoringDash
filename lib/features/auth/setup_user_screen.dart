@@ -30,12 +30,18 @@ class SetupUserScreen extends StatefulWidget {
 
 class _SetupUserScreenState extends State<SetupUserScreen> {
   final _usernameCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _usernameFocus = FocusNode();
+  final _codeFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _userFieldKey = GlobalKey<AnimatedAuthFieldState>();
+  final _codeFieldKey = GlobalKey<AnimatedAuthFieldState>();
   final _passFieldKey = GlobalKey<AnimatedAuthFieldState>();
   bool _submitting = false;
+  bool _requestingCode = false;
+  bool _codeRequested = false;
+  String? _codeStatusText;
   bool _suppressLogoHero = false;
 
   bool get _isResetMode => widget.mode == SetupUserMode.resetPassword;
@@ -43,8 +49,10 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
   @override
   void dispose() {
     _usernameCtrl.dispose();
+    _codeCtrl.dispose();
     _passwordCtrl.dispose();
     _usernameFocus.dispose();
+    _codeFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
   }
@@ -93,24 +101,59 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
     return raw;
   }
 
+  Future<void> _requestCode() async {
+    if (_requestingCode || _submitting) return;
+    final identifier = _usernameCtrl.text.trim();
+    if (identifier.isEmpty) {
+      _userFieldKey.currentState?.showError('Please enter your username.');
+      return;
+    }
+    setState(() {
+      _requestingCode = true;
+      _codeStatusText = null;
+    });
+    final res =
+        await CpanelApiService.instance.requestPasswordResetCode(identifier);
+    if (!mounted) return;
+    setState(() => _requestingCode = false);
+    if (res?['status']?.toString() == 'success') {
+      setState(() {
+        _codeRequested = true;
+        _codeStatusText =
+            res?['message']?.toString() ?? 'Verification code sent.';
+      });
+      _codeFocus.requestFocus();
+    } else {
+      final msg = _friendlySetupError(res);
+      _userFieldKey.currentState?.showError(msg);
+    }
+  }
+
   Future<void> _submit() async {
     if (_submitting) return;
     final username = _usernameCtrl.text.trim();
+    final code = _codeCtrl.text.trim();
     final password = _passwordCtrl.text;
 
     if (username.isEmpty) {
       _userFieldKey.currentState?.showError('Please enter a username.');
     }
+    if (_isResetMode && code.length < 4) {
+      _codeFieldKey.currentState?.showError('Enter the 6-digit verification code.');
+    }
     if (password.isEmpty) {
       _passFieldKey.currentState?.showError(
           _isResetMode ? 'Please enter a new password.' : 'Please enter a password.');
     }
-    if (username.isEmpty || password.isEmpty) return;
+    if (username.isEmpty || password.isEmpty || (_isResetMode && code.length < 4)) {
+      return;
+    }
 
     setState(() => _submitting = true);
     final res = _isResetMode
-        ? await CpanelApiService.instance.resetPasswordByUsername(
-            username: username,
+        ? await CpanelApiService.instance.verifyPasswordResetCode(
+            identifier: username,
+            code: code,
             newPassword: password,
           )
         : await CpanelApiService.instance.setupFirstPassword(
@@ -248,9 +291,68 @@ class _SetupUserScreenState extends State<SetupUserScreen> {
                                           focusNode: _usernameFocus,
                                           label: 'Username',
                                           action: TextInputAction.next,
-                                          onSubmitted: (_) => _passwordFocus.requestFocus(),
+                                          onSubmitted: (_) => _isResetMode
+                                              ? _codeFocus.requestFocus()
+                                              : _passwordFocus.requestFocus(),
                                         ),
                                       ),
+                                      if (_isResetMode) ...[
+                                        const SizedBox(height: 14),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: OutlinedButton.icon(
+                                            onPressed: (_requestingCode || _submitting)
+                                                ? null
+                                                : _requestCode,
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFF00C08B),
+                                              side: BorderSide(
+                                                color: const Color(0xFF00C08B)
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 12,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.mark_email_read_outlined,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              _requestingCode
+                                                  ? 'Sending...'
+                                                  : (_codeRequested
+                                                      ? 'Resend Verification Code'
+                                                      : 'Request Verification Code'),
+                                            ),
+                                          ),
+                                        ),
+                                        if (_codeStatusText != null) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            _codeStatusText!,
+                                            style: const TextStyle(
+                                              color: Color(0xFF00C08B),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 14),
+                                        AnimatedAuthField(
+                                          key: _codeFieldKey,
+                                          controller: _codeCtrl,
+                                          focusNode: _codeFocus,
+                                          label: '6-Digit Verification Code',
+                                          action: TextInputAction.next,
+                                          onSubmitted: (_) =>
+                                              _passwordFocus.requestFocus(),
+                                        ),
+                                      ],
                                       const SizedBox(height: 18),
                                       FadeInSlide(
                                         delay: const Duration(milliseconds: 400),

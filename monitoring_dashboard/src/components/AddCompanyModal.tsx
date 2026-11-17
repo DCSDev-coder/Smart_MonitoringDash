@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Building2, Plus, Calendar, Server } from 'lucide-react';
-import { CompanyItem, CompanyAccount, MonitorIssueType, ALL_ISSUE_TYPES, RackMonitor } from '../types';
-import { apiService } from '../services/apiService';
+import { CompanyItem, CompanyAccount, RackMonitor } from '../types';
+import { apiService, calculateNextServiceDate } from '../services/apiService';
 
 interface AddCompanyModalProps {
   onClose: () => void;
@@ -27,22 +27,23 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
   const [selectedExistingAccount, setSelectedExistingAccount] = useState(initialAccountUser);
   const [accountUser, setAccountUser] = useState(initialAccountUser);
   const [accountPassword, setAccountPassword] = useState('');
+  const [accountEmail, setAccountEmail] = useState('');
   const [consoleUser, setConsoleUser] = useState('');
   const [consolePassword, setConsolePassword] = useState('');
 
-  const [pue, setPue] = useState('1.25');
-  const [lastService, setLastService] = useState('2026-11-05');
-  const [nextService, setNextService] = useState('2027-02-03');
+  const [cctvIp, setCctvIp] = useState('');
+  const [cctvUser, setCctvUser] = useState('');
+  const [cctvPassword, setCctvPassword] = useState('');
+  const [faceScannerIp, setFaceScannerIp] = useState('');
+  const [faceScannerUser, setFaceScannerUser] = useState('');
+  const [faceScannerPassword, setFaceScannerPassword] = useState('');
+  const [techNotes, setTechNotes] = useState('');
 
-  const [selectedIssues, setSelectedIssues] = useState<MonitorIssueType[]>([]);
+  const [lastService, setLastService] = useState(() => new Date().toISOString().split('T')[0]);
+  const expectedNextService = calculateNextServiceDate(lastService);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const toggleIssue = (issue: MonitorIssueType) => {
-    setSelectedIssues((prev) =>
-      prev.includes(issue) ? prev.filter((i) => i !== issue) : [...prev, issue]
-    );
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +60,15 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       return;
     }
     if (!siteUser.trim() || !sitePassword.trim()) {
-      setError('Site User and Site Password are required');
+      setError('Dahua Gateway User and Password are required');
+      return;
+    }
+    if (!accountUser.trim()) {
+      setError('Portal Admin Username is required (separate from Dahua gateway login)');
+      return;
+    }
+    if (!selectedExistingAccount && !accountPassword.trim()) {
+      setError('Portal Admin Password is required when creating a new client account');
       return;
     }
 
@@ -79,11 +88,22 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
         site_pass: sitePassword.trim(),
         account_user: accountUser.trim() || undefined,
         account_pass: accountPassword.trim() || undefined,
+        account_email: accountEmail.trim() || undefined,
         console_user: consoleUser.trim() || undefined,
         console_pass: consolePassword.trim() || undefined,
+        cctv_ip: cctvIp.trim() || undefined,
+        cctv_user: cctvUser.trim() || undefined,
+        cctv_pass: cctvPassword.trim() || undefined,
+        face_scanner_ip: faceScannerIp.trim() || undefined,
+        face_scanner_user: faceScannerUser.trim() || undefined,
+        face_scanner_pass: faceScannerPassword.trim() || undefined,
+        tech_notes: techNotes.trim() || undefined,
       });
       if (apiRes.success && apiRes.site_id) {
         assignedSiteId = apiRes.site_id;
+        if (lastService) {
+          await apiService.updateSiteMaintenance(apiRes.site_id, lastService);
+        }
       }
     } catch {
       // If offline, proceed with local state
@@ -94,6 +114,7 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       accounts.push({
         id: `acc-${Date.now()}-1`,
         username: accountUser.trim(),
+        email: accountEmail.trim() || undefined,
         password: accountPassword.trim(),
         isRackConsole: false,
       });
@@ -116,10 +137,10 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       siteUser: siteUser.trim(),
       sitePassword: sitePassword.trim(),
       isActive: true,
-      pue: parseFloat(pue) || 1.25,
-      temperature: 24,
-      humidity: 45,
-      activeIssues: selectedIssues,
+      pue: 0,
+      temperature: 0,
+      humidity: 0,
+      activeIssues: [],
     };
 
     const newCompany: CompanyItem = {
@@ -130,12 +151,19 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       siteUser: siteUser.trim(),
       sitePassword: sitePassword.trim(),
       isBlocked: false,
-      pue: parseFloat(pue) || 1.25,
+      pue: 0,
       lastService,
-      nextService,
-      activeIssues: selectedIssues,
+      nextService: expectedNextService,
+      activeIssues: [],
       accounts,
       monitors: [initialRack],
+      cctvIp: cctvIp.trim(),
+      cctvUser: cctvUser.trim(),
+      cctvPassword: cctvPassword.trim(),
+      faceScannerIp: faceScannerIp.trim(),
+      faceScannerUser: faceScannerUser.trim(),
+      faceScannerPassword: faceScannerPassword.trim(),
+      techNotes: techNotes.trim(),
     };
 
     onAddCompany(newCompany);
@@ -255,39 +283,42 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
               </div>
             </div>
 
-            {/* Site Credentials */}
+            {/* Dahua Hardware Gateway Credentials */}
             <div>
-              <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1.5">
-                SITE CREDENTIALS *
+              <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1">
+                DAHUA GATEWAY CREDENTIALS (HARDWARE ONLY) *
               </label>
+              <p className="text-[10px] text-white/40 mb-1.5">
+                Used only to connect to the Dahua cabinet controller — cannot be used to sign into the app or website.
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[10px] text-white/40 block mb-1">SITE USER</span>
+                  <span className="text-[10px] text-white/40 block mb-1">GATEWAY USER</span>
                   <input
                     type="text"
                     value={siteUser}
                     onChange={(e) => setSiteUser(e.target.value)}
-                    placeholder="Site User"
+                    placeholder="e.g. admin"
                     className="w-full px-3.5 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#00C08B]"
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] text-white/40 block mb-1">SITE PASSWORD</span>
+                  <span className="text-[10px] text-white/40 block mb-1">GATEWAY PASSWORD</span>
                   <input
                     type="text"
                     value={sitePassword}
                     onChange={(e) => setSitePassword(e.target.value)}
-                    placeholder="Site Password"
+                    placeholder="Dahua gateway password"
                     className="w-full px-3.5 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#00C08B]"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Initial User Account & Console */}
+            {/* Portal Admin Account & Console */}
             <div>
               <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1.5">
-                CLIENT ACCOUNT &amp; RACK CONSOLE (OPTIONAL)
+                PORTAL ADMIN ACCOUNT * &amp; RACK CONSOLE
               </label>
               <div className="space-y-3">
                 {existingAccounts.length > 0 && (
@@ -315,28 +346,39 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
                   <div>
-                    <span className="text-[10px] font-bold text-white/40 block mb-1">USER ACCOUNT USERNAME</span>
+                    <span className="text-[10px] font-bold text-white/40 block mb-1">PORTAL USERNAME *</span>
                     <input
                       type="text"
                       value={accountUser}
                       disabled={Boolean(selectedExistingAccount)}
                       onChange={(e) => setAccountUser(e.target.value)}
-                      placeholder="Username"
+                      placeholder="New portal username"
                       className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
                     />
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-white/40 block mb-1">
-                      {selectedExistingAccount ? 'EXISTING PASSWORD KEPT' : 'USER ACCOUNT PASSWORD'}
+                      {selectedExistingAccount ? 'EXISTING PASSWORD KEPT' : 'PORTAL PASSWORD *'}
                     </span>
                     <input
                       type="text"
                       value={accountPassword}
                       disabled={Boolean(selectedExistingAccount)}
                       onChange={(e) => setAccountPassword(e.target.value)}
-                      placeholder={selectedExistingAccount ? 'Uses existing client login' : 'Password'}
+                      placeholder={selectedExistingAccount ? 'Uses existing login' : 'Portal password'}
+                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-white/40 block mb-1">RECOVERY EMAIL</span>
+                    <input
+                      type="email"
+                      value={accountEmail}
+                      disabled={Boolean(selectedExistingAccount)}
+                      onChange={(e) => setAccountEmail(e.target.value)}
+                      placeholder="user@company.com"
                       className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
                     />
                   </div>
@@ -367,23 +409,93 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
               </div>
             </div>
 
-            {/* PUE & Service Dates */}
-            <div>
-              <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1.5">
-                PUE & MAINTENANCE SCHEDULE
+            {/* Technician Devices & Notes */}
+            <div className="p-3.5 rounded-xl bg-[#0b1119] border border-[#1e2836] space-y-3">
+              <label className="text-[11px] font-bold text-[#00E5FF] tracking-wider block">
+                TECHNICIAN DEVICES &amp; NOTES (OPTIONAL)
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <span className="text-[10px] text-white/40 block mb-1">PUE RATING</span>
+
+              {/* Hikvision CCTV */}
+              <div>
+                <span className="text-[10px] font-bold text-white/50 block mb-1.5">
+                  HIKVISION CCTV
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={pue}
-                    onChange={(e) => setPue(e.target.value)}
-                    placeholder="1.25"
-                    className="w-full px-3.5 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white"
+                    type="text"
+                    value={cctvIp}
+                    onChange={(e) => setCctvIp(e.target.value)}
+                    placeholder="CCTV IP / Host"
+                    className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                  />
+                  <input
+                    type="text"
+                    value={cctvUser}
+                    onChange={(e) => setCctvUser(e.target.value)}
+                    placeholder="CCTV Username"
+                    className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                  />
+                  <input
+                    type="text"
+                    value={cctvPassword}
+                    onChange={(e) => setCctvPassword(e.target.value)}
+                    placeholder="CCTV Password"
+                    className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
                   />
                 </div>
+              </div>
+
+              {/* Hikvision Face Scanner */}
+              <div>
+                <span className="text-[10px] font-bold text-white/50 block mb-1.5">
+                  HIKVISION FACE SCANNER
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <input
+                    type="text"
+                    value={faceScannerIp}
+                    onChange={(e) => setFaceScannerIp(e.target.value)}
+                    placeholder="Scanner IP / Host"
+                    className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                  />
+                  <input
+                    type="text"
+                    value={faceScannerUser}
+                    onChange={(e) => setFaceScannerUser(e.target.value)}
+                    placeholder="Scanner Username"
+                    className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                  />
+                  <input
+                    type="text"
+                    value={faceScannerPassword}
+                    onChange={(e) => setFaceScannerPassword(e.target.value)}
+                    placeholder="Scanner Password"
+                    className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                  />
+                </div>
+              </div>
+
+              {/* Technician Notes */}
+              <div>
+                <span className="text-[10px] font-bold text-white/50 block mb-1.5">
+                  TECHNICIAN NOTES
+                </span>
+                <textarea
+                  rows={2}
+                  value={techNotes}
+                  onChange={(e) => setTechNotes(e.target.value)}
+                  placeholder="Port forwarding, VLAN, router info, or maintenance remarks..."
+                  className="w-full px-3 py-2 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 resize-y"
+                />
+              </div>
+            </div>
+
+            {/* Maintenance Schedule */}
+            <div>
+              <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1.5">
+                MAINTENANCE SCHEDULE
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <span className="text-[10px] text-white/40 block mb-1">LAST SERVICE DATE</span>
                   <div className="relative">
@@ -399,48 +511,12 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <span className="text-[10px] text-white/40 block mb-1">NEXT SERVICE DATE</span>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={nextService}
-                      onChange={(e) => setNextService(e.target.value)}
-                      onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
-                      style={{ colorScheme: 'dark' }}
-                      className="w-full pl-3.5 pr-10 py-2 bg-[#0b1119] border border-[#1e2836] rounded-xl text-xs text-white focus:outline-none focus:border-[#00C08B] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
-                    />
-                    <Calendar className="w-4 h-4 text-white pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 z-0" />
+                  <span className="text-[10px] text-white/40 block mb-1">NEXT SERVICE DATE (AUTO +3 MONTHS)</span>
+                  <div className="w-full px-3.5 py-2 bg-[#0b1119]/60 border border-[#1e2836] rounded-xl text-xs text-[#00C08B] font-mono flex items-center justify-between">
+                    <span>{expectedNextService || '--'}</span>
+                    <span className="text-[10px] text-white/40 font-sans">Auto (+90d)</span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Active Issues Selection */}
-            <div>
-              <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1">
-                ACTIVE SENSOR ISSUES (ONLY CHECK WHAT IS FAILING)
-              </label>
-              <p className="text-xs text-white/40 mb-2">
-                If none are selected, the company will display <span className="text-[#00C08B] font-bold">Issues: None</span>.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ALL_ISSUE_TYPES.map((issue) => {
-                  const isSelected = selectedIssues.includes(issue);
-                  return (
-                    <button
-                      type="button"
-                      key={issue}
-                      onClick={() => toggleIssue(issue)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#FF3B30]/20 text-[#FF6961] border-[#FF3B30]/50'
-                          : 'bg-[#0b1119] text-white/60 border-[#1e2836] hover:text-white'
-                      }`}
-                    >
-                      {isSelected ? `✓ ${issue}` : issue}
-                    </button>
-                  );
-                })}
               </div>
             </div>
           </div>

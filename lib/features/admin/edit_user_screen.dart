@@ -18,6 +18,10 @@ class EditUserScreen extends StatefulWidget {
   final bool canChangeSettings;
   final bool canManageUsers;
   final bool isRackConsole;
+  final String email;
+  final bool canAccessMonitoringWeb;
+  final bool isOwnerSelf;
+  final bool isMonitoringWebCompany;
 
   const EditUserScreen({
     super.key,
@@ -33,6 +37,10 @@ class EditUserScreen extends StatefulWidget {
     required this.canChangeSettings,
     required this.canManageUsers,
     required this.isRackConsole,
+    this.email = '',
+    this.canAccessMonitoringWeb = false,
+    this.isOwnerSelf = false,
+    this.isMonitoringWebCompany = false,
   });
 
   @override
@@ -48,6 +56,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late bool _canChangeSettings;
   late bool _canManageUsers;
   late bool _isRackConsole;
+  late bool _canAccessMonitoringWeb;
+  late final TextEditingController _emailController;
 
   bool _submitting = false;
 
@@ -62,6 +72,14 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _canChangeSettings = widget.canChangeSettings;
     _canManageUsers = widget.canManageUsers;
     _isRackConsole = widget.isRackConsole;
+    _canAccessMonitoringWeb = widget.canAccessMonitoringWeb;
+    _emailController = TextEditingController(text: widget.email);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
   }
 
   Future<void> _submit() async {
@@ -85,6 +103,13 @@ class _EditUserScreenState extends State<EditUserScreen> {
         "can_change_settings": _canChangeSettings ? 1 : 0,
         "can_manage_users": _canManageUsers ? 1 : 0,
         "is_kiosk": _isRackConsole ? 1 : 0,
+        if (widget.isMonitoringWebCompany)
+          "can_access_monitoring_web": _isRackConsole
+              ? 0
+              : ((widget.isOwnerSelf || _canManageUsers || _canAccessMonitoringWeb)
+                  ? 1
+                  : 0),
+        "email": _emailController.text.trim(),
       },
     );
 
@@ -211,9 +236,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 24),
                         Text(
-                          'ACCOUNT MODE',
+                          'RECOVERY EMAIL',
                           style: TextStyle(
                             color: isLight
                                 ? AppTheme.lightTextPrimary
@@ -224,14 +249,51 @@ class _EditUserScreenState extends State<EditUserScreen> {
                             letterSpacing: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _buildPermToggle('Rack Console Mode', _isRackConsole,
-                            _setRackConsoleMode),
-
-                        if (!_isRackConsole) ...[
-                          const SizedBox(height: 36),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: TextStyle(
+                            color: isLight
+                                ? AppTheme.lightTextPrimary
+                                : Colors.white,
+                            fontSize: 14,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'user@dcstack.my',
+                            hintStyle: TextStyle(
+                              color: isLight
+                                  ? Colors.black38
+                                  : Colors.white38,
+                            ),
+                            filled: true,
+                            fillColor: isLight
+                                ? Colors.white
+                                : const Color(0xFF0E1520),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: isLight
+                                    ? Colors.black12
+                                    : Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: isLight
+                                    ? Colors.black12
+                                    : Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        if (!widget.isOwnerSelf) ...[
                           Text(
-                            'PERMISSIONS',
+                            'ACCOUNT MODE',
                             style: TextStyle(
                               color: isLight
                                   ? AppTheme.lightTextPrimary
@@ -243,20 +305,56 @@ class _EditUserScreenState extends State<EditUserScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          _buildPermToggle('Dashboard', _canViewDashboard,
-                              (v) => setState(() => _canViewDashboard = v)),
-                          _buildPermToggle('Reports + PDF', _canViewReport,
-                              (v) => setState(() => _canViewReport = v)),
-                          _buildPermToggle('View Power', _canViewRack,
-                              (v) => setState(() => _canViewRack = v)),
-                          _buildPermToggle('Control Panel', _canViewControl,
-                              (v) => setState(() => _canViewControl = v)),
-                          _buildPermToggle('Door Access', _canControlDoors,
-                              (v) => setState(() => _canControlDoors = v)),
-                          _buildPermToggle('Settings', _canChangeSettings,
-                              (v) => setState(() => _canChangeSettings = v)),
-                          _buildPermToggle(
-                              'Manage Users', _canManageUsers, _setManageUsers),
+                          _buildPermToggle('Rack Console Mode', _isRackConsole,
+                              _setRackConsoleMode),
+                        ],
+
+                        if (!_isRackConsole &&
+                            (!widget.isOwnerSelf ||
+                                widget.isMonitoringWebCompany)) ...[
+                          const SizedBox(height: 36),
+                          Text(
+                            widget.isOwnerSelf ? 'WEBSITE ACCESS' : 'PERMISSIONS',
+                            style: TextStyle(
+                              color: isLight
+                                  ? AppTheme.lightTextPrimary
+                                      .withValues(alpha: 0.5)
+                                  : Colors.white.withValues(alpha: 0.5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!widget.isOwnerSelf) ...[
+                            _buildPermToggle('Dashboard', _canViewDashboard,
+                                (v) => setState(() => _canViewDashboard = v)),
+                            _buildPermToggle('Reports + PDF', _canViewReport,
+                                (v) => setState(() => _canViewReport = v)),
+                            _buildPermToggle('View Power', _canViewRack,
+                                (v) => setState(() => _canViewRack = v)),
+                            _buildPermToggle('Control Panel', _canViewControl,
+                                (v) => setState(() => _canViewControl = v)),
+                            _buildPermToggle('Door Access', _canControlDoors,
+                                (v) => setState(() => _canControlDoors = v)),
+                            _buildPermToggle('Settings', _canChangeSettings,
+                                (v) => setState(() => _canChangeSettings = v)),
+                            _buildPermToggle(
+                                'Manage Users', _canManageUsers, _setManageUsers),
+                          ],
+                          if (widget.isMonitoringWebCompany)
+                            _buildPermToggle(
+                              (widget.isOwnerSelf || _canManageUsers)
+                                  ? 'Monitoring Website Access (Auto for Admin)'
+                                  : 'Monitoring Website Access',
+                              (widget.isOwnerSelf || _canManageUsers)
+                                  ? true
+                                  : _canAccessMonitoringWeb,
+                              (widget.isOwnerSelf || _canManageUsers)
+                                  ? (_) {}
+                                  : (v) => setState(
+                                      () => _canAccessMonitoringWeb = v),
+                            ),
                         ],
                         const SizedBox(height: 120), // bottom padding
                       ],

@@ -383,7 +383,10 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 'PUE History & Trends',
@@ -393,7 +396,6 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(

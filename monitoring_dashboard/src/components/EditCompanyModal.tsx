@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Edit3, Calendar, Save } from 'lucide-react';
-import { CompanyItem, MonitorIssueType, ALL_ISSUE_TYPES } from '../types';
+import { CompanyItem } from '../types';
+import { apiService, calculateNextServiceDate } from '../services/apiService';
 
 interface EditCompanyModalProps {
   company: CompanyItem;
@@ -20,20 +21,21 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
   const [sitePassword, setSitePassword] = useState(company.sitePassword);
   const [isBlocked, setIsBlocked] = useState(company.isBlocked);
 
-  const [pue, setPue] = useState(company.pue.toString());
   const [lastService, setLastService] = useState(company.lastService);
-  const [nextService, setNextService] = useState(company.nextService);
+  const expectedNextService = calculateNextServiceDate(lastService);
 
-  const [selectedIssues, setSelectedIssues] = useState<MonitorIssueType[]>(company.activeIssues);
+  const [cctvIp, setCctvIp] = useState(company.cctvIp || '');
+  const [cctvUser, setCctvUser] = useState(company.cctvUser || '');
+  const [cctvPassword, setCctvPassword] = useState(company.cctvPassword || '');
+  const [faceScannerIp, setFaceScannerIp] = useState(company.faceScannerIp || '');
+  const [faceScannerUser, setFaceScannerUser] = useState(company.faceScannerUser || '');
+  const [faceScannerPassword, setFaceScannerPassword] = useState(company.faceScannerPassword || '');
+  const [techNotes, setTechNotes] = useState(company.techNotes || '');
+  const [isSaving, setIsSaving] = useState(false);
+
   const [error, setError] = useState('');
 
-  const toggleIssue = (issue: MonitorIssueType) => {
-    setSelectedIssues((prev) =>
-      prev.includes(issue) ? prev.filter((i) => i !== issue) : [...prev, issue]
-    );
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError('Company name is required');
@@ -52,6 +54,29 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
       return;
     }
 
+    setIsSaving(true);
+    setError('');
+
+    if (company.id.startsWith('site-')) {
+      const siteId = parseInt(company.id.replace('site-', ''), 10);
+      if (!isNaN(siteId)) {
+        await Promise.all([
+          apiService.updateSiteTechDetails(siteId, {
+            cctv_ip: cctvIp.trim(),
+            cctv_user: cctvUser.trim(),
+            cctv_pass: cctvPassword.trim(),
+            face_scanner_ip: faceScannerIp.trim(),
+            face_scanner_user: faceScannerUser.trim(),
+            face_scanner_pass: faceScannerPassword.trim(),
+            tech_notes: techNotes.trim(),
+          }),
+          ...(lastService && lastService !== company.lastService
+            ? [apiService.updateSiteMaintenance(siteId, lastService)]
+            : []),
+        ]);
+      }
+    }
+
     const updated: CompanyItem = {
       ...company,
       name: name.trim(),
@@ -60,13 +85,21 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
       siteUser: siteUser.trim(),
       sitePassword: sitePassword.trim(),
       isBlocked,
-      pue: parseFloat(pue) || company.pue,
+      pue: company.pue,
       lastService,
-      nextService,
-      activeIssues: selectedIssues,
+      nextService: expectedNextService || company.nextService,
+      activeIssues: company.activeIssues,
+      cctvIp: cctvIp.trim(),
+      cctvUser: cctvUser.trim(),
+      cctvPassword: cctvPassword.trim(),
+      faceScannerIp: faceScannerIp.trim(),
+      faceScannerUser: faceScannerUser.trim(),
+      faceScannerPassword: faceScannerPassword.trim(),
+      techNotes: techNotes.trim(),
     };
 
     onUpdateCompany(updated);
+    setIsSaving(false);
     onClose();
   };
 
@@ -193,26 +226,90 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
               </div>
             </div>
 
-            {/* 3. PUE & Maintenance Schedule */}
+            {/* Technician Devices & Notes */}
             <div className="space-y-3 pt-3 border-t border-[#1e2836]/60">
-              <span className="text-[11px] font-bold text-[#00C08B] tracking-wider uppercase block">
-                PUE & Maintenance Schedule
+              <span className="text-[11px] font-bold text-[#00E5FF] tracking-wider uppercase block">
+                Technician Devices &amp; Notes
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-white/50 tracking-wider block mb-1">
-                    PUE RATING
-                  </label>
+
+              <div>
+                <label className="text-[10px] font-bold text-white/50 tracking-wider block mb-1.5">
+                  HIKVISION CCTV
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <input
-                    type="number"
-                    step="0.01"
-                    min="1.0"
-                    max="3.0"
-                    value={pue}
-                    onChange={(e) => setPue(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00C08B] transition-colors"
+                    type="text"
+                    value={cctvIp}
+                    onChange={(e) => setCctvIp(e.target.value)}
+                    placeholder="CCTV IP / Host"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] font-mono"
+                  />
+                  <input
+                    type="text"
+                    value={cctvUser}
+                    onChange={(e) => setCctvUser(e.target.value)}
+                    placeholder="CCTV Username"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] font-mono"
+                  />
+                  <input
+                    type="text"
+                    value={cctvPassword}
+                    onChange={(e) => setCctvPassword(e.target.value)}
+                    placeholder="CCTV Password"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-white/50 tracking-wider block mb-1.5">
+                  HIKVISION FACE SCANNER
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <input
+                    type="text"
+                    value={faceScannerIp}
+                    onChange={(e) => setFaceScannerIp(e.target.value)}
+                    placeholder="Scanner IP / Host"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] font-mono"
+                  />
+                  <input
+                    type="text"
+                    value={faceScannerUser}
+                    onChange={(e) => setFaceScannerUser(e.target.value)}
+                    placeholder="Scanner Username"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] font-mono"
+                  />
+                  <input
+                    type="text"
+                    value={faceScannerPassword}
+                    onChange={(e) => setFaceScannerPassword(e.target.value)}
+                    placeholder="Scanner Password"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-white/50 tracking-wider block mb-1.5">
+                  TECHNICIAN NOTES
+                </label>
+                <textarea
+                  rows={3}
+                  value={techNotes}
+                  onChange={(e) => setTechNotes(e.target.value)}
+                  placeholder="Port forwarding, VLAN, router info, or maintenance remarks..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-[#00E5FF] resize-y"
+                />
+              </div>
+            </div>
+
+            {/* 3. Maintenance Schedule */}
+            <div className="space-y-3 pt-3 border-t border-[#1e2836]/60">
+              <span className="text-[11px] font-bold text-[#00C08B] tracking-wider uppercase block">
+                Maintenance Schedule
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-bold text-white/50 tracking-wider block mb-1">
                     LAST SERVICE DATE
@@ -231,49 +328,13 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-white/50 tracking-wider block mb-1">
-                    EXPECTED NEXT SERVICE
+                    EXPECTED NEXT SERVICE (AUTO +3 MONTHS)
                   </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={nextService}
-                      onChange={(e) => setNextService(e.target.value)}
-                      onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
-                      style={{ colorScheme: 'dark' }}
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#0b1119] border border-[#1e2836] text-white text-xs focus:outline-none focus:border-[#00C08B] transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
-                    />
-                    <Calendar className="w-4 h-4 text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none z-0" />
+                  <div className="w-full px-3.5 py-2.5 rounded-xl bg-[#0b1119]/60 border border-[#1e2836] text-[#00C08B] font-mono text-xs flex items-center justify-between">
+                    <span>{expectedNextService || '--'}</span>
+                    <span className="text-[10px] text-white/40 font-sans">Auto (+90d)</span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* 4. Active Issues Simulator */}
-            <div className="space-y-3 pt-3 border-t border-[#1e2836]/60">
-              <span className="text-[11px] font-bold text-[#00C08B] tracking-wider uppercase block">
-                Active Telemetry Issues
-              </span>
-              <p className="text-xs text-white/40">
-                Select sensors to simulate active warnings (uncheck all for 'None'):
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ALL_ISSUE_TYPES.map((issue) => {
-                  const isSelected = selectedIssues.includes(issue);
-                  return (
-                    <button
-                      key={issue}
-                      type="button"
-                      onClick={() => toggleIssue(issue)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                        isSelected
-                          ? 'bg-[#FF3B30]/20 text-[#FF6961] border-[#FF3B30]/50 shadow-sm'
-                          : 'bg-[#0b1119] text-white/50 border-[#1e2836] hover:text-white hover:border-[#2a3a4e]'
-                      }`}
-                    >
-                      {isSelected ? `⚠️ ${issue}` : issue}
-                    </button>
-                  );
-                })}
               </div>
             </div>
           </form>
@@ -291,10 +352,11 @@ export const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
           <button
             type="submit"
             form="editCompanyForm"
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d69b] text-[#060B11] transition-all shadow-lg shadow-[#00C08B]/20 cursor-pointer flex items-center gap-1.5"
+            disabled={isSaving}
+            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d69b] text-[#060B11] transition-all shadow-lg shadow-[#00C08B]/20 cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            Save Changes
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
