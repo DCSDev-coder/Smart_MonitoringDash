@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/config/app_config.dart';
 import '../../shared/utils/app_toast.dart';
+import '../../shared/widgets/animated_dcs_logo.dart';
 import '../../shared/widgets/secure_action_guard.dart';
 import 'services/rack_console_update_service.dart';
 import 'theme/console_theme.dart';
@@ -473,17 +474,17 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
       ),
     );
 
-    final col2 = Expanded(
+    const col2 = Expanded(
       flex: 3,
       child: Align(
         alignment: Alignment.centerRight,
         child: Padding(
-          padding: const EdgeInsets.only(right: 48.0),
+          padding: EdgeInsets.only(right: 48.0),
           child: SizedBox(
             height: 160,
-            child: Image.asset(
-              'assets/DCS_Logo/DCS Logo.png',
+            child: FittedBox(
               fit: BoxFit.contain,
+              child: AnimatedDcsLogo.login(),
             ),
           ),
         ),
@@ -501,12 +502,12 @@ class _SettingsConsoleScreenState extends State<SettingsConsoleScreen> {
           const SizedBox(height: 16),
           _buildUpdateControls(),
           const SizedBox(height: 32),
-          Center(
+          const Center(
             child: SizedBox(
               height: 160,
-              child: Image.asset(
-                'assets/DCS_Logo/DCS Logo.png',
+              child: FittedBox(
                 fit: BoxFit.contain,
+                child: AnimatedDcsLogo.login(),
               ),
             ),
           ),

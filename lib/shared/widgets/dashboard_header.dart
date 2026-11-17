@@ -64,7 +64,7 @@ class DashboardHeader extends StatelessWidget {
                               height: AppConstants.headerContentHeight,
                               fit: BoxFit.fitHeight,
                               errorBuilder: (_) => Image.asset(
-                                'assets/DCS_Logo/DCS Logo.png',
+                                'assets/DCS_Logo/Official_Logo.jpeg',
                                 height: AppConstants.headerContentHeight,
                                 fit: BoxFit.fitHeight,
                               ),
@@ -73,7 +73,7 @@ class DashboardHeader extends StatelessWidget {
                         )
                       else
                         Image.asset(
-                          'assets/DCS_Logo/DCS Logo.png',
+                          'assets/DCS_Logo/Official_Logo.jpeg',
                           height: AppConstants.headerContentHeight,
                           fit: BoxFit.fitHeight,
                         ),

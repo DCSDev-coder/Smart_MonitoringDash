@@ -2,7 +2,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'remember_me_store_base.dart';
 
 class MobileRememberMeStore implements RememberMeStore {
-  static const _storage = FlutterSecureStorage();
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
+  );
 
   static const _kEnabled = 'remember_me_enabled';
   static const _kUsername = 'remember_me_username';

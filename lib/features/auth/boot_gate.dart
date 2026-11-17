@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/auth/remember_me_store.dart';
 import '../../core/auth/session_flow_service.dart';
 import '../../core/config/app_config.dart';
+import '../../core/network/cpanel_api_service.dart';
 import '../../core/security/app_lock_controller.dart';
+import '../../shared/widgets/animated_dcs_logo.dart';
 
 /// App entry gate.
 ///
@@ -41,9 +44,16 @@ class _BootGateState extends State<BootGate> {
       }
 
       final enabled = await rememberMeStore.isEnabled();
-      final token = await rememberMeStore.getAuthToken();
+      final savedToken = await rememberMeStore.getAuthToken();
+      final webSessionToken =
+          kIsWeb ? CpanelApiService.instance.getAuthTokenInMemory() : null;
+      final token = (enabled && savedToken != null && savedToken.isNotEmpty)
+          ? savedToken
+          : (webSessionToken != null && webSessionToken.isNotEmpty
+              ? webSessionToken
+              : null);
 
-      if (!enabled || token == null || token.isEmpty) {
+      if (token == null || token.isEmpty) {
         _goWelcome();
         return;
       }
@@ -94,9 +104,18 @@ class _BootGateState extends State<BootGate> {
 
       if (!mounted) return;
       AppLockController.instance.prepareForHomeEntry(
-        requireImmediateUnlock: true,
+        requireImmediateUnlock: !kIsWeb,
       );
       Navigator.of(context).pushReplacementNamed('/home');
+    } on SessionBootstrapTransientException {
+      if (kIsWeb && CpanelApiService.instance.currentSite != null) {
+        _goHome();
+      } else {
+        _goWelcome();
+      }
+    } on SessionBootstrapInvalidException {
+      await SessionFlowService.instance.signOut();
+      _goWelcome();
     } catch (_) {
       // Any unexpected boot error: fall back to welcome.
       _goWelcome();
@@ -126,13 +145,15 @@ class _BootGateState extends State<BootGate> {
       body: SafeArea(
         child: Stack(
           children: [
-            Center(
+            const Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Image.asset(
-                  'assets/DCS_Logo/DCS Logo.png',
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: SizedBox(
                   width: 220,
-                  fit: BoxFit.contain,
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: AnimatedDcsLogo.login(),
+                  ),
                 ),
               ),
             ),

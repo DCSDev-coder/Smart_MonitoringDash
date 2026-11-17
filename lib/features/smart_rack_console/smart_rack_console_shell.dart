@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/auth/remember_me_store.dart';
 import '../../core/auth/session_flow_service.dart';
+import '../../core/config/app_config.dart';
 import '../../core/controllers/global_status_poller.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../core/utils/app_log.dart';
@@ -237,24 +239,48 @@ class _SmartRackConsoleShellState extends State<SmartRackConsoleShell> {
         CpanelApiService.instance.isCurrentSiteRackConsole(site);
     if (allowed) return;
 
-    await SessionFlowService.instance.signOut();
-    if (!mounted) return;
+    if (site != null) {
+      await SessionFlowService.instance.signOut();
+      if (!mounted) return;
 
-    AppToast.showError(
-      context,
-      'Wrong account',
-    );
-    Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+      AppToast.showError(
+        context,
+        'Wrong account',
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+    } else {
+      Navigator.of(context).pushReplacementNamed('/boot');
+    }
   }
 
   Future<void> _bootstrapRackConsole() async {
     if (!mounted) return;
     if (_accessGuardHandled) return;
 
-    final site = CpanelApiService.instance.currentSite;
+    var site = CpanelApiService.instance.currentSite;
+    if (site == null && !AppConfig.isDemoMode) {
+      final token = CpanelApiService.instance.getAuthTokenInMemory() ??
+          await rememberMeStore.getAuthToken();
+      if (token != null && token.isNotEmpty) {
+        try {
+          final bootstrap = await SessionFlowService.instance
+              .bootstrapFromToken(token: token);
+          await SessionFlowService.instance.connectRackSession(bootstrap.site);
+          site = bootstrap.site;
+        } catch (_) {}
+      }
+    }
+
+    if (site == null && !AppConfig.isDemoMode) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/boot');
+      }
+      return;
+    }
+
     final allowed = site != null &&
         CpanelApiService.instance.isCurrentSiteRackConsole(site);
-    if (!allowed) {
+    if (!allowed && !AppConfig.isDemoMode) {
       await _enforceRackConsoleAccess();
       return;
     }

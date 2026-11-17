@@ -18,6 +18,8 @@ import 'core/controllers/smart_polling_settings.dart';
 import 'core/navigation/app_navigator.dart';
 import 'core/notifications/push_notification_service.dart';
 import 'core/security/app_lock_controller.dart';
+import 'core/auth/remember_me_store.dart';
+import 'core/auth/session_flow_service.dart';
 import 'core/utils/app_log.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/dashboard/dashboard_v2_screen.dart';
@@ -55,6 +57,7 @@ import 'features/smart_rack_console/pue_console_screen.dart';
 import 'features/smart_rack_console/settings_console_screen.dart';
 import 'features/smart_rack_console/alarm_console_screen.dart';
 import 'shared/utils/app_toast.dart';
+import 'shared/widgets/animated_dcs_logo.dart';
 import 'shared/widgets/set_pin_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/network/adapter_api_service.dart';
@@ -331,11 +334,53 @@ class _HomeLaunchHoldState extends State<_HomeLaunchHold> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future<void>.delayed(const Duration(milliseconds: 350));
+      await _ensureSessionReady();
       if (mounted) {
         setState(() => _showOverlay = false);
       }
     });
+  }
+
+  Future<void> _ensureSessionReady() async {
+    if (AppConfig.isDemoMode) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      return;
+    }
+
+    if (CpanelApiService.instance.currentSite == null) {
+      final token = CpanelApiService.instance.getAuthTokenInMemory() ??
+          await rememberMeStore.getAuthToken();
+      if (token != null && token.isNotEmpty) {
+        try {
+          final bootstrap = await SessionFlowService.instance
+              .bootstrapFromToken(token: token);
+          await SessionFlowService.instance.connectRackSession(bootstrap.site);
+        } catch (e) {
+          AppLog.w('Home session bootstrap failed', tag: 'Boot', error: e);
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/boot');
+            return;
+          }
+        }
+      } else {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/boot');
+          return;
+        }
+      }
+    } else {
+      final site = CpanelApiService.instance.currentSite!;
+      SessionFlowService.instance.connectRackSession(site).catchError((e) {
+        AppLog.w(
+          'Home background connectRackSession failed',
+          tag: 'Boot',
+          error: e,
+        );
+        return false;
+      });
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 250));
   }
 
   @override
@@ -356,13 +401,15 @@ class _HomeLaunchHoldState extends State<_HomeLaunchHold> {
               child: SafeArea(
                 child: Stack(
                   children: [
-                    Center(
+                    const Center(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Image.asset(
-                          'assets/DCS_Logo/DCS Logo.png',
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: SizedBox(
                           width: 220,
-                          fit: BoxFit.contain,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: AnimatedDcsLogo.login(),
+                          ),
                         ),
                       ),
                     ),

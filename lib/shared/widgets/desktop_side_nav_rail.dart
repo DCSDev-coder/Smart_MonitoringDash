@@ -64,12 +64,12 @@ class DesktopSideNavRail extends StatelessWidget {
                         logoUrl,
                         fit: BoxFit.contain,
                         errorBuilder: (_) => Image.asset(
-                          'assets/DCS_Logo/DCS Logo.png',
+                          'assets/DCS_Logo/Official_Logo.jpeg',
                           fit: BoxFit.contain,
                         ),
                       )
                     : Image.asset(
-                        'assets/DCS_Logo/DCS Logo.png',
+                        'assets/DCS_Logo/Official_Logo.jpeg',
                         fit: BoxFit.contain,
                       ),
               ),

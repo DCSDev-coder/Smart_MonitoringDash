@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../utils/app_log.dart';
 import '../config/app_config.dart';
+import '../auth/remember_me_store.dart';
 
 class CpanelApiService extends ChangeNotifier {
   CpanelApiService._();
@@ -16,10 +17,34 @@ class CpanelApiService extends ChangeNotifier {
   static String get baseAssetUrl => AppConfig.cpanelAssetBaseUrl;
   static const String _keyPortalUsername = 'cpanel_username';
   static const String _keyPortalUserId = 'cpanel_user_id';
+  static const String _keyPortalAuthToken = 'cpanel_auth_token';
+  static const String _keyCurrentSite = 'cpanel_current_site_json';
+  static const String _keyCurrentUser = 'cpanel_current_user_json';
+  static const String _keyCurrentAppConfig = 'cpanel_current_app_config_json';
 
-  Map<String, dynamic>? currentSite;
-  Map<String, dynamic>? currentAppConfig;
-  Map<String, dynamic>? currentUser;
+  Map<String, dynamic>? _currentSite;
+  Map<String, dynamic>? get currentSite => _currentSite;
+  set currentSite(Map<String, dynamic>? value) {
+    _currentSite = value;
+    _persistCurrentSite(value);
+    notifyListeners();
+  }
+
+  Map<String, dynamic>? _currentAppConfig;
+  Map<String, dynamic>? get currentAppConfig => _currentAppConfig;
+  set currentAppConfig(Map<String, dynamic>? value) {
+    _currentAppConfig = value;
+    _persistCurrentAppConfig(value);
+    notifyListeners();
+  }
+
+  Map<String, dynamic>? _currentUser;
+  Map<String, dynamic>? get currentUser => _currentUser;
+  set currentUser(Map<String, dynamic>? value) {
+    _currentUser = value;
+    _persistCurrentUser(value);
+    notifyListeners();
+  }
 
   String? _portalUsername;
   int? _portalUserId;
@@ -27,13 +52,115 @@ class CpanelApiService extends ChangeNotifier {
   // the admin for routine actions within the same session.
   String? _portalPasswordInMemory;
   // API auth token (short-lived for normal sessions; long-lived when remember_me=true).
-  // Stored in-memory only; persistence is handled by RememberMeStore.
+  // Persisted to storage to support page reloads / warm restarts.
   String? _portalAuthToken;
+
+  Future<void> _persistCurrentSite(Map<String, dynamic>? site) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (site != null) {
+        await prefs.setString(_keyCurrentSite, jsonEncode(site));
+      } else {
+        await prefs.remove(_keyCurrentSite);
+      }
+    } catch (e) {
+      AppLog.w('Failed to persist currentSite', tag: 'CpanelApi', error: e);
+    }
+  }
+
+  Future<void> _persistCurrentUser(Map<String, dynamic>? user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (user != null) {
+        await prefs.setString(_keyCurrentUser, jsonEncode(user));
+      } else {
+        await prefs.remove(_keyCurrentUser);
+      }
+    } catch (e) {
+      AppLog.w('Failed to persist currentUser', tag: 'CpanelApi', error: e);
+    }
+  }
+
+  Future<void> _persistCurrentAppConfig(Map<String, dynamic>? config) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (config != null) {
+        await prefs.setString(_keyCurrentAppConfig, jsonEncode(config));
+      } else {
+        await prefs.remove(_keyCurrentAppConfig);
+      }
+    } catch (e) {
+      AppLog.w('Failed to persist currentAppConfig', tag: 'CpanelApi', error: e);
+    }
+  }
+
+  Future<void> _persistAuthToken(String? token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (token != null && token.isNotEmpty) {
+        await prefs.setString(_keyPortalAuthToken, token);
+      } else {
+        await prefs.remove(_keyPortalAuthToken);
+      }
+    } catch (e) {
+      AppLog.w('Failed to persist authToken', tag: 'CpanelApi', error: e);
+    }
+  }
+
+  void persistCurrentSite() {
+    _persistCurrentSite(_currentSite);
+  }
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _portalUsername = prefs.getString(_keyPortalUsername);
     _portalUserId = prefs.getInt(_keyPortalUserId);
+
+    final token = prefs.getString(_keyPortalAuthToken);
+    if (token != null && token.isNotEmpty) {
+      _portalAuthToken = token;
+    }
+
+    final siteJson = prefs.getString(_keyCurrentSite);
+    if (siteJson != null && siteJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(siteJson);
+        if (decoded is Map<String, dynamic>) {
+          _currentSite = decoded;
+        }
+      } catch (_) {}
+    }
+
+    final userJson = prefs.getString(_keyCurrentUser);
+    if (userJson != null && userJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(userJson);
+        if (decoded is Map<String, dynamic>) {
+          _currentUser = decoded;
+        }
+      } catch (_) {}
+    }
+
+    final configJson = prefs.getString(_keyCurrentAppConfig);
+    if (configJson != null && configJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(configJson);
+        if (decoded is Map<String, dynamic>) {
+          _currentAppConfig = decoded;
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: If _portalAuthToken was not in cpanel prefs, check rememberMeStore
+    if (_portalAuthToken == null || _portalAuthToken!.isEmpty) {
+      try {
+        final savedToken = await rememberMeStore.getAuthToken();
+        if (savedToken != null && savedToken.isNotEmpty) {
+          _portalAuthToken = savedToken;
+          await _persistAuthToken(savedToken);
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _persistPortalSession({
@@ -58,14 +185,18 @@ class CpanelApiService extends ChangeNotifier {
     _portalUserId = null;
     _portalPasswordInMemory = null;
     _portalAuthToken = null;
-    currentSite = null;
-    currentAppConfig = null;
-    currentUser = null;
+    _currentSite = null;
+    _currentAppConfig = null;
+    _currentUser = null;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyPortalUsername);
     await prefs.remove(_keyPortalUserId);
+    await prefs.remove(_keyPortalAuthToken);
+    await prefs.remove(_keyCurrentSite);
+    await prefs.remove(_keyCurrentUser);
+    await prefs.remove(_keyCurrentAppConfig);
   }
 
   String? getPortalPasswordInMemory() => _portalPasswordInMemory;
@@ -73,6 +204,7 @@ class CpanelApiService extends ChangeNotifier {
 
   void setAuthTokenInMemory(String? token) {
     _portalAuthToken = token;
+    _persistAuthToken(token);
   }
 
   Map<String, String> _authHeaders({Map<String, String>? extra}) {
@@ -168,6 +300,7 @@ class CpanelApiService extends ChangeNotifier {
     site['company_logo_path'] = logoPathOrUrl;
     site['_company_logo_cache_buster'] = DateTime.now().millisecondsSinceEpoch
         .toString();
+    _persistCurrentSite(site);
     notifyListeners();
   }
 
@@ -251,6 +384,7 @@ class CpanelApiService extends ChangeNotifier {
           final token = data['auth_token']?.toString().trim();
           if (token != null && token.isNotEmpty) {
             _portalAuthToken = token;
+            await _persistAuthToken(token);
             if (kDebugMode) {
               final prefix = token.length <= 16
                   ? token
@@ -264,7 +398,6 @@ class CpanelApiService extends ChangeNotifier {
           final user = data['user'];
           if (user is Map<String, dynamic>) {
             currentUser = user;
-            notifyListeners();
           }
           final portalUsername = (user is Map<String, dynamic>)
               ? (user['username']?.toString() ?? username)
@@ -554,12 +687,19 @@ class CpanelApiService extends ChangeNotifier {
           .timeout(const Duration(seconds: 10));
 
       final decoded = jsonDecode(response.body);
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        if (_portalAuthToken == token) {
+          _portalAuthToken = null;
+          await _persistAuthToken(null);
+        }
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
       if (decoded is Map<String, dynamic> && decoded['status'] == 'success') {
         _portalAuthToken = token.trim();
+        await _persistAuthToken(_portalAuthToken);
         final user = decoded['user'];
         if (user is Map<String, dynamic>) {
           currentUser = user;
-          notifyListeners();
         }
         final portalUsername = (user is Map<String, dynamic>)
             ? (user['username']?.toString())
@@ -574,16 +714,19 @@ class CpanelApiService extends ChangeNotifier {
           );
         }
         return decoded;
+      } else if (decoded is Map<String, dynamic> &&
+          decoded['status'] == 'error' &&
+          (decoded['message']?.toString().toLowerCase().contains('expired') ??
+              false)) {
+        if (_portalAuthToken == token) {
+          _portalAuthToken = null;
+          await _persistAuthToken(null);
+        }
       }
     } catch (e) {
       if (kDebugMode) {
         AppLog.w('auth_me error', tag: 'CpanelApi', error: e);
       }
-    }
-
-    // Ensure we don't keep a bad/expired token in memory after failure.
-    if (_portalAuthToken == token) {
-      _portalAuthToken = null;
     }
     return null;
   }

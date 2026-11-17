@@ -1,23 +1,33 @@
 # DCS Smart Rack Dashboard
 
-Flutter application for the DCS Smart Monitoring mobile app.
+Flutter application for the DCS Smart Monitoring mobile/desktop/web app and the DCS Rack Console.
 
-## Run The Standard / Main App
+## Quick Setup (`.env.json`)
 
-The standard app is the default variant.
+Create `.env.json` in `Smart_MonitoringDash/` (gitignored via `.env.*`):
 
-From [`Smart_MonitoringDash`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash>), run:
+```json
+{
+  "APP_VARIANT": "main",
+  "CPANEL_BASE_URL": "https://portal.dcstack.my/api/index.php",
+  "CPANEL_ASSET_BASE_URL": "https://portal.dcstack.my/",
+  "ADAPTER_BASE_URL": "https://adapter.dcstack.my"
+}
+```
+
+Then install dependencies:
 
 ```bash
 flutter pub get
+```
+
+## Run The Standard / Main App
+
+```bash
 flutter run --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
-If you want the shortest version, this also runs the standard app because `main` is already the default:
-
-```bash
-flutter run --dart-define-from-file=.env.json
-```
+(`APP_VARIANT` defaults to `main` if omitted.)
 
 ## Run The Rack Console App
 
@@ -25,97 +35,78 @@ flutter run --dart-define-from-file=.env.json
 flutter run --dart-define-from-file=.env.json --dart-define=APP_VARIANT=rack_console
 ```
 
-## Useful Examples
+- **Auth requirement:** Live login to `rack_console` requires a portal account whose site has `is_kiosk = 1` (standard user accounts are restricted to `main`, and kiosk accounts are restricted to `rack_console`).
+- **Demo / UI preview (no login required):**
+  ```bash
+  flutter run -d chrome --dart-define-from-file=.env.json --dart-define=APP_VARIANT=rack_console --dart-define=DEMO_MODE=true
+  ```
 
-Run on Chrome:
+## Platform Examples
 
+### macOS Desktop (no browser CORS)
 ```bash
-flutter run -d chrome --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+flutter run -d macos --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
-Run on a connected iPhone:
-
+### Chrome (Flutter Web)
+Use a fixed port (`5050`) so the browser origin matches `CORS_ALLOWED_ORIGINS` on the adapter:
 ```bash
-flutter run -d ios --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+flutter run -d chrome --web-port=5050 --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
+> **CORS note:** If Chrome shows dashboard cards as `Offline`, `http://localhost:5050` is missing from `CORS_ALLOWED_ORIGINS` on the target adapter (`https://adapter.dcstack.my` or local `http://localhost:3000`).
 
-If you want to run on a physical iPhone from the terminal:
-
+### Connected iPhone
 1. Connect the iPhone by USB and unlock it.
 2. Tap `Trust This Computer` on the iPhone if prompted.
-3. Make sure Developer Mode is enabled on the phone.
-4. From `Smart_MonitoringDash`, run:
+3. Enable Developer Mode on the iPhone.
+4. Run:
+   ```bash
+   flutter devices
+   flutter run -d <iphone-device-id> --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
+   ```
 
-```bash
-flutter devices
-flutter run -d <iphone-device-id> --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
-```
-
-If the iPhone does not show up, run `flutter doctor -v` and confirm Xcode/iOS signing is ready.
-
-Run on a connected Android device:
-
+### Connected Android Device
 ```bash
 flutter run -d android --flavor standard --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
 ## Build Examples
 
-Android APK for the standard / main app:
-
+### Android APK (Standard / Main)
 ```bash
 flutter clean
 flutter pub get
 flutter build apk --release --flavor standard --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main
 ```
 
-iOS build for the standard / main app:
+### Android APK (Rack Console)
+```bash
+flutter clean
+flutter pub get
+flutter build apk --release --flavor rackconsole --dart-define-from-file=.env.json --dart-define=APP_VARIANT=rack_console
+```
 
+### iOS IPA (Standard / Main)
 ```bash
 flutter clean
 flutter pub get
 flutter build ipa --release --build-number=11 --dart-define-from-file=.env.json --dart-define=APP_VARIANT=main --dart-define=ADAPTER_BASE_URL=https://adapter.dcstack.my
 ```
 
-## Variant Notes
-
-- `APP_VARIANT=main` = standard / main application
-- `APP_VARIANT=rack_console` = rack console application
-- If `APP_VARIANT` is not provided, the app defaults to `main`
-
-This behavior comes from [`lib/core/config/app_config.dart`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash/lib/core/config/app_config.dart>).
-
 ## Config Notes
 
-- `.env.json` is used for runtime Dart defines
-- `CPANEL_BASE_URL` defaults to `https://dcstack.my/api/index.php`
-- `CPANEL_ASSET_BASE_URL` defaults to `https://dcstack.my/`
-- `ADAPTER_BASE_URL` is optional
-- Recommended production domain split:
+- Config keys are defined in [app_config.dart](lib/core/config/app_config.dart).
+- `CPANEL_BASE_URL` defaults to `https://portal.dcstack.my/api/index.php` (do **not** use `https://dcstack.my/api/index.php`, which serves the web app HTML without API CORS headers).
+- `CPANEL_ASSET_BASE_URL` defaults to `https://portal.dcstack.my/`.
+- `ADAPTER_BASE_URL` points to `https://adapter.dcstack.my` in production (or `http://localhost:3000` for a local Node adapter).
+- Production domain split:
   - `https://www.dcstack.my` = landing page
-  - `https://dcstack.my` = Smart Monitoring app
+  - `https://dcstack.my` = Smart Monitoring web app
+  - `https://portal.dcstack.my` = cPanel PHP API & assets
   - `https://adapter.dcstack.my` = adapter API
-- For Flutter Web, the browser origin must be included in the adapter's `CORS_ALLOWED_ORIGINS` value or the dashboard/API reads will fail and the app may appear offline.
 
 ## Current Release State
 
-The current Flutter source version in [`pubspec.yaml`](</Users/marketingdeveloper/DCStack/Smart Monitoring/Smart_MonitoringDash/pubspec.yaml>) is:
-
-- `1.0.1+8`
-
-Recent release status:
-
-- latest iOS TestFlight upload: `1.0.1 (11)`
-- iOS scheme: `Runner`
-- Android standard/main release output:
-  - `build/app/outputs/flutter-apk/app-standard-release.apk`
-
-## Final Release Checklist
-
-- Confirm `.env.json` points to `https://adapter.dcstack.my`
-- Confirm login works
-- Confirm door unlock works using biometric, PIN, and password
-- Confirm push notifications arrive on Android and iOS
-- Confirm pull-to-refresh only activates from the top of the page
-- Confirm report charts show readable values when pressed
-- Confirm sign out returns cleanly to login
+- Flutter source version in [pubspec.yaml](pubspec.yaml): `1.0.1+8`
+- Latest iOS TestFlight upload: `1.0.1 (11)` (`Runner` scheme)
+- Android standard/main release output: `build/app/outputs/flutter-apk/app-standard-release.apk`

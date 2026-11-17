@@ -363,6 +363,11 @@ class _MainGrid extends StatelessWidget {
                                           rackImageAssetPath,
                                           height: (cardHeight * 0.76).clamp(130.0, 260.0),
                                           fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) => Icon(
+                                            Icons.dns_rounded,
+                                            size: 64,
+                                            color: ConsoleTheme.cyan(context),
+                                          ),
                                         ),
                                       ),
                                       Positioned(
@@ -454,6 +459,11 @@ class _MainGrid extends StatelessWidget {
                                         rackImageAssetPath,
                                         height: (rackImageHeight * 0.65).clamp(100.0, 180.0),
                                         fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.dns_rounded,
+                                          size: 56,
+                                          color: ConsoleTheme.cyan(context),
+                                        ),
                                       ),
                                     ),
                                     Positioned(

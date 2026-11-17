@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -99,20 +100,26 @@ class _AuthScreenState extends State<AuthScreen> {
     _autoLoginTried = true;
 
     final enabled = await rememberMeStore.isEnabled();
-    if (!enabled) return;
+    final savedToken = await rememberMeStore.getAuthToken();
+    final webToken =
+        kIsWeb ? CpanelApiService.instance.getAuthTokenInMemory() : null;
+    final token = (enabled && savedToken != null && savedToken.isNotEmpty)
+        ? savedToken
+        : (webToken != null && webToken.isNotEmpty ? webToken : null);
 
-    final username = await rememberMeStore.getUsername();
-    final token = await rememberMeStore.getAuthToken();
     if (token == null || token.isEmpty) {
-      // Migration case: old versions stored passwords. We don't keep passwords
-      // for Remember Me anymore, so disable and require a fresh login.
-      await rememberMeStore.clear();
+      if (enabled) {
+        await rememberMeStore.clear();
+      }
       return;
     }
 
+    final username = (await rememberMeStore.getUsername()) ??
+        (await CpanelApiService.instance.getUsername());
+
     if (!mounted) return;
     setState(() {
-      _rememberMe = true;
+      _rememberMe = enabled;
       _userCtrl.text = username ?? '';
       _passCtrl.clear();
     });

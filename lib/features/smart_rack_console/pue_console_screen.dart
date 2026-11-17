@@ -233,26 +233,22 @@ class PueConsoleScreen extends StatelessWidget {
             )
           : Column(
               children: [
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: q1),
-                      const SizedBox(width: ConsoleTheme.lg),
-                      const Expanded(child: q2),
-                    ],
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: q1),
+                    const SizedBox(width: ConsoleTheme.lg),
+                    const Expanded(child: q2),
+                  ],
                 ),
                 const SizedBox(height: ConsoleTheme.lg),
-                const IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: q3),
-                      SizedBox(width: ConsoleTheme.lg),
-                      Expanded(child: q4),
-                    ],
-                  ),
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: q3),
+                    SizedBox(width: ConsoleTheme.lg),
+                    Expanded(child: q4),
+                  ],
                 ),
               ],
             ),
@@ -278,15 +274,13 @@ class PueConsoleScreen extends StatelessWidget {
                     bottomRight,
                   ],
                 )
-              : const IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: bottomLeft),
-                      SizedBox(width: ConsoleTheme.lg),
-                      Expanded(child: bottomRight),
-                    ],
-                  ),
+              : const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: bottomLeft),
+                    SizedBox(width: ConsoleTheme.lg),
+                    Expanded(child: bottomRight),
+                  ],
                 ),
         ],
       ),
