@@ -62,7 +62,7 @@ class ConsoleSectionCard extends StatelessWidget {
                               title!,
                               style: TextStyle(
                                 color: textPrimary,
-                                fontSize: 14,
+                                fontSize: ConsoleTheme.isRackConsoleLite ? 14 : 18,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5,
                               ),

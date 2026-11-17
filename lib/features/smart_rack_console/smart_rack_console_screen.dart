@@ -533,24 +533,21 @@ class _MainGrid extends StatelessWidget {
       title: 'Temperature & Humidity',
       minHeight: 170,
       expand: true,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
-          // Subtract a safe fixed offset for the pager and spacing to avoid vertical overflows
-          final double calculatedGaugeHeight = (cardHeight - 84).clamp(110.0, 360.0);
+          // Match Current PUE's chartSize so the footer row aligns at the exact same height.
+          final double calculatedGaugeHeight = (cardHeight - 118).clamp(110.0, 360.0);
 
-          return Padding(
-            padding: const EdgeInsets.only(top: 2.0),
-            child: EnvironmentRow(
-              temperatures: snapshot.temperatures,
-              humidities: snapshot.humidities,
-              alarms: snapshot.alarms,
-              initialStyle: EnvironmentGaugeStyle.meter,
-              minimalist: true,
-              isVertical: !isSuperWide,
-              gaugeHeight: calculatedGaugeHeight,
-            ),
+          return EnvironmentRow(
+            temperatures: snapshot.temperatures,
+            humidities: snapshot.humidities,
+            alarms: snapshot.alarms,
+            initialStyle: EnvironmentGaugeStyle.meter,
+            minimalist: true,
+            isVertical: !isSuperWide,
+            gaugeHeight: calculatedGaugeHeight,
           );
         },
       ),
@@ -592,7 +589,7 @@ class _MainGrid extends StatelessWidget {
           return SizedBox(
             width: double.infinity,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
@@ -639,7 +636,7 @@ class _MainGrid extends StatelessWidget {
                         ],
                       ),
                     ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 10),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(

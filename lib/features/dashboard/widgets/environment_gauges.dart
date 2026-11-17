@@ -1514,7 +1514,7 @@ class _GaugeStyleSwitch extends StatelessWidget {
   const _GaugeStyleSwitch({
     required this.value,
     required this.onChanged,
-    this.showLabel = true,
+    this.showLabel = false,
   });
 
   @override

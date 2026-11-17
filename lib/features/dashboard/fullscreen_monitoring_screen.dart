@@ -159,13 +159,17 @@ class _FullscreenMonitoringScreenState
       autofocus: true,
       onKeyEvent: _handleKey,
       child: Scaffold(
-        backgroundColor: const Color(0xFF060B12),
+        backgroundColor: ConsoleTheme.isDark(context)
+            ? const Color(0xFF060B12)
+            : ConsoleTheme.appBg(context),
         body: Stack(
           children: [
-            const Positioned.fill(
+            Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
-                  painter: _NocGridBackdropPainter(),
+                  painter: _NocGridBackdropPainter(
+                    isDark: ConsoleTheme.isDark(context),
+                  ),
                 ),
               ),
             ),
@@ -188,7 +192,6 @@ class _FullscreenMonitoringScreenState
                   return Column(
                     children: [
                       _WallboardTopBar(
-                        siteName: branchTitle,
                         boardTitle: _switchingBranch
                             ? 'Switching to $branchTitle...'
                             : 'Branch ${_currentPage + 1} of $totalBranches  •  $branchTitle',
@@ -238,7 +241,6 @@ class _FullscreenMonitoringScreenState
 
 class _WallboardTopBar extends StatefulWidget {
   const _WallboardTopBar({
-    required this.siteName,
     required this.boardTitle,
     required this.currentPage,
     required this.totalPages,
@@ -248,7 +250,6 @@ class _WallboardTopBar extends StatefulWidget {
     required this.onExit,
   });
 
-  final String siteName;
   final String boardTitle;
   final int currentPage;
   final int totalPages;
@@ -287,14 +288,19 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
     final dayStr = DateFormat('EEEE').format(_now);
     final timeStr = prefs.formatClock(_now);
 
+    final isDark = ConsoleTheme.isDark(context);
+    final accent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A111C).withValues(alpha: 0.92),
+        color: isDark
+            ? const Color(0xFF0A111C).withValues(alpha: 0.92)
+            : ConsoleTheme.panelBg(context).withValues(alpha: 0.96),
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFF26D7FF).withValues(alpha: 0.25),
+            color: accent.withValues(alpha: 0.25),
             width: 1,
           ),
         ),
@@ -322,26 +328,6 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                   height: 30,
                   fit: BoxFit.contain,
                 ),
-              const SizedBox(width: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF132033),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF26D7FF).withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  widget.siteName,
-                  style: ConsoleTheme.font(
-                    color: const Color(0xFF26D7FF),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
             ],
           ),
 
@@ -363,7 +349,7 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                   Text(
                     'Data Center Monitoring',
                     style: ConsoleTheme.font(
-                      color: Colors.white,
+                      color: ConsoleTheme.textPrimary(context),
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
@@ -376,7 +362,7 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                       Text(
                         widget.boardTitle,
                         style: ConsoleTheme.font(
-                          color: const Color(0xFF26D7FF),
+                          color: accent,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
@@ -393,8 +379,9 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                             height: 6,
                             decoration: BoxDecoration(
                               color: active
-                                  ? const Color(0xFF26D7FF)
-                                  : Colors.white.withValues(alpha: 0.25),
+                                  ? accent
+                                  : ConsoleTheme.textMuted(context)
+                                      .withValues(alpha: 0.35),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -426,7 +413,7 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                   Text(
                     '$dateStr  $timeStr',
                     style: ConsoleTheme.font(
-                      color: Colors.white,
+                      color: ConsoleTheme.textPrimary(context),
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ).copyWith(
@@ -436,7 +423,7 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                   Text(
                     dayStr,
                     style: ConsoleTheme.font(
-                      color: const Color(0xFF8FA7C4),
+                      color: ConsoleTheme.textSecondary(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -453,15 +440,15 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF132033),
+                      color: ConsoleTheme.innerSurface(context),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFF26D7FF).withValues(alpha: 0.35),
+                        color: accent.withValues(alpha: 0.35),
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.fullscreen_exit_rounded,
-                      color: Color(0xFF26D7FF),
+                      color: accent,
                       size: 22,
                     ),
                   ),
@@ -488,6 +475,9 @@ class _NocChevronButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ConsoleTheme.isDark(context);
+    final accent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
@@ -495,20 +485,21 @@ class _NocChevronButton extends StatelessWidget {
         width: 30,
         height: 30,
         decoration: BoxDecoration(
-          color: const Color(0xFF132033).withValues(alpha: enabled ? 1.0 : 0.4),
+          color: ConsoleTheme.innerSurface(context)
+              .withValues(alpha: enabled ? 1.0 : 0.4),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: enabled
-                ? const Color(0xFF26D7FF).withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.1),
+                ? accent.withValues(alpha: 0.4)
+                : ConsoleTheme.cardBorder(context),
           ),
         ),
         child: Icon(
           icon,
           size: 20,
           color: enabled
-              ? const Color(0xFF26D7FF)
-              : Colors.white.withValues(alpha: 0.25),
+              ? accent
+              : ConsoleTheme.textMuted(context).withValues(alpha: 0.4),
         ),
       ),
     );
@@ -526,81 +517,87 @@ class _CommandCenterBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // LEFT COLUMN
-          Expanded(
-            flex: 28,
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 32,
-                  child: _HealthStatisticsCard(snapshot: snapshot),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalH = math.max(300.0, constraints.maxHeight - 28);
+        final bottomH = ((totalH - 24) * 0.32).clamp(140.0, 420.0);
+
+        return Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // LEFT COLUMN
+              Expanded(
+                flex: 28,
+                child: Column(
+                  children: [
+                    Expanded(
+                      flex: 32,
+                      child: _HealthStatisticsCard(snapshot: snapshot),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      flex: 36,
+                      child: _DeviceHealthBarsCard(snapshot: snapshot),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: bottomH,
+                      child: _AlarmStatisticsCard(snapshot: snapshot),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Expanded(
-                  flex: 36,
-                  child: _DeviceHealthBarsCard(snapshot: snapshot),
+              ),
+              const SizedBox(width: 14),
+              // CENTER COLUMN
+              Expanded(
+                flex: 44,
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 82,
+                      child: _TopKpiStrip(snapshot: snapshot),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _CenterTopologyHub(snapshot: snapshot),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: bottomH,
+                      child: _PowerOutletPduCard(snapshot: snapshot),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Expanded(
-                  flex: 32,
-                  child: _AlarmStatisticsCard(snapshot: snapshot),
+              ),
+              const SizedBox(width: 14),
+              // RIGHT COLUMN
+              Expanded(
+                flex: 28,
+                child: Column(
+                  children: [
+                    Expanded(
+                      flex: 36,
+                      child: _EnvironmentCard(snapshot: snapshot),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      flex: 32,
+                      child: _BottomAlarmsTableCard(snapshot: snapshot),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: bottomH,
+                      child: _DoorsAndCapacityCard(snapshot: snapshot),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          // CENTER COLUMN
-          Expanded(
-            flex: 44,
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 82,
-                  child: _TopKpiStrip(snapshot: snapshot),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  flex: 62,
-                  child: _CenterTopologyHub(snapshot: snapshot),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  flex: 38,
-                  child: _BottomAlarmsTableCard(snapshot: snapshot),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          // RIGHT COLUMN
-          Expanded(
-            flex: 28,
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 38,
-                  child: _TempHumidityComparisonCard(snapshot: snapshot),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  flex: 26,
-                  child: _SmokeAndLeakCard(snapshot: snapshot),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  flex: 36,
-                  child: _DoorsAndCapacityCard(snapshot: snapshot),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -640,10 +637,15 @@ class _HealthStatisticsCard extends StatelessWidget {
                   builder: (context, anim, child) => CustomPaint(
                     painter: _RingChartPainter(
                       progress: anim,
+                      trackColor: ConsoleTheme.isDark(context)
+                          ? const Color(0xFF16243A)
+                          : const Color(0xFFDCE7F5),
                       segments: [
                         _RingSegment(
                           fraction: normalPct / 100.0,
-                          color: const Color(0xFF26D7FF),
+                          color: ConsoleTheme.isDark(context)
+                              ? const Color(0xFF26D7FF)
+                              : ConsoleTheme.primaryBlue(context),
                         ),
                         _RingSegment(
                           fraction: (100 - normalPct) / 100.0,
@@ -660,7 +662,7 @@ class _HealthStatisticsCard extends StatelessWidget {
                         Text(
                           '$normalPct%',
                           style: ConsoleTheme.font(
-                            color: Colors.white,
+                            color: ConsoleTheme.textPrimary(context),
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                           ),
@@ -668,7 +670,7 @@ class _HealthStatisticsCard extends StatelessWidget {
                         Text(
                           'Normal',
                           style: ConsoleTheme.font(
-                            color: const Color(0xFF8FA7C4),
+                            color: ConsoleTheme.textSecondary(context),
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -712,53 +714,82 @@ class _HealthStatisticsCard extends StatelessWidget {
   }
 }
 
-class _DeviceHealthBarsCard extends StatelessWidget {
+class _DeviceHealthBarsCard extends StatefulWidget {
   const _DeviceHealthBarsCard({required this.snapshot});
 
   final SmartRackConsoleSnapshot snapshot;
 
   @override
+  State<_DeviceHealthBarsCard> createState() => _DeviceHealthBarsCardState();
+}
+
+class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
+  String _mode = 'PE';
+
+  @override
   Widget build(BuildContext context) {
-    final counts = <String, int>{
-      'UPS': 0,
-      'Smoke': 0,
-      'T&H': 0,
-      'Power': 0,
-      'AC': 0,
-      'PDU': 0,
-      'Door': 0,
-    };
+    final snapshot = widget.snapshot;
+    final Map<String, int> counts;
 
-    for (final d in snapshot.devices) {
-      final raw =
-          (d['deviceType'] ?? d['typeName'] ?? d['name'] ?? '').toString().toLowerCase();
-      if (raw.contains('ups')) {
-        counts['UPS'] = (counts['UPS'] ?? 0) + 1;
-      } else if (raw.contains('smoke')) {
-        counts['Smoke'] = (counts['Smoke'] ?? 0) + 1;
-      } else if (raw.contains('temp') || raw.contains('hum') || raw.contains('th')) {
-        counts['T&H'] = (counts['T&H'] ?? 0) + 1;
-      } else if (raw.contains('pdu')) {
-        counts['PDU'] = (counts['PDU'] ?? 0) + 1;
-      } else if (raw.contains('power') || raw.contains('meter')) {
-        counts['Power'] = (counts['Power'] ?? 0) + 1;
-      } else if (raw.contains('ac') || raw.contains('air')) {
-        counts['AC'] = (counts['AC'] ?? 0) + 1;
-      } else if (raw.contains('door') || raw.contains('access')) {
-        counts['Door'] = (counts['Door'] ?? 0) + 1;
+    if (_mode == 'PE') {
+      counts = <String, int>{
+        'UPS': 0,
+        'Smoke': 0,
+        'T&H': 0,
+        'Power': 0,
+        'AC': 0,
+        'PDU': 0,
+        'Door': 0,
+      };
+
+      for (final d in snapshot.devices) {
+        final raw =
+            (d['deviceType'] ?? d['typeName'] ?? d['name'] ?? '').toString().toLowerCase();
+        if (raw.contains('ups')) {
+          counts['UPS'] = (counts['UPS'] ?? 0) + 1;
+        } else if (raw.contains('smoke')) {
+          counts['Smoke'] = (counts['Smoke'] ?? 0) + 1;
+        } else if (raw.contains('temp') || raw.contains('hum') || raw.contains('th')) {
+          counts['T&H'] = (counts['T&H'] ?? 0) + 1;
+        } else if (raw.contains('pdu')) {
+          counts['PDU'] = (counts['PDU'] ?? 0) + 1;
+        } else if (raw.contains('power') || raw.contains('meter')) {
+          counts['Power'] = (counts['Power'] ?? 0) + 1;
+        } else if (raw.contains('ac') || raw.contains('air')) {
+          counts['AC'] = (counts['AC'] ?? 0) + 1;
+        } else if (raw.contains('door') || raw.contains('access')) {
+          counts['Door'] = (counts['Door'] ?? 0) + 1;
+        }
       }
-    }
 
-    if (counts.values.every((v) => v == 0)) {
-      counts['UPS'] = snapshot.upsParameterRows.isNotEmpty ? 1 : 0;
-      counts['Smoke'] = snapshot.smokeStatus >= 0 ? 1 : 0;
-      counts['T&H'] = snapshot.temperatures.length;
-      counts['Power'] = snapshot.powerInletRows.isNotEmpty ? 1 : 0;
-      counts['AC'] = snapshot.acMetricRows.isNotEmpty ? 1 : 0;
-      counts['PDU'] =
-          (snapshot.powerPdu1MetricRows.isNotEmpty ? 1 : 0) +
-              (snapshot.powerPdu2MetricRows.isNotEmpty ? 1 : 0);
-      counts['Door'] = snapshot.doors.length;
+      if (counts.values.every((v) => v == 0)) {
+        counts['UPS'] = snapshot.upsParameterRows.isNotEmpty ? 1 : 0;
+        counts['Smoke'] = snapshot.smokeStatus >= 0 ? 1 : 0;
+        counts['T&H'] = snapshot.temperatures.length;
+        counts['Power'] = snapshot.powerInletRows.isNotEmpty ? 1 : 0;
+        counts['AC'] = snapshot.acMetricRows.isNotEmpty ? 1 : 0;
+        counts['PDU'] =
+            (snapshot.powerPdu1MetricRows.isNotEmpty ? 1 : 0) +
+                (snapshot.powerPdu2MetricRows.isNotEmpty ? 1 : 0);
+        counts['Door'] = snapshot.doors.length;
+      }
+    } else {
+      final itDevices = snapshot.devices.where((d) {
+        final raw =
+            (d['deviceType'] ?? d['typeName'] ?? d['name'] ?? '').toString().toLowerCase();
+        return raw.contains('it') ||
+            raw.contains('server') ||
+            raw.contains('switch') ||
+            raw.contains('net') ||
+            raw.contains('router');
+      }).length;
+      counts = <String, int>{
+        'IT': itDevices,
+        'NIC': snapshot.networkInterfaces.length,
+        'CPU': (snapshot.cpuUsedPct ?? 0).round(),
+        'RAM': (snapshot.memoryUsedPct ?? 0).round(),
+        'Disk': (snapshot.diskUsedPct ?? 0).round(),
+      };
     }
 
     final maxVal = math.max(1, counts.values.fold<int>(0, math.max));
@@ -767,6 +798,11 @@ class _DeviceHealthBarsCard extends StatelessWidget {
 
     return _NocPanel(
       title: 'Device Health',
+      trailing: _NocFilterPills(
+        options: const ['PE', 'IT'],
+        selected: _mode,
+        onSelected: (v) => setState(() => _mode = v),
+      ),
       child: Column(
         children: [
           Row(
@@ -788,6 +824,7 @@ class _DeviceHealthBarsCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Expanded(
+            key: ValueKey<String>('dev_health_$_mode'),
             child: Stack(
               children: [
                 Positioned.fill(
@@ -814,7 +851,7 @@ class _DeviceHealthBarsCard extends StatelessWidget {
                         Text(
                           '${e.value}',
                           style: ConsoleTheme.font(
-                            color: const Color(0xFF9AC5E8),
+                            color: ConsoleTheme.textSecondary(context),
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                           ),
@@ -856,7 +893,7 @@ class _DeviceHealthBarsCard extends StatelessWidget {
                         Text(
                           e.key,
                           style: ConsoleTheme.font(
-                            color: const Color(0xFF8FA7C4),
+                            color: ConsoleTheme.textSecondary(context),
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -878,15 +915,46 @@ class _DeviceHealthBarsCard extends StatelessWidget {
   }
 }
 
-class _AlarmStatisticsCard extends StatelessWidget {
+class _AlarmStatisticsCard extends StatefulWidget {
   const _AlarmStatisticsCard({required this.snapshot});
 
   final SmartRackConsoleSnapshot snapshot;
 
   @override
+  State<_AlarmStatisticsCard> createState() => _AlarmStatisticsCardState();
+}
+
+class _AlarmStatisticsCardState extends State<_AlarmStatisticsCard> {
+  String _range = 'Now';
+
+  DateTime? _parseAlarmTime(Map a) {
+    final raw = a['alarmTime'] ?? a['createTime'] ?? a['time'] ?? a['timestamp'];
+    if (raw == null) return null;
+    if (raw is num) {
+      final ms = raw > 1000000000000 ? raw.toInt() : (raw * 1000).toInt();
+      return DateTime.fromMillisecondsSinceEpoch(ms);
+    }
+    return DateTime.tryParse(raw.toString().trim());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final cutoff = switch (_range) {
+      'Week' => now.subtract(const Duration(days: 7)),
+      'Month' => now.subtract(const Duration(days: 30)),
+      _ => now.subtract(const Duration(hours: 24)),
+    };
+
+    final filtered = widget.snapshot.alarms.where((a) {
+      if (a is! Map) return false;
+      final dt = _parseAlarmTime(a);
+      if (dt == null) return true;
+      return !dt.isBefore(cutoff);
+    }).toList();
+
     int info = 0, minor = 0, major = 0, critical = 0;
-    for (final a in snapshot.alarms) {
+    for (final a in filtered) {
       if (a is! Map) continue;
       final lvl = (a['alarmLevel'] ?? a['level'] ?? '').toString().toLowerCase();
       if (lvl.contains('crit') || lvl.contains('urg')) {
@@ -899,12 +967,18 @@ class _AlarmStatisticsCard extends StatelessWidget {
         info++;
       }
     }
-    final total = snapshot.alarms.length;
+    final total = filtered.length;
     final denom = math.max(1, total);
 
     return _NocPanel(
       title: 'Alarm Statistics',
+      trailing: _NocFilterPills(
+        options: const ['Now', 'Week', 'Month'],
+        selected: _range,
+        onSelected: (v) => setState(() => _range = v),
+      ),
       child: Row(
+        key: ValueKey<String>('alarm_stats_$_range'),
         children: [
           Expanded(
             flex: 5,
@@ -919,11 +993,16 @@ class _AlarmStatisticsCard extends StatelessWidget {
                   builder: (context, anim, child) => CustomPaint(
                     painter: _RingChartPainter(
                       progress: anim,
+                      trackColor: ConsoleTheme.isDark(context)
+                          ? const Color(0xFF16243A)
+                          : const Color(0xFFDCE7F5),
                       segments: total == 0
-                          ? const [
+                          ? [
                               _RingSegment(
                                 fraction: 1.0,
-                                color: Color(0xFF24344D),
+                                color: ConsoleTheme.isDark(context)
+                                    ? const Color(0xFF24344D)
+                                    : const Color(0xFFDCE7F5),
                               ),
                             ]
                           : [
@@ -954,7 +1033,7 @@ class _AlarmStatisticsCard extends StatelessWidget {
                         Text(
                           '$total',
                           style: ConsoleTheme.font(
-                            color: Colors.white,
+                            color: ConsoleTheme.textPrimary(context),
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                           ),
@@ -962,7 +1041,7 @@ class _AlarmStatisticsCard extends StatelessWidget {
                         Text(
                           'Total',
                           style: ConsoleTheme.font(
-                            color: const Color(0xFF8FA7C4),
+                            color: ConsoleTheme.textSecondary(context),
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1105,9 +1184,6 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
       title: 'Live Rack Topology',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final size = math.min(constraints.maxWidth, constraints.maxHeight);
-          final radius = (size * 0.36).clamp(70.0, 140.0);
-
           final nodes = <_TopologyNode>[
             _TopologyNode(
               label: 'AC',
@@ -1155,132 +1231,171 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
             animation: _spinController,
             builder: (context, _) {
               final spin = _spinController.value * 2 * math.pi;
+              const tilt = 0.0;
+              final rx = (constraints.maxWidth * 0.40).clamp(140.0, 360.0);
+              final ry = (constraints.maxHeight * 0.24).clamp(52.0, 125.0);
+              final rackW = (constraints.maxHeight * 0.42).clamp(90.0, 180.0);
+              final rackH = (constraints.maxHeight * 0.56).clamp(110.0, 220.0);
+              final accent = ConsoleTheme.isDark(context)
+                  ? const Color(0xFF26D7FF)
+                  : ConsoleTheme.primaryBlue(context);
+
+              Widget buildNodeWidget(_TopologyNode node, double depth) {
+                final color = node.ok ? accent : const Color(0xFFFF4D4F);
+                final scale = 0.86 + (depth + 1) * 0.1; // 0.86..1.06
+                final opacity = (0.72 + (depth + 1) * 0.14).clamp(0.7, 1.0);
+                return Opacity(
+                  opacity: opacity,
+                  child: Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: ConsoleTheme.innerSurface(context),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.55),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.16),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(node.icon, size: 15, color: color),
+                          const SizedBox(width: 6),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                node.label,
+                                style: ConsoleTheme.font(
+                                  color: ConsoleTheme.textPrimary(context),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                node.value,
+                                style: ConsoleTheme.font(
+                                  color: color,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final backNodes = <Widget>[];
+              final frontNodes = <Widget>[];
+              for (var i = 0; i < nodes.length; i++) {
+                final angle = (2 * math.pi * i / nodes.length) + spin;
+                final depth = math.sin(angle); // <0 = behind rack, >=0 = front
+                final ex = math.cos(angle) * rx;
+                final ey = math.sin(angle) * ry;
+                final dx = ex * math.cos(tilt) - ey * math.sin(tilt);
+                final dy = ex * math.sin(tilt) + ey * math.cos(tilt);
+                final positioned = Transform.translate(
+                  offset: Offset(dx, dy),
+                  child: buildNodeWidget(nodes[i], depth),
+                );
+                if (depth < 0) {
+                  backNodes.add(positioned);
+                } else {
+                  frontNodes.add(positioned);
+                }
+              }
+
               return SizedBox.expand(
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                  CustomPaint(
-                    size: Size(radius * 2.4, radius * 2.4),
-                    painter: _TopologyRingPainter(
-                      nodeCount: nodes.length,
-                      rotationRadians: spin,
-                    ),
-                  ),
-                  // Center PUE / Energy Core
-                  Container(
-                    width: radius * 1.08,
-                    height: radius * 1.08,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          const Color(0xFF1E90FF).withValues(alpha: 0.28),
-                          const Color(0xFF0C1524),
-                        ],
+                    // 1. Back half of Saturn ring + back orbiting nodes (behind rack)
+                    CustomPaint(
+                      size: Size(rx * 2.2, ry * 2.4),
+                      painter: _TopologyRingPainter(
+                        tiltRadians: tilt,
+                        rx: rx,
+                        ry: ry,
+                        accent: accent,
+                        drawBack: true,
+                        drawFront: false,
                       ),
-                      border: Border.all(
-                        color: const Color(0xFF26D7FF).withValues(alpha: 0.55),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFF26D7FF).withValues(alpha: 0.18),
-                          blurRadius: 24,
-                        ),
-                      ],
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    ...backNodes,
+
+                    // 2. Center Smart Rack (floating cleanly in the middle)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'PUE',
-                          style: ConsoleTheme.font(
-                            color: const Color(0xFF8FA7C4),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: ConsoleTheme.innerSurface(context)
+                                .withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            'PUE $pueText  •  $energyText',
+                            style: ConsoleTheme.font(
+                              color: accent,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                        Text(
-                          pueText,
-                          style: ConsoleTheme.font(
-                            color: const Color(0xFF26D7FF),
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                        const SizedBox(height: 6),
+                        Container(
+                          width: rackW,
+                          height: rackH,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.22),
+                                blurRadius: 42,
+                                spreadRadius: 6,
+                              ),
+                            ],
                           ),
-                        ),
-                        Text(
-                          energyText,
-                          style: ConsoleTheme.font(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                          child: Image.asset(
+                            RackConsolePreferences.instance.selectedRackImage,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  // Orbiting Subsystem Nodes
-                  ...List.generate(nodes.length, (i) {
-                    final angle =
-                        (2 * math.pi * i / nodes.length) - math.pi / 2 + spin;
-                    final dx = math.cos(angle) * radius * 1.15;
-                    final dy = math.sin(angle) * radius * 0.95;
-                    final node = nodes[i];
-                    final color = node.ok
-                        ? const Color(0xFF26D7FF)
-                        : const Color(0xFFFF4D4F);
-                    return Transform.translate(
-                      offset: Offset(dx, dy),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0E1828),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: color.withValues(alpha: 0.5),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.15),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(node.icon, size: 15, color: color),
-                            const SizedBox(width: 6),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  node.label,
-                                  style: ConsoleTheme.font(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                Text(
-                                  node.value,
-                                  style: ConsoleTheme.font(
-                                    color: color,
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+
+                    // 3. Front half of Saturn ring + front orbiting nodes (in front of rack)
+                    CustomPaint(
+                      size: Size(rx * 2.2, ry * 2.4),
+                      painter: _TopologyRingPainter(
+                        tiltRadians: tilt,
+                        rx: rx,
+                        ry: ry,
+                        accent: accent,
+                        drawBack: false,
+                        drawFront: true,
                       ),
-                    );
-                  }),
-                ],
+                    ),
+                    ...frontNodes,
+                  ],
                 ),
               );
             },
@@ -1315,7 +1430,7 @@ class _BottomAlarmsTableCard extends StatelessWidget {
                   Text(
                     'No Active Alarms',
                     style: ConsoleTheme.font(
-                      color: const Color(0xFF8FA7C4),
+                      color: ConsoleTheme.textSecondary(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1327,7 +1442,7 @@ class _BottomAlarmsTableCard extends StatelessWidget {
               itemCount: math.min(alarms.length, 6),
               separatorBuilder: (_, __) => Divider(
                 height: 1,
-                color: Colors.white.withValues(alpha: 0.06),
+                color: ConsoleTheme.divider(context),
               ),
               itemBuilder: (context, i) {
                 final a = alarms[i] is Map ? alarms[i] as Map : const {};
@@ -1361,7 +1476,7 @@ class _BottomAlarmsTableCard extends StatelessWidget {
                         child: Text(
                           item,
                           style: ConsoleTheme.font(
-                            color: Colors.white,
+                            color: ConsoleTheme.textPrimary(context),
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1373,7 +1488,7 @@ class _BottomAlarmsTableCard extends StatelessWidget {
                         child: Text(
                           content,
                           style: ConsoleTheme.font(
-                            color: const Color(0xFF8FA7C4),
+                            color: ConsoleTheme.textSecondary(context),
                             fontSize: 11,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -1382,7 +1497,7 @@ class _BottomAlarmsTableCard extends StatelessWidget {
                       Text(
                         time,
                         style: ConsoleTheme.font(
-                          color: const Color(0xFF6B829E),
+                          color: ConsoleTheme.textMuted(context),
                           fontSize: 10,
                         ),
                       ),
@@ -1395,13 +1510,36 @@ class _BottomAlarmsTableCard extends StatelessWidget {
   }
 }
 
-class _TempHumidityComparisonCard extends StatelessWidget {
-  const _TempHumidityComparisonCard({required this.snapshot});
+class _EnvironmentCard extends StatefulWidget {
+  const _EnvironmentCard({required this.snapshot});
 
   final SmartRackConsoleSnapshot snapshot;
 
   @override
+  State<_EnvironmentCard> createState() => _EnvironmentCardState();
+}
+
+class _EnvironmentCardState extends State<_EnvironmentCard> {
+  String _tab = 'T&H';
+
+  @override
   Widget build(BuildContext context) {
+    final snapshot = widget.snapshot;
+
+    return _NocPanel(
+      title: 'Environment',
+      trailing: _NocFilterPills(
+        options: const ['T&H', 'Smoke & Leak'],
+        selected: _tab,
+        onSelected: (v) => setState(() => _tab = v),
+      ),
+      child: _tab == 'T&H'
+          ? _buildTempHumList(snapshot)
+          : _buildSmokeLeakRow(snapshot),
+    );
+  }
+
+  Widget _buildTempHumList(SmartRackConsoleSnapshot snapshot) {
     final rows = <_TempHumPair>[];
     final count =
         math.max(snapshot.temperatures.length, snapshot.humidities.length);
@@ -1426,98 +1564,194 @@ class _TempHumidityComparisonCard extends StatelessWidget {
       ));
     }
 
-    return _NocPanel(
-      title: 'Temperature & Humidity',
-      trailing: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SmallDotLabel(color: Color(0xFFF59E0B), label: 'Temp'),
-          SizedBox(width: 8),
-          _SmallDotLabel(color: Color(0xFF26D7FF), label: 'Humidity'),
-        ],
+    return Column(
+      key: const ValueKey<String>('env_th'),
+      children: [
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _SmallDotLabel(color: Color(0xFFF59E0B), label: 'Temp'),
+            SizedBox(width: 8),
+            _SmallDotLabel(color: Color(0xFF26D7FF), label: 'Humidity'),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: rows.map((r) {
+              final tempFrac = (r.temp / 50.0).clamp(0.05, 1.0);
+              final humFrac = (r.hum / 100.0).clamp(0.05, 1.0);
+              return Row(
+                children: [
+                  SizedBox(
+                    width: 72,
+                    child: Text(
+                      r.label,
+                      style: ConsoleTheme.font(
+                        color: ConsoleTheme.textSecondary(context),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.05, end: tempFrac),
+                        duration: const Duration(milliseconds: 750),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, val, child) => FractionallySizedBox(
+                          widthFactor: val,
+                          child: child,
+                        ),
+                        child: Container(
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.horizontal(
+                                left: Radius.circular(4)),
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFFF8A00)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.05, end: humFrac),
+                        duration: const Duration(milliseconds: 750),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, val, child) => FractionallySizedBox(
+                          widthFactor: val,
+                          child: child,
+                        ),
+                        child: Container(
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.horizontal(
+                                right: Radius.circular(4)),
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF18D2C3), Color(0xFF26D7FF)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 76,
+                    child: Text(
+                      '${r.temp.toStringAsFixed(0)}°C / ${r.hum.toStringAsFixed(0)}%',
+                      textAlign: TextAlign.right,
+                      style: ConsoleTheme.font(
+                        color: ConsoleTheme.textPrimary(context),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSmokeLeakRow(SmartRackConsoleSnapshot snapshot) {
+    final smokeOk = snapshot.smokeStatus != 1;
+    final leakOk = snapshot.floodStatus != 1;
+
+    return Row(
+      key: const ValueKey<String>('env_smoke_leak'),
+      children: [
+        Expanded(
+          child: _SensorStateTile(
+            icon: Icons.smoke_free_rounded,
+            label: 'Smoke',
+            value: snapshot.smokeLabel,
+            ok: smokeOk,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _SensorStateTile(
+            icon: Icons.water_drop_rounded,
+            label: 'Water-leak',
+            value: snapshot.waterLeakLabel,
+            ok: leakOk,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NocFilterPills extends StatelessWidget {
+  const _NocFilterPills({
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> options;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = ConsoleTheme.isDark(context);
+    final accent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: ConsoleTheme.innerSurface(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.2),
+        ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: rows.map((r) {
-          final tempFrac = (r.temp / 50.0).clamp(0.05, 1.0);
-          final humFrac = (r.hum / 100.0).clamp(0.05, 1.0);
-          return Row(
-            children: [
-              SizedBox(
-                width: 72,
-                child: Text(
-                  r.label,
-                  style: ConsoleTheme.font(
-                    color: const Color(0xFF8FA7C4),
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: options.map((opt) {
+          final isSelected = opt == selected;
+          return GestureDetector(
+            onTap: () => onSelected(opt),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? accent.withValues(alpha: 0.16)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: isSelected
+                    ? Border.all(
+                        color: accent.withValues(alpha: 0.5),
+                      )
+                    : null,
+              ),
+              child: Text(
+                opt,
+                style: ConsoleTheme.font(
+                  color: isSelected
+                      ? accent
+                      : ConsoleTheme.textSecondary(context),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.05, end: tempFrac),
-                    duration: const Duration(milliseconds: 750),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, val, child) => FractionallySizedBox(
-                      widthFactor: val,
-                      child: child,
-                    ),
-                    child: Container(
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        borderRadius:
-                            BorderRadius.horizontal(left: Radius.circular(4)),
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFF59E0B), Color(0xFFFF8A00)],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 2),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.05, end: humFrac),
-                    duration: const Duration(milliseconds: 750),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, val, child) => FractionallySizedBox(
-                      widthFactor: val,
-                      child: child,
-                    ),
-                    child: Container(
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        borderRadius:
-                            BorderRadius.horizontal(right: Radius.circular(4)),
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF18D2C3), Color(0xFF26D7FF)],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 76,
-                child: Text(
-                  '${r.temp.toStringAsFixed(0)}°C / ${r.hum.toStringAsFixed(0)}%',
-                  textAlign: TextAlign.right,
-                  style: ConsoleTheme.font(
-                    color: Colors.white,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+            ),
           );
         }).toList(),
       ),
@@ -1525,39 +1759,147 @@ class _TempHumidityComparisonCard extends StatelessWidget {
   }
 }
 
-class _SmokeAndLeakCard extends StatelessWidget {
-  const _SmokeAndLeakCard({required this.snapshot});
+class _PowerOutletPduCard extends StatefulWidget {
+  const _PowerOutletPduCard({required this.snapshot});
 
   final SmartRackConsoleSnapshot snapshot;
 
   @override
+  State<_PowerOutletPduCard> createState() => _PowerOutletPduCardState();
+}
+
+class _PowerOutletPduCardState extends State<_PowerOutletPduCard> {
+  String _tab = 'Outlet';
+
+  double? _parseNumericValue(String raw) {
+    final m = RegExp(r'[-+]?\d*\.?\d+').firstMatch(raw);
+    if (m == null) return null;
+    return double.tryParse(m.group(0)!);
+  }
+
+  double _maxScaleFor(String value) {
+    final lower = value.toLowerCase();
+    if (lower.contains('v')) return 450.0;
+    if (lower.contains('a')) return 32.0;
+    if (lower.contains('kw')) return 20.0;
+    if (lower.contains('hz')) return 65.0;
+    if (lower.contains('%')) return 100.0;
+    return 100.0;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final smokeOk = snapshot.smokeStatus != 1;
-    final leakOk = snapshot.floodStatus != 1;
+    final s = widget.snapshot;
+    final rows = switch (_tab) {
+      'PDU 1' => s.powerPdu1MetricRows,
+      'PDU 2' => s.powerPdu2MetricRows,
+      _ => s.powerOutletRows.isNotEmpty ? s.powerOutletRows : s.powerInletRows,
+    };
+    final isDark = ConsoleTheme.isDark(context);
+    final accent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+    final trackColor = isDark ? const Color(0xFF1A283D) : const Color(0xFFDCE7F5);
 
     return _NocPanel(
-      title: 'Smoke & Water-leak',
-      child: Row(
-        children: [
-          Expanded(
-            child: _SensorStateTile(
-              icon: Icons.smoke_free_rounded,
-              label: 'Smoke',
-              value: snapshot.smokeLabel,
-              ok: smokeOk,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _SensorStateTile(
-              icon: Icons.water_drop_rounded,
-              label: 'Water-leak',
-              value: snapshot.waterLeakLabel,
-              ok: leakOk,
-            ),
-          ),
-        ],
+      title: 'Power & Rack PDU',
+      trailing: _NocFilterPills(
+        options: const ['Outlet', 'PDU 1', 'PDU 2'],
+        selected: _tab,
+        onSelected: (v) => setState(() => _tab = v),
       ),
+      child: rows.isEmpty
+          ? Center(
+              child: Text(
+                'No $_tab telemetry',
+                style: ConsoleTheme.font(
+                  color: ConsoleTheme.textSecondary(context),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          : GridView.builder(
+              key: ValueKey<String>('pdu_$_tab'),
+              itemCount: math.min(rows.length, 6),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 8,
+                mainAxisExtent: 46,
+              ),
+              itemBuilder: (context, i) {
+                final r = rows[i];
+                final numVal = _parseNumericValue(r.value);
+                final frac = numVal == null
+                    ? null
+                    : (numVal / _maxScaleFor(r.value)).clamp(0.05, 1.0);
+                final isNormalState =
+                    r.value.toLowerCase().contains('normal') ||
+                    r.value.toLowerCase().contains('ok') ||
+                    r.value.toLowerCase().contains('on');
+                final tileAccent = frac != null
+                    ? accent
+                    : (isNormalState
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B));
+
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: ConsoleTheme.innerSurface(context),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: tileAccent.withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              r.label,
+                              style: ConsoleTheme.font(
+                                color: ConsoleTheme.textSecondary(context),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            r.value,
+                            style: ConsoleTheme.font(
+                              color: tileAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: frac ?? 1.0),
+                          duration: const Duration(milliseconds: 700),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, val, _) => LinearProgressIndicator(
+                            value: val,
+                            minHeight: 5,
+                            backgroundColor: trackColor,
+                            valueColor: AlwaysStoppedAnimation(tileAccent),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -1567,20 +1909,31 @@ class _DoorsAndCapacityCard extends StatelessWidget {
 
   final SmartRackConsoleSnapshot snapshot;
 
+  String _shortDoorName(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('front')) return 'Front Door';
+    if (lower.contains('rear') || lower.contains('back')) return 'Back Door';
+    return raw.trim().isEmpty ? 'Door' : raw.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cap = snapshot.capacityUsedPct ?? 0.0;
+    final logs = snapshot.recentDoorLogs;
+    final accent = ConsoleTheme.isDark(context)
+        ? const Color(0xFF26D7FF)
+        : ConsoleTheme.primaryBlue(context);
+
     return _NocPanel(
-      title: 'Space Capacity & Doors',
+      title: 'Space Capacity & Door History',
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Row(
             children: [
               Text(
                 'Overall Capacity',
                 style: ConsoleTheme.font(
-                  color: const Color(0xFF8FA7C4),
+                  color: ConsoleTheme.textSecondary(context),
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1589,13 +1942,14 @@ class _DoorsAndCapacityCard extends StatelessWidget {
               Text(
                 '${cap.toStringAsFixed(1)}%',
                 style: ConsoleTheme.font(
-                  color: const Color(0xFF26D7FF),
+                  color: accent,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: TweenAnimationBuilder<double>(
@@ -1605,65 +1959,128 @@ class _DoorsAndCapacityCard extends StatelessWidget {
               builder: (context, val, _) => LinearProgressIndicator(
                 value: val,
                 minHeight: 8,
-                backgroundColor: const Color(0xFF1A283D),
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF26D7FF)),
+                backgroundColor: ConsoleTheme.isDark(context)
+                    ? const Color(0xFF1A283D)
+                    : const Color(0xFFDCE7F5),
+                valueColor: AlwaysStoppedAnimation(accent),
               ),
             ),
           ),
-          const Divider(height: 8, color: Color(0xFF1B2B42)),
-          Row(
-            children: (snapshot.doors.isEmpty
-                    ? const [
-                        {'name': 'Front Door', 'isOpen': false},
-                        {'name': 'Back Door', 'isOpen': false},
-                      ]
-                    : snapshot.doors.take(2).toList())
-                .map((d) {
-              final isOpen = d['isOpen'] == true;
-              final name = (d['accessName'] ?? d['name'] ?? 'Door').toString();
-              return Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D1726),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: (isOpen
-                              ? const Color(0xFFF59E0B)
-                              : const Color(0xFF10B981))
-                          .withValues(alpha: 0.4),
+          const SizedBox(height: 8),
+          Expanded(
+            child: logs.isEmpty
+                ? Center(
+                    child: Text(
+                      'No recent door access history',
+                      style: ConsoleTheme.font(
+                        color: ConsoleTheme.textSecondary(context),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isOpen
-                            ? Icons.sensor_door_outlined
-                            : Icons.lock_outline_rounded,
-                        size: 16,
-                        color: isOpen
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF10B981),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: ConsoleTheme.font(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
+                  )
+                : ListView.builder(
+                    itemCount: math.min(logs.length, 4),
+                    itemBuilder: (context, i) {
+                      final log = logs[i];
+                      final user = (log['opUser'] ??
+                              log['openUser'] ??
+                              log['userName'] ??
+                              log['username'] ??
+                              log['user'] ??
+                              'User')
+                          .toString();
+                      final door = _shortDoorName(
+                          (log['accessName'] ?? log['doorName'] ?? 'Door')
+                              .toString());
+                      final time = (log['opTime'] ??
+                              log['time'] ??
+                              log['accessTime'] ??
+                              '')
+                          .toString();
+                      final isFront = door.toLowerCase().contains('front');
+                      final doorColor =
+                          isFront ? accent : const Color(0xFF10B981);
+                      final initial =
+                          user.trim().isNotEmpty ? user.trim()[0].toUpperCase() : 'U';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: ConsoleTheme.innerSurface(context),
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(
+                              color: doorColor.withValues(alpha: 0.25),
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: doorColor.withValues(alpha: 0.16),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: doorColor.withValues(alpha: 0.45),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    initial,
+                                    style: ConsoleTheme.font(
+                                      color: doorColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  user,
+                                  style: ConsoleTheme.font(
+                                    color: ConsoleTheme.textPrimary(context),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: doorColor.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  door,
+                                  style: ConsoleTheme.font(
+                                    color: doorColor,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                time,
+                                style: ConsoleTheme.font(
+                                  color: ConsoleTheme.textMuted(context),
+                                  fontSize: 9.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
-              );
-            }).toList(),
           ),
         ],
       ),
@@ -1688,18 +2105,27 @@ class _NocPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ConsoleTheme.isDark(context);
+    final accent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C1422).withValues(alpha: 0.88),
+        color: isDark
+            ? const Color(0xFF0C1422).withValues(alpha: 0.88)
+            : ConsoleTheme.panelBg(context),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF26D7FF).withValues(alpha: 0.24),
+          color: isDark
+              ? const Color(0xFF26D7FF).withValues(alpha: 0.24)
+              : ConsoleTheme.cardBorder(context),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E90FF).withValues(alpha: 0.06),
+            color: isDark
+                ? const Color(0xFF1E90FF).withValues(alpha: 0.06)
+                : const Color(0xFF183153).withValues(alpha: 0.06),
             blurRadius: 16,
           ),
         ],
@@ -1713,7 +2139,7 @@ class _NocPanel extends StatelessWidget {
                 width: 3,
                 height: 14,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF26D7FF),
+                  color: accent,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1722,7 +2148,7 @@ class _NocPanel extends StatelessWidget {
                 child: Text(
                   title,
                   style: ConsoleTheme.font(
-                    color: Colors.white,
+                    color: ConsoleTheme.textPrimary(context),
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1757,13 +2183,17 @@ class _KpiTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ConsoleTheme.isDark(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C1422).withValues(alpha: 0.9),
+        color: isDark
+            ? const Color(0xFF0C1422).withValues(alpha: 0.9)
+            : ConsoleTheme.panelBg(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: accent.withValues(alpha: 0.35),
+          color: accent.withValues(alpha: isDark ? 0.35 : 0.28),
         ),
       ),
       child: Row(
@@ -1786,7 +2216,7 @@ class _KpiTile extends StatelessWidget {
                 Text(
                   title,
                   style: ConsoleTheme.font(
-                    color: const Color(0xFF8FA7C4),
+                    color: ConsoleTheme.textSecondary(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1808,7 +2238,7 @@ class _KpiTile extends StatelessWidget {
                       child: Text(
                         subLabel,
                         style: ConsoleTheme.font(
-                          color: Colors.white.withValues(alpha: 0.75),
+                          color: ConsoleTheme.textSecondary(context),
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1841,11 +2271,13 @@ class _SensorStateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ok ? const Color(0xFF26D7FF) : const Color(0xFFFF4D4F);
+    final isDark = ConsoleTheme.isDark(context);
+    final okColor = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+    final color = ok ? okColor : const Color(0xFFFF4D4F);
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1828),
+        color: ConsoleTheme.innerSurface(context),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
@@ -1857,7 +2289,7 @@ class _SensorStateTile extends StatelessWidget {
           Text(
             label,
             style: ConsoleTheme.font(
-              color: const Color(0xFF8FA7C4),
+              color: ConsoleTheme.textSecondary(context),
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
             ),
@@ -1901,7 +2333,7 @@ class _LegendStatRow extends StatelessWidget {
           child: Text(
             label,
             style: ConsoleTheme.font(
-              color: const Color(0xFF8FA7C4),
+              color: ConsoleTheme.textSecondary(context),
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
@@ -1910,7 +2342,7 @@ class _LegendStatRow extends StatelessWidget {
         Text(
           value,
           style: ConsoleTheme.font(
-            color: Colors.white,
+            color: ConsoleTheme.textPrimary(context),
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
@@ -1943,7 +2375,7 @@ class _MiniMetricBadge extends StatelessWidget {
         Text(
           '$label ',
           style: ConsoleTheme.font(
-            color: const Color(0xFF8FA7C4),
+            color: ConsoleTheme.textSecondary(context),
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -1981,7 +2413,7 @@ class _SmallDotLabel extends StatelessWidget {
         Text(
           label,
           style: ConsoleTheme.font(
-            color: const Color(0xFF8FA7C4),
+            color: ConsoleTheme.textSecondary(context),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -2028,10 +2460,12 @@ class _RingChartPainter extends CustomPainter {
   const _RingChartPainter({
     required this.segments,
     this.progress = 1.0,
+    this.trackColor = const Color(0xFF16243A),
   });
 
   final List<_RingSegment> segments;
   final double progress;
+  final Color trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2040,7 +2474,7 @@ class _RingChartPainter extends CustomPainter {
     const stroke = 11.0;
 
     final bgPaint = Paint()
-      ..color = const Color(0xFF16243A)
+      ..color = trackColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke;
     canvas.drawCircle(center, radius, bgPaint);
@@ -2071,43 +2505,67 @@ class _RingChartPainter extends CustomPainter {
 
 class _TopologyRingPainter extends CustomPainter {
   const _TopologyRingPainter({
-    required this.nodeCount,
-    required this.rotationRadians,
+    required this.tiltRadians,
+    required this.rx,
+    required this.ry,
+    required this.accent,
+    required this.drawBack,
+    required this.drawFront,
   });
 
-  final int nodeCount;
-  final double rotationRadians;
+  final double tiltRadians;
+  final double rx;
+  final double ry;
+  final Color accent;
+  final bool drawBack;
+  final bool drawFront;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final outerRadius = math.min(size.width, size.height) / 2;
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(tiltRadians);
 
-    final ringPaint = Paint()
-      ..color = const Color(0xFF26D7FF).withValues(alpha: 0.22)
+    final outerRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: rx * 2.0,
+      height: ry * 2.0,
+    );
+    final innerRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: rx * 1.66,
+      height: ry * 1.66,
+    );
+
+    final backPaint = Paint()
+      ..color = accent.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
-    canvas.drawCircle(center, outerRadius * 0.72, ringPaint);
-    canvas.drawCircle(center, outerRadius * 0.92, ringPaint);
+    final frontPaint = Paint()
+      ..color = accent.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
 
-    final linePaint = Paint()
-      ..color = const Color(0xFF1E90FF).withValues(alpha: 0.25)
-      ..strokeWidth = 1.2;
-    for (var i = 0; i < nodeCount; i++) {
-      final angle =
-          (2 * math.pi * i / nodeCount) - math.pi / 2 + rotationRadians;
-      final end = Offset(
-        center.dx + math.cos(angle) * outerRadius * 0.92,
-        center.dy + math.sin(angle) * outerRadius * 0.85,
-      );
-      canvas.drawLine(center, end, linePaint);
+    if (drawBack) {
+      canvas.drawArc(outerRect, math.pi, math.pi, false, backPaint);
+      canvas.drawArc(innerRect, math.pi, math.pi, false, backPaint);
     }
+    if (drawFront) {
+      canvas.drawArc(outerRect, 0, math.pi, false, frontPaint);
+      canvas.drawArc(innerRect, 0, math.pi, false, frontPaint);
+    }
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _TopologyRingPainter oldDelegate) =>
-      oldDelegate.nodeCount != nodeCount ||
-      oldDelegate.rotationRadians != rotationRadians;
+      oldDelegate.tiltRadians != tiltRadians ||
+      oldDelegate.rx != rx ||
+      oldDelegate.ry != ry ||
+      oldDelegate.accent != accent ||
+      oldDelegate.drawBack != drawBack ||
+      oldDelegate.drawFront != drawFront;
 }
 
 class _BarChartGridPainter extends CustomPainter {
@@ -2149,12 +2607,16 @@ class _BarChartGridPainter extends CustomPainter {
 }
 
 class _NocGridBackdropPainter extends CustomPainter {
-  const _NocGridBackdropPainter();
+  const _NocGridBackdropPainter({this.isDark = true});
+
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF1E90FF).withValues(alpha: 0.045)
+      ..color = isDark
+          ? const Color(0xFF1E90FF).withValues(alpha: 0.045)
+          : const Color(0xFF2F80FF).withValues(alpha: 0.05)
       ..strokeWidth = 1;
     const step = 38.0;
     for (double x = 0; x < size.width; x += step) {
