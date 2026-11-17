@@ -76,3 +76,9 @@ android/local.properties
 
 # Gradle
 .gradle/
+
+# Flutter tool state / telemetry
+.appdata/
+
+# TypeScript incremental build info
+*.tsbuildinfo

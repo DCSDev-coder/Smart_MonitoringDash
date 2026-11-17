@@ -320,14 +320,14 @@ class _WallboardTopBarState extends State<_WallboardTopBar> {
                   height: 30,
                   fit: BoxFit.contain,
                   errorBuilder: (_) => Image.asset(
-                    'assets/DCS_Logo/Official_Logo.jpeg',
+                    'assets/DCS_Logo/DCS Logo.png',
                     height: 30,
                     fit: BoxFit.contain,
                   ),
                 )
               else
                 Image.asset(
-                  'assets/DCS_Logo/Official_Logo.jpeg',
+                  'assets/DCS_Logo/DCS Logo.png',
                   height: 30,
                   fit: BoxFit.contain,
                 ),

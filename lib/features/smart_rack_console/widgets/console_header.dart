@@ -55,14 +55,14 @@ class ConsoleHeader extends StatelessWidget {
         height: 38,
         fit: BoxFit.contain,
         errorBuilder: (context) => Image.asset(
-          'assets/DCS_Logo/Official_Logo.jpeg',
+          'assets/DCS_Logo/DCS Logo.png',
           height: 38,
           fit: BoxFit.contain,
         ),
       );
     }
     return Image.asset(
-      'assets/DCS_Logo/Official_Logo.jpeg',
+      'assets/DCS_Logo/DCS Logo.png',
       height: 38,
       fit: BoxFit.contain,
     );
