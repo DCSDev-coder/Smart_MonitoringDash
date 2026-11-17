@@ -2,18 +2,21 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/auth/session_flow_service.dart';
 import '../../core/controllers/global_status_poller.dart';
+import '../../core/network/adapter_api_service.dart';
 import '../../core/network/cpanel_api_service.dart';
 import '../../shared/widgets/safe_network_image.dart';
 import '../smart_rack_console/models/smart_rack_console_snapshot.dart';
 import '../smart_rack_console/services/rack_console_preferences.dart';
 import '../smart_rack_console/services/smart_rack_console_repository.dart';
 import '../smart_rack_console/theme/console_theme.dart';
+import '../smart_rack_console/widgets/pue_charts.dart';
 
 /// Fullscreen NOC / Command-Center monitoring wallboard for DCS Dashboard.
 /// Displays every live subsystem status at a glance and supports horizontal
@@ -569,7 +572,7 @@ class _CommandCenterBoard extends StatelessWidget {
                     const SizedBox(height: 12),
                     SizedBox(
                       height: bottomH,
-                      child: _PowerOutletPduCard(snapshot: snapshot),
+                      child: _TrendAnalysisNocCard(snapshot: snapshot),
                     ),
                   ],
                 ),
@@ -697,7 +700,9 @@ class _HealthStatisticsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _LegendStatRow(
-                      color: const Color(0xFF26D7FF),
+                      color: ConsoleTheme.isDark(context)
+                          ? const Color(0xFF26D7FF)
+                          : ConsoleTheme.primaryBlue(context),
                       label: 'Normal',
                       value: '$normalPct%',
                     ),
@@ -745,7 +750,7 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
       counts = <String, int>{
         'UPS': 0,
         'Smoke': 0,
-        'T&H': 0,
+        'Temp. & Hyd.': 0,
         'Power': 0,
         'AC': 0,
         'PDU': 0,
@@ -760,7 +765,7 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
         } else if (raw.contains('smoke')) {
           counts['Smoke'] = (counts['Smoke'] ?? 0) + 1;
         } else if (raw.contains('temp') || raw.contains('hum') || raw.contains('th')) {
-          counts['T&H'] = (counts['T&H'] ?? 0) + 1;
+          counts['Temp. & Hyd.'] = (counts['Temp. & Hyd.'] ?? 0) + 1;
         } else if (raw.contains('pdu')) {
           counts['PDU'] = (counts['PDU'] ?? 0) + 1;
         } else if (raw.contains('power') || raw.contains('meter')) {
@@ -775,7 +780,7 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
       if (counts.values.every((v) => v == 0)) {
         counts['UPS'] = snapshot.upsParameterRows.isNotEmpty ? 1 : 0;
         counts['Smoke'] = snapshot.smokeStatus >= 0 ? 1 : 0;
-        counts['T&H'] = snapshot.temperatures.length;
+        counts['Temp. & Hyd.'] = snapshot.temperatures.length;
         counts['Power'] = snapshot.powerInletRows.isNotEmpty ? 1 : 0;
         counts['AC'] = snapshot.acMetricRows.isNotEmpty ? 1 : 0;
         counts['PDU'] =
@@ -806,6 +811,9 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
     final abnormalCount = snapshot.issueCount;
     final healthyCount = math.max(0, snapshot.totalDevices - abnormalCount);
 
+    final isDark = ConsoleTheme.isDark(context);
+    final healthyColor = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+
     return _NocPanel(
       title: 'Device Health',
       trailing: _NocFilterPills(
@@ -819,7 +827,7 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
             children: [
               _MiniMetricBadge(
                 icon: Icons.favorite_rounded,
-                color: const Color(0xFF26D7FF),
+                color: healthyColor,
                 label: 'Healthy',
                 value: '$healthyCount',
               ),
@@ -844,6 +852,7 @@ class _DeviceHealthBarsCardState extends State<_DeviceHealthBarsCard> {
                       painter: _BarChartGridPainter(
                         steps: math.min(4, maxVal),
                         columnCount: counts.length,
+                        isDark: isDark,
                       ),
                     ),
                   ),
@@ -1116,12 +1125,18 @@ class _TopKpiStrip extends StatelessWidget {
             : 142;
     final maintDays = snapshot.maintenanceDaysLeft ?? 79;
 
+    final isDark = ConsoleTheme.isDark(context);
+    final uptimeAccent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
+    final alarmAccent = snapshot.issueCount > 0
+        ? const Color(0xFFFF4D4F)
+        : (isDark ? const Color(0xFF10B981) : const Color(0xFF059669));
+
     return Row(
       children: [
         Expanded(
           child: _KpiTile(
             icon: Icons.dns_rounded,
-            accent: const Color(0xFF26D7FF),
+            accent: uptimeAccent,
             title: 'Uptime',
             primaryValue: '${uptimeDays}d',
             subLabel: 'Maint: ${maintDays}d',
@@ -1141,9 +1156,7 @@ class _TopKpiStrip extends StatelessWidget {
         Expanded(
           child: _KpiTile(
             icon: Icons.notifications_active_rounded,
-            accent: snapshot.issueCount > 0
-                ? const Color(0xFFFF4D4F)
-                : const Color(0xFF10B981),
+            accent: alarmAccent,
             title: 'Alarms',
             primaryValue: '${snapshot.issueCount}',
             subLabel: snapshot.issueCount == 0 ? 'All Clear' : 'Attention',
@@ -1166,6 +1179,7 @@ class _CenterTopologyHub extends StatefulWidget {
 class _CenterTopologyHubState extends State<_CenterTopologyHub>
     with SingleTickerProviderStateMixin {
   late final AnimationController _spinController;
+  double _dragAngleOffset = 0.0;
 
   @override
   void initState() {
@@ -1197,8 +1211,59 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
         ? '${snapshot.humidityPct!.toStringAsFixed(0)}%'
         : '--';
 
+    final accentHeader = ConsoleTheme.isDark(context)
+        ? const Color(0xFF26D7FF)
+        : ConsoleTheme.primaryBlue(context);
+
     return _NocPanel(
       title: 'Live Rack Topology',
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: ConsoleTheme.innerSurface(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: accentHeader.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Current PUE: ',
+              style: ConsoleTheme.font(
+                color: ConsoleTheme.textSecondary(context),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              pueText,
+              style: ConsoleTheme.font(
+                color: accentHeader,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              '  •  Monthly Energy: ',
+              style: ConsoleTheme.font(
+                color: ConsoleTheme.textSecondary(context),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              energyText,
+              style: ConsoleTheme.font(
+                color: accentHeader,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final nodes = <_TopologyNode>[
@@ -1225,7 +1290,7 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
               ok: true,
             ),
             _TopologyNode(
-              label: 'T&H',
+              label: 'Temp. & Hyd.',
               value: '$tempText / $humText',
               icon: Icons.thermostat_rounded,
               ok: true,
@@ -1247,7 +1312,8 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
           return AnimatedBuilder(
             animation: _spinController,
             builder: (context, _) {
-              final spin = _spinController.value * 2 * math.pi;
+              final spin =
+                  (_spinController.value * 2 * math.pi) + _dragAngleOffset;
               const tilt = 0.0;
               final rx = (constraints.maxWidth * 0.42).clamp(150.0, 390.0);
               final ry = (constraints.maxHeight * 0.24).clamp(56.0, 120.0);
@@ -1258,9 +1324,13 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                   : ConsoleTheme.primaryBlue(context);
 
               Widget buildNodeWidget(_TopologyNode node, double depth) {
+                final isDark = ConsoleTheme.isDark(context);
                 final color = node.ok ? accent : const Color(0xFFFF4D4F);
-                final scale = 0.80 + (depth + 1) * 0.15; // 0.80 behind -> 1.10 front
-                final opacity = (0.50 + (depth + 1) * 0.25).clamp(0.50, 1.0);
+                final scale = 0.88 + (depth + 1) * 0.10; // 0.88 behind -> 1.08 front
+                const minOpacity = 0.88;
+                final opacity =
+                    (minOpacity + (depth + 1) * ((1.0 - minOpacity) / 2))
+                        .clamp(minOpacity, 1.0);
                 return Opacity(
                   opacity: opacity,
                   child: Transform.scale(
@@ -1269,25 +1339,30 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            color.withValues(alpha: 0.22),
-                            ConsoleTheme.innerSurface(context)
-                                .withValues(alpha: 0.96),
-                          ],
-                        ),
+                        color: isDark ? null : Colors.white,
+                        gradient: isDark
+                            ? LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  color.withValues(alpha: 0.22),
+                                  ConsoleTheme.innerSurface(context)
+                                      .withValues(alpha: 0.96),
+                                ],
+                              )
+                            : null,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: color.withValues(alpha: 0.7),
+                          color: color.withValues(alpha: isDark ? 0.7 : 0.55),
                           width: 1.3,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withValues(alpha: 0.28),
-                            blurRadius: 16,
-                            spreadRadius: 1,
+                            color: isDark
+                                ? color.withValues(alpha: 0.28)
+                                : const Color(0xFF183153).withValues(alpha: 0.10),
+                            blurRadius: isDark ? 16 : 10,
+                            offset: isDark ? Offset.zero : const Offset(0, 3),
                           ),
                         ],
                       ),
@@ -1356,8 +1431,17 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                 }
               }
 
-              return SizedBox.expand(
-                child: Stack(
+              return MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragUpdate: (details) {
+                    setState(() {
+                      _dragAngleOffset += details.delta.dx * 0.008;
+                    });
+                  },
+                  child: SizedBox.expand(
+                    child: Stack(
                   alignment: Alignment.center,
                   children: [
                     // 1. Back half of orbital ring + back orbiting nodes (behind rack)
@@ -1422,32 +1506,9 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                       ),
                     ),
                     ...frontNodes,
-
-                    // 4. PUE & Energy pill anchored cleanly above the orbit so nodes never cover it
-                    Positioned(
-                      top: 2,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: ConsoleTheme.innerSurface(context)
-                              .withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: accent.withValues(alpha: 0.45),
-                          ),
-                        ),
-                        child: Text(
-                          'PUE $pueText  •  $energyText',
-                          style: ConsoleTheme.font(
-                            color: accent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -1572,7 +1633,7 @@ class _EnvironmentCard extends StatefulWidget {
 }
 
 class _EnvironmentCardState extends State<_EnvironmentCard> {
-  String _tab = 'T&H';
+  String _tab = 'Temp. & Hyd.';
 
   @override
   Widget build(BuildContext context) {
@@ -1581,11 +1642,11 @@ class _EnvironmentCardState extends State<_EnvironmentCard> {
     return _NocPanel(
       title: 'Environment',
       trailing: _NocFilterPills(
-        options: const ['T&H', 'Smoke & Leak'],
+        options: const ['Temp. & Hyd.', 'Smoke & Leak'],
         selected: _tab,
         onSelected: (v) => setState(() => _tab = v),
       ),
-      child: _tab == 'T&H'
+      child: _tab == 'Temp. & Hyd.'
           ? _buildTempHumList(snapshot)
           : _buildSmokeLeakRow(snapshot),
     );
@@ -1835,153 +1896,251 @@ class _NocFilterPills extends StatelessWidget {
   }
 }
 
-class _PowerOutletPduCard extends StatefulWidget {
-  const _PowerOutletPduCard({required this.snapshot});
+class _TrendAnalysisNocCard extends StatefulWidget {
+  const _TrendAnalysisNocCard({required this.snapshot});
 
   final SmartRackConsoleSnapshot snapshot;
 
   @override
-  State<_PowerOutletPduCard> createState() => _PowerOutletPduCardState();
+  State<_TrendAnalysisNocCard> createState() => _TrendAnalysisNocCardState();
 }
 
-class _PowerOutletPduCardState extends State<_PowerOutletPduCard> {
-  String _tab = 'Outlet';
+class _TrendAnalysisNocCardState extends State<_TrendAnalysisNocCard> {
+  String _selectedMetric = 'PUE';
+  String _selectedHours = '8 Hours';
+  bool _isLoading = true;
+  String? _error;
+  List<FlSpot> _puePoints = const [];
+  List<FlSpot> _powerPoints = const [];
+  List<String> _bottomTitles = const [];
+  List<dynamic> _trendTitleSource = const [];
+  String _lastSiteName = '';
 
-  double? _parseNumericValue(String raw) {
-    final m = RegExp(r'[-+]?\d*\.?\d+').firstMatch(raw);
-    if (m == null) return null;
-    return double.tryParse(m.group(0)!);
+  @override
+  void initState() {
+    super.initState();
+    _lastSiteName = widget.snapshot.siteName;
+    RackConsolePreferences.instance.addListener(_handleTimeFormatChange);
+    _fetchData();
   }
 
-  double _maxScaleFor(String value) {
-    final lower = value.toLowerCase();
-    if (lower.contains('v')) return 450.0;
-    if (lower.contains('a')) return 32.0;
-    if (lower.contains('kw')) return 20.0;
-    if (lower.contains('hz')) return 65.0;
-    if (lower.contains('%')) return 100.0;
-    return 100.0;
+  @override
+  void didUpdateWidget(covariant _TrendAnalysisNocCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.snapshot.siteName != _lastSiteName) {
+      _lastSiteName = widget.snapshot.siteName;
+      _fetchData();
+    }
+  }
+
+  @override
+  void dispose() {
+    RackConsolePreferences.instance.removeListener(_handleTimeFormatChange);
+    super.dispose();
+  }
+
+  void _handleTimeFormatChange() {
+    if (!mounted) return;
+    setState(() {
+      _bottomTitles = _titlesFromTrend(_trendTitleSource);
+    });
+  }
+
+  int _hoursValue() {
+    switch (_selectedHours) {
+      case '12 Hours':
+        return 12;
+      case '24 Hours':
+        return 24;
+      case 'Last Month':
+        return 720;
+      default:
+        return 8;
+    }
+  }
+
+  int _currentSiteId() {
+    final site = CpanelApiService.instance.currentSite;
+    return site != null
+        ? (int.tryParse(site['site_id']?.toString() ?? '') ??
+            int.tryParse(site['id']?.toString() ?? '1') ??
+            1)
+        : 1;
+  }
+
+  List<FlSpot> _spotsFromTrend(List<dynamic> points) {
+    final spots = <FlSpot>[];
+    for (int i = 0; i < points.length; i++) {
+      final raw = points[i];
+      if (raw is! Map) continue;
+      final point = Map<String, dynamic>.from(raw.cast<dynamic, dynamic>());
+      final value = double.tryParse(point['trendVal']?.toString() ?? '') ?? 0;
+      spots.add(FlSpot(i.toDouble(), value));
+    }
+    return spots;
+  }
+
+  List<String> _titlesFromTrend(List<dynamic> points) {
+    final titles = <String>[];
+    for (final raw in points) {
+      if (raw is! Map) continue;
+      final point = Map<String, dynamic>.from(raw.cast<dynamic, dynamic>());
+      final stamp = (point['trendTime'] ??
+              point['time'] ??
+              point['timestamp'] ??
+              point['date'] ??
+              '')
+          .toString();
+      titles.add(RackConsolePreferences.instance.formatTrendLabel(stamp));
+    }
+    return titles;
+  }
+
+  Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final siteId = _currentSiteId();
+      final now = DateTime.now();
+      final endTime = now.millisecondsSinceEpoch;
+      final startTime =
+          now.subtract(Duration(hours: _hoursValue())).millisecondsSinceEpoch;
+
+      final pueRes = await AdapterApiService.instance.fetchPueRangeTrend(
+        siteId: siteId,
+        trendType: 0,
+        startTime: startTime,
+        endTime: endTime,
+      );
+      final powerRes = await AdapterApiService.instance.fetchPueRangeTrend(
+        siteId: siteId,
+        trendType: 1,
+        startTime: startTime,
+        endTime: endTime,
+      );
+
+      final puePoints =
+          _spotsFromTrend((pueRes?['result'] as List?) ?? const []);
+      final powerPoints =
+          _spotsFromTrend((powerRes?['result'] as List?) ?? const []);
+
+      if (!mounted) return;
+      final trendTitleSource = (pueRes?['result'] as List?) ??
+          (powerRes?['result'] as List?) ??
+          const [];
+      setState(() {
+        _puePoints = puePoints;
+        _powerPoints = powerPoints;
+        _trendTitleSource = List<dynamic>.from(trendTitleSource);
+        _bottomTitles = _titlesFromTrend(_trendTitleSource);
+        _error = (puePoints.isEmpty && powerPoints.isEmpty)
+            ? 'No trend data returned.'
+            : null;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Unable to load trend data.';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final s = widget.snapshot;
-    final rows = switch (_tab) {
-      'PDU 1' => s.powerPdu1MetricRows,
-      'PDU 2' => s.powerPdu2MetricRows,
-      _ => s.powerOutletRows.isNotEmpty ? s.powerOutletRows : s.powerInletRows,
-    };
     final isDark = ConsoleTheme.isDark(context);
-    final accent = isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
-    final trackColor = isDark ? const Color(0xFF1A283D) : const Color(0xFFDCE7F5);
+    final accent =
+        isDark ? const Color(0xFF26D7FF) : ConsoleTheme.primaryBlue(context);
 
     return _NocPanel(
-      title: 'Power & Rack PDU',
-      trailing: _NocFilterPills(
-        options: const ['Outlet', 'PDU 1', 'PDU 2'],
-        selected: _tab,
-        onSelected: (v) => setState(() => _tab = v),
-      ),
-      child: rows.isEmpty
-          ? Center(
-              child: Text(
-                'No $_tab telemetry',
-                style: ConsoleTheme.font(
-                  color: ConsoleTheme.textSecondary(context),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                ),
+      title: 'Trend Analysis',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PopupMenuButton<String>(
+            initialValue: _selectedHours,
+            onSelected: (val) {
+              setState(() => _selectedHours = val);
+              _fetchData();
+            },
+            offset: const Offset(0, 28),
+            itemBuilder: (context) => const [
+              '8 Hours',
+              '12 Hours',
+              '24 Hours',
+              'Last Month',
+            ].map((v) => PopupMenuItem(value: v, child: Text(v))).toList(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(
+                color: ConsoleTheme.innerSurface(context),
+                border: Border.all(color: accent.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(7),
               ),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final tileHeight =
-                    ((constraints.maxHeight - 16) / 3).clamp(44.0, 92.0);
-                return GridView.builder(
-                  key: ValueKey<String>('pdu_$_tab'),
-                  itemCount: math.min(rows.length, 6),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 8,
-                    mainAxisExtent: tileHeight,
-                  ),
-                  itemBuilder: (context, i) {
-                final r = rows[i];
-                final numVal = _parseNumericValue(r.value);
-                final frac = numVal == null
-                    ? null
-                    : (numVal / _maxScaleFor(r.value)).clamp(0.05, 1.0);
-                final isNormalState =
-                    r.value.toLowerCase().contains('normal') ||
-                    r.value.toLowerCase().contains('ok') ||
-                    r.value.toLowerCase().contains('on');
-                final tileAccent = frac != null
-                    ? accent
-                    : (isNormalState
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFF59E0B));
-
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: ConsoleTheme.innerSurface(context),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: tileAccent.withValues(alpha: 0.28),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _selectedHours,
+                    style: ConsoleTheme.font(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              r.label,
-                              style: ConsoleTheme.font(
-                                color: ConsoleTheme.textSecondary(context),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            r.value,
-                            style: ConsoleTheme.font(
-                              color: tileAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: frac ?? 1.0),
-                          duration: const Duration(milliseconds: 700),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, val, _) => LinearProgressIndicator(
-                            value: val,
-                            minHeight: 5,
-                            backgroundColor: trackColor,
-                            valueColor: AlwaysStoppedAnimation(tileAccent),
-                          ),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: ConsoleTheme.textSecondary(context),
+                    size: 14,
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _NocFilterPills(
+            options: const ['PUE', 'Power Consumption'],
+            selected: _selectedMetric,
+            onSelected: (v) => setState(() => _selectedMetric = v),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6, right: 6),
+        child: _isLoading
+            ? Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: accent,
+                ),
+              )
+            : _error != null
+                ? Center(
+                    child: Text(
+                      _error!,
+                      style: ConsoleTheme.font(
+                        color: ConsoleTheme.textSecondary(context),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                : PueTrendLineChart(
+                    puePoints: _selectedMetric == 'PUE'
+                        ? _puePoints
+                        : const [FlSpot(0, 0)],
+                    itEnergyPoints: const [FlSpot(0, 0)],
+                    totalEnergyPoints: _selectedMetric == 'Power Consumption'
+                        ? _powerPoints
+                        : const [FlSpot(0, 0)],
+                    bottomTitles: _bottomTitles,
+                  ),
+      ),
     );
   }
 }
@@ -2203,7 +2362,7 @@ class _NocPanel extends StatelessWidget {
         border: Border.all(
           color: isDark
               ? const Color(0xFF26D7FF).withValues(alpha: 0.24)
-              : ConsoleTheme.cardBorder(context),
+              : const Color(0xFFCBD9EC),
           width: 1,
         ),
         boxShadow: [
@@ -2278,7 +2437,9 @@ class _KpiTile extends StatelessWidget {
             : ConsoleTheme.panelBg(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: accent.withValues(alpha: isDark ? 0.35 : 0.28),
+          color: isDark
+              ? accent.withValues(alpha: 0.35)
+              : const Color(0xFFCBD9EC),
         ),
       ),
       child: Row(
@@ -2616,7 +2777,7 @@ class _TopologyRingPainter extends CustomPainter {
 
     final startArc = drawBack ? math.pi : 0.0;
     const sweepArc = math.pi;
-    final alphaScale = drawBack ? 0.45 : 1.0;
+    final alphaScale = drawBack ? 0.65 : 1.0;
 
     // 1. Modern beveled gear-tooth outer ring (36 precision-cut gear blocks)
     const gearTeeth = 36;
@@ -2648,42 +2809,23 @@ class _TopologyRingPainter extends CustomPainter {
       }
     }
 
-    // 2. Main orbital ring + glowing segmented arcs
+    // 2. Main orbital ring with continuous uniform glow
     final mainRect = Rect.fromCenter(
       center: Offset.zero,
       width: rx * 2.0,
       height: ry * 2.0,
     );
-    final mainTrackPaint = Paint()
-      ..color = accent.withValues(alpha: 0.25 * alphaScale)
+    final mainGlowPaint = Paint()
+      ..color = accent.withValues(alpha: 0.22 * alphaScale)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawArc(mainRect, startArc, sweepArc, false, mainTrackPaint);
-
-    final segGlowPaint = Paint()
-      ..color = accent.withValues(alpha: 0.28 * alphaScale)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.5
+      ..strokeWidth = 5.5
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    final segPaint = Paint()
-      ..color = accent.withValues(alpha: 0.78 * alphaScale)
+    final mainTrackPaint = Paint()
+      ..color = accent.withValues(alpha: 0.65 * alphaScale)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.6
-      ..strokeCap = StrokeCap.round;
-
-    for (var i = 0; i < 4; i++) {
-      final a = spin + i * (math.pi / 2);
-      const segSweep = 0.65;
-      for (var step = 0; step < 12; step++) {
-        final p1 = a + (step / 12) * segSweep;
-        final p2 = a + ((step + 1) / 12) * segSweep;
-        final isBackSeg = math.sin((p1 + p2) / 2) < 0;
-        if ((isBackSeg && drawBack) || (!isBackSeg && drawFront)) {
-          canvas.drawArc(mainRect, p1, p2 - p1, false, segGlowPaint);
-          canvas.drawArc(mainRect, p1, p2 - p1, false, segPaint);
-        }
-      }
-    }
+      ..strokeWidth = 2.0;
+    canvas.drawArc(mainRect, startArc, sweepArc, false, mainGlowPaint);
+    canvas.drawArc(mainRect, startArc, sweepArc, false, mainTrackPaint);
 
     // 3. Counter-rotating dashed middle ring (POV depth)
     final midRx = rx * 0.80;
@@ -2706,21 +2848,23 @@ class _TopologyRingPainter extends CustomPainter {
       }
     }
 
-    // 4. Inner bright ring + soft radial disc around Smart Rack base
+    // 4. Inner bright ring + soft radial disc behind Smart Rack (drawBack only)
     final innerRect = Rect.fromCenter(
       center: Offset.zero,
       width: rx * 1.18,
       height: ry * 1.18,
     );
-    final discFill = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          accent.withValues(alpha: 0.14 * alphaScale),
-          accent.withValues(alpha: 0.03 * alphaScale),
-          Colors.transparent,
-        ],
-      ).createShader(mainRect);
-    canvas.drawArc(mainRect, startArc, sweepArc, true, discFill);
+    if (drawBack) {
+      final discFill = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            accent.withValues(alpha: 0.14),
+            accent.withValues(alpha: 0.03),
+            Colors.transparent,
+          ],
+        ).createShader(mainRect);
+      canvas.drawOval(mainRect, discFill);
+    }
 
     final innerPaint = Paint()
       ..color = accent.withValues(alpha: 0.42 * alphaScale)
@@ -2776,18 +2920,24 @@ class _BarChartGridPainter extends CustomPainter {
   const _BarChartGridPainter({
     required this.steps,
     required this.columnCount,
+    this.isDark = true,
   });
 
   final int steps;
   final int columnCount;
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
     final hPaint = Paint()
-      ..color = const Color(0xFF26D7FF).withValues(alpha: 0.14)
+      ..color = isDark
+          ? const Color(0xFF26D7FF).withValues(alpha: 0.14)
+          : const Color(0xFF183153).withValues(alpha: 0.10)
       ..strokeWidth = 1;
     final vPaint = Paint()
-      ..color = const Color(0xFF1E90FF).withValues(alpha: 0.08)
+      ..color = isDark
+          ? const Color(0xFF1E90FF).withValues(alpha: 0.08)
+          : const Color(0xFF183153).withValues(alpha: 0.06)
       ..strokeWidth = 1;
 
     final safeSteps = math.max(1, steps);
@@ -2807,7 +2957,9 @@ class _BarChartGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BarChartGridPainter oldDelegate) =>
-      oldDelegate.steps != steps || oldDelegate.columnCount != columnCount;
+      oldDelegate.steps != steps ||
+      oldDelegate.columnCount != columnCount ||
+      oldDelegate.isDark != isDark;
 }
 
 class _NocGridBackdropPainter extends CustomPainter {
