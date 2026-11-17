@@ -25,6 +25,9 @@ import {
   X,
   Filter,
   LogOut,
+  Layers,
+  Users,
+  Plus,
 } from 'lucide-react';
 
 function SmartRackIcon({ className = "w-12 h-12" }: { className?: string }) {
@@ -79,9 +82,11 @@ export function App() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<CompanyFilter>('all');
+  const [groupByClient, setGroupByClient] = useState(true);
 
   // Modals
   const [showAddCompany, setShowAddCompany] = useState(false);
+  const [addSiteInitialAccount, setAddSiteInitialAccount] = useState('');
   const [editingCompany, setEditingCompany] = useState<CompanyItem | null>(null);
   const [addRackCompany, setAddRackCompany] = useState<CompanyItem | null>(null);
   const [accountModalCompanyId, setAccountModalCompanyId] = useState<string | null>(null);
@@ -515,6 +520,19 @@ export function App() {
                   </span>
                 </button>
               ))}
+
+              <button
+                onClick={() => setGroupByClient((prev) => !prev)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ml-1 ${
+                  groupByClient
+                    ? 'bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/40'
+                    : 'bg-[#0b1119] text-white/60 hover:text-white border border-[#1e2836]'
+                }`}
+                title="Group sites by client account"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Group by Client</span>
+              </button>
             </div>
           </div>
         </section>
@@ -529,6 +547,72 @@ export function App() {
                 ? 'Try adjusting your search query or selected filter.'
                 : 'Click "Add Company" in the header to register your first datacenter.'}
             </p>
+          </div>
+        ) : groupByClient ? (
+          <div className="space-y-8">
+            {Object.entries(
+              filteredCompanies.reduce<Record<string, CompanyItem[]>>((acc, company) => {
+                const primaryAcc = company.accounts.find((a) => !a.isRackConsole);
+                const groupKey = primaryAcc?.username || 'Unassigned';
+                if (!acc[groupKey]) acc[groupKey] = [];
+                acc[groupKey].push(company);
+                return acc;
+              }, {})
+            ).map(([clientUsername, clientSites]) => (
+              <div
+                key={clientUsername}
+                className="rounded-3xl bg-[#0c131b]/80 border border-[#1e2836] p-4 sm:p-5 space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1e2836]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#00C08B]/15 text-[#00C08B] border border-[#00C08B]/30 flex items-center justify-center">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-white tracking-wide">
+                          Client: {clientUsername}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/30">
+                          {clientSites.length} {clientSites.length === 1 ? 'Site' : 'Sites'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/45">
+                        {clientSites.map((s) => s.name).join(' • ')}
+                      </p>
+                    </div>
+                  </div>
+                  {clientUsername !== 'Unassigned' && (
+                    <button
+                      onClick={() => {
+                        setAddSiteInitialAccount(clientUsername);
+                        setShowAddCompany(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#00C08B]/15 text-[#00C08B] hover:bg-[#00C08B]/25 border border-[#00C08B]/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Site for {clientUsername}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-5">
+                  {clientSites.map((company) => (
+                    <CompanyCard
+                      key={company.id}
+                      company={company}
+                      onToggleBlock={handleToggleBlock}
+                      onOpenAddAccount={(id) => setAccountModalCompanyId(id)}
+                      onDeleteAccount={handleDeleteAccount}
+                      onDeleteCompany={handleDeleteCompany}
+                      onOpenEditCompany={(comp) => setEditingCompany(comp)}
+                      onOpenEditAccount={(cId, acc) => setEditingAccount({ companyId: cId, account: acc })}
+                      onOpenAddRack={(comp) => setAddRackCompany(comp)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
@@ -552,7 +636,18 @@ export function App() {
       {/* Modals */}
       {showAddCompany && (
         <AddCompanyModal
-          onClose={() => setShowAddCompany(false)}
+          existingAccounts={Array.from(
+            new Set(
+              companies.flatMap((c) =>
+                c.accounts.filter((a) => !a.isRackConsole).map((a) => a.username)
+              )
+            )
+          )}
+          initialAccountUser={addSiteInitialAccount}
+          onClose={() => {
+            setShowAddCompany(false);
+            setAddSiteInitialAccount('');
+          }}
           onAddCompany={handleAddCompany}
         />
       )}

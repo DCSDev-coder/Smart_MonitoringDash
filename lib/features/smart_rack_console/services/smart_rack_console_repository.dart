@@ -81,6 +81,16 @@ class SmartRackConsoleRepository extends ChangeNotifier {
     _requestedSections.clear();
   }
 
+  /// Clears supplemental cache for the previous site and triggers a fresh load.
+  void refreshForSiteSwitch() {
+    final siteId = SiteRuntimeConfig.siteId(CpanelApiService.instance.currentSite);
+    _clearSupplementalCache(siteId);
+    notifyListeners();
+    if (_started) {
+      _maybeRefreshSupplemental();
+    }
+  }
+
   void requestSection(RackConsoleSupplementalSection section) {
     requestSections({section});
   }

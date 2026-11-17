@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+import '../controllers/global_status_poller.dart';
 import '../network/adapter_api_service.dart';
 import '../network/api_service.dart';
 import '../network/cpanel_api_service.dart';
@@ -8,6 +10,7 @@ import '../notifications/push_notification_service.dart';
 import '../security/app_lock_controller.dart';
 import '../security/secure_action_session.dart';
 import '../utils/app_log.dart';
+import '../../features/smart_rack_console/services/smart_rack_console_repository.dart';
 import 'remember_me_store.dart';
 
 class SessionBootstrapResult {
@@ -53,18 +56,36 @@ class SessionFlowService {
       );
     }
 
-    final sites = authRes['sites'];
-    if (sites is! List || sites.isEmpty) {
+    final sitesRaw = authRes['sites'];
+    if (sitesRaw is! List || sitesRaw.isEmpty) {
       throw 'No Racks found for this account. Please contact support.';
     }
 
-    final firstSite = sites[0];
-    if (firstSite is! Map) {
+    final allSites = sitesRaw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    if (allSites.isEmpty) {
       throw 'No Racks found for this account. Please contact support.';
     }
+
+    // In 'main' build, filter to non-kiosk sites if any exist; in rack_console, keep kiosk sites.
+    final eligibleSites = AppConfig.isRackConsoleBuild
+        ? allSites
+        : allSites
+            .where((s) => !CpanelApiService.instance.isCurrentSiteRackConsole(s))
+            .toList();
+    final usableSites = eligibleSites.isNotEmpty ? eligibleSites : allSites;
+    CpanelApiService.instance.setAvailableSites(usableSites);
+
+    final preferredId = CpanelApiService.instance.selectedSiteId;
+    final initialSite = usableSites.firstWhere(
+      (s) => int.tryParse(s['site_id']?.toString() ?? '') == preferredId,
+      orElse: () => usableSites.first,
+    );
 
     final mergedSite = await CpanelApiService.instance
-        .mergeCurrentMemberPermissions(Map<String, dynamic>.from(firstSite));
+        .mergeCurrentMemberPermissions(initialSite);
     final site = await _mergeSiteWithRemoteConfig(mergedSite);
     CpanelApiService.instance.currentSite = site;
     await PushNotificationService.instance.ensureTokenRegistered(
@@ -78,6 +99,42 @@ class SessionFlowService {
       isRackConsoleAccount:
           CpanelApiService.instance.isCurrentSiteRackConsole(site),
     );
+  }
+
+  /// Switches the active site in 'main' build (disabled in rack_console kiosk).
+  Future<Map<String, dynamic>> switchSite(
+    Map<String, dynamic> targetSite,
+  ) async {
+    if (AppConfig.isRackConsoleBuild) {
+      return CpanelApiService.instance.currentSite ?? targetSite;
+    }
+
+    final mergedSite = await CpanelApiService.instance
+        .mergeCurrentMemberPermissions(Map<String, dynamic>.from(targetSite));
+    final site = await _mergeSiteWithRemoteConfig(mergedSite);
+    CpanelApiService.instance.currentSite = site;
+
+    await connectRackSession(site);
+    SmartRackConsoleRepository.instance.refreshForSiteSwitch();
+    await GlobalStatusPoller.instance.resetForSiteSwitch();
+
+    await PushNotificationService.instance.ensureTokenRegistered(
+      timeout: const Duration(seconds: 5),
+      retryInterval: const Duration(milliseconds: 500),
+    );
+
+    return site;
+  }
+
+  /// Switches the active rack monitor within the current site in `'main'` build.
+  Future<void> switchMonitor(Map<String, dynamic> monitor) async {
+    if (AppConfig.isRackConsoleBuild) return;
+    final id = int.tryParse(monitor['id']?.toString() ?? '');
+    if (id == null || id <= 0) return;
+
+    await CpanelApiService.instance.setSelectedMonitorId(id);
+    SmartRackConsoleRepository.instance.refreshForSiteSwitch();
+    await GlobalStatusPoller.instance.resetForSiteSwitch();
   }
 
   Future<Map<String, dynamic>> _mergeSiteWithRemoteConfig(

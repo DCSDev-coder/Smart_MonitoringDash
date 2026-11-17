@@ -9,8 +9,8 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('Dtct+1234');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,18 +34,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, recoveryEmail }
         return;
       }
 
-      // Offline / fallback check for admin credentials
-      if (username.trim() === 'admin' && password.trim() === 'Dtct+1234') {
-        onLogin(username.trim());
-        return;
-      }
-
       setError(res.message || 'Invalid username or password');
     } catch {
-      if (username.trim() === 'admin' && password.trim() === 'Dtct+1234') {
-        onLogin(username.trim());
-        return;
-      }
       setError('Failed to connect to DCStack Portal API.');
     } finally {
       setLoading(false);

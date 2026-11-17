@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/network/cpanel_api_service.dart';
 import '../../../shared/widgets/safe_network_image.dart';
+import '../../../shared/widgets/site_switcher_button.dart';
 import '../models/smart_rack_device_profile.dart';
 import '../models/smart_rack_console_snapshot.dart';
 import '../services/rack_console_preferences.dart';
@@ -201,7 +202,10 @@ class ConsoleHeader extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (leading != null) leading! else const SizedBox.shrink(),
+                    if (leading != null)
+                      leading!
+                    else
+                      const SiteSwitcherButton(),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

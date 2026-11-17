@@ -60,7 +60,7 @@ class AppConfig {
   // flutter run --dart-define=ADAPTER_BASE_URL="https://api.example.com"
   static const String _adapterBaseUrlRaw = String.fromEnvironment(
     'ADAPTER_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://adapter.dcstack.my',
   );
 
   static String get adapterBaseUrl {

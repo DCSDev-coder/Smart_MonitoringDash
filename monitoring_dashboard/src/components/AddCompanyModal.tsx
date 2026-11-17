@@ -6,11 +6,15 @@ import { apiService } from '../services/apiService';
 interface AddCompanyModalProps {
   onClose: () => void;
   onAddCompany: (company: CompanyItem) => void;
+  existingAccounts?: string[];
+  initialAccountUser?: string;
 }
 
 export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
   onClose,
   onAddCompany,
+  existingAccounts = [],
+  initialAccountUser = '',
 }) => {
   const [name, setName] = useState('');
   const [cabinetId, setCabinetId] = useState('CAB-01');
@@ -20,7 +24,8 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
   const [siteUser, setSiteUser] = useState('admin');
   const [sitePassword, setSitePassword] = useState('');
 
-  const [accountUser, setAccountUser] = useState('');
+  const [selectedExistingAccount, setSelectedExistingAccount] = useState(initialAccountUser);
+  const [accountUser, setAccountUser] = useState(initialAccountUser);
   const [accountPassword, setAccountPassword] = useState('');
   const [consoleUser, setConsoleUser] = useState('');
   const [consolePassword, setConsolePassword] = useState('');
@@ -282,28 +287,57 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
             {/* Initial User Account & Console */}
             <div>
               <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1.5">
-                INITIAL ACCOUNTS & RACK CONSOLES (OPTIONAL)
+                CLIENT ACCOUNT &amp; RACK CONSOLE (OPTIONAL)
               </label>
               <div className="space-y-3">
+                {existingAccounts.length > 0 && (
+                  <div className="p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
+                    <span className="text-[10px] font-bold text-white/50 block mb-1">
+                      ASSIGN TO EXISTING CLIENT (MULTI-SITE)
+                    </span>
+                    <select
+                      value={selectedExistingAccount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedExistingAccount(val);
+                        setAccountUser(val);
+                        if (val) setAccountPassword('');
+                      }}
+                      className="w-full px-3 py-2 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white focus:outline-none focus:border-[#00C08B]"
+                    >
+                      <option value="">+ Create New Client Account</option>
+                      {existingAccounts.map((acc) => (
+                        <option key={acc} value={acc}>
+                          {acc} (Existing Client)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
                   <div>
                     <span className="text-[10px] font-bold text-white/40 block mb-1">USER ACCOUNT USERNAME</span>
                     <input
                       type="text"
                       value={accountUser}
+                      disabled={Boolean(selectedExistingAccount)}
                       onChange={(e) => setAccountUser(e.target.value)}
                       placeholder="Username"
-                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-white/40 block mb-1">USER ACCOUNT PASSWORD</span>
+                    <span className="text-[10px] font-bold text-white/40 block mb-1">
+                      {selectedExistingAccount ? 'EXISTING PASSWORD KEPT' : 'USER ACCOUNT PASSWORD'}
+                    </span>
                     <input
                       type="text"
                       value={accountPassword}
+                      disabled={Boolean(selectedExistingAccount)}
                       onChange={(e) => setAccountPassword(e.target.value)}
-                      placeholder="Password"
-                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
+                      placeholder={selectedExistingAccount ? 'Uses existing client login' : 'Password'}
+                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
                     />
                   </div>
                 </div>

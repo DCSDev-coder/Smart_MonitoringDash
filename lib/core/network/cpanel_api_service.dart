@@ -19,6 +19,9 @@ class CpanelApiService extends ChangeNotifier {
   static const String _keyPortalUserId = 'cpanel_user_id';
   static const String _keyPortalAuthToken = 'cpanel_auth_token';
   static const String _keyCurrentSite = 'cpanel_current_site_json';
+  static const String _keyAvailableSites = 'cpanel_available_sites_json';
+  static const String _keySelectedSiteId = 'cpanel_selected_site_id';
+  static const String _keySelectedMonitorId = 'cpanel_selected_monitor_id';
   static const String _keyCurrentUser = 'cpanel_current_user_json';
   static const String _keyCurrentAppConfig = 'cpanel_current_app_config_json';
 
@@ -26,7 +29,90 @@ class CpanelApiService extends ChangeNotifier {
   Map<String, dynamic>? get currentSite => _currentSite;
   set currentSite(Map<String, dynamic>? value) {
     _currentSite = value;
+    final id = int.tryParse(value?['site_id']?.toString() ?? '');
+    if (id != null) {
+      _selectedSiteId = id;
+    }
+    _syncSelectedMonitorForSite(value);
     _persistCurrentSite(value);
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> _availableSites = [];
+  List<Map<String, dynamic>> get availableSites => List.unmodifiable(_availableSites);
+  int? _selectedSiteId;
+  int? get selectedSiteId => _selectedSiteId;
+  bool get hasMultipleSites =>
+      !AppConfig.isRackConsoleBuild && _availableSites.length > 1;
+
+  int? _selectedMonitorId;
+  int? get selectedMonitorId => _selectedMonitorId;
+
+  List<Map<String, dynamic>> get availableMonitors {
+    final raw = _currentSite?['monitors'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .where((m) {
+      final active = m['is_active'];
+      return active == null || active == 1 || active == true || active == '1';
+    }).toList();
+  }
+
+  bool get hasMultipleMonitors =>
+      !AppConfig.isRackConsoleBuild && availableMonitors.length > 1;
+
+  Map<String, dynamic>? get currentMonitor {
+    final monitors = availableMonitors;
+    if (monitors.isEmpty) return null;
+    if (_selectedMonitorId != null) {
+      for (final m in monitors) {
+        final mId = int.tryParse(m['id']?.toString() ?? '');
+        if (mId != null && mId == _selectedMonitorId) return m;
+      }
+    }
+    return monitors.first;
+  }
+
+  void _syncSelectedMonitorForSite(Map<String, dynamic>? site) {
+    if (site == null) {
+      _selectedMonitorId = null;
+      return;
+    }
+    final monitors = availableMonitors;
+    if (monitors.isEmpty) {
+      _selectedMonitorId = null;
+      return;
+    }
+    final exists = monitors.any((m) {
+      final mId = int.tryParse(m['id']?.toString() ?? '');
+      return mId != null && mId == _selectedMonitorId;
+    });
+    if (!exists) {
+      final firstId = int.tryParse(monitors.first['id']?.toString() ?? '');
+      _selectedMonitorId = (firstId != null && firstId > 0) ? firstId : null;
+    }
+  }
+
+  Future<void> setSelectedMonitorId(int? monitorId) async {
+    _selectedMonitorId = (monitorId != null && monitorId > 0) ? monitorId : null;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_selectedMonitorId != null) {
+        await prefs.setInt(_keySelectedMonitorId, _selectedMonitorId!);
+      } else {
+        await prefs.remove(_keySelectedMonitorId);
+      }
+    } catch (e) {
+      AppLog.w('Failed to persist selectedMonitorId', tag: 'CpanelApi', error: e);
+    }
+  }
+
+  void setAvailableSites(List<Map<String, dynamic>> sites) {
+    _availableSites = sites.map((s) => Map<String, dynamic>.from(s)).toList();
+    _persistAvailableSites(_availableSites);
     notifyListeners();
   }
 
@@ -55,16 +141,50 @@ class CpanelApiService extends ChangeNotifier {
   // Persisted to storage to support page reloads / warm restarts.
   String? _portalAuthToken;
 
+  Map<String, dynamic> _sanitizeSiteForStorage(Map<String, dynamic> site) {
+    final sanitized = Map<String, dynamic>.from(site)..remove('site_pass');
+    if (sanitized['monitors'] is List) {
+      sanitized['monitors'] = (sanitized['monitors'] as List)
+          .map((m) => m is Map
+              ? (Map<String, dynamic>.from(m)..remove('site_pass'))
+              : m)
+          .toList();
+    }
+    return sanitized;
+  }
+
   Future<void> _persistCurrentSite(Map<String, dynamic>? site) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (site != null) {
-        await prefs.setString(_keyCurrentSite, jsonEncode(site));
+        await prefs.setString(
+          _keyCurrentSite,
+          jsonEncode(_sanitizeSiteForStorage(site)),
+        );
+        final id = int.tryParse(site['site_id']?.toString() ?? '');
+        if (id != null) {
+          await prefs.setInt(_keySelectedSiteId, id);
+        }
       } else {
         await prefs.remove(_keyCurrentSite);
+        await prefs.remove(_keySelectedSiteId);
       }
     } catch (e) {
       AppLog.w('Failed to persist currentSite', tag: 'CpanelApi', error: e);
+    }
+  }
+
+  Future<void> _persistAvailableSites(List<Map<String, dynamic>> sites) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (sites.isNotEmpty) {
+        final sanitized = sites.map(_sanitizeSiteForStorage).toList();
+        await prefs.setString(_keyAvailableSites, jsonEncode(sanitized));
+      } else {
+        await prefs.remove(_keyAvailableSites);
+      }
+    } catch (e) {
+      AppLog.w('Failed to persist availableSites', tag: 'CpanelApi', error: e);
     }
   }
 
@@ -121,12 +241,28 @@ class CpanelApiService extends ChangeNotifier {
       _portalAuthToken = token;
     }
 
+    _selectedSiteId = prefs.getInt(_keySelectedSiteId);
+    _selectedMonitorId = prefs.getInt(_keySelectedMonitorId);
+
     final siteJson = prefs.getString(_keyCurrentSite);
     if (siteJson != null && siteJson.isNotEmpty) {
       try {
         final decoded = jsonDecode(siteJson);
         if (decoded is Map<String, dynamic>) {
           _currentSite = decoded;
+        }
+      } catch (_) {}
+    }
+
+    final availableJson = prefs.getString(_keyAvailableSites);
+    if (availableJson != null && availableJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(availableJson);
+        if (decoded is List) {
+          _availableSites = decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
         }
       } catch (_) {}
     }
@@ -186,6 +322,9 @@ class CpanelApiService extends ChangeNotifier {
     _portalPasswordInMemory = null;
     _portalAuthToken = null;
     _currentSite = null;
+    _availableSites = [];
+    _selectedSiteId = null;
+    _selectedMonitorId = null;
     _currentAppConfig = null;
     _currentUser = null;
     notifyListeners();
@@ -195,6 +334,9 @@ class CpanelApiService extends ChangeNotifier {
     await prefs.remove(_keyPortalUserId);
     await prefs.remove(_keyPortalAuthToken);
     await prefs.remove(_keyCurrentSite);
+    await prefs.remove(_keyAvailableSites);
+    await prefs.remove(_keySelectedSiteId);
+    await prefs.remove(_keySelectedMonitorId);
     await prefs.remove(_keyCurrentUser);
     await prefs.remove(_keyCurrentAppConfig);
   }

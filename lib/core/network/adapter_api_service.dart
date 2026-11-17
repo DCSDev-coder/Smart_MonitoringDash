@@ -45,6 +45,26 @@ class AdapterApiService {
     return decoded is Map<String, dynamic> ? decoded : null;
   }
 
+  Uri _buildUri(String path, {Map<String, String>? query}) {
+    final mId = CpanelApiService.instance.selectedMonitorId;
+    final mergedQuery = <String, String>{
+      ...?query,
+      if (mId != null && mId > 0) 'monitor_id': mId.toString(),
+    };
+    final baseUri = Uri.parse('$_base$path');
+    return mergedQuery.isEmpty
+        ? baseUri
+        : baseUri.replace(queryParameters: mergedQuery);
+  }
+
+  Uri _withMonitor(Uri uri) {
+    final mId = CpanelApiService.instance.selectedMonitorId;
+    if (mId == null || mId <= 0) return uri;
+    final qp = Map<String, String>.from(uri.queryParameters);
+    qp['monitor_id'] = mId.toString();
+    return uri.replace(queryParameters: qp);
+  }
+
   Future<Map<String, dynamic>?> _getJson(
     String path, {
     Map<String, String>? query,
@@ -59,9 +79,7 @@ class AdapterApiService {
       return null;
     }
 
-    final url = query == null
-        ? Uri.parse('$_base$path')
-        : Uri.parse('$_base$path').replace(queryParameters: query);
+    final url = _buildUri(path, query: query);
 
     final res = await http.get(
       url,
@@ -98,7 +116,7 @@ class AdapterApiService {
     try {
       final res = await http
           .post(
-            url,
+            _withMonitor(url),
             headers: {
               ..._headers(token),
               'Content-Type': 'application/json',
@@ -209,7 +227,7 @@ class AdapterApiService {
     final url = Uri.parse('$_base/v1/sites/$siteId/app-config');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -242,7 +260,7 @@ class AdapterApiService {
     final url = Uri.parse('$_base/v1/sites/$siteId/cabinet-stats');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -277,7 +295,7 @@ class AdapterApiService {
     final url = Uri.parse('$_base/v1/sites/$siteId/redis-memory');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -323,7 +341,7 @@ class AdapterApiService {
     final url = Uri.parse('$_base/v1/sites/$siteId/doors');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -351,7 +369,7 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/alarms/last5');
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -382,7 +400,7 @@ class AdapterApiService {
     final url = Uri.parse('$_base/v1/sites/$siteId/temp-hum-top-n');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -413,7 +431,7 @@ class AdapterApiService {
         Uri.parse('$_base/v1/sites/$siteId/it-device-interfaces-last-for-part');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -443,7 +461,7 @@ class AdapterApiService {
     final url = Uri.parse('$_base/v1/sites/$siteId/it-device-top-metrics-last');
     try {
       final res = await http
-          .get(url, headers: _headers(token))
+          .get(_withMonitor(url), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) {
@@ -472,7 +490,7 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/dashboard');
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 12));
@@ -502,7 +520,7 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/environment');
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -532,7 +550,7 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/device-status');
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -562,7 +580,7 @@ class AdapterApiService {
 
     final url = Uri.parse('$_base/v1/sites/$siteId/sys-info');
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -610,7 +628,7 @@ class AdapterApiService {
     );
 
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -654,7 +672,7 @@ class AdapterApiService {
     );
 
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -698,7 +716,7 @@ class AdapterApiService {
     );
 
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 15));
@@ -742,7 +760,7 @@ class AdapterApiService {
     );
 
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 10));
@@ -777,7 +795,7 @@ class AdapterApiService {
       queryParameters: includeRaw ? const {'raw': '1'} : null,
     );
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 12));
@@ -814,7 +832,7 @@ class AdapterApiService {
       },
     );
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 12));
@@ -851,7 +869,7 @@ class AdapterApiService {
       },
     );
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 12));
@@ -892,7 +910,7 @@ class AdapterApiService {
       },
     );
     try {
-      final res = await http.get(url, headers: {
+      final res = await http.get(_withMonitor(url), headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       }).timeout(const Duration(seconds: 12));
@@ -974,7 +992,7 @@ class AdapterApiService {
     try {
       final res = await http
           .post(
-            url,
+            _withMonitor(url),
             headers: {
               'Authorization': 'Bearer $token',
               'Accept': 'application/json',
@@ -1023,7 +1041,7 @@ class AdapterApiService {
     try {
       final res = await http
           .post(
-            url,
+            _withMonitor(url),
             headers: {
               'Authorization': 'Bearer $token',
               'Accept': 'application/json',
@@ -1076,7 +1094,7 @@ class AdapterApiService {
     try {
       final res = await http
           .post(
-            url,
+            _withMonitor(url),
             headers: {
               'Authorization': 'Bearer $token',
               'Accept': 'application/json',
@@ -1125,7 +1143,7 @@ class AdapterApiService {
     try {
       final res = await http
           .post(
-            url,
+            _withMonitor(url),
             headers: {
               'Authorization': 'Bearer $token',
               'Accept': 'application/json',

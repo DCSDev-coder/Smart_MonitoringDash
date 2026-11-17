@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import 'dashboard_glass.dart';
 import 'safe_network_image.dart';
+import 'site_switcher_button.dart';
 
 class DashboardHeader extends StatelessWidget {
   final String? logoUrl;
@@ -87,6 +88,8 @@ class DashboardHeader extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const SiteSwitcherButton(compact: true),
+                const SizedBox(width: gap),
                 // Notification Button (no count badge; bell itself reflects alert state)
                 _HeaderIconButton(
                   icon: Icons.notifications_none_rounded,

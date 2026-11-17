@@ -177,6 +177,38 @@ class GlobalStatusPoller extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Clears cached site telemetry and immediately polls the newly selected site.
+  Future<void> resetForSiteSwitch() async {
+    _inFlight = false;
+    devices = const [];
+    recentAlarms = const [];
+    smokeStatus = -1;
+    floodStatus = -1;
+    temperatureC = null;
+    humidityPct = null;
+    rawTemperatures = const [];
+    rawHumidities = const [];
+    capacityUsedPct = null;
+    memoryUsedPct = null;
+    itCpuUsage = null;
+    itMemoryUsage = null;
+    itDiskUsage = null;
+    itResponseMs = null;
+    itPacketLossPct = null;
+    networkInterfaces = const [];
+    doors = const [];
+    recentDoorLogs = const [];
+    maintenanceDaysLeft = null;
+    systemUptimeDays = null;
+    pue = null;
+    lastUpdatedUtc = null;
+    _emergencyMode = false;
+    notifyListeners();
+    if (_enabled) {
+      await fetchNow();
+    }
+  }
+
   void _onSettingsChanged() {
     // Don't override emergency mode. Only adjust the baseline interval.
     if (_emergencyMode) return;
