@@ -8,12 +8,14 @@ class AddUserScreen extends StatefulWidget {
   final int siteId;
   final String adminUsername;
   final String adminPassword;
+  final bool canCreateDcsTechnician;
 
   const AddUserScreen({
     super.key,
     required this.siteId,
     required this.adminUsername,
     required this.adminPassword,
+    this.canCreateDcsTechnician = false,
   });
 
   @override
@@ -31,6 +33,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
   bool _canChangeSettings = false;
   bool _canManageUsers = false;
   bool _isRackConsole = false;
+  bool _isDcsTechnician = false;
   bool _submitting = false;
 
   @override
@@ -72,13 +75,18 @@ class _AddUserScreenState extends State<AddUserScreen> {
 
     setState(() => _submitting = true);
     // Keep backend API compatibility: treat "Manage Users" as "admin".
-    final roleComputed = _canManageUsers ? 'admin' : 'user';
+    final roleComputed = _isDcsTechnician
+        ? 'technician'
+        : (_canManageUsers ? 'admin' : 'user');
     final res = await CpanelApiService.instance.createSiteUser(
       siteId: widget.siteId,
       adminUsername: widget.adminUsername,
       adminPassword: widget.adminPassword,
       newUsername: nu,
       role: roleComputed,
+      accountType: _isRackConsole
+          ? 'rack_console'
+          : (_isDcsTechnician ? 'dcs_technician' : 'customer_user'),
       permissions: {
         "can_view_dashboard": _canViewDashboard ? 1 : 0,
         "can_view_report": _canViewReport ? 1 : 0,
@@ -108,6 +116,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
       _canManageUsers = value;
       if (value) {
         _isRackConsole = false;
+        _isDcsTechnician = false;
       }
     });
   }
@@ -116,6 +125,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     setState(() {
       _isRackConsole = value;
       if (value) {
+        _isDcsTechnician = false;
         _canManageUsers = false;
         _canViewDashboard = true;
         _canControlDoors = true;
@@ -123,6 +133,22 @@ class _AddUserScreenState extends State<AddUserScreen> {
         _canViewRack = true;
         _canViewControl = true;
         _canChangeSettings = true;
+      }
+    });
+  }
+
+  void _setDcsTechnician(bool value) {
+    setState(() {
+      _isDcsTechnician = value;
+      if (value) {
+        _isRackConsole = false;
+        _canManageUsers = false;
+        _canViewDashboard = true;
+        _canViewReport = true;
+        _canViewRack = true;
+        _canViewControl = true;
+        _canControlDoors = true;
+        _canChangeSettings = false;
       }
     });
   }
@@ -214,6 +240,14 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         const SizedBox(height: 12),
                         _buildPermToggle('Rack Console Mode', _isRackConsole,
                             _setRackConsoleMode),
+                        if (widget.canCreateDcsTechnician) ...[
+                          const SizedBox(height: 12),
+                          _buildPermToggle(
+                            'DCS Technician (assigned to this site)',
+                            _isDcsTechnician,
+                            _setDcsTechnician,
+                          ),
+                        ],
 
                         if (!_isRackConsole) ...[
                           const SizedBox(height: 36),

@@ -113,16 +113,60 @@ class ApiService {
    * Ensures the client has a stored bearer token.
    */
   async ensureAuthenticated(): Promise<boolean> {
-    return this.isAuthenticated();
+    const token = this.getAuthToken();
+    if (!token) return false;
+
+    try {
+      const response = await fetch(`${CPANEL_API_URL}?action=auth_me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token,
+        },
+      });
+      const data = await response.json();
+      if (!response.ok || data.status !== 'success') {
+        this.logoutLocal();
+        return false;
+      }
+      if (data.user) {
+        this.user = data.user as ApiUser;
+        sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        if (localStorage.getItem(STORAGE_KEY_TOKEN)) {
+          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  logout() {
+  private logoutLocal() {
     this.token = null;
     this.user = null;
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_USER);
     sessionStorage.removeItem(STORAGE_KEY_TOKEN);
     sessionStorage.removeItem(STORAGE_KEY_USER);
+  }
+
+  async logout(): Promise<void> {
+    const token = this.getAuthToken();
+    try {
+      if (token) {
+        await fetch(`${CPANEL_API_URL}?action=logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'X-Auth-Token': token,
+          },
+          body: JSON.stringify({ action: 'logout' }),
+        });
+      }
+    } finally {
+      this.logoutLocal();
+    }
   }
 
   /**
@@ -169,7 +213,7 @@ class ApiService {
           String(user.can_access_monitoring_web) === '1';
 
         if (!canAccess) {
-          this.logout();
+          this.logoutLocal();
           return {
             success: false,
             message:
@@ -231,7 +275,7 @@ class ApiService {
       });
 
       if (response.status === 401 || response.status === 403) {
-        this.logout();
+        this.logoutLocal();
         return { success: false, sites: [], message: 'Session expired. Please sign in again.' };
       }
 
@@ -437,7 +481,7 @@ class ApiService {
           openIp: m.open_ip,
           localIp: m.local_ip,
           siteUser: m.site_user,
-          sitePassword: m.site_pass,
+          sitePassword: '',
           isActive: m.is_active === 1,
           activeIssues: [],
         }))
@@ -452,7 +496,7 @@ class ApiService {
                 openIp: site.open_ip || '',
                 localIp: site.local_ip || '',
                 siteUser: site.site_user || '',
-                sitePassword: site.site_pass || '',
+                sitePassword: '',
                 isActive: site.is_active !== 0,
                 activeIssues: [],
               },
@@ -464,7 +508,7 @@ class ApiService {
       openIp: site.open_ip || '',
       localIp: site.local_ip || '',
       siteUser: site.site_user || '',
-      sitePassword: site.site_pass || '',
+      sitePassword: '',
       isBlocked: site.is_active === 0,
       pue: existing?.pue ?? 0,
       totalEnergyKwh: existing?.totalEnergyKwh,
@@ -475,10 +519,10 @@ class ApiService {
       nextService,
       cctvIp: site.cctv_ip ?? existing?.cctvIp ?? '',
       cctvUser: site.cctv_user ?? existing?.cctvUser ?? '',
-      cctvPassword: site.cctv_pass ?? existing?.cctvPassword ?? '',
+      cctvPassword: '',
       faceScannerIp: site.face_scanner_ip ?? existing?.faceScannerIp ?? '',
       faceScannerUser: site.face_scanner_user ?? existing?.faceScannerUser ?? '',
-      faceScannerPassword: site.face_scanner_pass ?? existing?.faceScannerPassword ?? '',
+      faceScannerPassword: '',
       techNotes: site.tech_notes ?? existing?.techNotes ?? '',
       activeIssues: [], // All 7 subsystems (AC, T.H, Power, UPS, Smoke, Leak, PDU) Secure
       accounts,
@@ -779,6 +823,110 @@ class ApiService {
         return { success: true, message: data.message };
       }
       return { success: false, message: data.message || 'Invalid or expired recovery code' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  async updateMyEmail(email: string): Promise<{ success: boolean; message?: string }> {
+    const token = this.getAuthToken();
+    if (!token) return { success: false, message: 'Not authenticated' };
+    try {
+      const res = await fetch(`${CPANEL_API_URL}?action=update_my_email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token,
+        },
+        body: JSON.stringify({ action: 'update_my_email', email: email.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        this.user = { ...this.user, email: email.trim() } as ApiUser;
+        sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        if (localStorage.getItem(STORAGE_KEY_TOKEN)) {
+          localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        }
+        return { success: true };
+      }
+      return { success: false, message: data.message || 'Failed to update recovery email' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  async requestMyRecoveryCode(): Promise<{ success: boolean; message?: string }> {
+    const username = this.user?.username?.trim();
+    if (!username) return { success: false, message: 'Current user is unavailable' };
+    return this.requestPasswordResetCode(username);
+  }
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    const token = this.getAuthToken();
+    const username = this.user?.username?.trim();
+    if (!token || !username) return { success: false, message: 'Not authenticated' };
+    try {
+      const res = await fetch(`${CPANEL_API_URL}?action=change_password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Auth-Token': token,
+        },
+        body: JSON.stringify({
+          action: 'change_password',
+          username,
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') return { success: true };
+      return { success: false, message: data.message || 'Failed to change password' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  async requestUsernameChangeCode(): Promise<{ success: boolean; message?: string }> {
+    const token = this.getAuthToken();
+    if (!token) return { success: false, message: 'Not authenticated' };
+    try {
+      const res = await fetch(`${CPANEL_API_URL}?action=request_my_verification_code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Auth-Token': token },
+        body: JSON.stringify({ action: 'request_my_verification_code' }),
+      });
+      const data = await res.json();
+      return res.ok && data.status === 'success'
+        ? { success: true, message: data.message }
+        : { success: false, message: data.message || 'Unable to send verification code' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error' };
+    }
+  }
+
+  async changeUsername(newUsername: string, code: string): Promise<{ success: boolean; message?: string }> {
+    const token = this.getAuthToken();
+    if (!token) return { success: false, message: 'Not authenticated' };
+    try {
+      const res = await fetch(`${CPANEL_API_URL}?action=change_my_username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Auth-Token': token },
+        body: JSON.stringify({ action: 'change_my_username', new_username: newUsername.trim(), code: code.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        this.user = { ...this.user, username: newUsername.trim() } as ApiUser;
+        sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        if (localStorage.getItem(STORAGE_KEY_TOKEN)) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(this.user));
+        return { success: true };
+      }
+      return { success: false, message: data.message || 'Failed to change username' };
     } catch (err: any) {
       return { success: false, message: err.message || 'Network error' };
     }

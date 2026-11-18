@@ -19,9 +19,7 @@ class EditUserScreen extends StatefulWidget {
   final bool canManageUsers;
   final bool isRackConsole;
   final String email;
-  final bool canAccessMonitoringWeb;
   final bool isOwnerSelf;
-  final bool isMonitoringWebCompany;
 
   const EditUserScreen({
     super.key,
@@ -38,9 +36,7 @@ class EditUserScreen extends StatefulWidget {
     required this.canManageUsers,
     required this.isRackConsole,
     this.email = '',
-    this.canAccessMonitoringWeb = false,
     this.isOwnerSelf = false,
-    this.isMonitoringWebCompany = false,
   });
 
   @override
@@ -56,7 +52,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
   late bool _canChangeSettings;
   late bool _canManageUsers;
   late bool _isRackConsole;
-  late bool _canAccessMonitoringWeb;
   late final TextEditingController _emailController;
 
   bool _submitting = false;
@@ -72,7 +67,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _canChangeSettings = widget.canChangeSettings;
     _canManageUsers = widget.canManageUsers;
     _isRackConsole = widget.isRackConsole;
-    _canAccessMonitoringWeb = widget.canAccessMonitoringWeb;
     _emailController = TextEditingController(text: widget.email);
   }
 
@@ -103,12 +97,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
         "can_change_settings": _canChangeSettings ? 1 : 0,
         "can_manage_users": _canManageUsers ? 1 : 0,
         "is_kiosk": _isRackConsole ? 1 : 0,
-        if (widget.isMonitoringWebCompany)
-          "can_access_monitoring_web": _isRackConsole
-              ? 0
-              : ((widget.isOwnerSelf || _canManageUsers || _canAccessMonitoringWeb)
-                  ? 1
-                  : 0),
         "email": _emailController.text.trim(),
       },
     );
@@ -309,9 +297,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                               _setRackConsoleMode),
                         ],
 
-                        if (!_isRackConsole &&
-                            (!widget.isOwnerSelf ||
-                                widget.isMonitoringWebCompany)) ...[
+                        if (!_isRackConsole && !widget.isOwnerSelf) ...[
                           const SizedBox(height: 36),
                           Text(
                             widget.isOwnerSelf ? 'WEBSITE ACCESS' : 'PERMISSIONS',
@@ -342,19 +328,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
                             _buildPermToggle(
                                 'Manage Users', _canManageUsers, _setManageUsers),
                           ],
-                          if (widget.isMonitoringWebCompany)
-                            _buildPermToggle(
-                              (widget.isOwnerSelf || _canManageUsers)
-                                  ? 'Monitoring Website Access (Auto for Admin)'
-                                  : 'Monitoring Website Access',
-                              (widget.isOwnerSelf || _canManageUsers)
-                                  ? true
-                                  : _canAccessMonitoringWeb,
-                              (widget.isOwnerSelf || _canManageUsers)
-                                  ? (_) {}
-                                  : (v) => setState(
-                                      () => _canAccessMonitoringWeb = v),
-                            ),
                         ],
                         const SizedBox(height: 120), // bottom padding
                       ],

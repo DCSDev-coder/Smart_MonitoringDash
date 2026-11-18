@@ -111,13 +111,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isSyncingApi && <Loader2 className="w-3 h-3 animate-spin text-[#00C08B]" />}
           </button>
 
-          {/* Action: Add Company */}
+          {/* Action: Add customer site */}
           <button
             onClick={onOpenAddCompany}
             className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] font-bold text-xs transition-all shadow-md shadow-[#00C08B]/15 cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Add Company</span>
+            <span>Add Customer Site</span>
           </button>
 
           {/* Action: Settings */}

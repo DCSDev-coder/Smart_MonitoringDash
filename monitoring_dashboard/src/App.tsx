@@ -3,13 +3,11 @@ import { Navbar } from './components/Navbar';
 import { CompanyCard } from './components/CompanyCard';
 import { AddCompanyModal } from './components/AddCompanyModal';
 import { EditCompanyModal } from './components/EditCompanyModal';
-import { AddAccountModal } from './components/AddAccountModal';
-import { EditAccountModal } from './components/EditAccountModal';
 import { AddRackModal } from './components/AddRackModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { apiService } from './services/apiService';
-import { CompanyItem, CompanyAccount, CompanyFilter, RackMonitor } from './types';
+import { CompanyItem, CompanyFilter, RackMonitor } from './types';
 
 const STORAGE_KEY_COMPANIES = 'dcstack_monitoring_companies';
 const STORAGE_KEY_EMAIL = 'dcstack_recovery_email';
@@ -17,14 +15,32 @@ const STORAGE_KEY_EMAIL = 'dcstack_recovery_email';
 function loadCompanies(): CompanyItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_COMPANIES);
-    return raw ? (JSON.parse(raw) as CompanyItem[]) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CompanyItem[];
+    const sensitiveKeys = new Set(['password', 'sitePassword', 'cctvPassword', 'faceScannerPassword']);
+    const safe = JSON.parse(JSON.stringify(parsed, (key, value) => sensitiveKeys.has(key) ? '' : value));
+    if (JSON.stringify(safe) !== raw) {
+      localStorage.setItem(STORAGE_KEY_COMPANIES, JSON.stringify(safe));
+    }
+    return safe as CompanyItem[];
   } catch {
     return [];
   }
 }
 
 function saveCompanies(companies: CompanyItem[]): void {
-  localStorage.setItem(STORAGE_KEY_COMPANIES, JSON.stringify(companies));
+  const sensitiveKeys = new Set([
+    'password',
+    'sitePassword',
+    'cctvPassword',
+    'faceScannerPassword',
+  ]);
+  const safeCompanies = JSON.parse(
+    JSON.stringify(companies, (key, value) =>
+      sensitiveKeys.has(key) ? '' : value
+    )
+  );
+  localStorage.setItem(STORAGE_KEY_COMPANIES, JSON.stringify(safeCompanies));
 }
 
 function loadRecoveryEmail(): string {
@@ -43,9 +59,6 @@ import {
   X,
   Filter,
   LogOut,
-  Layers,
-  Users,
-  Plus,
 } from 'lucide-react';
 
 function SmartRackIcon({ className = "w-12 h-12" }: { className?: string }) {
@@ -98,8 +111,8 @@ export function App() {
     setIsLoggedIn(true);
   };
 
-  const handleSignOut = () => {
-    apiService.logout();
+  const handleSignOut = async () => {
+    await apiService.logout();
     localStorage.removeItem('dcstack_auth_session');
     sessionStorage.removeItem('dcstack_auth_session');
     setIsLoggedIn(false);
@@ -108,18 +121,12 @@ export function App() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<CompanyFilter>('all');
-  const [groupByClient, setGroupByClient] = useState(true);
 
   // Modals
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [addSiteInitialAccount, setAddSiteInitialAccount] = useState('');
   const [editingCompany, setEditingCompany] = useState<CompanyItem | null>(null);
   const [addRackCompany, setAddRackCompany] = useState<CompanyItem | null>(null);
-  const [accountModalCompanyId, setAccountModalCompanyId] = useState<string | null>(null);
-  const [editingAccount, setEditingAccount] = useState<{
-    companyId: string;
-    account: CompanyAccount;
-  } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
@@ -303,7 +310,7 @@ export function App() {
   // Initialize data from LocalStorage & sync with live API
   useEffect(() => {
     setCompanies(loadCompanies());
-    setRecoveryEmail(loadRecoveryEmail());
+    setRecoveryEmail(apiService.getUser()?.email || loadRecoveryEmail());
 
     if (isLoggedIn) {
       syncWithApi();
@@ -327,7 +334,14 @@ export function App() {
   };
 
   const handleAddCompany = (newCompany: CompanyItem) => {
-    const updated = [newCompany, ...companies];
+    const updated = [{
+      ...newCompany,
+      sitePassword: '',
+      cctvPassword: '',
+      faceScannerPassword: '',
+      accounts: newCompany.accounts.map((account) => ({ ...account, password: '' })),
+      monitors: newCompany.monitors?.map((monitor) => ({ ...monitor, sitePassword: '' })),
+    }, ...companies];
     setCompanies(updated);
     saveCompanies(updated);
   };
@@ -338,7 +352,7 @@ export function App() {
         const existing = c.monitors || [];
         return {
           ...c,
-          monitors: [...existing, rack],
+          monitors: [...existing, { ...rack, sitePassword: '' }],
         };
       }
       return c;
@@ -361,52 +375,21 @@ export function App() {
     saveCompanies(updated);
   };
 
-  const handleAddAccount = (companyId: string, account: CompanyAccount) => {
-    const updated = companies.map((c) => {
-      if (c.id === companyId) {
-        return {
-          ...c,
-          accounts: [...c.accounts, account],
-        };
-      }
-      return c;
-    });
-    setCompanies(updated);
-    saveCompanies(updated);
+  const handleSaveEmail = async (newEmail: string) => {
+    const result = await apiService.updateMyEmail(newEmail);
+    if (result.success) {
+      setRecoveryEmail(newEmail);
+      saveRecoveryEmail(newEmail);
+    }
+    return result;
   };
 
-  const handleUpdateAccount = (companyId: string, updatedAccount: CompanyAccount) => {
-    const updated = companies.map((c) => {
-      if (c.id === companyId) {
-        return {
-          ...c,
-          accounts: c.accounts.map((a) => (a.id === updatedAccount.id ? updatedAccount : a)),
-        };
-      }
-      return c;
-    });
-    setCompanies(updated);
-    saveCompanies(updated);
-  };
-
-  const handleDeleteAccount = (companyId: string, accountId: string) => {
-    const updated = companies.map((c) => {
-      if (c.id === companyId) {
-        return {
-          ...c,
-          accounts: c.accounts.filter((a) => a.id !== accountId),
-        };
-      }
-      return c;
-    });
-    setCompanies(updated);
-    saveCompanies(updated);
-  };
-
-  const handleSaveEmail = (newEmail: string) => {
-    setRecoveryEmail(newEmail);
-    saveRecoveryEmail(newEmail);
-  };
+  const handleSendRecovery = () => apiService.requestMyRecoveryCode();
+  const handleChangePassword = (currentPassword: string, newPassword: string) =>
+    apiService.changePassword(currentPassword, newPassword);
+  const handleRequestUsernameCode = () => apiService.requestUsernameChangeCode();
+  const handleChangeUsername = (username: string, code: string) =>
+    apiService.changeUsername(username, code);
 
   // Status Metrics
   const totalCompanies = companies.length;
@@ -432,8 +415,6 @@ export function App() {
     if (filter === 'issues') return c.activeIssues.length > 0;
     return true;
   });
-
-  const targetAccountCompany = companies.find((c) => c.id === accountModalCompanyId);
 
   // If not logged in, show the login view
   if (!isLoggedIn) {
@@ -638,18 +619,6 @@ export function App() {
                 </button>
               ))}
 
-              <button
-                onClick={() => setGroupByClient((prev) => !prev)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ml-1 ${
-                  groupByClient
-                    ? 'bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/40'
-                    : 'bg-[#0b1119] text-white/60 hover:text-white border border-[#1e2836]'
-                }`}
-                title="Group sites by client account"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Group by Client</span>
-              </button>
             </div>
           </div>
         </section>
@@ -665,72 +634,6 @@ export function App() {
                 : 'Click "Add Company" in the header to register your first datacenter.'}
             </p>
           </div>
-        ) : groupByClient ? (
-          <div className="space-y-8">
-            {Object.entries(
-              filteredCompanies.reduce<Record<string, CompanyItem[]>>((acc, company) => {
-                const primaryAcc = company.accounts.find((a) => !a.isRackConsole);
-                const groupKey = primaryAcc?.username || 'Unassigned';
-                if (!acc[groupKey]) acc[groupKey] = [];
-                acc[groupKey].push(company);
-                return acc;
-              }, {})
-            ).map(([clientUsername, clientSites]) => (
-              <div
-                key={clientUsername}
-                className="rounded-3xl bg-[#0c131b]/80 border border-[#1e2836] p-4 sm:p-5 space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1e2836]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#00C08B]/15 text-[#00C08B] border border-[#00C08B]/30 flex items-center justify-center">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-black text-white tracking-wide">
-                          Client: {clientUsername}
-                        </h3>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/30">
-                          {clientSites.length} {clientSites.length === 1 ? 'Site' : 'Sites'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-white/45">
-                        {clientSites.map((s) => s.name).join(' • ')}
-                      </p>
-                    </div>
-                  </div>
-                  {clientUsername !== 'Unassigned' && (
-                    <button
-                      onClick={() => {
-                        setAddSiteInitialAccount(clientUsername);
-                        setShowAddCompany(true);
-                      }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#00C08B]/15 text-[#00C08B] hover:bg-[#00C08B]/25 border border-[#00C08B]/30 transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Site for {clientUsername}</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-5">
-                  {clientSites.map((company) => (
-                    <CompanyCard
-                      key={company.id}
-                      company={company}
-                      onToggleBlock={handleToggleBlock}
-                      onOpenAddAccount={(id) => setAccountModalCompanyId(id)}
-                      onDeleteAccount={handleDeleteAccount}
-                      onDeleteCompany={handleDeleteCompany}
-                      onOpenEditCompany={(comp) => setEditingCompany(comp)}
-                      onOpenEditAccount={(cId, acc) => setEditingAccount({ companyId: cId, account: acc })}
-                      onOpenAddRack={(comp) => setAddRackCompany(comp)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
             {filteredCompanies.map((company) => (
@@ -738,11 +641,8 @@ export function App() {
                 key={company.id}
                 company={company}
                 onToggleBlock={handleToggleBlock}
-                onOpenAddAccount={(id) => setAccountModalCompanyId(id)}
-                onDeleteAccount={handleDeleteAccount}
                 onDeleteCompany={handleDeleteCompany}
                 onOpenEditCompany={(comp) => setEditingCompany(comp)}
-                onOpenEditAccount={(cId, acc) => setEditingAccount({ companyId: cId, account: acc })}
                 onOpenAddRack={(comp) => setAddRackCompany(comp)}
               />
             ))}
@@ -785,32 +685,15 @@ export function App() {
         />
       )}
 
-      {accountModalCompanyId && targetAccountCompany && (
-        <AddAccountModal
-          companyId={accountModalCompanyId}
-          companyName={targetAccountCompany.name}
-          onClose={() => setAccountModalCompanyId(null)}
-          onAddAccount={handleAddAccount}
-        />
-      )}
-
-      {editingAccount && (
-        <EditAccountModal
-          companyId={editingAccount.companyId}
-          companyName={
-            companies.find((c) => c.id === editingAccount.companyId)?.name || 'Datacenter'
-          }
-          account={editingAccount.account}
-          onClose={() => setEditingAccount(null)}
-          onUpdateAccount={handleUpdateAccount}
-        />
-      )}
-
       {showSettings && (
         <SettingsModal
           currentEmail={recoveryEmail}
           onClose={() => setShowSettings(false)}
           onSaveEmail={handleSaveEmail}
+          onSendRecovery={handleSendRecovery}
+          onChangePassword={handleChangePassword}
+          onRequestUsernameCode={handleRequestUsernameCode}
+          onChangeUsername={handleChangeUsername}
         />
       )}
 

@@ -1180,6 +1180,7 @@ class CpanelApiService extends ChangeNotifier {
     required String adminPassword,
     required String newUsername,
     required String role,
+    String accountType = 'customer_user',
     required Map<String, dynamic> permissions,
   }) async {
     try {
@@ -1194,6 +1195,7 @@ class CpanelApiService extends ChangeNotifier {
               "admin_password": adminPassword,
               "new_username": newUsername,
               "role": role,
+              "account_type": accountType,
               "permissions": permissions,
             }),
           )
@@ -1204,6 +1206,51 @@ class CpanelApiService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         AppLog.w('Create site user error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> listDcsTechnicians() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl?action=list_dcs_technicians"),
+            headers: _authHeaders(extra: {"Content-Type": "application/json"}),
+            body: jsonEncode({"action": "list_dcs_technicians"}),
+          )
+          .timeout(const Duration(seconds: 12));
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['status'] == 'success') {
+        final raw = decoded['technicians'];
+        if (raw is List) {
+          return raw.whereType<Map>().map(Map<String, dynamic>.from).toList();
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('List DCS technicians error', tag: 'CpanelApi', error: e);
+      }
+    }
+    return const [];
+  }
+
+  Future<Map<String, dynamic>?> assignDcsTechnician({
+    required int siteId,
+    required int technicianUserId,
+  }) async {
+    try {
+      return await _postJson(
+        'assign_dcs_technician',
+        fields: {
+          'site_id': siteId,
+          'technician_user_id': technicianUserId,
+        },
+        timeout: const Duration(seconds: 12),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        AppLog.w('Assign DCS technician error', tag: 'CpanelApi', error: e);
       }
     }
     return null;

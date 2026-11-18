@@ -154,7 +154,14 @@ class _AuthScreenState extends State<AuthScreen> {
         try {
           final expiryDate = DateTime.parse(expiryStr);
           if (expiryDate.isBefore(DateTime.now())) {
-            throw 'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.';
+            if (mounted) {
+              AppToast.showError(
+                context,
+                'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.',
+              );
+            }
+            await SessionFlowService.instance.signOut();
+            return;
           }
         } catch (e) {
           AppLog.w('Expiry parse error', tag: 'Auth', error: e);
@@ -234,9 +241,13 @@ class _AuthScreenState extends State<AuthScreen> {
         try {
           final expiryDate = DateTime.parse(expiryStr);
           if (expiryDate.isBefore(DateTime.now())) {
+            await SessionFlowService.instance.signOut();
             throw 'Your Smart Rack license has expired ($expiryStr). Please contact DCS support to renew your subscription.';
           }
         } catch (e) {
+          if (e is String && e.startsWith('Your Smart Rack license has expired')) {
+            rethrow;
+          }
           AppLog.w('Expiry parse error', tag: 'Auth', error: e);
         }
       }

@@ -28,8 +28,6 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
   const [accountUser, setAccountUser] = useState(initialAccountUser);
   const [accountPassword, setAccountPassword] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
-  const [consoleUser, setConsoleUser] = useState('');
-  const [consolePassword, setConsolePassword] = useState('');
 
   const [cctvIp, setCctvIp] = useState('');
   const [cctvUser, setCctvUser] = useState('');
@@ -64,11 +62,11 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
       return;
     }
     if (!accountUser.trim()) {
-      setError('Portal Admin Username is required (separate from Dahua gateway login)');
+      setError('Application Admin Username is required (separate from Dahua gateway login)');
       return;
     }
     if (!selectedExistingAccount && !accountPassword.trim()) {
-      setError('Portal Admin Password is required when creating a new client account');
+      setError('Application Admin Password is required when creating a new administrator');
       return;
     }
 
@@ -89,8 +87,6 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
         account_user: accountUser.trim() || undefined,
         account_pass: accountPassword.trim() || undefined,
         account_email: accountEmail.trim() || undefined,
-        console_user: consoleUser.trim() || undefined,
-        console_pass: consolePassword.trim() || undefined,
         cctv_ip: cctvIp.trim() || undefined,
         cctv_user: cctvUser.trim() || undefined,
         cctv_pass: cctvPassword.trim() || undefined,
@@ -117,14 +113,6 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
         email: accountEmail.trim() || undefined,
         password: accountPassword.trim(),
         isRackConsole: false,
-      });
-    }
-    if (consoleUser.trim() && consolePassword.trim()) {
-      accounts.push({
-        id: `acc-${Date.now()}-2`,
-        username: consoleUser.trim(),
-        password: consolePassword.trim(),
-        isRackConsole: true,
       });
     }
 
@@ -182,8 +170,8 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-white">Add Company</h3>
-              <p className="text-xs text-white/50">Setup site credentials, accounts, & telemetry</p>
+              <h3 className="text-base sm:text-lg font-bold text-white">Add Customer Site</h3>
+              <p className="text-xs text-white/50">Configure Dahua access and the initial application administrator</p>
             </div>
           </div>
           <button
@@ -305,7 +293,7 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                 <div>
                   <span className="text-[10px] text-white/40 block mb-1">GATEWAY PASSWORD</span>
                   <input
-                    type="text"
+                    type="password"
                     value={sitePassword}
                     onChange={(e) => setSitePassword(e.target.value)}
                     placeholder="Dahua gateway password"
@@ -315,16 +303,19 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
               </div>
             </div>
 
-            {/* Portal Admin Account & Console */}
+            {/* Application Administrator */}
             <div>
               <label className="text-[11px] font-bold text-[#00C08B] tracking-wider block mb-1.5">
-                PORTAL ADMIN ACCOUNT * &amp; RACK CONSOLE
+                INTERNAL APPLICATION ADMINISTRATOR *
               </label>
+              <p className="text-[10px] text-white/40 mb-1.5">
+                This account is for DCS internal operations only. Customer users and rack consoles are created in the main app.
+              </p>
               <div className="space-y-3">
                 {existingAccounts.length > 0 && (
                   <div className="p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
                     <span className="text-[10px] font-bold text-white/50 block mb-1">
-                      ASSIGN TO EXISTING CLIENT (MULTI-SITE)
+                      ASSIGN TO EXISTING INTERNAL ADMIN (MULTI-SITE)
                     </span>
                     <select
                       value={selectedExistingAccount}
@@ -336,10 +327,10 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                       }}
                       className="w-full px-3 py-2 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white focus:outline-none focus:border-[#00C08B]"
                     >
-                      <option value="">+ Create New Client Account</option>
+                        <option value="">+ Create New Internal Admin</option>
                       {existingAccounts.map((acc) => (
                         <option key={acc} value={acc}>
-                          {acc} (Existing Client)
+                          {acc} (Existing Internal Admin)
                         </option>
                       ))}
                     </select>
@@ -348,26 +339,26 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
                   <div>
-                    <span className="text-[10px] font-bold text-white/40 block mb-1">PORTAL USERNAME *</span>
+                      <span className="text-[10px] font-bold text-white/40 block mb-1">INTERNAL ADMIN USERNAME *</span>
                     <input
                       type="text"
                       value={accountUser}
                       disabled={Boolean(selectedExistingAccount)}
                       onChange={(e) => setAccountUser(e.target.value)}
-                      placeholder="New portal username"
+                      placeholder="New internal admin username"
                       className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
                     />
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-white/40 block mb-1">
-                      {selectedExistingAccount ? 'EXISTING PASSWORD KEPT' : 'PORTAL PASSWORD *'}
+                      {selectedExistingAccount ? 'EXISTING PASSWORD KEPT' : 'INTERNAL ADMIN PASSWORD *'}
                     </span>
                     <input
-                      type="text"
+                      type="password"
                       value={accountPassword}
                       disabled={Boolean(selectedExistingAccount)}
                       onChange={(e) => setAccountPassword(e.target.value)}
-                      placeholder={selectedExistingAccount ? 'Uses existing login' : 'Portal password'}
+                      placeholder={selectedExistingAccount ? 'Uses existing login' : 'Internal admin password'}
                       className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30 disabled:opacity-60"
                     />
                   </div>
@@ -384,28 +375,6 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-[#0b1119] border border-[#1e2836]">
-                  <div>
-                    <span className="text-[10px] font-bold text-white/40 block mb-1">RACK CONSOLE USERNAME</span>
-                    <input
-                      type="text"
-                      value={consoleUser}
-                      onChange={(e) => setConsoleUser(e.target.value)}
-                      placeholder="Console Username"
-                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-white/40 block mb-1">RACK CONSOLE PASSWORD</span>
-                    <input
-                      type="text"
-                      value={consolePassword}
-                      onChange={(e) => setConsolePassword(e.target.value)}
-                      placeholder="Console Password"
-                      className="w-full px-3 py-1.5 bg-[#141d27] border border-[#1e2836] rounded-lg text-xs text-white placeholder-white/30"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -536,7 +505,7 @@ export const AddCompanyModal: React.FC<AddCompanyModalProps> = ({
               className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#00C08B] hover:bg-[#00d89c] text-[#060B11] transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-[#00C08B]/20 disabled:opacity-50"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              {isSubmitting ? 'Creating Company...' : 'Create Company'}
+              {isSubmitting ? 'Creating Site...' : 'Create Customer Site'}
             </button>
           </div>
         </form>

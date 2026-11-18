@@ -19,32 +19,25 @@ import {
   Plus,
   Trash2,
   Edit3,
-  Pencil,
   Server,
   Clock,
 } from 'lucide-react';
-import { CompanyItem, CompanyAccount, MonitorIssueType } from '../types';
+import { CompanyItem, MonitorIssueType } from '../types';
 import { SiteCredentialsModal } from './SiteCredentialsModal';
 
 interface CompanyCardProps {
   company: CompanyItem;
   onToggleBlock: (companyId: string) => void;
-  onOpenAddAccount: (companyId: string) => void;
-  onDeleteAccount: (companyId: string, accountId: string) => void;
   onDeleteCompany: (companyId: string) => void;
   onOpenEditCompany: (company: CompanyItem) => void;
-  onOpenEditAccount: (companyId: string, account: CompanyAccount) => void;
   onOpenAddRack?: (company: CompanyItem) => void;
 }
 
 export const CompanyCard: React.FC<CompanyCardProps> = ({
   company,
   onToggleBlock,
-  onOpenAddAccount,
-  onDeleteAccount,
   onDeleteCompany,
   onOpenEditCompany,
-  onOpenEditAccount,
   onOpenAddRack,
 }) => {
   const [showSiteCredentials, setShowSiteCredentials] = useState(false);
@@ -601,26 +594,23 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
         </div>
       </div>
 
-      {/* ─── Under Each Company: Accounts & Rack Consoles (Showing Username & Password) ─── */}
+      {/* Application accounts are created and permissioned in the main app. */}
       <div className="bg-[#0b1119] px-6 sm:px-8 py-5 sm:py-6 border-t border-[#1e2836]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-white/70 tracking-wider uppercase">
-              Accounts & Rack Consoles ({company.accounts.length})
+              Application Accounts ({company.accounts.length})
             </span>
           </div>
-          <button
-            onClick={() => onOpenAddAccount(company.id)}
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#00C08B] hover:text-[#00d89c] transition-colors cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            Add User / Console
-          </button>
         </div>
+
+        <p className="text-[11px] text-white/40 mb-4">
+          Read-only reference. Create customer users and rack consoles in the main Smart Monitoring app.
+        </p>
 
         {company.accounts.length === 0 ? (
           <p className="text-xs text-white/35 italic py-2">
-            No accounts or rack consoles created yet. Click above to add one.
+            No application accounts or rack consoles have been created yet.
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -691,20 +681,6 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                         )}
                       </button>
                     )}
-                    <button
-                      onClick={() => onOpenEditAccount(company.id, acc)}
-                      className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-[#00C08B] transition-colors cursor-pointer"
-                      title="Set Recovery Email"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => onDeleteAccount(company.id, acc.id)}
-                      className="p-1.5 rounded-lg bg-[#0b1119] text-white/40 hover:text-[#FF3B30] transition-colors cursor-pointer"
-                      title="Delete Account"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
               );

@@ -19,7 +19,6 @@ class ManageUsersScreen extends StatefulWidget {
 class _ManageUsersScreenState extends State<ManageUsersScreen> {
   bool _loading = false;
   List<dynamic> _members = [];
-  bool _isMonitoringWebCompany = false;
 
   int? _portalUserId;
   String? _adminPasswordSession;
@@ -49,6 +48,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   bool get _canManageUsers {
+    final accountType = CpanelApiService.instance.currentUser?['account_type']
+        ?.toString()
+        .toLowerCase();
+    if (accountType == 'dcs_admin') return true;
     final site = _currentSite;
     if (site == null) return false;
 
@@ -63,6 +66,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final v = site['can_manage_users'];
     return _isTruthy(v);
   }
+
+  bool get _isDcsAdmin =>
+      CpanelApiService.instance.currentUser?['account_type']
+              ?.toString()
+              .toLowerCase() ==
+          'dcs_admin';
 
   @override
   void initState() {
@@ -147,11 +156,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     final members =
         (res?['members'] is List) ? (res?['members'] as List) : <dynamic>[];
-    final isWebCompany = res?['is_monitoring_web_company'] == true;
     setState(() {
       _loading = false;
       _members = members;
-      _isMonitoringWebCompany = isWebCompany;
     });
   }
 
@@ -425,8 +432,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     bool canChangeSettings = flag('can_change_settings', defaultValue: false);
     bool canManageUsers = flag('can_manage_users', defaultValue: false);
     bool isRackConsole = flag('is_kiosk', defaultValue: false);
-    bool canAccessMonitoringWeb =
-        flag('can_access_monitoring_web', defaultValue: false);
     final email = (member['email'] ?? '').toString();
     final ownerId = int.tryParse(
       (CpanelApiService.instance.currentSite?['owner_user_id'] ?? '')
@@ -453,9 +458,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           canManageUsers: canManageUsers,
           isRackConsole: isRackConsole,
           email: email,
-          canAccessMonitoringWeb: canAccessMonitoringWeb,
           isOwnerSelf: isOwnerSelf,
-          isMonitoringWebCompany: _isMonitoringWebCompany,
         ),
       ),
     );
@@ -487,6 +490,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           siteId: siteId,
           adminUsername: adminUsername,
           adminPassword: adminPassword,
+          canCreateDcsTechnician:
+              CpanelApiService.instance.currentUser?['account_type']
+                      ?.toString()
+                      .toLowerCase() ==
+                  'dcs_admin',
         ),
       ),
     );
@@ -495,6 +503,63 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       await _verifyAndLoadMembers();
       if (!mounted) return;
       AppToast.showSuccess(context, 'User created successfully.');
+    }
+  }
+
+  Future<void> _assignExistingDcsTechnician() async {
+    final siteId = _siteId;
+    if (!_isDcsAdmin || siteId == null) return;
+
+    final technicians = await CpanelApiService.instance.listDcsTechnicians();
+    if (!mounted) return;
+    if (technicians.isEmpty) {
+      AppToast.show(
+        context,
+        'Create a DCS Technician first, then assign them to this site.',
+      );
+      return;
+    }
+
+    final technicianId = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Assign DCS Technician'),
+        children: technicians.map((tech) {
+          final id = int.tryParse(tech['id']?.toString() ?? '');
+          final username = tech['username']?.toString() ?? 'Technician';
+          final email = tech['email']?.toString().trim() ?? '';
+          return SimpleDialogOption(
+            onPressed: id == null ? null : () => Navigator.pop(ctx, id),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(username, style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (email.isNotEmpty)
+                  Text(email, style: const TextStyle(fontSize: 12)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+    if (technicianId == null || !mounted) return;
+
+    setState(() => _loading = true);
+    final result = await CpanelApiService.instance.assignDcsTechnician(
+      siteId: siteId,
+      technicianUserId: technicianId,
+    );
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (result?['status']?.toString() == 'success') {
+      await _verifyAndLoadMembers();
+      if (!mounted) return;
+      AppToast.showSuccess(context, 'DCS Technician assigned to this site.');
+    } else {
+      AppToast.showError(
+        context,
+        result?['message']?.toString() ?? 'Unable to assign technician.',
+      );
     }
   }
 
@@ -781,6 +846,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_isDcsAdmin) ...[
+          OutlinedButton.icon(
+            onPressed: _loading ? null : _assignExistingDcsTechnician,
+            icon: const Icon(Icons.engineering_rounded, size: 18),
+            label: const Text('Assign Existing DCS Technician to This Site'),
+          ),
+          const SizedBox(height: 16),
+        ],
         buildSection('Owner & Admins', adminsList),
         buildSection('Rack Consoles', kiosksList),
         buildSection('Users', usersList),
