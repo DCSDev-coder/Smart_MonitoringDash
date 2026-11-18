@@ -88,8 +88,7 @@ PageRouteBuilder<T> _slideFromRightRoute<T>(Widget child) {
     transitionDuration: const Duration(milliseconds: 320),
     reverseTransitionDuration: const Duration(milliseconds: 260),
     pageBuilder: (context, animation, secondaryAnimation) {
-      // Prevent a one-frame "flash" when the destination screen is still
-      // building (e.g., video background first frame not ready).
+    
       return ColoredBox(
         color: const Color(0xFFD3D1D9),
         child: child,
@@ -176,37 +175,27 @@ class _ManageUsersGate extends StatelessWidget {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Avoid getting stuck on the Android 12+ splash screen if any plugin/storage
-  // init hangs or throws in release. We still try to init, but we don't block
-  // the first frame forever.
   Future<void> safeInit(Future<void> Function() fn) async {
     try {
       await fn().timeout(const Duration(seconds: 3));
     } catch (e) {
       AppLog.d('Safe init skipped', tag: 'Boot', fields: {'error': '$e'});
-      // Continue boot even if prefs are unavailable for some reason.
     }
   }
 
-  // MediaKit is only needed for the non-rack-console video surfaces.
-  // Skip it on rack-console builds to avoid the startup/decode overhead.
   if (!AppConfig.isRackConsoleBuild) {
     await safeInit(() async {
       MediaKit.ensureInitialized();
     });
   }
 
-  // Initialize ApiService to load stored Server IP.
+ 
   await safeInit(ApiService.instance.init);
-  // Load the saved portal session for user display.
   await safeInit(CpanelApiService.instance.init);
-  // Load user preference for polling policy (best-effort).
   await safeInit(SmartPollingSettings.instance.init);
-  // Load persisted theme mode (best-effort).
   await safeInit(AppThemeController.instance.init);
-  // Load persisted app lock preference (best-effort).
   await safeInit(AppLockController.instance.init);
-  // Firebase push setup (best-effort; no boot blocking).
+ 
   if (kIsWeb ||
       defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS) {
@@ -245,8 +234,7 @@ class MyScrollBehavior extends MaterialScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) {
-    // Disable Android stretch/glow overscroll effects. This prevents the
-    // "infinite scroll" feel where content keeps sliding past the end.
+    
     return child;
   }
 }
@@ -656,8 +644,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
-    // Keep the header always visible (dashboard-style). Hiding on scroll causes
-    // jitter on heavy pages and feels inconsistent with the sticky dashboard header.
+     
     if (!_isHeaderVisible) {
       _isHeaderVisible = true;
       _headerController.forward();
@@ -667,7 +654,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // Senior Logic: Determine if we are on a Wide Screen (Tablet/Monitor)
+ 
     final double width = MediaQuery.of(context).size.width;
     final bool isWide = width >= 600;
 
@@ -749,7 +736,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                     child: _MissionBackdrop(),
                   ),
                 ),
-              // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ MAIN CONTENT AREA ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+             
               Positioned.fill(
                 child: Column(
                   children: [
@@ -758,7 +745,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                         onNotification: _handleScrollNotification,
                         child: Stack(
                     children: [
-                      // Global Video Background Layer
+                    
                       IndexedStack(
                         index: _selectedIndex,
                         children: _tabs.asMap().entries.map((entry) {
@@ -767,9 +754,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                           final active = _selectedIndex == i;
 
                           if (t.id == _TabId.dashboard) {
-                            // Keep the dashboard's State alive, but pause its polling
-                            // when the tab isn't visible. Global emergencies still
-                            // update via GlobalStatusPoller.
+                           
                             return DashboardV2Screen(
                               key: _dashboardKey,
                               isActive: active,
@@ -798,10 +783,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                         }).toList(),
                       ),
 
-                      // Floating Adaptive Header (phones/tablet-narrow only). Wide
-                      // screens use the sidebar as the header (logo/alert/settings).
+                    
                       if (!isWide) ...[
-                        // The Critical Alert Banner (Highest Priority)
+                     
                         AnimatedBuilder(
                           animation: _poller,
                           builder: (context, _) {
@@ -875,9 +859,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                           },
                         ),
                       ],
-                      // Floating bottom navigation (phones).
-                      // Keeping this inside the content stack avoids the "cutout" effect where
-                      // Scaffold's background shows around the pill on dark pages (Dashboard V2).
+                      
                       if (!isWide)
                         Positioned(
                           left: 0,
@@ -897,7 +879,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                                 labels: _tabs.map((t) => t.label).toList(),
                                 onTap: _onNavTapped,
                                 activeColor: const Color(0xFF00A3FF),
-                                // Use full white for light mode, dark for mission control mode
+                               
                                 barColor: Theme.of(context).brightness ==
                                         Brightness.light
                                     ? Colors.white
@@ -926,35 +908,30 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   List<_NavTab> _computeTabs() {
     final tabs = <_NavTab>[];
 
-    // 1. Dashboard
     if (_hasPerm('can_view_dashboard', defaultValue: true)) {
       tabs.add(
         _NavTab(
           id: _TabId.dashboard,
           label: 'Dashboard',
           icon: Icons.dashboard_rounded,
-          // Built in the IndexedStack with `isActive` so we can pause
-          // dashboard-specific polling when the tab isn't selected.
+    
           screen: const SizedBox.shrink(),
         ),
       );
     }
 
-    // 2. Power (Formerly Rack)
     if (_hasPerm('can_view_rack', defaultValue: true)) {
       tabs.add(
         _NavTab(
           id: _TabId.rackView,
           label: 'Power',
           icon: Icons.bolt_rounded,
-          // Built in the IndexedStack with `isActive` so we can pause
-          // rack polling when the tab isn't selected.
+
           screen: const SizedBox.shrink(),
         ),
       );
     }
 
-    // 3. Control
     if (_hasPerm('can_view_control', defaultValue: true) ||
         _hasPerm('can_manage_users', defaultValue: false)) {
       tabs.add(
@@ -967,7 +944,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       );
     }
 
-    // 4. Report
     if (_hasPerm('can_view_report', defaultValue: true)) {
       tabs.add(
         _NavTab(
@@ -1050,7 +1026,6 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
       if (!mounted) return;
 
-      // Show loading indicator
       AppToast.show(context, 'Uploading logo...');
 
       final bytes = await image.readAsBytes();
@@ -1153,10 +1128,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     );
   }
 
-  // ignore: unused_element
   void _showAlarmHistory(BuildContext context,
       {String? level, String? filter}) {
-    // Pre-filter the list to determine if it's empty
+
     final filtered = _poller.recentAlarms.where((a) {
       if (level != null) {
         final currentLevel =

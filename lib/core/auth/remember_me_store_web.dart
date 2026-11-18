@@ -35,7 +35,6 @@ class WebRememberMeStore implements RememberMeStore {
     await prefs.remove(_kEnabled);
     await prefs.remove(_kUsername);
     await prefs.remove(_kAuthToken);
-    // Clean up any legacy password storage.
     await prefs.remove(_kLegacyPassword);
   }
 }

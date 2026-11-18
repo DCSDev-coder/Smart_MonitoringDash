@@ -69,7 +69,6 @@ class SessionFlowService {
       throw 'No Racks found for this account. Please contact support.';
     }
 
-    // In 'main' build, filter to non-kiosk sites if any exist; in rack_console, keep kiosk sites.
     final eligibleSites = AppConfig.isRackConsoleBuild
         ? allSites
         : allSites
@@ -101,7 +100,6 @@ class SessionFlowService {
     );
   }
 
-  /// Switches the active site in 'main' build (disabled in rack_console kiosk).
   Future<Map<String, dynamic>> switchSite(
     Map<String, dynamic> targetSite,
   ) async {
@@ -126,7 +124,6 @@ class SessionFlowService {
     return site;
   }
 
-  /// Switches the active rack monitor within the current site in `'main'` build.
   Future<void> switchMonitor(Map<String, dynamic> monitor) async {
     if (AppConfig.isRackConsoleBuild) return;
     final id = int.tryParse(monitor['id']?.toString() ?? '');

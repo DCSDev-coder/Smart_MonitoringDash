@@ -1,7 +1,4 @@
-// Generated-like Firebase options for this app.
-//
-// We keep this file local so Firebase can initialize consistently on iOS,
-// Android, and web without depending on plist/json bundle discovery.
+
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'

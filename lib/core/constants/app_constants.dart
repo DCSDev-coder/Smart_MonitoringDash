@@ -58,41 +58,29 @@ class AppConstants {
   static const String xSignGetPowerToday = '5001D427E80676284EA058A7556F65B9';
   static const String xSignGetPowerMonth = 'CBA99513ABC9F1C2687F04C2AD0AD860';
 
-  // Polling
   static const Duration pollInterval = Duration(seconds: 15);
 
-  // Secure Storage Keys
   static const String keyAccessToken = 'x_access_token';
   static const String keyUsername = 'username';
 
-  // Layout Helpers
-  /// The height of the floating app header content (~56px) plus its vertical
-  /// margins (8px top + 8px bottom). Screens should add this on top of the
-  /// system status bar to ensure content is never hidden by the header.
   static const double headerContentHeight = 56.0;
   static const double headerMargin = 8.0;
   static double headerHeight(BuildContext context) =>
       headerContentHeight + (headerMargin * 2);
 
-  /// Global flag updated by the main shell to indicate if a critical alert banner is visible.
+
   static bool hasCriticalBanner = false;
 
-  /// Returns the total pixels a screen's scroll content must be offset from
-  /// the top so it clears the floating header and the device status bar.
   static double headerClearance(BuildContext context, {bool? hasCritical}) {
     final media = MediaQuery.of(context);
     final statusBar = media.padding.top;
     final critical = hasCritical ?? hasCriticalBanner;
 
-    // Wide layouts use the top ConsoleHeader in the shell, so inside the content
-    // area we only need a 6px breathing room (same feel as dashboard).
     final useSidebarHeader = media.size.width >= 600;
     if (useSidebarHeader) {
       return 6.0;
     }
 
-    // Mobile uses the sticky top header (DashboardHeader) which has 10px top
-    // padding + 56px content + 10px bottom padding, then we add a small gap.
     const headerTopPadding = 10.0;
     const headerBottomPadding = 10.0;
     return statusBar +

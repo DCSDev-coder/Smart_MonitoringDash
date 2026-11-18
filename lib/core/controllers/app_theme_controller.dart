@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Central theme-mode source of truth.
-///
-/// We keep this small and synchronous for UI usage:
-/// - call [init] during app boot (best-effort)
-/// - widgets read [themeMode] and listen for changes
 class AppThemeController extends ChangeNotifier {
   AppThemeController._();
 

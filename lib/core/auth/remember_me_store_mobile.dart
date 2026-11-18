@@ -35,7 +35,6 @@ class MobileRememberMeStore implements RememberMeStore {
     await _storage.delete(key: _kEnabled);
     await _storage.delete(key: _kUsername);
     await _storage.delete(key: _kAuthToken);
-    // Clean up any legacy password storage.
     await _storage.delete(key: _kLegacyPassword);
   }
 }
