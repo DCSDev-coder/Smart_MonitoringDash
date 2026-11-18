@@ -154,18 +154,41 @@ class _MobileEnvironmentCardsState extends State<MobileEnvironmentCards> {
     return false;
   }
 
-  List<Map<String, dynamic>> _doorsForCabinet(int cabinet) {
+  List<Map<String, dynamic>> _doorsForPage(int cabinet, String side) {
     final effective = widget.doors.isNotEmpty
         ? widget.doors
         : const [
             {'id': 1, 'name': 'Front 1', 'side': 'Front', 'isOpen': false},
             {'id': 2, 'name': 'Back 1', 'side': 'Back', 'isOpen': false},
           ];
-    final matched = effective.where((d) {
+    final sideLower = side.toLowerCase();
+    bool matchesSide(Map<String, dynamic> d) {
+      final dSide = (d['side'] ?? '').toString().toLowerCase();
+      final dName = (d['name'] ?? '').toString().toLowerCase();
+      if (sideLower == 'back') {
+        return dSide.contains('back') ||
+            dName.contains('back') ||
+            dName.contains('rear');
+      }
+      return dSide.contains('front') || dName.contains('front');
+    }
+
+    final exact = effective.where((d) {
+      final n = _extractCabinetNumber((d['name'] ?? '').toString());
+      return n == cabinet && matchesSide(d);
+    }).toList();
+    if (exact.isNotEmpty) return exact;
+
+    final bySide = effective.where(matchesSide).toList();
+    if (bySide.isNotEmpty) return [bySide.first];
+
+    final byCab = effective.where((d) {
       final n = _extractCabinetNumber((d['name'] ?? '').toString());
       return n == cabinet;
     }).toList();
-    return matched.isNotEmpty ? matched : effective;
+    if (byCab.isNotEmpty) return [byCab.first];
+
+    return [effective.first];
   }
 
   @override
@@ -179,7 +202,7 @@ class _MobileEnvironmentCardsState extends State<MobileEnvironmentCards> {
     final pages = _buildPages();
     final safeIdx = _pageIndex.clamp(0, pages.length - 1);
     final activePage = pages[safeIdx];
-    final cabinetDoors = _doorsForCabinet(activePage.cab);
+    final cabinetDoors = _doorsForPage(activePage.cab, activePage.side);
 
     return Container(
       decoration: BoxDecoration(
@@ -341,27 +364,33 @@ class _MobileEnvironmentCardsState extends State<MobileEnvironmentCards> {
           ],
           if (cabinetDoors.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _CabinetDoorTile(
-                    door: cabinetDoors[0],
-                    canUnlock: widget.canUnlockDoors,
-                    onUnlock: widget.onUnlockDoor,
+            if (cabinetDoors.length == 1)
+              _CabinetDoorTile(
+                door: cabinetDoors.first,
+                canUnlock: widget.canUnlockDoors,
+                onUnlock: widget.onUnlockDoor,
+                compactRow: true,
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: _CabinetDoorTile(
+                      door: cabinetDoors[0],
+                      canUnlock: widget.canUnlockDoors,
+                      onUnlock: widget.onUnlockDoor,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: cabinetDoors.length > 1
-                      ? _CabinetDoorTile(
-                          door: cabinetDoors[1],
-                          canUnlock: widget.canUnlockDoors,
-                          onUnlock: widget.onUnlockDoor,
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _CabinetDoorTile(
+                      door: cabinetDoors[1],
+                      canUnlock: widget.canUnlockDoors,
+                      onUnlock: widget.onUnlockDoor,
+                    ),
+                  ),
+                ],
+              ),
           ],
         ],
       ),
@@ -722,11 +751,13 @@ class _CabinetDoorTile extends StatefulWidget {
   final Map<String, dynamic> door;
   final bool canUnlock;
   final Future<bool> Function(int id, String name)? onUnlock;
+  final bool compactRow;
 
   const _CabinetDoorTile({
     required this.door,
     required this.canUnlock,
     required this.onUnlock,
+    this.compactRow = false,
   });
 
   @override
@@ -766,7 +797,11 @@ class _CabinetDoorTileState extends State<_CabinetDoorTile> {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final rawName = widget.door['name']?.toString() ?? 'Door';
     final id = int.tryParse(widget.door['id']?.toString() ?? '') ?? 0;
-    final isUnlocked = _localUnlocked || (widget.door['isOpen'] == true);
+    final rawOpen = widget.door['isOpen'];
+    final doorIsOpen = rawOpen == true ||
+        rawOpen == 1 ||
+        rawOpen?.toString().trim().toLowerCase() == 'true';
+    final isUnlocked = _localUnlocked || doorIsOpen;
     final enabled =
         widget.canUnlock && !isUnlocked && !_isUnlocking && id != 0;
 
@@ -775,16 +810,20 @@ class _CabinetDoorTileState extends State<_CabinetDoorTile> {
         ? const Color(0xFF64748B)
         : Colors.white.withValues(alpha: 0.6);
 
-    final Color iconBg = isUnlocked
-        ? const Color(0xFF10B981).withValues(alpha: isLight ? 0.14 : 0.20)
-        : (isLight
-            ? const Color(0xFFEEF2F6)
-            : Colors.white.withValues(alpha: 0.08));
-    final Color iconFg = isUnlocked
-        ? (isLight ? const Color(0xFF059669) : const Color(0xFF34D399))
-        : (isLight
-            ? const Color(0xFF334155)
-            : Colors.white.withValues(alpha: 0.8));
+    final Color lockAccent = isUnlocked
+        ? const Color(0xFF10B981)
+        : (widget.canUnlock
+            ? const Color(0xFF0EA5E9)
+            : const Color(0xFF64748B));
+    final Color iconBg =
+        lockAccent.withValues(alpha: isLight ? 0.12 : 0.18);
+    final Color iconFg = isLight
+        ? (isUnlocked
+            ? const Color(0xFF059669)
+            : (widget.canUnlock
+                ? const Color(0xFF0284C7)
+                : const Color(0xFF475569)))
+        : (Color.lerp(lockAccent, Colors.white, 0.25) ?? lockAccent);
 
     final String buttonLabel = _isUnlocking
         ? 'Unlocking...'
@@ -808,7 +847,7 @@ class _CabinetDoorTileState extends State<_CabinetDoorTile> {
                 : Colors.white.withValues(alpha: 0.4));
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(widget.compactRow ? 12 : 14),
       decoration: BoxDecoration(
         color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF1A1F29),
         borderRadius: BorderRadius.circular(18),
@@ -820,7 +859,85 @@ class _CabinetDoorTileState extends State<_CabinetDoorTile> {
                   : Colors.white.withValues(alpha: 0.06)),
         ),
       ),
-      child: Column(
+      child: widget.compactRow
+          ? Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: iconBg,
+                  ),
+                  child: Icon(
+                    isUnlocked
+                        ? Icons.lock_open_rounded
+                        : Icons.lock_outline_rounded,
+                    size: 18,
+                    color: iconFg,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rawName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isUnlocked ? 'Unlocked' : 'Secured',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isUnlocked
+                              ? (isLight
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF34D399))
+                              : textSecondary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  height: 40,
+                  child: Material(
+                    color: buttonBg,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: enabled ? () => _doUnlock(id, rawName) : null,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Center(
+                          child: Text(
+                            buttonLabel,
+                            style: TextStyle(
+                              color: buttonFg,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

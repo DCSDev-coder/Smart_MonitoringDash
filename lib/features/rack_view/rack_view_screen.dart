@@ -960,97 +960,300 @@ class _RackViewScreenState extends State<RackViewScreen>
   Widget _buildInletCardMobile(double uiScale) {
     final loadPct = (_inletP / _totalRackMaxKw).clamp(0.0, 1.0);
     final isLight = Theme.of(context).brightness == Brightness.light;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22 * uiScale),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(18 * uiScale),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.flash_on_rounded,
-                    color: const Color(0xFF00A174), size: 18 * uiScale),
-                const SizedBox(width: 8),
-                Text('INLET',
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1)),
-                const SizedBox(width: 8),
-                _infoIcon(
-                    uiScale: uiScale,
-                    onTap: () => _showInfoDialog(
-                        title: 'Inlet (Total Rack Load)',
-                        body:
-                            'Total Rack Load is the active power feeding the rack.')),
-                const Spacer(),
-                _statusPillMobile(online: _inletOnline, uiScale: uiScale),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '${_inletP.toStringAsFixed(2)} kW',
-              style: TextStyle(
-                color: const Color(0xFF00A174),
-                fontSize: 38 * uiScale,
-                fontWeight: FontWeight.w900,
-                height: 1.0,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Total Rack Load',
-              style: TextStyle(
-                color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                fontSize: 13.5 * uiScale,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text('RACK LOAD',
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.55),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8)),
-                const Spacer(),
-                Text(
-                    '${(loadPct * 100).round()}% of ${_totalRackMaxKw.toInt()}kW',
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.55),
-                        fontSize: 11)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: loadPct,
-                minHeight: 12,
-                backgroundColor: isLight
-                    ? const Color(0xFFD0D5DD)
-                    : Colors.white.withValues(alpha: 0.12),
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(Color(0xFF00A174)),
-              ),
-            ),
-          ],
+    final Color accentColor = loadPct >= 0.85
+        ? const Color(0xFFEF4444)
+        : (loadPct >= 0.65
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF00B87C));
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.65);
+
+    int countActiveOutlets(
+      Map<int, bool> onlineMap,
+      Map<int, int?> ctrlMap,
+      Map<int, double> wattMap,
+    ) {
+      if (ctrlMap.isNotEmpty) {
+        return ctrlMap.values.where((v) => v == 1).length;
+      }
+      if (onlineMap.isNotEmpty) {
+        return onlineMap.values.where((v) => v).length;
+      }
+      return wattMap.values.where((w) => w > 0).length;
+    }
+
+    final int pdu1Active = countActiveOutlets(
+      _pdu1OutletOnline,
+      _pdu1OutletControlValues,
+      _pdu1Outlets,
+    );
+    final int pdu2Active = countActiveOutlets(
+      _pdu2OutletOnline,
+      _pdu2OutletControlValues,
+      _pdu2Outlets,
+    );
+
+    const int segmentCount = 26;
+    final int activeSegments =
+        loadPct <= 0 ? 0 : (loadPct * segmentCount).round().clamp(1, segmentCount);
+    final String inletSub = _inletV > 0
+        ? '${_inletV.round()}V \u00B7 50 Hz'
+        : 'Main rack power feed';
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24 * uiScale),
+        color: isLight ? Colors.white : const Color(0xFF141820),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(20 * uiScale),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (_inletOnline
+                          ? const Color(0xFF00B87C)
+                          : const Color(0xFF94A3B8))
+                      .withValues(alpha: isLight ? 0.12 : 0.18),
+                ),
+                child: Icon(
+                  Icons.bolt_rounded,
+                  size: 22,
+                  color: _inletOnline
+                      ? const Color(0xFF00B87C)
+                      : const Color(0xFF94A3B8),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Inlet',
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      inletSub,
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                _inletOnline ? 'Online' : 'Offline',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _inletOnline
+                      ? const Color(0xFF00B87C)
+                      : const Color(0xFF94A3B8),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _infoIcon(
+                uiScale: uiScale,
+                onTap: () => _showInfoDialog(
+                  title: 'Inlet (Total Rack Load)',
+                  body: 'Total Rack Load is the active power feeding the rack.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: _inletP.toStringAsFixed(2),
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 38 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                    letterSpacing: -1.0,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                TextSpan(
+                  text: ' kW',
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 17 * uiScale,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Rack Load',
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: 13 * uiScale,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                '${(loadPct * 100).round()}% of ${_totalRackMaxKw.toInt()} kW',
+                style: TextStyle(
+                  color: textPrimary,
+                  fontSize: 13 * uiScale,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(segmentCount, (i) {
+              final active = i < activeSegments;
+              return Expanded(
+                child: Container(
+                  height: 16,
+                  margin:
+                      EdgeInsets.only(right: i == segmentCount - 1 ? 0 : 3.5),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3.5),
+                    color: active
+                        ? accentColor
+                        : (isLight
+                            ? const Color(0xFFE2E8F0)
+                            : Colors.white.withValues(alpha: 0.12)),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 18),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isLight
+                ? const Color(0xFFE2E8F0)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMobilePduSummaryBox(
+                  title: 'Rack PDU 1',
+                  kw: _pdu1P,
+                  amps: _pdu1A,
+                  activeCount: pdu1Active,
+                  isLight: isLight,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMobilePduSummaryBox(
+                  title: 'Rack PDU 2',
+                  kw: _pdu2P,
+                  amps: _pdu2A,
+                  activeCount: pdu2Active,
+                  isLight: isLight,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobilePduSummaryBox({
+    required String title,
+    required double kw,
+    required double amps,
+    required int activeCount,
+    required bool isLight,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF1A1F29),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE5E7EB)
+              : Colors.white.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: textSecondary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${kw.toStringAsFixed(2)} kW',
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${amps.toStringAsFixed(1)} A \u00B7 $activeCount active',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1281,45 +1484,58 @@ class _RackViewScreenState extends State<RackViewScreen>
           if (_pdu2Expanded) _scrollToBottom();
         });
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22 * uiScale),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(18 * uiScale),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.outlet_rounded,
-                    color: Colors.lightBlueAccent, size: 18 * uiScale),
-                const SizedBox(width: 8),
-                Text('OUTLET',
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1)),
-                const SizedBox(width: 8),
-                _infoIcon(
-                    uiScale: uiScale,
-                    onTap: () => _showInfoDialog(
-                        title: 'Outlet (PDU Outputs)',
-                        body:
-                            'Each PDU card shows total power (kW) and current (A), plus per-outlet active power.')),
-              ],
-            ),
-            const SizedBox(height: 14),
-            pdu1,
-            const SizedBox(height: 14),
-            pdu2,
-          ],
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20 * uiScale),
+        color: isLight ? Colors.white : const Color(0xFF141820),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE5E7EB)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(18 * uiScale),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'OUTLETS',
+                style: TextStyle(
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.65),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 6),
+              _infoIcon(
+                uiScale: uiScale,
+                onTap: () => _showInfoDialog(
+                  title: 'Outlet (PDU Outputs)',
+                  body:
+                      'Each PDU card shows total power (kW) and current (A), plus per-outlet active power.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          pdu1,
+          const SizedBox(height: 14),
+          pdu2,
+        ],
       ),
     );
   }
@@ -1534,16 +1750,14 @@ class _RackViewScreenState extends State<RackViewScreen>
       curve: Curves.easeInOutCubic,
       alignment: Alignment.topCenter,
       child: Container(
-        padding: EdgeInsets.all(12 * uiScale),
+        padding: EdgeInsets.all(14 * uiScale),
         decoration: BoxDecoration(
-          color: isLight
-              ? Colors.white
-              : const Color(0xFF0B0F14).withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(18 * uiScale),
+          color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF1A1F29),
+          borderRadius: BorderRadius.circular(16 * uiScale),
           border: Border.all(
             color: isLight
-                ? Colors.black.withValues(alpha: 0.20)
-                : Colors.white.withValues(alpha: 0.10),
+                ? const Color(0xFFE5E7EB)
+                : Colors.white.withValues(alpha: 0.06),
           ),
         ),
         child: Column(
@@ -2461,20 +2675,25 @@ class _RackViewScreenState extends State<RackViewScreen>
       required double uiScale}) {
     final pct = (watts / _outletMaxWatts).clamp(0.0, 1.0);
     final isLight = Theme.of(context).brightness == Brightness.light;
+    const accent = Color(0xFF10B981);
 
-    const onFill = Color(0xFF00A174);
-    const offFillLight = Color(0xFFD9D9D9);
-    final offFillDark = Colors.white.withValues(alpha: 0.10);
-    final fill = isOn ? onFill : (isLight ? offFillLight : offFillDark);
+    final bgColor = isOn
+        ? (isLight ? Colors.white : const Color(0xFF12161E))
+        : (isLight
+            ? const Color(0xFFF1F5F9)
+            : Colors.white.withValues(alpha: 0.03));
+    final borderColor = isOn
+        ? accent.withValues(alpha: isLight ? 0.38 : 0.35)
+        : (isLight
+            ? const Color(0xFFE5E7EB)
+            : Colors.white.withValues(alpha: 0.06));
+    final titleColor = isOn
+        ? (isLight ? AppTheme.lightTextSecondary : Colors.white.withValues(alpha: 0.65))
+        : (isLight ? const Color(0xFF94A3B8) : Colors.white.withValues(alpha: 0.40));
+    final valueColor = isOn
+        ? (isLight ? AppTheme.lightTextPrimary : Colors.white)
+        : (isLight ? const Color(0xFF94A3B8) : Colors.white.withValues(alpha: 0.45));
 
-    const onText = Colors.white;
-    const offTextLight = Color(0xFF555555);
-    final offTextDark = Colors.white.withValues(alpha: 0.70);
-    final text = isOn ? onText : (isLight ? offTextLight : offTextDark);
-
-    final border = isLight
-        ? Colors.black.withValues(alpha: 0.10)
-        : Colors.white.withValues(alpha: 0.12);
     return InkWell(
       onTap: () => _showOutletDetailsSheetMobile(
         nodeId: nodeId,
@@ -2484,44 +2703,60 @@ class _RackViewScreenState extends State<RackViewScreen>
         records: records,
         uiScale: uiScale,
       ),
-      borderRadius: BorderRadius.circular(14 * uiScale),
+      borderRadius: BorderRadius.circular(12 * uiScale),
       child: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
         decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(14 * uiScale),
-          border: Border.all(color: border, width: 1.0),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12 * uiScale),
+          border: Border.all(color: borderColor, width: 1.0),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('U$outletNum',
-                style: TextStyle(
-                    color: text,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11 * uiScale)),
-            if (isOn) ...[
-              Text('${watts.round()}W',
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'U$outletNum',
                   style: TextStyle(
-                      color: text,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13.5 * uiScale)),
-              Text(
-                '${(pct * 100).round()}%',
-                style: TextStyle(
-                  color: isLight
-                      ? Colors.white.withValues(alpha: 0.90)
-                      : text.withValues(alpha: 0.85),
-                  fontSize: 10 * uiScale,
-                  fontWeight: FontWeight.w800,
+                    color: titleColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10.5 * uiScale,
+                  ),
+                ),
+                if (isOn)
+                  Text(
+                    '${(pct * 100).round()}%',
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 9.5 * uiScale,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+            Text(
+              isOn ? '${watts.round()}W' : 'OFF',
+              style: TextStyle(
+                color: valueColor,
+                fontWeight: FontWeight.w800,
+                fontSize: (isOn ? 14 : 11) * uiScale,
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: isOn ? pct.clamp(0.06, 1.0) : 0.0,
+                minHeight: 3,
+                backgroundColor: isLight
+                    ? const Color(0xFFE5E7EB)
+                    : Colors.white.withValues(alpha: 0.07),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isOn ? accent : Colors.transparent,
                 ),
               ),
-            ] else
-              Text('OFF',
-                  style: TextStyle(
-                      color: text,
-                      fontSize: 11 * uiScale,
-                      fontWeight: FontWeight.w900)),
+            ),
           ],
         ),
       ),
@@ -2694,52 +2929,6 @@ class _RackViewScreenState extends State<RackViewScreen>
               const Spacer(),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _statusPillMobile({required bool online, required double uiScale}) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final c = online ? const Color(0xFF00A174) : AppTheme.statusError;
-    return Container(
-      padding:
-          EdgeInsets.symmetric(horizontal: 16 * uiScale, vertical: 6 * uiScale),
-      decoration: BoxDecoration(
-        color: online
-            ? c
-            : (isLight
-                ? const Color(0xFFE5E7EB)
-                : Colors.white.withValues(alpha: 0.10)),
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: online
-            ? [
-                BoxShadow(
-                  color: c.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : null,
-        border: online
-            ? null
-            : Border.all(
-                color: isLight
-                    ? Colors.black.withValues(alpha: 0.08)
-                    : Colors.white.withValues(alpha: 0.10),
-              ),
-      ),
-      child: Text(
-        online ? 'ONLINE' : 'OFFLINE',
-        style: TextStyle(
-          color: online
-              ? Colors.white
-              : (isLight
-                  ? AppTheme.lightTextPrimary
-                  : Colors.white.withValues(alpha: 0.85)),
-          fontSize: 11.5 * uiScale,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.6,
         ),
       ),
     );

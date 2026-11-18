@@ -574,60 +574,229 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _refreshGate.handleNotification,
-              child: RefreshIndicator.noSpinner(
-                triggerMode: RefreshIndicatorTriggerMode.onEdge,
-                notificationPredicate: _refreshGate.shouldProcess,
-                onRefresh: _onRefresh,
-                onStatusChange: _onRefreshStatusChanged,
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                      16, MediaQuery.of(context).padding.top + 70, 16, 16),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, bottom: 24),
-                      child: Text(
-                        'AC Control Presets',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: textPrimary,
-                          letterSpacing: 0.5,
+            child: SafeArea(
+              bottom: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.arrow_back_rounded,
+                                color: textPrimary,
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'AC Control Presets',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _live != null &&
+                                            _live!.writableRows.isNotEmpty
+                                        ? 'CRAC Unit \u00B7 ${_live!.writableRows.length}-point HVAC profiles'
+                                        : 'HVAC cooling control profiles',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    DashboardGlass(
-                      radius: 20,
-                      padding: const EdgeInsets.all(16),
-                      tint: isLight ? Colors.white : const Color(0xFF10161D),
-                      borderColor: Colors.transparent,
+                      Expanded(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: _refreshGate.handleNotification,
+                          child: RefreshIndicator.noSpinner(
+                            triggerMode: RefreshIndicatorTriggerMode.onEdge,
+                            notificationPredicate: _refreshGate.shouldProcess,
+                            onRefresh: _onRefresh,
+                            onStatusChange: _onRefreshStatusChanged,
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                              children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        color: isLight ? Colors.white : const Color(0xFF141820),
+                        border: Border.all(
+                          color: isLight
+                              ? const Color(0xFFE2E8F0)
+                              : Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Site State',
-                            style: TextStyle(
-                              color: textPrimary,
-                              fontWeight: FontWeight.w900,
+                          Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFF10B981)
+                                      .withValues(alpha: isLight ? 0.12 : 0.16),
+                                ),
+                                child: const Icon(
+                                  Icons.air_rounded,
+                                  size: 19,
+                                  color: Color(0xFF10B981),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Site State',
+                                      style: TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Active cooling configuration',
+                                      style: TextStyle(
+                                        color: textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Current state',
+                                      style: TextStyle(
+                                        color: textSecondary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _currentStateLabel,
+                                      style: TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Default preset',
+                                      style: TextStyle(
+                                        color: textSecondary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _defaultStateLabel,
+                                      style: TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_live != null &&
+                              _live!.writableRows.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            Divider(
+                              height: 1,
+                              color: isLight
+                                  ? const Color(0xFFE2E8F0)
+                                  : Colors.white.withValues(alpha: 0.08),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Current state: $_currentStateLabel',
-                            style: TextStyle(color: textSecondary),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Default preset: $_defaultStateLabel',
-                            style: TextStyle(color: textSecondary),
-                          ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Live CRAC snapshot',
+                              style: TextStyle(
+                                color: textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              _live!.writableRows
+                                  .take(3)
+                                  .map((r) {
+                                    final label = r.name.isNotEmpty
+                                        ? r.name
+                                        : r.metricCode;
+                                    final unit = r.unit.isNotEmpty
+                                        ? ' ${r.unit}'
+                                        : '';
+                                    return '$label ${r.value}$unit';
+                                  })
+                                  .join(' \u00B7 '),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: textPrimary.withValues(alpha: 0.9),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                            ),
+                          ],
                           if (_isRackConsoleMode) ...[
                             const SizedBox(height: 10),
                             Text(
                               'Rack Console mode is active. Applying a preset will require the approving user PIN.',
-                              style:
-                                  TextStyle(color: textSecondary, fontSize: 13),
+                              style: TextStyle(
+                                color: textSecondary,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ],
                         ],
@@ -684,20 +853,15 @@ class _ControlPresetsScreenState extends State<ControlPresetsScreen> {
                               onSetDefault: () => _setDefaultPreset(key),
                             ),
                           )),
-                  ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 16,
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back,
-                color: textPrimary,
-              ),
-              onPressed: () => Navigator.pop(context),
             ),
           ),
           HeaderRefreshBar(
@@ -859,118 +1023,250 @@ class _PresetCardWidgetState extends State<_PresetCardWidget> {
     final visibleValues = _isExpanded
         ? widget.preset.values
         : widget.preset.values.take(3).toList();
+    final Color dividerColor = isLight
+        ? const Color(0xFFE2E8F0)
+        : Colors.white.withValues(alpha: 0.07);
 
-    return DashboardGlass(
-      radius: 18,
-      padding: const EdgeInsets.all(16),
-      tint: isLight ? Colors.white : const Color(0xFF10161D),
-      borderColor: Colors.transparent,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: isLight ? Colors.white : const Color(0xFF141820),
+        border: Border.all(
+          color: widget.isActive
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.45)
+              : (isLight
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.08)),
+        ),
+      ),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  widget.preset.displayName,
-                  style: TextStyle(
-                    color: widget.textPrimary,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          widget.preset.displayName,
+                          style: TextStyle(
+                            color: widget.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17.5,
+                          ),
+                        ),
+                        if (widget.isActive) ...[
+                          const SizedBox(width: 8),
+                          _badge(
+                            'Current',
+                            Theme.of(context).colorScheme.primary,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasValues
+                          ? '${widget.preset.values.length} control values saved'
+                          : 'No saved values yet',
+                      style: TextStyle(
+                        color: widget.textSecondary,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              InkWell(
+                onTap: widget.isSaving || !hasValues || widget.isDefault
+                    ? null
+                    : widget.onSetDefault,
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        widget.isDefault
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        size: 17,
+                        color: widget.isDefault
+                            ? const Color(0xFFF59E0B)
+                            : widget.textSecondary,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        widget.isDefault ? 'Default' : 'Set Default',
+                        style: TextStyle(
+                          color: widget.isDefault
+                              ? const Color(0xFFF59E0B)
+                              : widget.textSecondary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              if (widget.isDefault) _badge('Default', const Color(0xFF007AFF)),
-              if (widget.isActive) ...[
-                const SizedBox(width: 8),
-                _badge('Current', Theme.of(context).colorScheme.primary),
-              ],
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            hasValues
-                ? '${widget.preset.values.length} control values saved'
-                : 'No saved values yet',
-            style: TextStyle(color: widget.textSecondary),
-          ),
           if (hasValues) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOutCubic,
               alignment: Alignment.topCenter,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final value in visibleValues)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        '${value.name.isNotEmpty ? value.name : value.metricCode}: ${value.value}${value.unit.isNotEmpty ? ' ${value.unit}' : ''}',
-                        style: TextStyle(
-                            color: widget.textSecondary, fontSize: 13),
-                      ),
-                    ),
-                  if (widget.preset.values.length > 3)
-                    InkWell(
-                      onTap: () => setState(() => _isExpanded = !_isExpanded),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isLight
+                      ? const Color(0xFFF8FAFC)
+                      : const Color(0xFF1A1F29),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isLight
+                        ? const Color(0xFFE5E7EB)
+                        : Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    for (int i = 0; i < visibleValues.length; i++) ...[
+                      Padding(
                         padding: const EdgeInsets.symmetric(
-                            vertical: 4, horizontal: 2),
+                            horizontal: 14, vertical: 11),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              _isExpanded
-                                  ? 'Show Less'
-                                  : 'View All Details (${widget.preset.values.length})',
-                              style: TextStyle(
-                                color: isLight
-                                    ? AppTheme.lightTextPrimary
-                                    : Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                            Expanded(
+                              child: Text(
+                                visibleValues[i].name.isNotEmpty
+                                    ? visibleValues[i].name
+                                    : visibleValues[i].metricCode,
+                                style: TextStyle(
+                                  color: widget.textSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              _isExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              size: 16,
-                              color: isLight
-                                  ? AppTheme.lightTextPrimary
-                                  : Colors.white,
-                            )
+                            const SizedBox(width: 12),
+                            Text(
+                              '${visibleValues[i].value}${visibleValues[i].unit.isNotEmpty ? ' ${visibleValues[i].unit}' : ''}',
+                              style: TextStyle(
+                                color: widget.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                ],
+                      if (i < visibleValues.length - 1)
+                        Divider(height: 1, thickness: 1, color: dividerColor),
+                    ],
+                  ],
+                ),
               ),
             ),
+            if (widget.preset.values.length > 3) ...[
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => setState(() => _isExpanded = !_isExpanded),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _isExpanded
+                            ? 'Show Less'
+                            : 'View All Details (${widget.preset.values.length})',
+                        style: TextStyle(
+                          color: widget.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: widget.textPrimary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Row(
             children: [
-              FilledButton(
-                onPressed:
-                    widget.isSaving || !hasValues ? null : widget.onApply,
-                child: const Text('Apply'),
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: FilledButton(
+                    onPressed:
+                        widget.isSaving || !hasValues ? null : widget.onApply,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: isLight
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Apply',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
               ),
-              OutlinedButton(
-                onPressed: widget.isSaving ? null : widget.onSaveCurrent,
-                child: const Text('Save Current'),
-              ),
-              OutlinedButton(
-                onPressed: widget.isSaving || !hasValues || widget.isDefault
-                    ? null
-                    : widget.onSetDefault,
-                child: const Text('Set Default'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: OutlinedButton(
+                    onPressed: widget.isSaving ? null : widget.onSaveCurrent,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: widget.textPrimary,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      side: BorderSide(
+                        color: isLight
+                            ? const Color(0xFFD1D5DB)
+                            : Colors.white.withValues(alpha: 0.16),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Save Current',
+                        maxLines: 1,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

@@ -1093,16 +1093,17 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 16, bottom: 8, top: 16),
+          padding: const EdgeInsets.only(left: 4, bottom: 10, top: 18),
           child: Text(
-            title.toUpperCase(),
+            title,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 13.5,
               fontWeight: FontWeight.w600,
               color: isRackConsole
                   ? ConsoleTheme.textSecondary(context)
-                  : (isLight ? Colors.black54 : Colors.white54),
-              letterSpacing: 1.2,
+                  : (isLight
+                      ? const Color(0xFF475569)
+                      : Colors.white.withValues(alpha: 0.72)),
             ),
           ),
         ),
@@ -1110,8 +1111,15 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           decoration: BoxDecoration(
             color: isRackConsole
                 ? ConsoleTheme.cardBg(context)
-                : (isLight ? Colors.white : Theme.of(context).cardTheme.color),
-            borderRadius: BorderRadius.circular(24),
+                : (isLight ? Colors.white : const Color(0xFF141820)),
+            borderRadius: BorderRadius.circular(22),
+            border: isRackConsole
+                ? null
+                : Border.all(
+                    color: isLight
+                        ? const Color(0xFFE2E8F0)
+                        : Colors.white.withValues(alpha: 0.08),
+                  ),
             boxShadow: isLight
                 ? [
                     BoxShadow(
@@ -1125,7 +1133,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           clipBehavior: Clip.antiAlias,
           child: Column(children: groupedChildren),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
       ],
     );
   }
@@ -1176,133 +1184,189 @@ class _SettingsPanelState extends State<_SettingsPanel> {
               ? Theme.of(context).scaffoldBackgroundColor
               : const Color(0xFF060B11)),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top right close button
-              Align(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top right close button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+              child: Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
                   icon: Icon(Icons.close_rounded, color: headerTextColor),
                   onPressed: widget.onClose,
                 ),
               ),
+            ),
 
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                child: Column(
                     children: [
-                      // Centered Profile Info (Now scrolls with content)
-                      Align(
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Material(
-                              color: Colors.transparent,
-                              child: SizedBox(
-                                width: 220,
-                                height: 110,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    companyLogoUrl != null &&
+                      // Profile Summary Card
+                      Builder(
+                        builder: (context) {
+                          final displayUser =
+                              _loadingUser ? '...' : (_username ?? 'admin');
+                          final userEmail =
+                              (CpanelApiService.instance.currentUser?['email'] ??
+                                      '')
+                                  .toString()
+                                  .trim();
+                          final isOwner = CpanelApiService.instance
+                              .isCurrentUserSiteOwner(
+                                  portalUserId: _portalUserId);
+                          final isAdmin = CpanelApiService.instance
+                              .currentSiteHasAdminRole();
+                          final String roleLabel = isOwner
+                              ? 'Owner'
+                              : (isRackConsole
+                                  ? 'Rack Console'
+                                  : (isAdmin ? 'Admin' : 'User'));
+                          final Color roleColor = isOwner
+                              ? const Color(0xFFF59E0B)
+                              : (isRackConsole
+                                  ? const Color(0xFF10B981)
+                                  : (isAdmin
+                                      ? const Color(0xFF0EA5E9)
+                                      : const Color(0xFF94A3B8)));
+                          final initial = displayUser.isNotEmpty
+                              ? displayUser.trim()[0].toUpperCase()
+                              : 'A';
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isRackConsole
+                                  ? ConsoleTheme.cardBg(context)
+                                  : (isLight
+                                      ? Colors.white
+                                      : const Color(0xFF141820)),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: isLight
+                                    ? const Color(0xFFE2E8F0)
+                                    : Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                InkWell(
+                                  onTap: canUploadLogo
+                                      ? widget.onUploadLogo
+                                      : null,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: isLight
+                                          ? const Color(0xFFF1F5F9)
+                                          : const Color(0xFF252C3B),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: companyLogoUrl != null &&
                                             companyLogoUrl.isNotEmpty
                                         ? SafeNetworkImage(
                                             companyLogoUrl,
                                             fit: BoxFit.contain,
-                                            errorBuilder: (_) =>
-                                                const Center(
-                                              child: Icon(
-                                                Icons.person_outline_rounded,
-                                                size: 58,
-                                                color: Colors.white24,
+                                            errorBuilder: (_) => Center(
+                                              child: Text(
+                                                initial,
+                                                style: TextStyle(
+                                                  color: headerTextColor,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
                                               ),
                                             ),
                                           )
-                                        : const Center(
-                                            child: Icon(
-                                              Icons.person_outline_rounded,
-                                              size: 58,
-                                              color: Colors.white24,
-                                            ),
-                                          ),
-                                    if (canUploadLogo)
-                                      Positioned.fill(
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: widget.onUploadLogo,
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            child: Container(
-                                              alignment: Alignment.bottomRight,
-                                              padding: const EdgeInsets.all(6),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  6,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(
-                                                  Icons.edit,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
+                                        : Center(
+                                            child: Text(
+                                              initial,
+                                              style: TextStyle(
+                                                color: headerTextColor,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w800,
                                               ),
                                             ),
                                           ),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              displayUser,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: headerTextColor,
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            ' \u00B7 ',
+                                            style: TextStyle(
+                                              color: headerTextColor
+                                                  .withValues(alpha: 0.4),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          Text(
+                                            roleLabel,
+                                            style: TextStyle(
+                                              color: roleColor,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (userEmail.isNotEmpty) ...[
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          userEmail,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: headerTextColor
+                                                .withValues(alpha: 0.6),
+                                            fontSize: 12.5,
+                                          ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            InkWell(
-                              onTap: _loadingUser ? null : _handleChangeUsername,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _loadingUser ? '...' : (_username ?? 'ADMIN'),
-                                      textAlign: TextAlign.center,
-                                      style: bitcount(
-                                        context,
-                                        fontSize: 22,
-                                        color: headerTextColor,
-                                        letterSpacing: 1.5,
-                                      ),
-                                    ),
-                                    if (!_loadingUser) ...[
-                                      const SizedBox(width: 6),
-                                      Icon(
-                                        Icons.edit_outlined,
-                                        size: 16,
-                                        color: headerTextColor.withValues(alpha: 0.6),
-                                      ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                if (!_loadingUser)
+                                  IconButton(
+                                    onPressed: _handleChangeUsername,
+                                    tooltip: 'Edit username',
+                                    icon: Icon(
+                                      Icons.edit_outlined,
+                                      size: 19,
+                                      color: headerTextColor
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 8),
 
                       if (!isRackConsole &&
                           (CpanelApiService.instance.hasMultipleSites ||
@@ -1335,8 +1399,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                               if (_canManageUsers)
                                 _SettingsTile(
                                   title: 'Manage Users',
+                                  subtitle: 'Permissions & roles',
                                   icon: Icons.manage_accounts_outlined,
-                                  iconColor: const Color(0xFF007AFF),
+                                  iconColor: const Color(0xFF0EA5E9),
                                   onTap: widget.onManageUsers,
                                 ),
                               _SettingsTile(
@@ -1347,33 +1412,34 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                     .toString()
                                     .trim()
                                     .isEmpty
-                                    ? 'Not set — tap to add'
+                                    ? 'Not set \u2014 tap to add'
                                     : (CpanelApiService
                                             .instance.currentUser?['email'] ??
                                         '')
                                         .toString(),
-                                icon: Icons.mark_email_read_outlined,
+                                icon: Icons.mail_outline_rounded,
                                 iconColor: const Color(0xFF00C08B),
                                 onTap: _handleEditRecoveryEmail,
                               ),
                               _SettingsTile(
                                 title: 'Reset Password',
-                                icon: Icons.lock_reset_rounded,
-                                iconColor: const Color(0xFFFF9500),
+                                subtitle: 'Update console credentials',
+                                icon: Icons.vpn_key_outlined,
+                                iconColor: const Color(0xFFF59E0B),
                                 onTap: _handleChangePassword,
                               ),
                               _SettingsTile(
                                 title: 'Set Door PIN',
-                                icon: Icons.dialpad_rounded,
-                                iconColor: const Color(0xFF34C759),
+                                subtitle: 'Configure cabinet keypad PIN',
+                                icon: Icons.lock_outline_rounded,
+                                iconColor: const Color(0xFF10B981),
                                 onTap: _handleSetPin,
                               ),
                               _SettingsTile(
                                 title: 'Delete Account',
-                                subtitle:
-                                    'Permanently remove this Smart Rack account',
-                                icon: Icons.delete_forever_rounded,
-                                iconColor: const Color(0xFFFF3B30),
+                                subtitle: 'Permanently remove this profile',
+                                icon: Icons.delete_outline_rounded,
+                                iconColor: const Color(0xFFF43F5E),
                                 onTap: _handleDeleteAccount,
                               ),
                             ],
@@ -1558,8 +1624,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -1585,29 +1650,33 @@ class _SettingsTile extends StatelessWidget {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
 
-    final textColor = isLight ? Colors.black : Colors.white;
+    final isDestructive = iconColor == const Color(0xFFF43F5E) ||
+        iconColor == const Color(0xFFFF3B30);
+    final textColor = isDestructive
+        ? const Color(0xFFF43F5E)
+        : (isLight ? const Color(0xFF0F172A) : Colors.white);
     final chevronColor = isLight
         ? Colors.black.withValues(alpha: 0.3)
-        : Colors.white.withValues(alpha: 0.5);
+        : Colors.white.withValues(alpha: 0.45);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: iconColor,
-                  shape: BoxShape.circle,
+                  color: iconColor.withValues(alpha: isLight ? 0.12 : 0.16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(child: Icon(icon, color: Colors.white, size: 18)),
+                child: Center(child: Icon(icon, color: iconColor, size: 19)),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1615,22 +1684,21 @@ class _SettingsTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: bitcount(
-                        context,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         color: textColor,
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.5,
                           height: 1.35,
                           color: isLight
-                              ? Colors.black.withValues(alpha: 0.58)
+                              ? const Color(0xFF64748B)
                               : Colors.white.withValues(alpha: 0.58),
                         ),
                       ),
@@ -1640,7 +1708,8 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               trailing ??
-                  Icon(Icons.chevron_right_rounded, color: chevronColor),
+                  Icon(Icons.chevron_right_rounded,
+                      color: chevronColor, size: 19),
             ],
           ),
         ),

@@ -1315,10 +1315,7 @@ class _ReportScreenState extends State<ReportScreen>
       padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 24),
       child: Column(
         children: [
-          SizedBox(
-            height: 260,
-            child: _buildSummaryCard(healthScore),
-          ),
+          _buildSummaryCard(healthScore),
           const SizedBox(height: 14),
           SizedBox(
             height: 260,
@@ -1381,48 +1378,90 @@ class _ReportScreenState extends State<ReportScreen>
   Widget _buildSummaryCard(int score) {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final scoreClamped = score.clamp(0, 100);
+    final Color accent = scoreClamped >= 80
+        ? const Color(0xFF10B981)
+        : (scoreClamped >= 50
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFFEF4444));
+    final String statusText = scoreClamped >= 80
+        ? 'Operational'
+        : (scoreClamped >= 50 ? 'Degraded' : 'Critical');
 
     return DashboardGlass(
-      radius: 18,
-      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-      tint: isLight ? Colors.white : null,
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
+      radius: 20,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      tint: isLight ? Colors.white : const Color(0xFF141820),
+      borderColor: isLight
+          ? const Color(0xFFE5E7EB)
+          : Colors.white.withValues(alpha: 0.08),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Site Health Index',
+                'SITE HEALTH INDEX',
                 style: TextStyle(
-                  color: isLight ? AppTheme.lightTextSecondary : Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               _infoIconButton(
                 iconColor: isLight
                     ? AppTheme.lightTextSecondary.withValues(alpha: 0.55)
                     : Colors.white.withValues(alpha: 0.55),
                 onTap: () => _showSiteHealthInfo(context),
               ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: accent.withValues(alpha: isLight ? 0.12 : 0.16),
+                ),
+                child: Text(
+                  '$scoreClamped%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: isLight
+                        ? accent
+                        : Color.lerp(accent, Colors.white, 0.25),
+                  ),
+                ),
+              ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 10),
           Text(
-            'Operational',
+            statusText,
             style: TextStyle(
               color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
           ),
-          const Spacer(),
-          _BatteryGauge(score: scoreClamped),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: scoreClamped / 100.0,
+              minHeight: 6,
+              backgroundColor: isLight
+                  ? const Color(0xFFE5E7EB)
+                  : Colors.white.withValues(alpha: 0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+            ),
+          ),
         ],
       ),
     );
@@ -1677,15 +1716,18 @@ class _ReportScreenState extends State<ReportScreen>
     final isLight = Theme.of(context).brightness == Brightness.light;
     final effectiveTextColor = isLight ? AppTheme.lightTextPrimary : color;
     final chartLineColor = color;
-    final dividerColor =
-        isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D);
+    final dividerColor = isLight
+        ? const Color(0xFFE5E7EB)
+        : Colors.white.withValues(alpha: 0.08);
 
     return DashboardGlass(
       key: key,
-      radius: 18,
+      radius: 20,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      tint: isLight ? Colors.white : null,
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
+      tint: isLight ? Colors.white : const Color(0xFF141820),
+      borderColor: isLight
+          ? const Color(0xFFE5E7EB)
+          : Colors.white.withValues(alpha: 0.08),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1701,23 +1743,25 @@ class _ReportScreenState extends State<ReportScreen>
                     Text(
                       title,
                       style: TextStyle(
-                        color: effectiveTextColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                        color: isLight
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         height: 1.1,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
                       style: TextStyle(
                         color: isLight
                             ? AppTheme.lightTextSecondary
-                            : color.withValues(alpha: 0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                            : Colors.white.withValues(alpha: 0.52),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1750,12 +1794,12 @@ class _ReportScreenState extends State<ReportScreen>
                   decoration: BoxDecoration(
                     color: isLight
                         ? const Color(0xFFF1F5F9)
-                        : const Color(0xFF0F1722),
+                        : const Color(0xFF1A1F29),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isLight
-                          ? AppTheme.lightStroke
-                          : const Color(0xFF1E2D3D),
+                          ? const Color(0xFFE5E7EB)
+                          : Colors.white.withValues(alpha: 0.08),
                     ),
                   ),
                   child: Row(
@@ -1993,10 +2037,12 @@ class _ReportScreenState extends State<ReportScreen>
                     child: Text(
                       valueText,
                       style: TextStyle(
-                        color: effectiveTextColor,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
+                        color: isLight
+                            ? AppTheme.lightTextPrimary
+                            : Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
                         height: 1.0,
                       ),
                     ),
@@ -2006,34 +2052,6 @@ class _ReportScreenState extends State<ReportScreen>
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AuraPill extends StatelessWidget {
-  final Color color;
-
-  const _AuraPill({
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final r = BorderRadius.circular(20);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: r,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(color: const Color(0x22FFFFFF)),
       ),
     );
   }

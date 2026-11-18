@@ -22,6 +22,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   int? _portalUserId;
   String? _adminPasswordSession;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _filterTab = 'All';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Map<String, dynamic>? get _currentSite =>
       CpanelApiService.instance.currentSite;
@@ -89,11 +98,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     final uid = await CpanelApiService.instance.getUserId();
     if (!mounted) return;
     setState(() => _portalUserId = uid);
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   Future<void> _initAdminSessionAndLoad() async {
@@ -571,7 +575,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         screenWidth >= 900 ? (screenWidth / 1150).clamp(1.0, 1.25) : 1.0;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final siteName = _siteName ?? 'Site';
-    final topPad = media.padding.top;
 
     return MediaQuery(
       data: media.copyWith(textScaler: TextScaler.linear(uiScale)),
@@ -592,73 +595,109 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ),
                 ),
 
-              Positioned.fill(
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(16, topPad + 70, 16, 96),
-                  children: [
-                    Text(
-                      'Manage Users',
-                      style: TextStyle(
-                        color:
-                            isLight ? AppTheme.lightTextPrimary : Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      siteName.toUpperCase(),
-                      style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextPrimary
-                            : Colors.white.withValues(alpha: 0.75),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.6,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildMembersCard(),
-                  ],
-                ),
-              ),
-              if (_canManageUsers)
-                Positioned(
-                  right: 16,
-                  bottom: 24,
-                  child: SizedBox(
-                    height: 44,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: isLight
-                            ? Theme.of(context).colorScheme.primary
-                            : const Color(0xFF0A8F2A),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
+              SafeArea(
+                bottom: false,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: isLight
+                                      ? AppTheme.lightTextPrimary
+                                      : Colors.white,
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Manage Users',
+                                      style: TextStyle(
+                                        color: isLight
+                                            ? AppTheme.lightTextPrimary
+                                            : Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$siteName \u00B7 ${_members.length} accounts',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: isLight
+                                            ? AppTheme.lightTextSecondary
+                                            : Colors.white
+                                                .withValues(alpha: 0.6),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_canManageUsers) ...[
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  height: 40,
+                                  child: FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: isLight
+                                          ? const Color(0xFF0F172A)
+                                          : Colors.white,
+                                      foregroundColor: isLight
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14),
+                                      elevation: 0,
+                                    ),
+                                    onPressed:
+                                        _loading ? null : _showAddUserDialog,
+                                    icon: const Icon(
+                                        Icons.person_add_alt_1_rounded,
+                                        size: 16),
+                                    label: const Text(
+                                      'Add User',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        elevation: isLight ? 0 : null,
-                      ),
-                      onPressed: _loading ? null : _showAddUserDialog,
-                      icon:
-                          const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                      label: const Text(
-                        'Add Users',
-                        style: TextStyle(fontWeight: FontWeight.w900),
-                      ),
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                            children: [
+                              _buildMembersCard(),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              Positioned(
-                top: topPad + 10,
-                left: 16,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.arrow_back,
-                    color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                  ),
-                  onPressed: () => Navigator.pop(context),
                 ),
               ),
             ],
@@ -774,12 +813,29 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       );
     }
 
+    final q = _searchQuery.trim().toLowerCase();
+    bool matchesSearch(dynamic m) {
+      if (q.isEmpty) return true;
+      final map = m as Map;
+      final uname = (map['username'] ?? map['member_username'] ?? '')
+          .toString()
+          .toLowerCase();
+      final email = (map['email'] ?? '').toString().toLowerCase();
+      final role = (map['role'] ?? '').toString().toLowerCase();
+      final isKiosk = _isTruthy(map['is_kiosk']);
+      final kioskStr = isKiosk ? 'rack console' : '';
+      return uname.contains(q) ||
+          email.contains(q) ||
+          role.contains(q) ||
+          kioskStr.contains(q);
+    }
+
     final adminsList = <dynamic>[];
     final kiosksList = <dynamic>[];
     final usersList = <dynamic>[];
 
     for (var m in visibleMembers) {
-      if (m is! Map) continue;
+      if (m is! Map || !matchesSearch(m)) continue;
       final uid = int.tryParse(m['user_id']?.toString() ?? '');
       if (ownerId != null && uid == ownerId) {
         adminsList.add(m);
@@ -790,20 +846,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         adminsList.add(m);
         continue;
       }
-      
-      final v = m['is_kiosk'];
-      bool isKiosk = false;
-      if (v is bool) {
-        isKiosk = v;
-      } else if (v is num) {
-        isKiosk = v != 0;
-      }
-      else if (v != null) {
-        final s = v.toString().trim().toLowerCase();
-        isKiosk = s == '1' || s == 'true' || s == 'yes';
-      }
-      
-      if (isKiosk) {
+
+      if (_isTruthy(m['is_kiosk'])) {
         kiosksList.add(m);
       } else {
         usersList.add(m);
@@ -813,39 +857,197 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     Widget buildSection(String title, List<dynamic> list) {
       if (list.isEmpty) return const SizedBox.shrink();
       return Padding(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: DashboardGlass(
-          radius: 18,
-          padding: const EdgeInsets.all(16),
-          tint: isLight
-              ? const Color(0xFFFFFFFF)
-              : Colors.white.withValues(alpha: 0.06),
-          borderColor: isLight ? AppTheme.lightStroke : null,
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: isLight ? Colors.white : const Color(0xFF141820),
+            border: Border.all(
+              color: isLight
+                  ? const Color(0xFFE5E7EB)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.65),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.4,
-                ),
+              Row(
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.65),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${list.length}',
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.50),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              ...list.map((m) => _memberRow(m)),
+              const SizedBox(height: 8),
+              ...list.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final m = entry.value;
+                return Column(
+                  children: [
+                    _memberRow(m),
+                    if (idx < list.length - 1)
+                      Divider(
+                        height: 1,
+                        color: isLight
+                            ? const Color(0xFFE5E7EB)
+                            : Colors.white.withValues(alpha: 0.06),
+                      ),
+                  ],
+                );
+              }),
             ],
           ),
         ),
       );
     }
 
+    final showAdmins = _filterTab == 'All' || _filterTab == 'Admins';
+    final showConsoles = _filterTab == 'All' || _filterTab == 'Consoles';
+    final showUsers = _filterTab == 'All' || _filterTab == 'Users';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Container(
+          decoration: BoxDecoration(
+            color: isLight ? Colors.white : const Color(0xFF141820),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isLight
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (v) => setState(() => _searchQuery = v),
+            style: TextStyle(
+              color: isLight ? AppTheme.lightTextPrimary : Colors.white,
+              fontSize: 14,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Search name, email, or role...',
+              hintStyle: TextStyle(
+                color: isLight
+                    ? AppTheme.lightTextSecondary
+                    : Colors.white.withValues(alpha: 0.45),
+                fontSize: 13.5,
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                size: 20,
+                color: isLight
+                    ? AppTheme.lightTextSecondary
+                    : Colors.white.withValues(alpha: 0.45),
+              ),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.55),
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isLight ? const Color(0xFFF1F5F9) : const Color(0xFF141820),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isLight
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            children: ['All', 'Admins', 'Consoles', 'Users'].map((tab) {
+              final selected = _filterTab == tab;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _filterTab = tab),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? (isLight ? Colors.white : const Color(0xFF252C3B))
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: selected && isLight
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Center(
+                      child: Text(
+                        tab,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected
+                              ? (isLight
+                                  ? AppTheme.lightTextPrimary
+                                  : Colors.white)
+                              : (isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white.withValues(alpha: 0.6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
         if (_isDcsAdmin) ...[
           OutlinedButton.icon(
             onPressed: _loading ? null : _assignExistingDcsTechnician,
@@ -854,9 +1056,9 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        buildSection('Owner & Admins', adminsList),
-        buildSection('Rack Consoles', kiosksList),
-        buildSection('Users', usersList),
+        if (showAdmins) buildSection('Owner & Admins', adminsList),
+        if (showConsoles) buildSection('Rack Consoles', kiosksList),
+        if (showUsers) buildSection('Users', usersList),
       ],
     );
   }
@@ -897,171 +1099,182 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     final isKiosk = flag('is_kiosk');
 
-    final chips = isKiosk
-        ? <Widget>[
-            _permChip('RACK CONSOLE', true),
-          ]
-        : <Widget>[
-            _permChip('HOME', flag('can_view_dashboard')),
-            _permChip('REPORT', flag('can_view_report')),
-            _permChip('POWER', flag('can_view_rack')),
-            _permChip('CONTROL', flag('can_view_control')),
-            _permChip('DOORS', flag('can_control_doors')),
-            _permChip('SETTINGS', flag('can_change_settings')),
-            _permChip('USERS', flag('can_manage_users')),
-          ];
+    final enabledPerms = <String>[
+      if (flag('can_view_dashboard')) 'Home',
+      if (flag('can_view_report')) 'Report',
+      if (flag('can_view_rack')) 'Power',
+      if (flag('can_view_control')) 'Control',
+      if (flag('can_control_doors')) 'Doors',
+      if (flag('can_change_settings')) 'Settings',
+      if (flag('can_manage_users')) 'Users',
+    ];
 
-    Color getTint() {
-      if (isOwner) return isLight ? const Color(0xFFFFF8E1) : const Color(0xFF1E1A0F);
-      if (isAdminRole) return isLight ? const Color(0xFFE3F2FD) : const Color(0xFF0C1929);
-      if (isKiosk) return isLight ? const Color(0xFFF3E5F5) : const Color(0xFF1A1224);
-      return isLight ? const Color(0xFFF7F7F7) : Colors.white.withValues(alpha: 0.05);
-    }
+    final Color roleColor = isOwner
+        ? const Color(0xFFF59E0B)
+        : (isAdminRole
+            ? const Color(0xFF0EA5E9)
+            : (isKiosk ? const Color(0xFF10B981) : const Color(0xFF94A3B8)));
 
-    Color? getBorder() {
-      if (isOwner) return isLight ? const Color(0xFFFFE082) : const Color(0xFFFFC107).withValues(alpha: 0.3);
-      if (isAdminRole) return isLight ? const Color(0xFF90CAF9) : const Color(0xFF2196F3).withValues(alpha: 0.3);
-      if (isKiosk) return isLight ? const Color(0xFFCE93D8) : const Color(0xFFAB47BC).withValues(alpha: 0.3);
-      return isLight ? AppTheme.lightStroke : null;
-    }
+    final String roleLabel = isOwner
+        ? 'Owner'
+        : (isKiosk
+            ? 'Rack Console'
+            : (isAdminRole ? 'Admin' : (isSelf ? 'You' : 'User')));
+
+    final Color iconColor =
+        isLight ? roleColor : (Color.lerp(roleColor, Colors.white, 0.2) ?? roleColor);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: DashboardGlass(
-        radius: 16,
-        padding: const EdgeInsets.all(14),
-        tint: getTint(),
-        borderColor: getBorder(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: roleColor.withValues(alpha: isLight ? 0.12 : 0.16),
+            ),
+            child: Center(
+              child: isKiosk
+                  ? _SmartRackIcon(color: iconColor, size: 20)
+                  : Icon(
+                      (isOwner || isAdminRole)
+                          ? Icons.shield_outlined
+                          : Icons.person_outline_rounded,
+                      color: iconColor,
+                      size: 19,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.person_outline_rounded,
-                    color: isLight
-                        ? AppTheme.lightTextSecondary
-                        : Colors.white.withValues(alpha: 0.70),
-                    size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
                         username,
                         style: TextStyle(
-                          color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          color: isLight
+                              ? AppTheme.lightTextPrimary
+                              : Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (email.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          email,
-                          style: TextStyle(
-                            color: isLight
-                                ? AppTheme.lightTextSecondary
-                                : Colors.white.withValues(alpha: 0.55),
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (role.toLowerCase() == 'admin'
-                            ? Theme.of(context).colorScheme.primary
-                            : const Color(0xFF2D7DFF))
-                        .withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    isOwner ? 'OWNER' : (isSelf ? 'YOU' : role.toUpperCase()),
-                    style: TextStyle(
-                      color: role.toLowerCase() == 'admin'
-                          ? Theme.of(context).colorScheme.primary
-                          : const Color(0xFF2D7DFF),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                      letterSpacing: 1.1,
                     ),
-                  ),
+                    Text(
+                      ' \u00B7 ',
+                      style: TextStyle(
+                        color: isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.4),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      roleLabel,
+                      style: TextStyle(
+                        color: iconColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
-                if (canDelete) ...[
-                  const SizedBox(width: 6),
-                  IconButton(
-                    tooltip: 'Remove member',
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        color: Color(0xFFFF3B30), size: 20),
-                    onPressed: _loading
-                        ? null
-                        : () => _deleteMember(
-                              memberUserId: memberUserId,
-                              username: username,
-                              role: role,
-                            ),
+                if (email.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    style: TextStyle(
+                      color: isLight
+                          ? AppTheme.lightTextSecondary
+                          : Colors.white.withValues(alpha: 0.55),
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                if (canEdit) ...[
-                  const SizedBox(width: 2),
-                  IconButton(
-                    tooltip: 'Edit permissions',
-                    icon: Icon(Icons.edit_outlined,
-                        color:
-                            isLight ? const Color(0xFF5E6673) : Colors.white70,
-                        size: 20),
-                    onPressed: _loading
-                        ? null
-                        : () => _editMember(Map<String, dynamic>.from(map)),
+                if (!isKiosk && enabledPerms.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: enabledPerms
+                        .map(
+                          (perm) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isLight
+                                  ? const Color(0xFFF1F5F9)
+                                  : Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: isLight
+                                    ? const Color(0xFFE2E8F0)
+                                    : Colors.white.withValues(alpha: 0.10),
+                              ),
+                            ),
+                            child: Text(
+                              perm,
+                              style: TextStyle(
+                                color: isLight
+                                    ? const Color(0xFF334155)
+                                    : Colors.white.withValues(alpha: 0.85),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ],
               ],
             ),
-            const SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 8, children: chips),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _permChip(String label, bool enabled) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: enabled
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: isLight ? 0.18 : 0.16)
-            : isLight
-                ? const Color(0xFFD9DEE6)
-                : Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: isLight && !enabled
-            ? Border.all(color: const Color(0xFFC5CCD8))
-            : null,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: enabled
-              ? Theme.of(context).colorScheme.primary
-              : isLight
-                  ? const Color(0xFF606A78)
-                  : Colors.white54,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
-        ),
+          ),
+          if (canDelete)
+            IconButton(
+              tooltip: 'Remove member',
+              icon: Icon(Icons.delete_outline_rounded,
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.55),
+                  size: 19),
+              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              padding: EdgeInsets.zero,
+              onPressed: _loading
+                  ? null
+                  : () => _deleteMember(
+                        memberUserId: memberUserId,
+                        username: username,
+                        role: role,
+                      ),
+            ),
+          if (canEdit)
+            IconButton(
+              tooltip: 'Edit permissions',
+              icon: Icon(Icons.edit_outlined,
+                  color: isLight
+                      ? AppTheme.lightTextSecondary
+                      : Colors.white.withValues(alpha: 0.55),
+                  size: 19),
+              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              padding: EdgeInsets.zero,
+              onPressed: _loading
+                  ? null
+                  : () => _editMember(Map<String, dynamic>.from(map)),
+            ),
+        ],
       ),
     );
   }
@@ -1095,6 +1308,89 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       ),
     );
   }
+}
+
+class _SmartRackIcon extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const _SmartRackIcon({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _SmartRackIconPainter(color: color),
+      ),
+    );
+  }
+}
+
+class _SmartRackIconPainter extends CustomPainter {
+  final Color color;
+
+  _SmartRackIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.65
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    // Outer tall smart rack cabinet frame
+    final rackRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.18, h * 0.08, w * 0.64, h * 0.84),
+      const Radius.circular(2.6),
+    );
+    canvas.drawRRect(rackRect, stroke);
+
+    // 3 horizontal server/rack unit dividers
+    for (final yFrac in [0.34, 0.56, 0.78]) {
+      canvas.drawLine(
+        Offset(w * 0.22, h * yFrac),
+        Offset(w * 0.78, h * yFrac),
+        Paint()
+          ..color = color.withValues(alpha: 0.75)
+          ..strokeWidth = 1.2,
+      );
+    }
+
+    // Status LED dots on the right side of each rack unit
+    for (final yFrac in [0.21, 0.45, 0.67]) {
+      canvas.drawCircle(Offset(w * 0.68, h * yFrac), 1.15, fill);
+      // Small vent/handle line on the left side of each unit
+      canvas.drawLine(
+        Offset(w * 0.30, h * yFrac),
+        Offset(w * 0.52, h * yFrac),
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.3
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    // Rack leveling feet
+    canvas.drawLine(
+        Offset(w * 0.28, h * 0.92), Offset(w * 0.28, h * 0.97), stroke);
+    canvas.drawLine(
+        Offset(w * 0.72, h * 0.92), Offset(w * 0.72, h * 0.97), stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SmartRackIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _AdminPasswordDialog extends StatefulWidget {

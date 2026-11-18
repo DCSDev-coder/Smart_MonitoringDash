@@ -24,7 +24,7 @@ class ControlScreen extends StatefulWidget {
   State<ControlScreen> createState() => _ControlScreenState();
 }
 
-enum _ControlSection { pdu1, pdu2, ac }
+enum _ControlSection { pdu1, pdu2 }
 
 enum _MainTab { pdu, ac }
 
@@ -495,61 +495,20 @@ class _ControlScreenState extends State<ControlScreen>
   Widget _buildTabs(bool isLight, Color onSurface) {
     return Column(
       children: [
-        // Main Tabs
+        // Main Tabs: clean pill cards with icon + label
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: isLight ? Colors.white : const Color(0xFF0F1722),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: isLight
-                    ? Colors.black.withValues(alpha: 0.10)
-                    : const Color(0xFF1E2D3D),
-              ),
-            ),
-            child: SizedBox(
-              height: 44,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  AnimatedBuilder(
-                    animation: _tabSelC,
-                    builder: (context, _) {
-                      final sel = _tabSelC.value.clamp(0.0, 1.0);
-
-                      // Dynamic colors for PDU, fixed for AC
-                      final pC = _getDeviceColor(_pduTab);
-                      const acC = Color(0xFF3271D7); // Blue like Energy
-
-                      final accentColor = Color.lerp(pC, acC, sel)!;
-
-                      final alignX = -1.0 + (sel * 2.0);
-
-                      return Align(
-                        alignment: Alignment(alignX, 0),
-                        child: FractionallySizedBox(
-                          widthFactor: 1 / 2,
-                          heightFactor: 1.0,
-                          child: _AuraPill(color: accentColor),
-                        ),
-                      );
-                    },
-                  ),
-                  Row(
-                    children: [
-                      _navMainBtn('PDU', _MainTab.pdu),
-                      _navMainBtn('AC', _MainTab.ac),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          child: Row(
+            children: [
+              _navMainBtn(
+                  'PDU', Icons.electrical_services_rounded, _MainTab.pdu),
+              const SizedBox(width: 8),
+              _navMainBtn('AC', Icons.ac_unit_rounded, _MainTab.ac),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        // Sub Tabs
+        const SizedBox(height: 12),
+        // Sub Tabs: clean filter chips
         if (_mainTab == _MainTab.pdu)
           _buildPduSubTabs(isLight)
         else
@@ -558,203 +517,163 @@ class _ControlScreenState extends State<ControlScreen>
     );
   }
 
-  Color _getDeviceColor(_ControlSection s) {
-    if (s == _ControlSection.ac) return const Color(0xFF3271D7);
-
-    final node = s == _ControlSection.pdu1 ? _pdu1 : _pdu2;
-    if (node == null) return const Color(0xFFE6A600); // Orange for unknown
-
-    // Check overall PDU status
-    // 1=On (Green), 2=Off (Grey), 0=Uncontrollable (Orange)
-    int? state;
-    for (final r in node.rows) {
-      if (r.metricCode.contains('onoffcontrol')) {
-        if (r.currentIntValue == 1) {
-          state = 1;
-          break; // If any outlet is ON, consider PDU ON
-        }
-        if (r.currentIntValue == 2) state = 2;
-        if (r.currentIntValue == 0 && state == null) state = 0;
-      }
-    }
-
-    return switch (state) {
-      1 => const Color(0xFF4CAF50), // Green
-      2 => const Color(0xFF9E9E9E), // Grey
-      _ => const Color(0xFFE6A600), // Orange (Uncontrollable/Unknown)
-    };
-  }
-
-  Widget _navMainBtn(String label, _MainTab s) {
+  Widget _navMainBtn(String label, IconData icon, _MainTab s) {
     return Expanded(
-      child: GestureDetector(
-        onTap: () => _selectMainTab(s),
-        behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: AnimatedBuilder(
-            animation: _tabSelC,
-            builder: (context, _) {
-              final t = _tabSelC.value.clamp(0.0, 1.0);
-              final targetIndex = s == _MainTab.pdu ? 0.0 : 1.0;
-              final selectedness =
-                  (1.0 - (t - targetIndex).abs()).clamp(0.0, 1.0).toDouble();
-              final isLight = Theme.of(context).brightness == Brightness.light;
-              const selectedColor = Colors.white;
-              final unselectedColor = isLight
-                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.5);
-              return Text(
-                label,
-                style: TextStyle(
-                  color:
-                      Color.lerp(unselectedColor, selectedColor, selectedness),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
+      child: AnimatedBuilder(
+        animation: _tabSelC,
+        builder: (context, _) {
+          final t = _tabSelC.value.clamp(0.0, 1.0);
+          final targetIndex = s == _MainTab.pdu ? 0.0 : 1.0;
+          final selected = (t - targetIndex).abs() < 0.5;
+          final isLight = Theme.of(context).brightness == Brightness.light;
+          const accent = Color(0xFF0EA5E9);
+
+          return GestureDetector(
+            onTap: () => _selectMainTab(s),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: selected
+                    ? accent.withValues(alpha: isLight ? 0.14 : 0.18)
+                    : (isLight ? Colors.white : const Color(0xFF141820)),
+                border: Border.all(
+                  color: selected
+                      ? accent.withValues(alpha: 0.55)
+                      : (isLight
+                          ? const Color(0xFFE5E7EB)
+                          : Colors.white.withValues(alpha: 0.08)),
                 ),
-              );
-            },
-          ),
-        ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: selected
+                        ? (isLight
+                            ? const Color(0xFF0284C7)
+                            : const Color(0xFF38BDF8))
+                        : (isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.55)),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: selected
+                          ? (isLight
+                              ? const Color(0xFF0284C7)
+                              : Colors.white)
+                          : (isLight
+                              ? AppTheme.lightTextSecondary
+                              : Colors.white.withValues(alpha: 0.58)),
+                      fontSize: 13.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildPduSubTabs(bool isLight) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 400),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF0F1722),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isLight
-                ? Colors.black.withValues(alpha: 0.10)
-                : const Color(0xFF1E2D3D),
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _filterChip(
+          label: 'PDU 1',
+          selected: _pduTab == _ControlSection.pdu1,
+          isLight: isLight,
+          onTap: () => _selectPduTab(_ControlSection.pdu1),
         ),
-        child: SizedBox(
-          height: 36,
-          width: double.infinity,
-          child: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: _pduSubTabC,
-                builder: (context, _) {
-                  final sel = _pduSubTabC.value.clamp(0.0, 1.0);
-                  final p1C = _getDeviceColor(_ControlSection.pdu1);
-                  final p2C = _getDeviceColor(_ControlSection.pdu2);
-                  final accentColor = Color.lerp(p1C, p2C, sel)!;
-                  final alignX = -1.0 + (sel * 2.0);
-
-                  return Align(
-                    alignment: Alignment(alignX, 0),
-                    child: FractionallySizedBox(
-                      widthFactor: 1 / 2,
-                      heightFactor: 1.0,
-                      child: _AuraPill(color: accentColor),
-                    ),
-                  );
-                },
-              ),
-              Row(
-                children: [
-                  _navSubBtn('PDU 1', () => _selectPduTab(_ControlSection.pdu1),
-                      _pduSubTabC, 0.0),
-                  _navSubBtn('PDU 2', () => _selectPduTab(_ControlSection.pdu2),
-                      _pduSubTabC, 1.0),
-                ],
-              ),
-            ],
-          ),
+        const SizedBox(width: 10),
+        _filterChip(
+          label: 'PDU 2',
+          selected: _pduTab == _ControlSection.pdu2,
+          isLight: isLight,
+          onTap: () => _selectPduTab(_ControlSection.pdu2),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildAcSubTabs(bool isLight) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 500),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: isLight ? Colors.white : const Color(0xFF0F1722),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isLight
-                ? Colors.black.withValues(alpha: 0.10)
-                : const Color(0xFF1E2D3D),
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _filterChip(
+          label: 'Metric',
+          selected: _acTab == _AcTab.metric,
+          isLight: isLight,
+          onTap: () => _selectAcTab(_AcTab.metric),
         ),
-        child: SizedBox(
-          height: 36,
-          width: double.infinity,
-          child: Stack(
-            children: [
-              AnimatedBuilder(
-                animation: _acSubTabC,
-                builder: (context, _) {
-                  final sel = _acSubTabC.value.clamp(0.0, 2.0);
-                  const accentColor = Color(0xFF3271D7); // Fixed Blue for AC
-                  final alignX = -1.0 + (sel * 1.0);
-
-                  return Align(
-                    alignment: Alignment(alignX, 0),
-                    child: const FractionallySizedBox(
-                      widthFactor: 1 / 3,
-                      heightFactor: 1.0,
-                      child: _AuraPill(color: accentColor),
-                    ),
-                  );
-                },
-              ),
-              Row(
-                children: [
-                  _navSubBtn('Metric', () => _selectAcTab(_AcTab.metric),
-                      _acSubTabC, 0.0),
-                  _navSubBtn('Status', () => _selectAcTab(_AcTab.status),
-                      _acSubTabC, 1.0),
-                  _navSubBtn('Setting', () => _selectAcTab(_AcTab.setting),
-                      _acSubTabC, 2.0),
-                ],
-              ),
-            ],
-          ),
+        const SizedBox(width: 8),
+        _filterChip(
+          label: 'Status',
+          selected: _acTab == _AcTab.status,
+          isLight: isLight,
+          onTap: () => _selectAcTab(_AcTab.status),
         ),
-      ),
+        const SizedBox(width: 8),
+        _filterChip(
+          label: 'Setting',
+          selected: _acTab == _AcTab.setting,
+          isLight: isLight,
+          onTap: () => _selectAcTab(_AcTab.setting),
+        ),
+      ],
     );
   }
 
-  Widget _navSubBtn(String label, VoidCallback onTap, AnimationController animC,
-      double targetIndex) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: AnimatedBuilder(
-            animation: animC,
-            builder: (context, _) {
-              final t = animC.value.clamp(0.0, 2.0);
-              final selectedness =
-                  (1.0 - (t - targetIndex).abs()).clamp(0.0, 1.0).toDouble();
-              final isLight = Theme.of(context).brightness == Brightness.light;
-              const selectedColor = Colors.white;
-              final unselectedColor = isLight
-                  ? AppTheme.lightTextSecondary.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.5);
-              return Text(
-                label,
-                style: TextStyle(
-                  color:
-                      Color.lerp(unselectedColor, selectedColor, selectedness),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              );
-            },
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required bool isLight,
+    required VoidCallback onTap,
+  }) {
+    const accent = Color(0xFF0EA5E9);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: selected
+              ? accent.withValues(alpha: isLight ? 0.12 : 0.16)
+              : (isLight ? Colors.white : const Color(0xFF141820)),
+          border: Border.all(
+            color: selected
+                ? accent.withValues(alpha: 0.45)
+                : (isLight
+                    ? const Color(0xFFE5E7EB)
+                    : Colors.white.withValues(alpha: 0.08)),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected
+                ? (isLight
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFF38BDF8))
+                : (isLight
+                    ? AppTheme.lightTextSecondary
+                    : Colors.white.withValues(alpha: 0.6)),
           ),
         ),
       ),
@@ -899,31 +818,24 @@ class _ControlScreenState extends State<ControlScreen>
           ),
         Container(
           decoration: BoxDecoration(
-            gradient: Theme.of(context).brightness == Brightness.light
-                ? null
-                : const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF131D2A), Color(0xFF0C131D)],
-                  ),
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
-                : null,
+                : const Color(0xFF141820),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.black.withValues(alpha: 0.10)
-                  : const Color(0xFF1E2D3D),
+                  ? const Color(0xFFE5E7EB)
+                  : Colors.white.withValues(alpha: 0.08),
               width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(
                     alpha: Theme.of(context).brightness == Brightness.light
-                        ? 0.05
-                        : 0.25),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+                        ? 0.04
+                        : 0.24),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -939,8 +851,8 @@ class _ControlScreenState extends State<ControlScreen>
                 height: 1,
                 thickness: 1,
                 color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.black.withValues(alpha: 0.05)
-                    : const Color(0xFF1E2D3D),
+                    ? const Color(0xFFE5E7EB)
+                    : Colors.white.withValues(alpha: 0.06),
               ),
             ),
             itemBuilder: (context, idx) {
@@ -1012,41 +924,77 @@ class _ControlScreenState extends State<ControlScreen>
         ? Colors.black.withValues(alpha: 0.6)
         : Colors.white.withValues(alpha: 0.6);
 
+    final valLower = value.trim().toLowerCase();
+    final isOnVal = valLower == 'on' || valLower == 'open' || valLower == '1';
+    final isOffVal =
+        valLower == 'off' || valLower == 'closed' || valLower == '0';
+    final Color statusColor = isOnVal
+        ? const Color(0xFF22C55E)
+        : (isOffVal
+            ? const Color(0xFFEF4444)
+            : (canSet ? const Color(0xFF0EA5E9) : subtitleColor));
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: _writing ? null : onSet,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(9),
+                  color: statusColor.withValues(alpha: isLight ? 0.10 : 0.14),
+                ),
+                child: Icon(
+                  canSet
+                      ? (isOnVal
+                          ? Icons.power_rounded
+                          : (isOffVal
+                              ? Icons.power_off_rounded
+                              : Icons.tune_rounded))
+                      : Icons.sensors_rounded,
+                  size: 16,
+                  color: isLight
+                      ? statusColor
+                      : Color.lerp(statusColor, Colors.white, 0.25),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
                   style: TextStyle(
                     color: textColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.5,
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Row(
                 children: [
                   Text(
                     '$value${unit.isNotEmpty ? ' $unit' : ''}',
                     style: TextStyle(
-                      color: subtitleColor,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 16,
+                      color: isOnVal || isOffVal
+                          ? (isLight
+                              ? statusColor
+                              : Color.lerp(statusColor, Colors.white, 0.25))
+                          : subtitleColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                   if (canSet) ...[
                     const SizedBox(width: 4),
                     Icon(
                       Icons.chevron_right_rounded,
-                      color: subtitleColor.withValues(alpha: 0.5),
-                      size: 20,
+                      color: subtitleColor.withValues(alpha: 0.45),
+                      size: 18,
                     ),
                   ],
                 ],
@@ -1578,30 +1526,6 @@ class _ControlScreenState extends State<ControlScreen>
     // If we get here, we never saw an updated telemetry value in time.
     // That can be normal depending on the device/collector interval.
     _toast('Command sent. Value may update on the next device polling cycle.');
-  }
-}
-
-class _AuraPill extends StatelessWidget {
-  final Color color;
-
-  const _AuraPill({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(color: Colors.transparent),
-      ),
-    );
   }
 }
 

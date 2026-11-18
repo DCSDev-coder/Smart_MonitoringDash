@@ -6,104 +6,93 @@ extension _ReportScreenNavigation on _ReportScreenState {
       alignment: Alignment.center,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.light
-                ? Colors.white
-                : const Color(0xFF0F1722),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.black.withValues(alpha: 0.10)
-                  : const Color(0xFF1E2D3D),
-            ),
-          ),
-          child: SizedBox(
-            height: 44,
-            width: double.infinity,
-            child: Stack(
-              children: [
-                AnimatedBuilder(
-                  animation: _tabSelC,
-                  builder: (context, _) {
-                    final sel = _tabSelC.value.clamp(0.0, 2.0);
-                    const energyC = Color(0xFF3271D7);
-                    const healthC = AppTheme.accentGreen;
-                    const securityC = Color(0xFFE6A600);
-
-                    Color accentColor;
-                    if (sel <= 1.0) {
-                      accentColor = Color.lerp(energyC, healthC, sel)!;
-                    } else {
-                      accentColor = Color.lerp(healthC, securityC, sel - 1.0)!;
-                    }
-
-                    final alignX = -1.0 + (sel * 1.0);
-
-                    return Align(
-                      alignment: Alignment(alignX, 0),
-                      child: FractionallySizedBox(
-                        widthFactor: 1 / 3,
-                        heightFactor: 1.0,
-                        child: _AuraPill(color: accentColor),
-                      ),
-                    );
-                  },
-                ),
-                Row(
-                  children: [
-                    _navBtn('ENERGY', 0),
-                    _navBtn('HEALTH', 1),
-                    _navBtn('SECURITY', 2),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        child: Row(
+          children: [
+            _navBtn('Energy', Icons.bolt_rounded, 0),
+            const SizedBox(width: 8),
+            _navBtn('Health', Icons.favorite_outline_rounded, 1),
+            const SizedBox(width: 8),
+            _navBtn('Security', Icons.shield_outlined, 2),
+          ],
         ),
       ),
     );
   }
 
-  Widget _navBtn(String label, int index) {
+  Widget _navBtn(String label, IconData icon, int index) {
     return Expanded(
-      child: GestureDetector(
-        onTap: () => _selectTab(index),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _tabSelC,
-                builder: (context, _) {
-                  final t = _tabSelC.value.clamp(0.0, 2.0);
-                  final selectedness =
-                      (1.0 - (t - index).abs()).clamp(0.0, 1.0).toDouble();
-                  final isLight =
-                      Theme.of(context).brightness == Brightness.light;
-                  final unselectedColor = isLight
-                      ? AppTheme.lightTextSecondary.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.5);
-                  return Text(
-                    label,
-                    style: TextStyle(
-                      color: Color.lerp(
-                        unselectedColor,
-                        Colors.white,
-                        selectedness,
+      child: AnimatedBuilder(
+        animation: _tabSelC,
+        builder: (context, _) {
+          final t = _tabSelC.value.clamp(0.0, 2.0);
+          final selected = (t - index).abs() < 0.5;
+          final isLight = Theme.of(context).brightness == Brightness.light;
+          const accent = Color(0xFF0EA5E9);
+
+          return GestureDetector(
+            onTap: () => _selectTab(index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: selected
+                    ? accent.withValues(alpha: isLight ? 0.14 : 0.18)
+                    : (isLight ? Colors.white : const Color(0xFF141820)),
+                border: Border.all(
+                  color: selected
+                      ? accent.withValues(alpha: 0.55)
+                      : (isLight
+                          ? const Color(0xFFE5E7EB)
+                          : Colors.white.withValues(alpha: 0.08)),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: selected
+                        ? (isLight
+                            ? const Color(0xFF0284C7)
+                            : const Color(0xFF38BDF8))
+                        : (isLight
+                            ? AppTheme.lightTextSecondary
+                            : Colors.white.withValues(alpha: 0.55)),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        textScaler: TextScaler.noScaling,
+                        style: TextStyle(
+                          color: selected
+                              ? (isLight
+                                  ? const Color(0xFF0284C7)
+                                  : Colors.white)
+                              : (isLight
+                                  ? AppTheme.lightTextSecondary
+                                  : Colors.white.withValues(alpha: 0.58)),
+                          fontSize: 13.5,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w600,
+                        ),
                       ),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
-      );
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildEventFilterRow() {

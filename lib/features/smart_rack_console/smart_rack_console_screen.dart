@@ -547,8 +547,8 @@ class _MainGrid extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
-          // Match Current PUE's chartSize so the footer row aligns at the exact same height.
-          final double calculatedGaugeHeight = (cardHeight - 118).clamp(110.0, 360.0);
+          // Fill the card vertically so the bottom isn't empty.
+          final double calculatedGaugeHeight = (cardHeight - 72).clamp(130.0, 390.0);
 
           return EnvironmentRow(
             temperatures: snapshot.temperatures,
@@ -589,109 +589,111 @@ class _MainGrid extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardHeight = constraints.hasBoundedHeight ? constraints.maxHeight : 260.0;
-          final double chartSize = (cardHeight - 118).clamp(65.0, 300.0);
+          final double chartSize = (cardHeight - 92).clamp(90.0, 350.0);
           final double valueFontSize = (chartSize * 0.20).clamp(18.0, 52.0);
           final double labelFontSize = (chartSize * 0.08).clamp(9.0, 16.0);
           final double strokeWidth = (chartSize * 0.09).clamp(7.0, 20.0);
           final double titleFontSize = (cardHeight * 0.042).clamp(10.0, 15.0);
           final double energyValFontSize = (cardHeight * 0.080).clamp(16.0, 34.0);
+          final double pueProgress = pueValue == null
+              ? 0
+              : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0);
 
           return SizedBox(
             width: double.infinity,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
                   width: chartSize,
                   height: chartSize,
-                      child: Stack(
-                        alignment: Alignment.center,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ArcGauge(
+                        progress: pueProgress,
+                        glowColor: pueColor,
+                        baseColor: ConsoleTheme.isDark(context)
+                            ? const Color(0xFF3A3A3A)
+                            : const Color(0xFFC0D3EB),
+                        strokeWidth: strokeWidth,
+                        sweepDegrees: 255,
+                        startDegrees: 145,
+                        glowIntensity: 0.0,
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          ArcGauge(
-                            progress: pueValue == null
-                                ? 0
-                                : ((pueValue - 1.0) / (3.0 - 1.0)).clamp(0.0, 1.0),
-                            glowColor: pueColor,
-                            baseColor: ConsoleTheme.isDark(context)
-                                ? const Color(0xFF3A3A3A)
-                                : const Color(0xFFC0D3EB),
-                            strokeWidth: strokeWidth,
-                            sweepDegrees: 255,
-                            startDegrees: 145,
-                            glowIntensity: 0.0,
+                          const SizedBox(height: 12),
+                          Text(
+                            pueValue?.toStringAsFixed(2) ?? '--',
+                            style: TextStyle(
+                              fontSize: valueFontSize,
+                              fontWeight: FontWeight.bold,
+                              color: ConsoleTheme.textPrimary(context),
+                            ),
                           ),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(height: 12),
-                              Text(
-                                pueValue?.toStringAsFixed(2) ?? '--',
-                                style: TextStyle(
-                                  fontSize: valueFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: ConsoleTheme.textPrimary(context),
-                                ),
-                              ),
-                              Text(
-                                'PUE',
-                                style: TextStyle(
-                                  fontSize: labelFontSize,
-                                  color: pueColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            'PUE',
+                            style: TextStyle(
+                              fontSize: labelFontSize,
+                              color: pueColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-              const SizedBox(height: 10),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'Total Energy Consumption Of The Month',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: ConsoleTheme.textPrimary(context),
-                    fontSize: titleFontSize,
-                    fontWeight: FontWeight.w600,
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
-                      style: TextStyle(
-                        color: ConsoleTheme.cyan(context),
-                        fontSize: energyValFontSize,
-                        fontWeight: FontWeight.bold,
-                      ),
+                const SizedBox(height: 8),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Total Energy Consumption Of The Month',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: ConsoleTheme.textPrimary(context),
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 4),
-                    Padding(
-                      padding: EdgeInsets.only(bottom: energyValFontSize * 0.15),
-                      child: Text(
-                        'kW·h',
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        snapshot.totalMonthEnergyKwh?.toStringAsFixed(2) ?? '--',
                         style: TextStyle(
-                          color: ConsoleTheme.textPrimary(context),
-                          fontSize: energyValFontSize * 0.38,
-                          fontWeight: FontWeight.w500,
+                          color: ConsoleTheme.cyan(context),
+                          fontSize: energyValFontSize,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Padding(
+                        padding:
+                            EdgeInsets.only(bottom: energyValFontSize * 0.15),
+                        child: Text(
+                          'kW·h',
+                          style: TextStyle(
+                            color: ConsoleTheme.textPrimary(context),
+                            fontSize: energyValFontSize * 0.38,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
+              ],
+            ),
+          );
         },
       ),
     );
@@ -825,8 +827,11 @@ class _CapacityItems extends StatelessWidget {
 Widget _buildCapacityProgressBar(BuildContext context, double percentage, {Color? color}) {
   final isDark = ConsoleTheme.isDark(context);
   final trackColor = isDark
-      ? const Color(0xFF091A35)
-      : const Color(0xFFEAF3FF);
+      ? Colors.white.withValues(alpha: 0.06)
+      : const Color(0xFFF1F5F9);
+  final borderColor = isDark
+      ? Colors.white.withValues(alpha: 0.12)
+      : const Color(0xFFE2E8F0);
   final accent = color ?? ConsoleTheme.primaryBlue(context);
 
   return Container(
@@ -836,7 +841,7 @@ Widget _buildCapacityProgressBar(BuildContext context, double percentage, {Color
       color: trackColor,
       borderRadius: BorderRadius.circular(4),
       border: Border.all(
-        color: ConsoleTheme.cardBorder(context).withValues(alpha: 0.5),
+        color: borderColor,
       ),
     ),
     child: ClipRRect(

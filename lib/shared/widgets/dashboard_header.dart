@@ -41,7 +41,9 @@ class DashboardHeader extends StatelessWidget {
         const gap = 8.0;
         final reservedRight =
             48.0 + gap + 48.0 + gap + (trailing != null ? 60.0 : 0.0);
-        final maxLogo = (c.maxWidth - reservedRight).clamp(96.0, 220.0);
+        final maxLogo = (c.maxWidth - reservedRight).clamp(110.0, 250.0);
+        final logoHeight =
+            (AppConstants.headerContentHeight * 1.3).clamp(46.0, 58.0);
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -57,16 +59,16 @@ class DashboardHeader extends StatelessWidget {
                     children: [
                       if (logoUrl != null && logoUrl!.isNotEmpty)
                         SizedBox(
-                          height: AppConstants.headerContentHeight,
+                          height: logoHeight,
                           child: ConstrainedBox(
                             constraints: BoxConstraints(maxWidth: maxLogo),
                             child: SafeNetworkImage(
                               logoUrl!,
-                              height: AppConstants.headerContentHeight,
+                              height: logoHeight,
                               fit: BoxFit.fitHeight,
                               errorBuilder: (_) => Image.asset(
                                 'assets/DCS_Logo/DCS Logo.png',
-                                height: AppConstants.headerContentHeight,
+                                height: logoHeight,
                                 fit: BoxFit.fitHeight,
                               ),
                             ),
@@ -75,7 +77,7 @@ class DashboardHeader extends StatelessWidget {
                       else
                         Image.asset(
                           'assets/DCS_Logo/DCS Logo.png',
-                          height: AppConstants.headerContentHeight,
+                          height: logoHeight,
                           fit: BoxFit.fitHeight,
                         ),
                     ],
@@ -165,29 +167,34 @@ class _HeaderIconButton extends StatelessWidget {
       );
     }
 
-    // In light mode, revert to the solid cyan/red style.
-    final bgColor = isAlert ? const Color(0xFFFF4D4D) : activeColor;
+    // In light mode, clean circular white surface matching modern light cards.
+    final bgColor = isAlert ? const Color(0xFFFEF2F2) : Colors.white;
+    final borderColor =
+        isAlert ? const Color(0xFFFCA5A5) : const Color(0xFFE2E8F0);
+    final fgColor =
+        isAlert ? const Color(0xFFEF4444) : const Color(0xFF0F172A);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(14),
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: 1),
             boxShadow: [
               BoxShadow(
-                color: bgColor.withValues(alpha: 0.3),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
+          child: Icon(icon, color: fgColor, size: 21),
         ),
       ),
     );

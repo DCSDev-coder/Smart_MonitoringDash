@@ -31,10 +31,12 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
     final isLight = Theme.of(context).brightness == Brightness.light;
 
     return DashboardGlass(
-      radius: 22,
+      radius: 20,
       padding: const EdgeInsets.all(18),
-      tint: isLight ? Colors.white : null,
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
+      tint: isLight ? Colors.white : const Color(0xFF141820),
+      borderColor: isLight
+          ? const Color(0xFFE5E7EB)
+          : Colors.white.withValues(alpha: 0.08),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -207,33 +209,43 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
     final String statusLabel;
     if (_lastMaintenance == null) {
       statusColor = isLight ? AppTheme.lightTextSecondary : Colors.white54;
-      statusLabel = 'NO RECORD';
+      statusLabel = 'No record';
     } else if (isOverdue) {
-      statusColor = Colors.redAccent;
-      statusLabel = 'OVERDUE';
+      statusColor = const Color(0xFFEF4444);
+      statusLabel = 'Overdue';
     } else {
-      statusColor = AppTheme.accentGreen;
-      statusLabel = 'ON SCHEDULE';
+      statusColor = const Color(0xFF00B87C);
+      statusLabel = 'On schedule';
     }
 
     final String subtitleText;
     if (daysAgo == null) {
       subtitleText = 'Log the most recent maintenance date';
     } else if (isOverdue) {
-      subtitleText = 'Overdue by ${daysAgo - 90} days (90-day cycle)';
+      subtitleText = 'Overdue by ${daysAgo - 90}d (90-day cycle)';
     } else {
-      subtitleText = '$daysAgo days ago • ${90 - daysAgo} days until next due';
+      subtitleText = '${daysAgo}d ago \u00B7 ${90 - daysAgo}d until next due';
     }
 
-    final accentColor = isOverdue ? Colors.redAccent : AppTheme.accentBlue;
+    final accentColor = isOverdue ? const Color(0xFFEF4444) : const Color(0xFF0EA5E9);
+    final double intervalProgress = daysAgo == null
+        ? 0.0
+        : (daysAgo / 90.0).clamp(0.0, 1.0);
+    final DateTime? nextServiceDate = _lastMaintenance?.add(const Duration(days: 90));
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.65);
 
     return DashboardGlass(
-      radius: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      tint: isLight ? Colors.white : null,
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      tint: isLight ? Colors.white : const Color(0xFF141820),
       borderColor: isOverdue
-          ? Colors.redAccent.withValues(alpha: 0.45)
-          : (isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D)),
+          ? const Color(0xFFEF4444).withValues(alpha: 0.45)
+          : (isLight
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.08)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -244,54 +256,37 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               Text(
                 'Last Service',
                 style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.8),
-                  fontSize: 14,
+                  color: textPrimary,
+                  fontSize: 15.5,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: statusColor.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
+              Text(
+                statusLabel,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: 0.25),
-                  ),
+                  color: accentColor.withValues(alpha: isLight ? 0.12 : 0.16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   isOverdue
                       ? Icons.warning_amber_rounded
-                      : Icons.calendar_month_rounded,
+                      : Icons.calendar_today_rounded,
                   color: accentColor,
-                  size: 22,
+                  size: 21,
                 ),
               ),
               const SizedBox(width: 14),
@@ -299,63 +294,98 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _lastMaintenance == null
-                          ? 'No Service Record'
-                          : DateFormat('d MMMM yyyy').format(_lastMaintenance!),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 17,
-                        color: isOverdue
-                            ? Colors.redAccent
-                            : (isLight
-                                ? AppTheme.lightTextPrimary
-                                : Colors.white),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _lastMaintenance == null
+                            ? 'No Service Record'
+                            : DateFormat('d MMMM yyyy').format(_lastMaintenance!),
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                          letterSpacing: -0.3,
+                          color: isOverdue ? const Color(0xFFEF4444) : textPrimary,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                       subtitleText,
                       style: TextStyle(
-                        color: isLight
-                            ? AppTheme.lightTextSecondary
-                            : Colors.white.withValues(alpha: 0.65),
-                        fontSize: 11.5,
+                        color: textSecondary,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              if (_canUpdateMaintenance) ...[
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _pickMaintenanceDate,
-                  icon: const Icon(Icons.edit_calendar_rounded, size: 15),
-                  label: const Text('Update'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: AppTheme.accentBlue,
-                    elevation: 0,
-                    minimumSize: const Size(0, 36),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: intervalProgress,
+              minHeight: 6,
+              backgroundColor: isLight
+                  ? const Color(0xFFE2E8F0)
+                  : Colors.white.withValues(alpha: 0.10),
+              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '90-day interval',
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                nextServiceDate == null
+                    ? 'Next: --'
+                    : 'Next: ${DateFormat('d MMMM yyyy').format(nextServiceDate)}',
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          if (_canUpdateMaintenance) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: _pickMaintenanceDate,
+                icon: const Icon(Icons.calendar_today_rounded, size: 17),
+                label: const Text('Update Service Date'),
+                style: FilledButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: isLight
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFF2563EB),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -434,60 +464,100 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
         ) +
         siteOnline;
     final isLight = Theme.of(context).brightness == Brightness.light;
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.65);
+
+    int pduCount = 0;
+    for (final d in _devices) {
+      final label = (d['label'] ?? d['type'] ?? '').toString().toUpperCase();
+      if (label.contains('PDU')) {
+        pduCount += (d['totalCount'] as int? ?? 0);
+      }
+    }
+    final int sensorCount = (total - pduCount).clamp(0, total);
+    final String deviceSubtitle = pduCount > 0
+        ? '$sensorCount sensor nodes \u00B7 $pduCount Rack PDUs'
+        : '$total monitored nodes';
+
+    const green = Color(0xFF00B87C);
+    final Color countColor =
+        (total > 0 && online < total) ? const Color(0xFFEF4444) : green;
+
     return DashboardGlass(
-      radius: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      tint: isLight ? Colors.white : null,
-      borderColor: isLight ? AppTheme.lightStroke : const Color(0xFF1E2D3D),
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      tint: isLight ? Colors.white : const Color(0xFF141820),
+      borderColor: isLight
+          ? const Color(0xFFE2E8F0)
+          : Colors.white.withValues(alpha: 0.08),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Devices Status',
-                style: TextStyle(
-                  color: isLight
-                      ? AppTheme.lightTextSecondary
-                      : Colors.white.withValues(alpha: 0.8),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: countColor.withValues(alpha: isLight ? 0.12 : 0.18),
+                ),
+                child: Icon(
+                  Icons.memory_rounded,
+                  size: 19,
+                  color: countColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Devices Status',
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      deviceSubtitle,
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Text(
                 '$online/${total == 0 ? '--' : total}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.accentGreen,
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: countColor,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           if (total > 0)
             Row(
               children: List.generate(total, (index) {
                 final isOnline = index < online;
                 return Expanded(
                   child: Container(
-                    height: 28,
-                    margin: EdgeInsets.only(right: index == total - 1 ? 0 : 6),
+                    height: 24,
+                    margin: EdgeInsets.only(right: index == total - 1 ? 0 : 5),
                     decoration: BoxDecoration(
-                      color: isOnline ? AppTheme.accentGreen : Colors.redAccent,
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: isOnline && !isLight
-                          ? [
-                              BoxShadow(
-                                color: AppTheme.accentGreen
-                                    .withValues(alpha: 0.35),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                          : null,
+                      color: isOnline ? green : const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                   ),
                 );
@@ -498,7 +568,7 @@ extension _ReportScreenHealthSecurity on _ReportScreenState {
               'No devices found',
               style: TextStyle(
                 fontSize: 14,
-                color: isLight ? Colors.grey[600] : Colors.white54,
+                color: textSecondary,
               ),
             ),
         ],

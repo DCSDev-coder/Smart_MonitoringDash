@@ -23,7 +23,9 @@ class _SetPinDialogState extends State<SetPinDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(24),
-      child: DashboardGlass(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: DashboardGlass(
         radius: 22,
         padding: const EdgeInsets.all(24),
         tint: isLight ? Colors.white : const Color(0xFF111922).withValues(alpha: 0.96),
@@ -170,6 +172,7 @@ class _SetPinDialogState extends State<SetPinDialog> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

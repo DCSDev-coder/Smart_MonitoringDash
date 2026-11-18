@@ -392,7 +392,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
                   message: _style == EnvironmentGaugeStyle.meter
                       ? 'Switch to Arc View'
                       : 'Switch to Meter View',
-                  child: _GaugeStyleSwitch(
+                  child: GaugeStyleSwitch(
                     value: _style,
                     showLabel: false,
                     onChanged: (v) => setState(() => _style = v),
@@ -418,7 +418,7 @@ class _EnvironmentRowState extends State<EnvironmentRow> {
               message: _style == EnvironmentGaugeStyle.meter
                   ? 'Switch to Arc View'
                   : 'Switch to Meter View',
-              child: _GaugeStyleSwitch(
+              child: GaugeStyleSwitch(
                 value: _style,
                 onChanged: (v) => setState(() => _style = v),
               ),
@@ -597,7 +597,7 @@ class _MiniGaugeCard extends StatelessWidget {
                                         ),
                                         duration: const Duration(milliseconds: 1600),
                                         curve: Curves.easeOutCubic,
-                                        builder: (context, v, _) => _DialMeterGauge(
+                                        builder: (context, v, _) => DialMeterGauge(
                                           progress: v,
                                           glowColor: accent,
                                           glowIntensity: 0.0,
@@ -994,13 +994,14 @@ class _ArcGaugePainterV2 extends CustomPainter {
   double _degToRad(double deg) => deg * pi / 180.0;
 }
 
-class _DialMeterGauge extends StatefulWidget {
+class DialMeterGauge extends StatefulWidget {
   final double progress;
   final Color glowColor;
   final double glowIntensity;
   final List<double> warningStops;
 
-  const _DialMeterGauge({
+  const DialMeterGauge({
+    super.key,
     required this.progress,
     required this.glowColor,
     this.glowIntensity = 1.0,
@@ -1008,10 +1009,10 @@ class _DialMeterGauge extends StatefulWidget {
   });
 
   @override
-  State<_DialMeterGauge> createState() => _DialMeterGaugeState();
+  State<DialMeterGauge> createState() => _DialMeterGaugeState();
 }
 
-class _DialMeterGaugeState extends State<_DialMeterGauge>
+class _DialMeterGaugeState extends State<DialMeterGauge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -1099,84 +1100,48 @@ class _DialMeterGaugePainter extends CustomPainter {
       }
     }
 
-    const tickCount = 60;
+    const tickCount = 24;
+    final activeTicks = (tickCount * p).round();
+    final outerRadius = radius + 12;
+    final inactiveColor = brightness == Brightness.light
+        ? const Color(0xFFE2E8F0)
+        : Colors.white.withValues(alpha: 0.14);
+
     for (var i = 0; i <= tickCount; i++) {
       final t = i / tickCount;
       final a = start + sweep * t;
-      final isMajor = i % 5 == 0;
-      final len = isMajor ? radius * 0.18 : radius * 0.10;
-      final inner = radius + 8;
-      final outer = inner + len;
-
-      final active = a <= start + prog + 0.0001;
-      final c = active
-          ? glowColor.withValues(alpha: isMajor ? 0.95 : 0.78)
-          : (brightness == Brightness.light
-              ? AppTheme.lightTextSecondary
-                  .withValues(alpha: isMajor ? 0.70 : 0.40)
-              : Colors.white.withValues(alpha: isMajor ? 0.18 : 0.12));
+      final isMajor = i % 6 == 0;
+      final len = isMajor ? radius * 0.22 : radius * 0.14;
+      final inner = outerRadius - len;
 
       final paint = Paint()
-        ..color = c
-        ..strokeWidth = isMajor ? 2 : 1
+        ..color = i <= activeTicks ? glowColor : inactiveColor
+        ..strokeWidth = isMajor ? 2.6 : 1.7
         ..strokeCap = StrokeCap.round;
       final p1 = Offset(center.dx + inner * cos(a), center.dy + inner * sin(a));
-      final p2 = Offset(center.dx + outer * cos(a), center.dy + outer * sin(a));
+      final p2 = Offset(
+          center.dx + outerRadius * cos(a), center.dy + outerRadius * sin(a));
       canvas.drawLine(p1, p2, paint);
     }
 
-    // Subtle outer dial ring for speedometer framing.
-    final bezelRect = Rect.fromCircle(center: center, radius: radius + 4);
-    canvas.drawArc(
-      bezelRect,
-      start,
-      sweep,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..strokeCap = StrokeCap.round
-        ..color = brightness == Brightness.light
-            ? const Color(0xFFE2E8F0)
-            : Colors.white.withValues(alpha: 0.12),
-    );
-
-    // Tapered car-meter needle with counterweight tail and center hub.
+    // Clean straight round-capped needle + pivot matching mobile meter style.
     final needleAngle = start + prog;
-    final cosA = cos(needleAngle);
-    final sinA = sin(needleAngle);
-    final perpX = -sinA;
-    final perpY = cosA;
-
-    final tipLen = radius - 2;
-    const tailLen = 10.0;
-    const baseHalfW = 3.2;
-    const tipHalfW = 0.8;
-
-    final needlePath = Path()
-      ..moveTo(
-        center.dx - tailLen * cosA + baseHalfW * perpX,
-        center.dy - tailLen * sinA + baseHalfW * perpY,
-      )
-      ..lineTo(
-        center.dx + tipLen * cosA + tipHalfW * perpX,
-        center.dy + tipLen * sinA + tipHalfW * perpY,
-      )
-      ..lineTo(
-        center.dx + tipLen * cosA - tipHalfW * perpX,
-        center.dy + tipLen * sinA - tipHalfW * perpY,
-      )
-      ..lineTo(
-        center.dx - tailLen * cosA - baseHalfW * perpX,
-        center.dy - tailLen * sinA - baseHalfW * perpY,
-      )
-      ..close();
-
-    canvas.drawPath(needlePath, Paint()..color = glowColor);
-    canvas.drawCircle(center, 7.5, Paint()..color = glowColor);
+    final needleTip = Offset(
+      center.dx + (outerRadius - 15) * cos(needleAngle),
+      center.dy + (outerRadius - 15) * sin(needleAngle),
+    );
+    canvas.drawLine(
+      center,
+      needleTip,
+      Paint()
+        ..color = glowColor
+        ..strokeWidth = 3.2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(center, 6.2, Paint()..color = glowColor);
     canvas.drawCircle(
       center,
-      3.4,
+      2.8,
       Paint()
         ..color = brightness == Brightness.light
             ? Colors.white
@@ -1498,12 +1463,13 @@ class _CabinetPager extends StatelessWidget {
   }
 }
 
-class _GaugeStyleSwitch extends StatelessWidget {
+class GaugeStyleSwitch extends StatelessWidget {
   final EnvironmentGaugeStyle value;
   final ValueChanged<EnvironmentGaugeStyle> onChanged;
   final bool showLabel;
 
-  const _GaugeStyleSwitch({
+  const GaugeStyleSwitch({
+    super.key,
     required this.value,
     required this.onChanged,
     this.showLabel = false,

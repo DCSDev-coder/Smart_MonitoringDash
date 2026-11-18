@@ -18,9 +18,7 @@ import '../smart_rack_console/services/smart_rack_console_repository.dart';
 import '../smart_rack_console/theme/console_theme.dart';
 import '../smart_rack_console/widgets/pue_charts.dart';
 
-/// Fullscreen NOC / Command-Center monitoring wallboard for DCS Dashboard.
-/// Displays every live subsystem status at a glance and supports horizontal
-/// swiping (touch, mouse drag, arrows, and keyboard) across multiple boards.
+
 class FullscreenMonitoringScreen extends StatefulWidget {
   const FullscreenMonitoringScreen({super.key});
 
@@ -636,7 +634,7 @@ class _HealthStatisticsCard extends StatelessWidget {
           return Row(
             children: [
               Expanded(
-                flex: 5,
+                flex: 4,
                 child: Center(
                   child: SizedBox(
                     width: ringSize,
@@ -694,7 +692,7 @@ class _HealthStatisticsCard extends StatelessWidget {
                 ),
               ),
               Expanded(
-                flex: 5,
+                flex: 6,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1005,7 +1003,7 @@ class _AlarmStatisticsCardState extends State<_AlarmStatisticsCard> {
           return Row(
             children: [
               Expanded(
-                flex: 5,
+                flex: 4,
                 child: Center(
                   child: SizedBox(
                     width: ringSize,
@@ -1078,7 +1076,7 @@ class _AlarmStatisticsCardState extends State<_AlarmStatisticsCard> {
                 ),
               ),
               Expanded(
-                flex: 5,
+                flex: 6,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1327,30 +1325,26 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                 final isDark = ConsoleTheme.isDark(context);
                 final color = node.ok ? accent : const Color(0xFFFF4D4F);
                 final scale = 0.88 + (depth + 1) * 0.10; // 0.88 behind -> 1.08 front
-                const minOpacity = 0.88;
-                final opacity =
-                    (minOpacity + (depth + 1) * ((1.0 - minOpacity) / 2))
-                        .clamp(minOpacity, 1.0);
-                return Opacity(
-                  opacity: opacity,
-                  child: Transform.scale(
-                    scale: scale,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: isDark ? null : Colors.white,
-                        gradient: isDark
-                            ? LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  color.withValues(alpha: 0.22),
-                                  ConsoleTheme.innerSurface(context)
-                                      .withValues(alpha: 0.96),
-                                ],
-                              )
-                            : null,
+                return Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0E1B2E) : Colors.white,
+                      gradient: isDark
+                          ? LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color.alphaBlend(
+                                  color.withValues(alpha: 0.18),
+                                  const Color(0xFF0E1B2E),
+                                ),
+                                ConsoleTheme.innerSurface(context),
+                              ],
+                            )
+                          : null,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: color.withValues(alpha: isDark ? 0.7 : 0.55),
@@ -1407,8 +1401,7 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                         ],
                       ),
                     ),
-                  ),
-                );
+                  );
               }
 
               final backNodes = <Widget>[];
@@ -1424,7 +1417,7 @@ class _CenterTopologyHubState extends State<_CenterTopologyHub>
                   offset: Offset(dx, dy),
                   child: buildNodeWidget(nodes[i], depth),
                 );
-                if (depth < 0) {
+                if (depth < -0.25) {
                   backNodes.add(positioned);
                 } else {
                   frontNodes.add(positioned);
@@ -2248,13 +2241,13 @@ class _DoorsAndCapacityCard extends StatelessWidget {
                       return Expanded(
                         child: Padding(
                           padding: EdgeInsets.only(
-                              bottom: i < math.min(logs.length, 4) - 1 ? 6 : 0),
+                              bottom: i < math.min(logs.length, 4) - 1 ? 4 : 0),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: ConsoleTheme.innerSurface(context),
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: doorColor.withValues(alpha: 0.25),
                               ),
@@ -2262,8 +2255,8 @@ class _DoorsAndCapacityCard extends StatelessWidget {
                             child: Row(
                               children: [
                                 Container(
-                                  width: 24,
-                                  height: 24,
+                                  width: 20,
+                                  height: 20,
                                   decoration: BoxDecoration(
                                     color: doorColor.withValues(alpha: 0.16),
                                     shape: BoxShape.circle,
@@ -2276,46 +2269,56 @@ class _DoorsAndCapacityCard extends StatelessWidget {
                                       initial,
                                       style: ConsoleTheme.font(
                                         color: doorColor,
-                                        fontSize: 10.5,
+                                        fontSize: 9.5,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 7),
                                 Expanded(
                                   child: Text(
                                     user,
                                     style: ConsoleTheme.font(
                                       color: ConsoleTheme.textPrimary(context),
-                                      fontSize: 11,
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
                                     ),
+                                    maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: doorColor.withValues(alpha: 0.14),
                                     borderRadius: BorderRadius.circular(5),
                                   ),
                                   child: Text(
                                     door,
+                                    maxLines: 1,
                                     style: ConsoleTheme.font(
                                       color: doorColor,
-                                      fontSize: 10,
+                                      fontSize: 9.5,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  time,
-                                  style: ConsoleTheme.font(
-                                    color: ConsoleTheme.textMuted(context),
-                                    fontSize: 10,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      time,
+                                      maxLines: 1,
+                                      style: ConsoleTheme.font(
+                                        color: ConsoleTheme.textMuted(context),
+                                        fontSize: 9.5,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2467,31 +2470,32 @@ class _KpiTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      primaryValue,
-                      style: ConsoleTheme.font(
-                        color: accent,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        primaryValue,
+                        style: ConsoleTheme.font(
+                          color: accent,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
+                      const SizedBox(width: 8),
+                      Text(
                         subLabel,
                         style: ConsoleTheme.font(
                           color: ConsoleTheme.textSecondary(context),
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2575,22 +2579,28 @@ class _LegendStatRow extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: ConsoleTheme.font(
-              color: ConsoleTheme.textSecondary(context),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-            ),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: ConsoleTheme.font(
+            color: ConsoleTheme.textSecondary(context),
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        Text(
-          value,
-          style: ConsoleTheme.font(
-            color: ConsoleTheme.textPrimary(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: ConsoleTheme.font(
+              color: ConsoleTheme.textPrimary(context),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
