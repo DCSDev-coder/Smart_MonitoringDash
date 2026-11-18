@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/utils/alarm_payload.dart';
-import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
 import 'device_history_sheet.dart';
 
@@ -15,6 +14,7 @@ class DeviceHealthSection extends StatelessWidget {
   final int floodStatus;
   final bool minimalist;
   final bool twoColumn;
+  final bool modernMobile;
 
   const DeviceHealthSection({
     super.key,
@@ -26,6 +26,7 @@ class DeviceHealthSection extends StatelessWidget {
     this.floodStatus = -1,
     this.minimalist = false,
     this.twoColumn = false,
+    this.modernMobile = false,
   });
 
   @override
@@ -657,6 +658,15 @@ class DeviceHealthSection extends StatelessWidget {
 
     final isLight = Theme.of(context).brightness == Brightness.light;
 
+    if (modernMobile) {
+      return _ModernMobileDeviceHealthCard(
+        items: items,
+        alarms: alarms,
+        temperatures: temperatures,
+        humidities: humidities,
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double parentHeight = constraints.maxHeight.isFinite
@@ -884,25 +894,24 @@ class _DeviceHealthRow extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 decoration: BoxDecoration(
-                  color: isLight ? Colors.white : const Color(0xFF111922),
-                  borderRadius: BorderRadius.circular(28),
+                  color: isLight ? Colors.white : const Color(0xFF141820),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(
                     color: isLight
-                        ? Colors.black.withValues(alpha: 0.05)
+                        ? const Color(0xFFE5E7EB)
                         : Colors.white.withValues(alpha: 0.08),
-                    width: 1.5,
+                    width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.40),
                       blurRadius: 24,
-                      spreadRadius: 8,
                       offset: const Offset(0, 12),
                     ),
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(22),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -910,48 +919,55 @@ class _DeviceHealthRow extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            width: 48,
-                            height: 48,
+                            width: 38,
+                            height: 38,
                             decoration: BoxDecoration(
-                              color: item.iconBgColor,
-                              borderRadius: BorderRadius.circular(16),
+                              color: item.iconBgColor.withValues(
+                                alpha: isLight ? 0.12 : 0.16,
+                              ),
+                              borderRadius: BorderRadius.circular(11),
                             ),
                             child: Center(
                               child: SvgPicture.asset(
                                 item.iconAsset,
-                                width: 24,
-                                height: 24,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
+                                width: 18,
+                                height: 18,
+                                colorFilter: ColorFilter.mode(
+                                  isLight
+                                      ? item.iconBgColor
+                                      : (Color.lerp(item.iconBgColor,
+                                              Colors.white, 0.35) ??
+                                          Colors.white),
                                   BlendMode.srcIn,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item.label.toUpperCase(),
-                                  style: bitcount(
-                                    context,
-                                    fontSize: 14,
-                                    color: const Color(0xFFFF8A00),
-                                    letterSpacing: 1.5,
+                                  item.label,
+                                  style: TextStyle(
+                                    color: isLight
+                                        ? AppTheme.lightTextPrimary
+                                        : Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'Unified Monitoring: ${item.total} Sensors',
+                                  '${item.total} ${item.total == 1 ? 'Sensor' : 'Sensors'}',
                                   style: TextStyle(
-                                    color: (Theme.of(context).brightness ==
-                                                Brightness.light
+                                    color: (isLight
                                             ? AppTheme.lightTextSecondary
                                             : Colors.white)
-                                        .withValues(alpha: 0.5),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                        .withValues(alpha: 0.55),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -960,20 +976,22 @@ class _DeviceHealthRow extends StatelessWidget {
                           Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: onSurface.withValues(alpha: 0.05),
+                              color: isLight
+                                  ? const Color(0xFFF1F5F9)
+                                  : Colors.white.withValues(alpha: 0.06),
                             ),
                             child: IconButton(
                               icon: Icon(Icons.close_rounded,
-                                  color: onSurface, size: 20),
+                                  color: onSurface, size: 18),
                               onPressed: () => Navigator.pop(ctx),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(
-                                  minWidth: 36, minHeight: 36),
+                                  minWidth: 34, minHeight: 34),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       Flexible(
                         child: SingleChildScrollView(
                           child: Column(
@@ -1313,28 +1331,32 @@ class _DeviceDetailRow extends StatelessWidget {
     late final IconData icon;
     switch (state) {
       case _BoxState.normal:
-        color = const Color(0xFFFF8A00);
-        label = 'NORMAL';
+        color = const Color(0xFF22C55E);
+        label = 'Normal';
         icon = Icons.check_circle_outline_rounded;
         break;
       case _BoxState.alarm:
-        color = const Color(0xFFFF3B30);
-        label = 'ALERT';
+        color = const Color(0xFFEF4444);
+        label = 'Alert';
         icon = Icons.error_outline_rounded;
         break;
       case _BoxState.offline:
-        color = const Color(0xFF8E8E93);
-        label = 'OFFLINE';
+        color = const Color(0xFF94A3B8);
+        label = 'Offline';
         icon = Icons.wifi_off_rounded;
         break;
     }
 
     Widget child = Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: (isLight ? Colors.black : Colors.white).withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.transparent),
+        color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF1A1F29),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE5E7EB)
+              : Colors.white.withValues(alpha: 0.06),
+        ),
       ),
       child: Row(
         children: [
@@ -1349,8 +1371,8 @@ class _DeviceDetailRow extends StatelessWidget {
                   name,
                   style: TextStyle(
                     color: isLight ? AppTheme.lightTextPrimary : Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -1360,10 +1382,11 @@ class _DeviceDetailRow extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
+              color: isLight
+                  ? color
+                  : Color.lerp(color, Colors.white, 0.25),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
           if (nodeId != null) ...[
@@ -1524,6 +1547,327 @@ class _SingleHealthBox extends StatelessWidget {
             spreadRadius: 0,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModernMobileDeviceHealthCard extends StatelessWidget {
+  final List<_DeviceHealthItem> items;
+  final List<dynamic>? alarms;
+  final List<Map<String, dynamic>> temperatures;
+  final List<Map<String, dynamic>> humidities;
+
+  const _ModernMobileDeviceHealthCard({
+    required this.items,
+    required this.alarms,
+    this.temperatures = const [],
+    this.humidities = const [],
+  });
+
+  String? _tileSummary(_DeviceHealthItem item) {
+    if (item.alarm > 0) {
+      return '${item.alarm} alarm';
+    }
+    if (item.offline > 0) {
+      return '${item.offline} offline';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.65);
+
+    final totalAlarms = items.fold<int>(0, (s, e) => s + e.alarm);
+    final totalOffline = items.fold<int>(0, (s, e) => s + e.offline);
+    final secureCount =
+        items.where((e) => e.alarm == 0 && e.offline == 0).length;
+
+    final Color summaryColor = totalAlarms > 0
+        ? const Color(0xFFEF4444)
+        : (totalOffline > 0
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF00A878));
+    final String summaryText = totalAlarms > 0
+        ? '$totalAlarms Alert'
+        : (totalOffline > 0
+            ? '$secureCount/${items.length} Secure'
+            : '$secureCount/${items.length} Secure');
+
+    // Pair items into rows of 2 so the card sizes naturally inside SingleChildScrollView.
+    final List<List<_DeviceHealthItem>> rows = [];
+    for (int i = 0; i < items.length; i += 2) {
+      rows.add(items.sublist(i, (i + 2).clamp(0, items.length)));
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: isLight ? Colors.white : const Color(0xFF141820),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Subsystems',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Tap tile for live node readings',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                summaryText,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: isLight
+                      ? summaryColor
+                      : (Color.lerp(summaryColor, Colors.white, 0.2) ??
+                          summaryColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...rows.asMap().entries.map((rowEntry) {
+            final rowIdx = rowEntry.key;
+            final pair = rowEntry.value;
+            return Padding(
+              padding: EdgeInsets.only(
+                  bottom: rowIdx < rows.length - 1 ? 10 : 0),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _SubsystemTile(
+                        item: pair[0],
+                        summary: _tileSummary(pair[0]),
+                        isLight: isLight,
+                        onTap: () =>
+                            _DeviceHealthRow(item: pair[0], alarms: alarms)
+                                ._showDetails(context),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: pair.length > 1
+                          ? _SubsystemTile(
+                              item: pair[1],
+                              summary: _tileSummary(pair[1]),
+                              isLight: isLight,
+                              onTap: () =>
+                                  _DeviceHealthRow(item: pair[1], alarms: alarms)
+                                      ._showDetails(context),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubsystemTile extends StatelessWidget {
+  final _DeviceHealthItem item;
+  final String? summary;
+  final bool isLight;
+  final VoidCallback onTap;
+
+  const _SubsystemTile({
+    required this.item,
+    required this.summary,
+    required this.isLight,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAlarm = item.alarm > 0;
+    final allOffline = item.offline >= item.total && item.total > 0;
+    final String stateLabel = hasAlarm
+        ? '${item.alarm} Alert'
+        : (allOffline ? 'Offline' : 'Secure');
+    final accent = item.iconBgColor;
+
+    final List<_BoxState> barStates = item.boxStates.isNotEmpty
+        ? item.boxStates
+        : List.generate(item.total.clamp(0, 8), (i) {
+            if (i < item.alarm) return _BoxState.alarm;
+            if (i < item.alarm + item.offline) return _BoxState.offline;
+            return _BoxState.normal;
+          });
+
+    return Material(
+      color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF1A1F29),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(11, 11, 11, 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasAlarm
+                  ? const Color(0xFFEF4444).withValues(alpha: 0.35)
+                  : (isLight
+                      ? const Color(0xFFE5E7EB)
+                      : Colors.white.withValues(alpha: 0.06)),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accent.withValues(alpha: isLight ? 0.14 : 0.18),
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        item.iconAsset,
+                        width: 15,
+                        height: 15,
+                        colorFilter: ColorFilter.mode(
+                          isLight
+                              ? accent
+                              : (Color.lerp(accent, Colors.white, 0.35) ??
+                                  Colors.white),
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: isLight
+                                ? const Color(0xFF0F172A)
+                                : Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          stateLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: hasAlarm
+                                ? const Color(0xFFEF4444)
+                                : (isLight
+                                    ? const Color(0xFF64748B)
+                                    : Colors.white.withValues(alpha: 0.6)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(barStates.length, (i) {
+                      final st = barStates[i];
+                      final Color barColor = switch (st) {
+                        _BoxState.normal => const Color(0xFFF59E0B),
+                        _BoxState.alarm => const Color(0xFFEF4444),
+                        _BoxState.offline => isLight
+                            ? const Color(0xFFCBD5E1)
+                            : Colors.white.withValues(alpha: 0.16),
+                      };
+                      return Container(
+                        width: 3.5,
+                        height: 18,
+                        margin: EdgeInsets.only(left: i == 0 ? 0 : 2.5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: barColor,
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+              if (summary != null) ...[
+                const SizedBox(height: 9),
+                Text(
+                  summary!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: isLight
+                        ? const Color(0xFF64748B)
+                        : Colors.white.withValues(alpha: 0.65),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

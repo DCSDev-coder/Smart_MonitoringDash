@@ -16,7 +16,7 @@ import '../../core/navigation/app_navigator.dart';
 
 // New Modular Widgets
 import 'widgets/pue_hero_card.dart';
-import 'widgets/environment_gauges.dart';
+import 'widgets/mobile_environment_cards.dart';
 import 'widgets/service_notice_card.dart';
 import 'widgets/door_control_section.dart';
 import 'widgets/device_health_section.dart';
@@ -830,20 +830,16 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                       _powerMonth['IT_DEVICE'],
                                   loading: _loading || _refreshing,
                                 ),
-                                const SizedBox(height: 20),
-                                EnvironmentRow(
+                                const SizedBox(height: 16),
+                                MobileEnvironmentCards(
                                   temperatures: _temperatures,
                                   humidities: _humidities,
                                   alarms: _poller.recentAlarms,
-                                  initialStyle: EnvironmentGaugeStyle.arc,
                                   loading: _loading || _refreshing,
-                                ),
-                                const SizedBox(height: 16),
-                                DoorControlSection(
                                   doors: _doors ?? const [],
-                                  loading: _doors == null && _loading,
-                                  canUnlock: _canControlDoors,
-                                  onUnlock: _handleDoorUnlock,
+                                  doorsLoading: _doors == null && _loading,
+                                  canUnlockDoors: _canControlDoors,
+                                  onUnlockDoor: _handleDoorUnlock,
                                 ),
                                 const SizedBox(height: 16),
                                 ServiceNoticeCard(
@@ -864,6 +860,7 @@ class _DashboardV2ScreenState extends State<DashboardV2Screen>
                                   devices: _devices,
                                   temperatures: _temperatures,
                                   humidities: _humidities,
+                                  modernMobile: true,
                                 ),
                               ],
                             ),

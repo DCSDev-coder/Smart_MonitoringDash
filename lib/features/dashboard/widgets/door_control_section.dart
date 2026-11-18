@@ -80,62 +80,116 @@ class DoorControlSection extends StatelessWidget {
             },
           ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: LayoutBuilder(
-        builder: (context, outer) {
-          final heightBounded = outer.maxHeight.isFinite;
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.65);
 
-          Widget doorBody({required bool scrollable}) {
-            final tiles = effectiveDoors
-                .map((d) => _DoorTile(
-                      door: d,
-                      canUnlock: canUnlock,
-                      onUnlock: onUnlock,
-                    ))
-                .toList();
+    final int securedCount = effectiveDoors
+        .where((d) => d['isOpen'] != true)
+        .length;
 
-            if (tiles.length > 2) {
-              return SizedBox(
-                height: 230,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: tiles.length,
-                  clipBehavior: Clip.none,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) => SizedBox(
-                    width:
-                        (outer.maxWidth - 12) / 2, // 2 visible items at a time
-                    child: tiles[i],
-                  ),
-                ),
-              );
-            }
+    final List<List<Map<String, dynamic>>> rows = [];
+    for (int i = 0; i < effectiveDoors.length; i += 2) {
+      rows.add(
+          effectiveDoors.sublist(i, (i + 2).clamp(0, effectiveDoors.length)));
+    }
 
-            return GridView.builder(
-              shrinkWrap: !scrollable,
-              physics: scrollable ? null : const NeverScrollableScrollPhysics(),
-              itemCount: tiles.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                mainAxisExtent: 200, // Clean proportion matching original mobile cards
-              ),
-              itemBuilder: (_, i) => tiles[i],
-            );
-          }
-
-          return Column(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: isLight ? Colors.white : const Color(0xFF141820),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (heightBounded)
-                Expanded(child: doorBody(scrollable: true))
-              else
-                doorBody(scrollable: false),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Access Control',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Electronic cabinet locks',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$securedCount/${effectiveDoors.length} Secured',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: securedCount == effectiveDoors.length
+                      ? (isLight
+                          ? const Color(0xFF00A878)
+                          : const Color(0xFF10B981))
+                      : const Color(0xFFF59E0B),
+                ),
+              ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 16),
+          ...rows.asMap().entries.map((rowEntry) {
+            final rowIdx = rowEntry.key;
+            final pair = rowEntry.value;
+            return Padding(
+              padding:
+                  EdgeInsets.only(bottom: rowIdx < rows.length - 1 ? 12 : 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _DoorRow(
+                      door: pair[0],
+                      canUnlock: canUnlock,
+                      onUnlock: onUnlock,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: pair.length > 1
+                        ? _DoorRow(
+                            door: pair[1],
+                            canUnlock: canUnlock,
+                            onUnlock: onUnlock,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -192,63 +246,134 @@ class _DoorRowState extends State<_DoorRow> {
     final isUnlocked = _localUnlocked || (widget.door['isOpen'] == true);
     final enabled = widget.canUnlock && !isUnlocked && !_isUnlocking && id != 0;
 
-    // Light-mode: keep the section card blue but make each row a light surface.
-    // User request: keep all door rows the same background color.
-    final rowTint = isLight ? const Color(0xFFF5F7FF) : null;
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.6);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: rowTint ??
-              (isLight
-                  ? const Color(0xFFF5F7FF)
-                  : const Color(0xFF0B0F14).withValues(alpha: 0.35)),
-          borderRadius: BorderRadius.circular(18),
-          border: isLight
-              ? Border.all(color: AppTheme.lightStroke)
-              : Border.all(color: Colors.white.withValues(alpha: 0.08)),
+    final Color iconBg = isUnlocked
+        ? const Color(0xFF10B981).withValues(alpha: isLight ? 0.14 : 0.20)
+        : (isLight
+            ? const Color(0xFFEEF2F6)
+            : Colors.white.withValues(alpha: 0.08));
+    final Color iconFg = isUnlocked
+        ? (isLight ? const Color(0xFF059669) : const Color(0xFF34D399))
+        : (isLight ? const Color(0xFF334155) : Colors.white.withValues(alpha: 0.8));
+
+    final String buttonLabel = _isUnlocking
+        ? 'Unlocking...'
+        : isUnlocked
+            ? 'Unlocked'
+            : (widget.canUnlock ? 'Unlock' : 'No Access');
+
+    final Color buttonBg = isUnlocked
+        ? const Color(0xFF10B981).withValues(alpha: isLight ? 0.14 : 0.20)
+        : enabled
+            ? (isLight ? const Color(0xFF0F172A) : const Color(0xFF2563EB))
+            : (isLight
+                ? const Color(0xFFE2E8F0)
+                : Colors.white.withValues(alpha: 0.08));
+    final Color buttonFg = isUnlocked
+        ? (isLight ? const Color(0xFF059669) : const Color(0xFF34D399))
+        : enabled
+            ? Colors.white
+            : (isLight
+                ? const Color(0xFF94A3B8)
+                : Colors.white.withValues(alpha: 0.4));
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF1A1F29),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isUnlocked
+              ? const Color(0xFF10B981).withValues(alpha: 0.35)
+              : (isLight
+                  ? const Color(0xFFE5E7EB)
+                  : Colors.white.withValues(alpha: 0.06)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  _DoorLockIcon(isUnlocked: isUnlocked),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       rawName,
-                      style: TextStyle(
-                        color:
-                            isLight ? AppTheme.lightTextPrimary : Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: isLight ? 14 : 13,
-                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isUnlocked ? 'Unlocked' : 'Secured',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isUnlocked
+                            ? (isLight
+                                ? const Color(0xFF059669)
+                                : const Color(0xFF34D399))
+                            : textSecondary,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: iconBg,
+                ),
+                child: Icon(
+                  isUnlocked
+                      ? Icons.lock_open_rounded
+                      : Icons.lock_outline_rounded,
+                  size: 18,
+                  color: iconFg,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: Material(
+              color: buttonBg,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: enabled ? () => _doUnlock(id, rawName) : null,
+                borderRadius: BorderRadius.circular(14),
+                child: Center(
+                  child: Text(
+                    buttonLabel,
+                    style: TextStyle(
+                      color: buttonFg,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 128,
-              height: isLight ? 40 : 38,
-              child: _AnimatedUnlockButton(
-                enabled: enabled,
-                label: _isUnlocking
-                    ? 'LOCKED...'
-                    : isUnlocked
-                        ? 'UNLOCKED'
-                        : (widget.canUnlock ? 'UNLOCK' : 'NO ACCESS'),
-                onPressed: enabled ? () => _doUnlock(id, rawName) : null,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

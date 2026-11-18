@@ -638,18 +638,28 @@ class _MiniGaugeCard extends StatelessWidget {
                                       ),
                               ),
                             ),
-                            FractionallySizedBox(
-                              widthFactor: 0.6,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  valueText,
-                                  style: bitcount(
-                                    context,
-                                    fontSize: 36,
-                                    color: isLight
-                                        ? AppTheme.lightTextPrimary
-                                        : Colors.white,
+                            Align(
+                              alignment: style == EnvironmentGaugeStyle.meter
+                                  ? const Alignment(0, 0.78)
+                                  : Alignment.center,
+                              child: FractionallySizedBox(
+                                widthFactor: style == EnvironmentGaugeStyle.meter
+                                    ? 0.48
+                                    : 0.6,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    valueText,
+                                    style: bitcount(
+                                      context,
+                                      fontSize:
+                                          style == EnvironmentGaugeStyle.meter
+                                              ? 28
+                                              : 36,
+                                      color: isLight
+                                          ? AppTheme.lightTextPrimary
+                                          : Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1059,15 +1069,13 @@ class _DialMeterGaugePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty || !size.width.isFinite || !size.height.isFinite) return;
     final p = progress.clamp(0.0, 1.0);
-    final gi = glowIntensity.clamp(0.0, 1.0);
 
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide * 0.44;
+    final center = Offset(size.width / 2, size.height * 0.54);
+    final radius = size.shortestSide * 0.39;
     if (!radius.isFinite || radius <= 0) return;
-    final rect = Rect.fromCircle(center: center, radius: radius);
 
-    const startDeg = 120.0;
-    const sweepDeg = 300.0;
+    const startDeg = 140.0;
+    const sweepDeg = 260.0;
     final start = _degToRad(startDeg);
     final sweep = _degToRad(sweepDeg);
     final prog = sweep * p;
@@ -1117,79 +1125,63 @@ class _DialMeterGaugePainter extends CustomPainter {
       canvas.drawLine(p1, p2, paint);
     }
 
-    if (prog > 0 && gi > 0) {
-      final ambientAlpha = brightness == Brightness.light ? 0.08 * gi : 0.16 * gi;
-      final haloAlpha = brightness == Brightness.light ? 0.20 * gi : 0.34 * gi;
-
-      final ambientGlow = Paint()
+    // Subtle outer dial ring for speedometer framing.
+    final bezelRect = Rect.fromCircle(center: center, radius: radius + 4);
+    canvas.drawArc(
+      bezelRect,
+      start,
+      sweep,
+      false,
+      Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 20
+        ..strokeWidth = 2.0
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: ambientAlpha)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 26 * gi);
-      canvas.drawArc(rect, start, prog, false, ambientGlow);
+        ..color = brightness == Brightness.light
+            ? const Color(0xFFE2E8F0)
+            : Colors.white.withValues(alpha: 0.12),
+    );
 
-      final haloGlow = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 16
-        ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(alpha: haloAlpha)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 16 * gi);
-      canvas.drawArc(rect, start, prog, false, haloGlow);
+    // Tapered car-meter needle with counterweight tail and center hub.
+    final needleAngle = start + prog;
+    final cosA = cos(needleAngle);
+    final sinA = sin(needleAngle);
+    final perpX = -sinA;
+    final perpY = cosA;
 
-      final coreGlow = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 12
-        ..strokeCap = StrokeCap.round
-        ..color = (brightness == Brightness.light
-            ? Colors.white.withValues(alpha: 0.45 * gi)
-            : Colors.white.withValues(alpha: 0.22 * gi))
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 * gi);
-      canvas.drawArc(rect, start, prog, false, coreGlow);
-    }
+    final tipLen = radius - 2;
+    const tailLen = 10.0;
+    const baseHalfW = 3.2;
+    const tipHalfW = 0.8;
 
-    if (prog > 0) {
-      final progPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
-        ..strokeCap = StrokeCap.round;
+    final needlePath = Path()
+      ..moveTo(
+        center.dx - tailLen * cosA + baseHalfW * perpX,
+        center.dy - tailLen * sinA + baseHalfW * perpY,
+      )
+      ..lineTo(
+        center.dx + tipLen * cosA + tipHalfW * perpX,
+        center.dy + tipLen * sinA + tipHalfW * perpY,
+      )
+      ..lineTo(
+        center.dx + tipLen * cosA - tipHalfW * perpX,
+        center.dy + tipLen * sinA - tipHalfW * perpY,
+      )
+      ..lineTo(
+        center.dx - tailLen * cosA - baseHalfW * perpX,
+        center.dy - tailLen * sinA - baseHalfW * perpY,
+      )
+      ..close();
 
-      final highlightColor = Color.lerp(glowColor, Colors.white, 0.7) ?? Colors.white;
-
-      progPaint.shader = SweepGradient(
-        colors: [
-          glowColor.withValues(alpha: 0.80),
-          glowColor,
-          highlightColor,
-          glowColor,
-          glowColor.withValues(alpha: 0.80),
-        ],
-        stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
-        transform: GradientRotation(rotation * 2 * pi),
-      ).createShader(rect);
-      canvas.drawArc(rect, start, prog, false, progPaint);
-
-      final endAngle = start + prog;
-      final end = Offset(
-        center.dx + radius * cos(endAngle),
-        center.dy + radius * sin(endAngle),
-      );
-      if (gi > 0) {
-        final sparkGlow = Paint()
-          ..color = Colors.white.withValues(alpha: 0.7 * gi)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * gi);
-        canvas.drawCircle(end, 7, sparkGlow);
-      }
-      canvas.drawCircle(
-        end,
-        4,
-        Paint()
-          ..color = Colors.white,
-      );
-    }
-
-    // Keep the center fully transparent so the value text doesn't look
-    // "backlit" in either theme. (We still keep the arc/meter indicator glow.)
+    canvas.drawPath(needlePath, Paint()..color = glowColor);
+    canvas.drawCircle(center, 7.5, Paint()..color = glowColor);
+    canvas.drawCircle(
+      center,
+      3.4,
+      Paint()
+        ..color = brightness == Brightness.light
+            ? Colors.white
+            : const Color(0xFF141820),
+    );
   }
 
   @override

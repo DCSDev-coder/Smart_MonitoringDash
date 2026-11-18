@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
-import 'dashboard_typography.dart';
 import '../../../core/theme/app_theme.dart';
 
 class ServiceNoticeCard extends StatelessWidget {
@@ -24,7 +23,6 @@ class ServiceNoticeCard extends StatelessWidget {
     final ls = lastService;
     final daysSince = ls == null ? null : now.difference(ls).inDays;
     final daysLeft = daysSince == null ? null : (cycleDays - daysSince);
-    final clampedLeft = daysLeft?.clamp(0, cycleDays);
 
     final expected = lastService?.add(Duration(days: cycleDays));
     final fmt = DateFormat('d MMMM yyyy');
@@ -163,163 +161,303 @@ class ServiceNoticeCard extends StatelessWidget {
       );
     }
 
-    final ringProgress = ((clampedLeft ?? 0) / cycleDays).clamp(0.0, 1.0);
-    final ringText = clampedLeft?.toString() ?? '--';
-    const ringA = Color(0xFFFF8A1F); // orange
-    const ringB = Color(0xFF2D7DFF); // blue
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final textPrimary =
+        isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary = isLight
+        ? const Color(0xFF64748B)
+        : Colors.white.withValues(alpha: 0.65);
+    final dividerColor = isLight
+        ? const Color(0xFFE2E8F0)
+        : Colors.white.withValues(alpha: 0.08);
+    final double ringProgress = daysLeft == null || cycleDays <= 0
+        ? 0.0
+        : (daysLeft / cycleDays).clamp(0.0, 1.0);
 
     return GestureDetector(
       onTap: onTap,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: LayoutBuilder(
-            builder: (context, outerConstraints) {
-              final isBounded = outerConstraints.maxHeight != double.infinity;
-              
-              Widget gaugeWidget = LayoutBuilder(
-                builder: (context, constraints) {
-                  // If bounded, it will dynamically fill space. If unbounded, we cap it nicely.
-                  final maxAvailableH = constraints.maxHeight == double.infinity ? 180.0 : constraints.maxHeight;
-                  final size = min(constraints.maxWidth, maxAvailableH);
-                  
-                  return SizedBox(
-                    width: size,
-                    height: size,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned.fill(
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(begin: 0, end: ringProgress),
-                            duration: const Duration(milliseconds: 1600),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, v, _) => _RingGauge(
-                              progress: v,
-                              glowA: ringA,
-                              glowB: ringB,
-                              strokeWidth: max(12.0, size * 0.08),
-                            ),
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              ringText,
-                              style: bitcount(
-                                context,
-                                fontSize: max(24.0, size * 0.25),
-                                color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
-                              ),
-                            ),
-                            Text(
-                              'DAYS',
-                              style: bitcount(
-                                context,
-                                fontSize: max(10.0, size * 0.08),
-                                color: (Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white).withValues(alpha: 0.65),
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-
-              return Column(
-                mainAxisSize: isBounded ? MainAxisSize.max : MainAxisSize.min,
-                mainAxisAlignment: isBounded ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
-                children: [
-                  Text(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: isLight ? Colors.white : const Color(0xFF141820),
+          border: Border.all(
+            color: isLight
+                ? const Color(0xFFE2E8F0)
+                : Colors.white.withValues(alpha: 0.08),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
                     'Next Scheduled Maintenance',
                     style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
-                      fontSize: 18,
+                      color: textPrimary,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  if (isBounded) ...[
-                    const SizedBox(height: 16),
-                    Expanded(child: gaugeWidget),
-                    const SizedBox(height: 16),
-                  ] else ...[
-                    const SizedBox(height: 24),
-                    gaugeWidget,
-                    const SizedBox(height: 24),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Update',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: textSecondary,
+                    ),
                   ],
-                  Divider(
-                    color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightStroke.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
-                  ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'LAST SERVICE',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 76,
+                  height: 76,
+                  child: CustomPaint(
+                    painter: _MaintenanceRingPainter(
+                      progress: ringProgress,
+                      isLight: isLight,
+                      isOverdue: isOverdue,
+                      isNear: isNear,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            daysLeft == null
+                                ? '--'
+                                : (isOverdue ? '0' : '$daysLeft'),
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              height: 1.0,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'DAYS',
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        daysLeft == null
+                            ? '--'
+                            : (isOverdue
+                                ? 'Service Overdue'
+                                : '$daysLeft days left'),
+                        style: TextStyle(
+                          color: (isOverdue || isNear)
+                              ? const Color(0xFFEF4444)
+                              : textPrimary,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '$cycleDays-day service window',
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Divider(height: 1, thickness: 1, color: dividerColor),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Last service',
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
                           lastService == null ? '--' : fmt.format(lastService!),
-                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'EXPECTED SERVICE',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextSecondary : Colors.white70,
-                            fontSize: 12,
+                            color: textPrimary,
+                            fontSize: 14.5,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          expected == null ? '--' : fmt.format(expected),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.light ? AppTheme.lightTextPrimary : Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          );
-        },
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Expected service',
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          expected == null ? '--' : fmt.format(expected),
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  ),
-);
+    );
+  }
+}
+
+class _MaintenanceRingPainter extends CustomPainter {
+  final double progress;
+  final bool isLight;
+  final bool isOverdue;
+  final bool isNear;
+
+  _MaintenanceRingPainter({
+    required this.progress,
+    required this.isLight,
+    required this.isOverdue,
+    required this.isNear,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = min(size.width, size.height) / 2 - 5;
+    if (radius <= 0) return;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    const double strokeW = 7.0;
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeW
+      ..color = isLight
+          ? const Color(0xFFE2E8F0)
+          : Colors.white.withValues(alpha: 0.10);
+    canvas.drawArc(rect, 0, 2 * pi, false, trackPaint);
+
+    if (progress > 0) {
+      final sweep = 2 * pi * progress.clamp(0.0, 1.0);
+      final Color startColor = isOverdue
+          ? const Color(0xFFEF4444)
+          : (isNear ? const Color(0xFFF59E0B) : const Color(0xFF0EA5E9));
+      final Color endColor = isOverdue
+          ? const Color(0xFFF87171)
+          : (isNear ? const Color(0xFFFBBF24) : const Color(0xFF10B981));
+
+      final glowPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW + 3
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5)
+        ..color = startColor.withValues(alpha: isLight ? 0.22 : 0.36);
+      canvas.drawArc(rect, -pi / 2, sweep, false, glowPaint);
+
+      final arcPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW
+        ..strokeCap = StrokeCap.round
+        ..shader = SweepGradient(
+          colors: [startColor, endColor, startColor],
+          stops: const [0.0, 0.75, 1.0],
+          transform: const GradientRotation(-pi / 2),
+        ).createShader(rect);
+      canvas.drawArc(rect, -pi / 2, sweep, false, arcPaint);
+
+      final capAngle = -pi / 2 + sweep;
+      final cap = Offset(
+        center.dx + radius * cos(capAngle),
+        center.dy + radius * sin(capAngle),
+      );
+      canvas.drawCircle(cap, 2.8, Paint()..color = Colors.white);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MaintenanceRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.isLight != isLight ||
+        oldDelegate.isOverdue != isOverdue ||
+        oldDelegate.isNear != isNear;
   }
 }
 

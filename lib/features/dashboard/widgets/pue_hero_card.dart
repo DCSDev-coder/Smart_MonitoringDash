@@ -31,17 +31,9 @@ class PueHeroCard extends StatelessWidget {
         .toColor();
   }
 
-  Color _lightModeCardTint(Color base) {
-    return base;
-  }
-
   double _pueProgress(double pue) {
-    if (pue <= 0) {
-      return 0.0;
-    }
-    if (pue <= 1.0) {
-      return 0.98;
-    }
+    if (pue <= 0) return 0.0;
+    if (pue <= 1.0) return 0.98;
     if (pue <= 1.5) {
       final t = (pue - 1.0) / 0.5;
       return (0.98 + ((0.58 - 0.98) * t)).clamp(0.58, 0.98);
@@ -68,12 +60,12 @@ class PueHeroCard extends StatelessWidget {
       return (label: 'DOWN', color: const Color(0xFF8A94A6));
     }
     if (pue <= 1.2) {
-      return (label: 'IDEAL', color: _idealGreen);
+      return (label: 'Optimal Range', color: _idealGreen);
     }
     if (pue < 2.0) {
-      return (label: 'AVERAGE', color: const Color(0xFFFF8A00));
+      return (label: 'Average Range', color: const Color(0xFFFF8A00));
     }
-    return (label: 'POOR', color: const Color(0xFFFF3B30));
+    return (label: 'High Usage', color: const Color(0xFFFF4D4F));
   }
 
   void _showPueInfo(BuildContext context) {
@@ -288,265 +280,342 @@ class PueHeroCard extends StatelessWidget {
     final itText =
         itEnergyKwh == null ? '--' : itEnergyKwh!.toStringAsFixed(2);
 
+    if (loading && pue <= 0) {
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          color: isLight ? Colors.white : const Color(0xFF101829),
+          border: Border.all(
+            color: isLight
+                ? const Color(0xFFD5E2F2)
+                : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Skeleton(height: 28, width: 180, borderRadius: BorderRadius.all(Radius.circular(8))),
+            SizedBox(height: 22),
+            Skeleton(height: 110, borderRadius: BorderRadius.all(Radius.circular(18))),
+            SizedBox(height: 18),
+            Skeleton(height: 76, borderRadius: BorderRadius.all(Radius.circular(18))),
+          ],
+        ),
+      );
+    }
+
+    final textPrimary = isLight ? const Color(0xFF0F172A) : Colors.white;
+    final textSecondary =
+        isLight ? const Color(0xFF64748B) : Colors.white.withValues(alpha: 0.68);
     final gaugeColor =
         isLight ? _lightModeGaugeColor(status.color) : status.color;
-    final cardTint = isLight ? _lightModeCardTint(status.color) : null;
 
-    return Card(
-      color: cardTint,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-        child: Stack(
+    final double? overheadKwh = (totalEnergyKwh != null && itEnergyKwh != null)
+        ? (totalEnergyKwh! - itEnergyKwh!).clamp(0.0, double.infinity)
+        : null;
+    final String overheadText =
+        overheadKwh == null ? '--' : overheadKwh.toStringAsFixed(2);
+    final double itRatio =
+        (totalEnergyKwh != null && totalEnergyKwh! > 0 && itEnergyKwh != null)
+            ? (itEnergyKwh! / totalEnergyKwh!).clamp(0.0, 1.0)
+            : 0.0;
+    final int itPct = (itRatio * 100).round();
+    final Color itBlue =
+        isLight ? const Color(0xFF0095E8) : const Color(0xFF38BDF8);
+    final Color dividerColor = isLight
+        ? const Color(0xFFE2E8F0)
+        : Colors.white.withValues(alpha: 0.08);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: isLight ? Colors.white : const Color(0xFF141820),
+        border: Border.all(
+          color: isLight
+              ? const Color(0xFFE2E8F0)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.24),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, c) {
-              const energyBarHeight = 96.0;
-              const gap = 8.0;
-              final maxH = c.maxHeight.isFinite ? c.maxHeight : 360.0;
-              final gaugeH = (maxH - energyBarHeight - gap).clamp(200.0, 340.0);
-              final gaugeScale = (gaugeH / 300.0).clamp(0.85, 1.15);
-
-              final valueSize = 68.0 * gaugeScale;
-              final labelSize = 20.0 * gaugeScale;
-
-              if (loading && pue <= 0) {
-                final gaugeW = c.maxWidth.isFinite ? c.maxWidth : 360.0;
-                final blobSize = min(gaugeW, gaugeH) * 0.86;
-                return Column(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      height: gaugeH,
-                      child: Center(
-                        child: Skeleton(
-                          width: blobSize,
-                          height: blobSize * 0.62,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
+                    Text(
+                      'Power Efficiency',
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: gap),
-                    SizedBox(
-                      height: energyBarHeight,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isLight
-                              ? const Color(0xFF0B56D6)
-                              : const Color(0xFF2A2A2A).withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
-                        child: const Row(
-                          children: [
-                            Expanded(
-                              child: Skeleton(
-                                height: 12,
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(8)),
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Skeleton(
-                              width: 72,
-                              height: 14,
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8)),
-                            ),
-                          ],
-                        ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Live facility PUE & metered consumption',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
-                );
-              }
-
-              return Column(
-                children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => showPueHistoryDialog(context, currentPue: pue),
-                    child: SizedBox(
-                      height: gaugeH,
-                      child: Stack(
+                ),
+              ),
+              InkWell(
+                onTap: () => showPueHistoryDialog(context),
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.history_rounded,
+                    color: textSecondary.withValues(alpha: 0.8),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () => _showPueInfo(context),
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    color: textSecondary.withValues(alpha: 0.8),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: () => showPueHistoryDialog(context),
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 190,
+                  width: double.infinity,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0, end: _pueProgress(pue)),
+                    duration: const Duration(milliseconds: 1000),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return Stack(
                         alignment: Alignment.center,
                         children: [
                           Positioned.fill(
-                            child: TweenAnimationBuilder<double>(
-                            tween:
-                                Tween<double>(begin: 0, end: _pueProgress(pue)),
-                            duration: const Duration(milliseconds: 1800),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, _) => _PueHeroGauge(
+                            child: _PueHeroGauge(
                               progress: value,
                               glowColor: gaugeColor,
                               isLight: isLight,
                             ),
                           ),
-                        ),
-                        Transform.translate(
-                          offset: Offset(0, 25 * gaugeScale),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                pueText,
-                                style: hasPue
-                                    ? bitcount(
-                                        context,
-                                        fontSize: valueSize,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                      )
-                                    : TextStyle(
-                                        fontSize: valueSize,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                        height: 1.0,
-                                      ),
-                              ),
-                              SizedBox(height: 8 * gaugeScale),
-                              Text(
-                                'PUE',
-                                style: bitcount(
-                                  context,
-                                  fontSize: labelSize,
-                                  color: isLight
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : status.color,
-                                  letterSpacing: 6,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              if (!hasPue)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 18),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 Text(
-                                  'DOWN',
+                                  pueText,
                                   style: TextStyle(
-                                    color: isLight
-                                        ? Colors.white.withValues(alpha: 0.8)
-                                        : Colors.white.withValues(alpha: 0.75),
-                                    fontSize: 12,
+                                    color: textPrimary,
+                                    fontSize: 44,
                                     fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.2,
+                                    height: 1.0,
+                                    letterSpacing: -1.4,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
                                   ),
                                 ),
-                            ],
+                                const SizedBox(height: 6),
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'PUE · ',
+                                        style: TextStyle(
+                                          color: textSecondary,
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: status.label,
+                                        style: TextStyle(
+                                          color: isLight
+                                              ? status.color
+                                              : (Color.lerp(status.color,
+                                                      Colors.white, 0.2) ??
+                                                  status.color),
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: gap),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isLight
-                          ? gaugeColor
-                          : const Color(0xFF0B0F14).withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(18),
-                      border: isLight
-                          ? Border.all(color: Colors.black.withValues(alpha: 0.05))
-                          : Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Monthly Energy Consumption',
-                                    style: TextStyle(
-                                      color: isLight
-                                          ? Colors.white.withValues(alpha: 0.95)
-                                          : Colors.white.withValues(alpha: 0.65),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text(
-                                  '$totalText kWh',
-                                  style: TextStyle(
-                                    color: isLight ? Colors.white : Colors.white.withValues(alpha: 0.8),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Divider(
-                              height: 24,
-                              thickness: 1,
-                              color: isLight
-                                  ? Colors.white.withValues(alpha: 0.20)
-                                  : Colors.white.withValues(alpha: 0.08),
-                            ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'IT Energy Consumption',
-                                    style: TextStyle(
-                                      color: isLight
-                                          ? Colors.white.withValues(alpha: 0.95)
-                                          : Colors.white.withValues(alpha: 0.65),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text(
-                                  '$itText kWh',
-                                  style: TextStyle(
-                                    color: isLight ? Colors.white : Colors.white.withValues(alpha: 0.8),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                    ),
-                ],
-              );
-            },
-          ),
-          Positioned(
-            top: 4,
-            right: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'PUE History',
-                  icon: Icon(
-                    Icons.history_rounded,
-                    color: Colors.white.withValues(alpha: 0.75),
-                    size: 20,
-                  ),
-                  onPressed: () => showPueHistoryDialog(context, currentPue: pue),
-                ),
-                IconButton(
-                  tooltip: 'PUE Info',
-                  icon: Icon(
-                    Icons.info_outline_rounded,
-                    color: Colors.white.withValues(alpha: 0.5),
-                    size: 19,
-                  ),
-                  onPressed: () => _showPueInfo(context),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          Divider(height: 1, thickness: 1, color: dividerColor),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Monthly Energy',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: totalText,
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                          TextSpan(
+                            text: '  kWh',
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'IT Load · $itPct%',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: itText,
+                            style: TextStyle(
+                              color: itBlue,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                          TextSpan(
+                            text: '  kWh',
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Cooling & facility overhead',
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: overheadText,
+                      style: TextStyle(
+                        color: textSecondary.withValues(
+                            alpha: isLight ? 0.95 : 0.85),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' kWh',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
       ),
     );
   }
@@ -622,122 +691,46 @@ class _PueHeroGaugePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty || !size.width.isFinite || !size.height.isFinite) return;
-    final center = Offset(size.width / 2, size.height * 0.60);
-    final radius = min(size.width, size.height) * 0.95;
+    final center = Offset(size.width * 0.50, size.height * 0.56);
+    final radius = min(size.width * 0.42, size.height * 0.45);
     if (!radius.isFinite || radius <= 0) return;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    final start = _degToRad(158);
-    final sweep = _degToRad(225);
+    const double strokeW = 14;
+    const double start = 148 * pi / 180.0;
+    const double sweep = 244 * pi / 180.0;
+    final double prog = sweep * progress.clamp(0.0, 1.0);
 
     final trackPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 38
+      ..strokeWidth = strokeW
       ..strokeCap = StrokeCap.round
-      ..color = isLight
-          ? const Color(0xFF2A3240).withValues(alpha: 0.28)
-          : const Color(0xFF4A4A4A).withValues(alpha: 0.38);
+      ..color = isLight ? const Color(0xFFE2E8F0) : const Color(0xFF232834);
     canvas.drawArc(rect, start, sweep, false, trackPaint);
 
-    final prog = sweep * progress.clamp(0.0, 1.0);
-
-    if (prog <= 0) {
-      final shadow = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 56
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFF000000).withValues(alpha: 0.28)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 26);
-      canvas.drawArc(rect, start, sweep, false, shadow);
-
-      final ghostRing = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 38
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFFBDBDBD).withValues(alpha: 0.22);
-      canvas.drawArc(rect, start, sweep, false, ghostRing);
-    }
-
     if (prog > 0) {
-      final highlightColor = Color.lerp(
-            glowColor,
-            Colors.white,
-            isLight
-                ? (progress <= 0.34 ? 0.10 : 0.22)
-                : (progress <= 0.34 ? 0.18 : 0.45),
-          ) ??
-          Colors.white;
-      final edgeColor = isLight
-          ? (Color.lerp(glowColor, Colors.black, 0.18) ?? glowColor)
-          : glowColor;
-
-      final ambientGlow = Paint()
+      final glowPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 52
+        ..strokeWidth = strokeW + 6
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(
-          alpha: isLight
-              ? (progress <= 0.34 ? 0.12 : 0.10)
-              : (progress <= 0.34 ? 0.24 : 0.18),
-        )
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28);
-      canvas.drawArc(rect, start, prog, false, ambientGlow);
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
+        ..color = glowColor.withValues(alpha: isLight ? 0.25 : 0.42);
+      canvas.drawArc(rect, start, prog, false, glowPaint);
 
-      final haloGlow = Paint()
+      final arcPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 44
+        ..strokeWidth = strokeW
         ..strokeCap = StrokeCap.round
-        ..color = glowColor.withValues(
-          alpha: isLight
-              ? (progress <= 0.34 ? 0.26 : 0.22)
-              : (progress <= 0.34 ? 0.44 : 0.35),
-        )
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
-      canvas.drawArc(rect, start, prog, false, haloGlow);
+        ..color = glowColor;
+      canvas.drawArc(rect, start, prog, false, arcPaint);
 
-      final coreGlow = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 40
-        ..strokeCap = StrokeCap.round
-        ..color = Colors.white.withValues(alpha: isLight ? 0.12 : 0.25)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      canvas.drawArc(rect, start, prog, false, coreGlow);
-
-      final progPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 38
-        ..strokeCap = StrokeCap.round;
-
-      progPaint.shader = SweepGradient(
-        colors: [
-          edgeColor.withValues(alpha: 0.95),
-          glowColor,
-          highlightColor,
-          glowColor,
-          edgeColor.withValues(alpha: 0.95),
-        ],
-        stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
-        transform: GradientRotation(rotation * 2 * pi),
-      ).createShader(rect);
-
-      canvas.drawArc(rect, start, prog, false, progPaint);
+      final capAngle = start + prog;
+      final cap = Offset(
+        center.dx + radius * cos(capAngle),
+        center.dy + radius * sin(capAngle),
+      );
+      canvas.drawCircle(cap, 4.0, Paint()..color = Colors.white);
     }
-
-    final capAngle = start + (prog > 0 ? prog : 0.0);
-    final cap = Offset(
-      center.dx + radius * cos(capAngle),
-      center.dy + radius * sin(capAngle),
-    );
-    final capAlpha = prog > 0 ? 0.7 : 0.18;
-    final sparkGlow = Paint()
-      ..color = Colors.white.withValues(alpha: capAlpha)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-    canvas.drawCircle(cap, 10, sparkGlow);
-    canvas.drawCircle(
-      cap,
-      6,
-      Paint()..color = Colors.white.withValues(alpha: prog > 0 ? 1.0 : 0.35),
-    );
   }
 
   @override
@@ -747,6 +740,4 @@ class _PueHeroGaugePainter extends CustomPainter {
         oldDelegate.isLight != isLight ||
         oldDelegate.rotation != rotation;
   }
-
-  double _degToRad(double deg) => deg * pi / 180.0;
 }

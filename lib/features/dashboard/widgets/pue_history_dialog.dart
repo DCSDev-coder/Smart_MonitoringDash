@@ -87,18 +87,11 @@ Future<void> showPueHistoryDialog(
       },
     );
   } else {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.92,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: PueHistoryView(
-            currentPue: currentPue,
-            onClose: () => Navigator.of(ctx).pop(),
-          ),
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => PueHistoryView(
+          currentPue: currentPue,
+          onClose: () => Navigator.of(ctx).pop(),
         ),
       ),
     );
@@ -338,89 +331,81 @@ class _PueHistoryViewState extends State<PueHistoryView> {
         (_records.isNotEmpty ? _records.last.pue : (_avgPue > 0 ? _avgPue : 1.25));
 
     return Material(
-      color: Colors.transparent,
+      color: isWide
+          ? Colors.transparent
+          : (isDark ? const Color(0xFF0B0E14) : const Color(0xFFF7FAFD)),
       child: Container(
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 1.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
-              blurRadius: 24,
-              spreadRadius: 2,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
+        decoration: isWide
+            ? BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderColor, width: 1.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              )
+            : null,
         child: SafeArea(
-          top: false,
+          top: !isWide,
+          bottom: false,
           child: Column(
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                padding: EdgeInsets.fromLTRB(isWide ? 20 : 8, 12, 16, 10),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: primaryCyan.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: primaryCyan.withValues(alpha: 0.35),
+                    if (!isWide) ...[
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_back_rounded,
+                          color: ConsoleTheme.textPrimary(context),
+                        ),
+                        onPressed:
+                            widget.onClose ?? () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 4),
+                    ] else ...[
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: primaryCyan.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: primaryCyan.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.speed_rounded,
+                          color: primaryCyan,
+                          size: 22,
                         ),
                       ),
-                      child: Icon(
-                        Icons.speed_rounded,
-                        color: primaryCyan,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
+                      const SizedBox(width: 14),
+                    ],
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                'PUE History & Trends',
-                                style: TextStyle(
-                                  color: ConsoleTheme.textPrimary(context),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00C08B).withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: const Color(0xFF00C08B).withValues(alpha: 0.4),
-                                    width: 0.8,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'EFFICIENCY',
-                                  style: TextStyle(
-                                    color: Color(0xFF00C08B),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            'PUE History & Trends',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: ConsoleTheme.textPrimary(context),
+                              fontSize: isWide ? 18 : 20,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Historical power usage effectiveness and baseline comparisons',
+                            'Historical power usage effectiveness',
                             style: TextStyle(
                               color: ConsoleTheme.textSecondary(context),
                               fontSize: 12,
@@ -430,14 +415,16 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: ConsoleTheme.textSecondary(context),
+                    if (isWide)
+                      IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: ConsoleTheme.textSecondary(context),
+                        ),
+                        onPressed:
+                            widget.onClose ?? () => Navigator.of(context).pop(),
+                        tooltip: 'Close',
                       ),
-                      onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
-                      tooltip: 'Close',
-                    ),
                   ],
                 ),
               ),
@@ -546,9 +533,9 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                       ],
 
                       const SizedBox(height: 16),
-                      // Time Range Selector Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // Time Range Selector
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'TIMEFRAME',
@@ -559,47 +546,52 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                               letterSpacing: 1.2,
                             ),
                           ),
+                          const SizedBox(height: 8),
                           Container(
                             decoration: BoxDecoration(
                               color: isDark ? const Color(0xFF1B2230) : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.all(3),
+                            padding: const EdgeInsets.all(4),
                             child: Row(
                               children: PueHistoryRange.values.map((range) {
                                 final selected = _selectedRange == range;
-                                return GestureDetector(
-                                  onTap: () {
-                                    if (_selectedRange == range) return;
-                                    setState(() => _selectedRange = range);
-                                    _fetchHistory();
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 180),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: selected
-                                          ? (isDark ? const Color(0xFF2B3547) : Colors.white)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: selected
-                                          ? [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.12),
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 1),
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                    child: Text(
-                                      range.label,
-                                      style: TextStyle(
+                                return Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      if (_selectedRange == range) return;
+                                      setState(() => _selectedRange = range);
+                                      _fetchHistory();
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      padding: const EdgeInsets.symmetric(vertical: 7),
+                                      decoration: BoxDecoration(
                                         color: selected
-                                            ? primaryCyan
-                                            : (isDark ? Colors.white70 : const Color(0xFF64748B)),
-                                        fontSize: 12,
-                                        fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                                            ? (isDark ? const Color(0xFF2B3547) : Colors.white)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(9),
+                                        boxShadow: selected
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.10),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 1),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          range.label,
+                                          style: TextStyle(
+                                            color: selected
+                                                ? primaryCyan
+                                                : (isDark ? Colors.white70 : const Color(0xFF64748B)),
+                                            fontSize: 12,
+                                            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -610,24 +602,107 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                         ],
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // Chart Area
                       Container(
-                        height: 200,
-                        padding: const EdgeInsets.fromLTRB(10, 16, 16, 8),
+                        height: _inspectedRecord != null ? 248 : 216,
+                        padding: const EdgeInsets.fromLTRB(10, 12, 12, 8),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0C1017) : const Color(0xFFF8FAFC),
+                          color: isDark
+                              ? const Color(0xFF0C1017)
+                              : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : const Color(0xFFE2E8F0),
                           ),
                         ),
                         child: _isLoading
                             ? const Center(child: CircularProgressIndicator())
                             : _records.isEmpty
-                                ? const Center(child: Text('No historical data available'))
-                                : _buildLineChart(isDark, primaryCyan),
+                                ? const Center(
+                                    child: Text('No historical data available'))
+                                : Column(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: 4, right: 2, bottom: 8),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 14,
+                                              height: 2,
+                                              color: const Color(0xFF00C08B),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Ideal 1.0',
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark
+                                                    ? const Color(0xFF34D399)
+                                                    : const Color(0xFF059669),
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            if (_inspectedRecord != null)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: primaryCyan.withValues(
+                                                      alpha:
+                                                          isDark ? 0.16 : 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
+                                                  border: Border.all(
+                                                    color:
+                                                        primaryCyan.withValues(
+                                                            alpha: 0.4),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${DateFormat('MMM dd, HH:mm').format(_inspectedRecord!.timestamp)}  ·  PUE ${_inspectedRecord!.pue.toStringAsFixed(2)}',
+                                                      style: TextStyle(
+                                                        fontSize: 11.5,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: primaryCyan,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    GestureDetector(
+                                                      onTap: () => setState(
+                                                          () => _inspectedRecord =
+                                                              null),
+                                                      child: Icon(
+                                                        Icons.close_rounded,
+                                                        size: 14,
+                                                        color: primaryCyan,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _buildLineChart(
+                                            isDark, primaryCyan),
+                                      ),
+                                    ],
+                                  ),
                       ),
 
                       const SizedBox(height: 20),
@@ -713,7 +788,9 @@ class _PueHistoryViewState extends State<PueHistoryView> {
                                     ),
                                     const SizedBox(width: 10),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      width: 66,
+                                      alignment: Alignment.center,
+                                      padding: const EdgeInsets.symmetric(vertical: 2),
                                       decoration: BoxDecoration(
                                         color: item.statusColor.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(6),
@@ -1011,134 +1088,148 @@ class _PueHistoryViewState extends State<PueHistoryView> {
 
     final double minY = max(0.9, (_minPue - 0.15));
     final double maxY = max(1.8, (_maxPue + 0.15));
+    final double yInterval = ((maxY - minY) / 4).clamp(0.25, 5.0);
 
-    final step = (_records.length > 12) ? (_records.length / 6).ceil() : 1;
+    final yLabels = List.generate(
+      5,
+      (i) => (maxY - (i * (maxY - minY) / 4)).toStringAsFixed(1),
+    );
 
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: max(0, (_records.length - 1).toDouble()),
-        minY: minY,
-        maxY: maxY,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 0.2,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0),
-            strokeWidth: 1,
-            dashArray: value == 1.0 ? [4, 4] : null,
-          ),
-        ),
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 0.2,
-              reservedSize: 38,
-              getTitlesWidget: (val, meta) {
-                if (val > maxY || val < minY) return const SizedBox.shrink();
-                return Text(
-                  val.toStringAsFixed(1),
-                  style: TextStyle(
-                    color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
-                    fontSize: 10,
-                  ),
-                );
-              },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableW = (constraints.maxWidth - 38).clamp(200.0, 2000.0);
+        final double chartWidth = _records.length > 14
+            ? max(availableW, _records.length * 24.0)
+            : availableW;
+        final double xStep =
+            _records.length > 14 ? 2.0 : max(1.0, (_records.length / 6).ceilToDouble());
+
+        return Row(
+          children: [
+            // Pinned Y-Axis labels (cleanly spaced, never overlapping)
+            SizedBox(
+              width: 34,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24, top: 2),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: yLabels
+                      .map(
+                        (lbl) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Text(
+                            lbl,
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white54
+                                  : const Color(0xFF94A3B8),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
             ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: step.toDouble(),
-              reservedSize: 22,
-              getTitlesWidget: (val, meta) {
-                final idx = val.toInt();
-                if (idx < 0 || idx >= _records.length) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _records[idx].label,
-                    style: TextStyle(
-                      color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
-                      fontSize: 10,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        lineTouchData: LineTouchData(
-          enabled: true,
-          touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
-            if (event is FlTapUpEvent || event is FlPanUpdateEvent) {
-              final spot = touchResponse?.lineBarSpots?.firstOrNull;
-              if (spot != null) {
-                final idx = spot.x.toInt();
-                if (idx >= 0 && idx < _records.length) {
-                  setState(() {
-                    _inspectedRecord = _records[idx];
-                  });
-                }
-              }
-            }
-          },
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => isDark ? const Color(0xFF1E293B) : Colors.white,
-            tooltipBorder: BorderSide(
-              color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
-            ),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final idx = spot.x.toInt();
-                final record = (idx >= 0 && idx < _records.length) ? _records[idx] : null;
-                final dateStr = record != null
-                    ? DateFormat('MMM dd, HH:mm').format(record.timestamp)
-                    : '';
-                return LineTooltipItem(
-                  '$dateStr\n',
-                  TextStyle(
-                    color: isDark ? Colors.white70 : const Color(0xFF64748B),
-                    fontSize: 11,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: 'PUE: ${spot.y.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: primaryColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 10, right: 22),
+                  child: SizedBox(
+                    width: chartWidth,
+                    child: LineChart(
+                    LineChartData(
+                      minX: 0,
+                      maxX: max(0, (_records.length - 1).toDouble()),
+                      minY: minY,
+                      maxY: maxY,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: yInterval,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFE2E8F0),
+                          strokeWidth: 1,
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              }).toList();
-            },
-          ),
-        ),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: xStep,
+                            reservedSize: 24,
+                            getTitlesWidget: (val, meta) {
+                              final idx = val.round();
+                              if (idx < 0 || idx >= _records.length) {
+                                return const SizedBox.shrink();
+                              }
+                              if (idx % xStep.round() != 0) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  _records[idx].label,
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white54
+                                        : const Color(0xFF94A3B8),
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      lineTouchData: LineTouchData(
+                        enabled: true,
+                        handleBuiltInTouches: true,
+                        touchCallback: (FlTouchEvent event,
+                            LineTouchResponse? touchResponse) {
+                          if (event is FlTapUpEvent ||
+                              event is FlTapDownEvent ||
+                              event is FlPanUpdateEvent ||
+                              event is FlPanDownEvent) {
+                            final spot =
+                                touchResponse?.lineBarSpots?.firstOrNull;
+                            if (spot != null) {
+                              final idx = spot.x.toInt();
+                              if (idx >= 0 && idx < _records.length) {
+                                setState(() {
+                                  _inspectedRecord = _records[idx];
+                                });
+                              }
+                            }
+                          }
+                        },
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipColor: (_) => Colors.transparent,
+                          getTooltipItems: (touchedSpots) =>
+                              touchedSpots.map((_) => null).toList(),
+                        ),
+                      ),
         extraLinesData: ExtraLinesData(
           horizontalLines: [
             HorizontalLine(
               y: 1.0,
-              color: const Color(0xFF00C08B).withValues(alpha: 0.5),
+              color: const Color(0xFF00C08B).withValues(alpha: 0.55),
               strokeWidth: 1.2,
               dashArray: [4, 4],
-              label: HorizontalLineLabel(
-                show: true,
-                alignment: Alignment.topRight,
-                padding: const EdgeInsets.only(right: 6, bottom: 2),
-                style: const TextStyle(
-                  color: Color(0xFF00C08B),
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-                labelResolver: (_) => 'Ideal Baseline (1.0)',
-              ),
             ),
           ],
         ),
@@ -1173,8 +1264,16 @@ class _PueHistoryViewState extends State<PueHistoryView> {
               ),
             ),
           ),
-        ],
-      ),
+                      ],
+                    ),
+                  ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
