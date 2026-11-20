@@ -44,7 +44,7 @@ export const AnimatedDcsLogo: React.FC<AnimatedDcsLogoProps> = ({
     >
       {/* 1. Subtitle: DATA CENTER SPECIALISTS (Fades in smoothly) */}
       <img
-        src="/DATA_CENTER_SPECIALISTS.png"
+        src="./DATA_CENTER_SPECIALISTS.png"
         alt=""
         className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-all duration-700 ease-out"
         style={{
@@ -56,21 +56,21 @@ export const AnimatedDcsLogo: React.FC<AnimatedDcsLogoProps> = ({
 
       {/* 2. Static 'D' Letter */}
       <img
-        src="/D.png"
+        src="./D.png"
         alt="D"
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
       />
 
       {/* 3. Static 'S' Letter */}
       <img
-        src="/S.png"
+        src="./S.png"
         alt="S"
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
       />
 
       {/* 4. Registered Trademark '®' */}
       <img
-        src="/R-01 (1).png"
+        src="./R-01 (1).png"
         alt="®"
         className="absolute inset-0 w-full h-full object-contain pointer-events-none"
       />
@@ -87,12 +87,12 @@ export const AnimatedDcsLogo: React.FC<AnimatedDcsLogoProps> = ({
         }}
       >
         <img
-          src="/C.png"
+          src="./C.png"
           alt="C"
           className="absolute inset-0 w-full h-full object-contain"
         />
         <img
-          src="/GREEN_LINE.png"
+          src="./GREEN_LINE.png"
           alt=""
           className="absolute inset-0 w-full h-full object-contain"
         />
