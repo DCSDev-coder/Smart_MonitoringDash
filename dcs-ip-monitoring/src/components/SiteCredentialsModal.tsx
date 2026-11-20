@@ -268,7 +268,11 @@ export const SiteCredentialsModal: React.FC<SiteCredentialsModalProps> = ({
                   DAHUA SITE PASSWORD
                 </span>
                 <span className="text-xs font-semibold text-white font-mono tracking-wider block truncate">
-                  {showPassword ? (activeRack.sitePassword || '••••••••') : '••••••••••••'}
+                  {activeRack.sitePassword
+                    ? showPassword
+                      ? activeRack.sitePassword
+                      : '••••••••••••'
+                    : 'None'}
                 </span>
               </div>
             </div>
