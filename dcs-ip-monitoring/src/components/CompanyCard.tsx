@@ -120,12 +120,12 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
       }`}
     >
       {/* ─── Top Header: Company Name & Status on Left, PUE & 3-Dots on Far Right ─── */}
-      <div className="p-6 sm:p-8 pb-5">
-        <div className="flex items-center justify-between gap-4">
+      <div className="p-4 sm:p-8 pb-4 sm:pb-5">
+        <div className="flex items-start sm:items-center justify-between gap-3 sm:gap-4">
           {/* Left: Building Icon, Company Name, Status Badge (Active / Blocked) */}
-          <div className="flex items-center gap-4 flex-wrap min-w-0">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
             <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${
                 company.isBlocked
                   ? 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/30'
                   : 'bg-[#00C08B]/15 text-[#00C08B] border border-[#00C08B]/30'
@@ -134,9 +134,9 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
               <Building2 className="w-5 h-5" />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3.5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1.5 sm:gap-3.5 min-w-0 flex-1">
               {/* Company Name */}
-              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-wide truncate">
+              <h2 className="text-lg sm:text-2xl font-extrabold text-white tracking-wide break-words leading-snug">
                 {company.name}
               </h2>
 
@@ -144,7 +144,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
               <button
                 onClick={() => setShowConfirmBlock(true)}
                 title="Click to toggle Block / Active status"
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wider border cursor-pointer transition-all hover:scale-102 active:scale-95 ${
+                className={`self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wider border cursor-pointer transition-all hover:scale-102 active:scale-95 shrink-0 ${
                   company.isBlocked
                     ? 'bg-[#FF3B30]/20 text-[#FF6961] border-[#FF3B30]/40 hover:bg-[#FF3B30]/30'
                     : 'bg-[#00C08B]/20 text-[#00C08B] border-[#00C08B]/40 hover:bg-[#00C08B]/30'
@@ -161,7 +161,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
           </div>
 
           {/* Far Right: Telemetry pill, Circular PUE, and 3-Dotted Button ("See More") */}
-          <div className="flex items-center gap-3.5 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3.5 shrink-0">
             {/* Live Telemetry: Energy Readings if available */}
             {company.totalEnergyKwh && (
               <div className="hidden lg:flex flex-col items-end gap-1 text-[11px] font-semibold text-white/70 mr-1">
@@ -181,7 +181,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
             {/* ─── PUE IN A CIRCLE ON THE FAR RIGHT (Enlarged) ─── */}
             <div
-              className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full border-[2.5px] flex flex-col items-center justify-center shrink-0 shadow-lg transition-transform hover:scale-105 ${
+              className={`w-14 h-14 sm:w-18 sm:h-18 rounded-full border-[2.5px] flex flex-col items-center justify-center shrink-0 shadow-lg transition-transform hover:scale-105 ${
                 company.pue <= 1.3
                   ? 'border-[#00C08B] bg-[#00C08B]/15 text-[#00C08B] shadow-[#00C08B]/15'
                   : company.pue <= 1.5
@@ -204,7 +204,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-3 rounded-xl bg-[#0b1119] hover:bg-[#1a2330] border border-[#1e2836] text-white/70 hover:text-white transition-colors cursor-pointer shadow-sm"
+                className="p-2.5 sm:p-3 rounded-xl bg-[#0b1119] hover:bg-[#1a2330] border border-[#1e2836] text-white/70 hover:text-white transition-colors cursor-pointer shadow-sm"
                 title="3 Dots: See More Site Details"
               >
                 <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -282,10 +282,10 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
         </div>
 
         {/* ─── Last Service Date, Next Service Date, and Issue: Beside It ─── */}
-        <div className="mt-6 pt-5 border-t border-[#1e2836]/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="mt-5 sm:mt-6 pt-4 sm:pt-5 border-t border-[#1e2836]/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Service Schedule Dates: Unified Timeline with Last Service on Left, Days Left in Middle, Expected Service on Right */}
           <div
-            className={`flex-1 min-w-[320px] flex items-center justify-between gap-3 sm:gap-6 px-4 py-3 rounded-2xl bg-[#0b1119] border shadow-md transition-all ${
+            className={`w-full min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6 px-3.5 sm:px-4 py-3 rounded-2xl bg-[#0b1119] border shadow-md transition-all ${
               isExpectedRed
                 ? 'border-[#FF3B30]/50 shadow-[#FF3B30]/5 ring-1 ring-[#FF3B30]/20'
                 : 'border-[#00C08B]/40 shadow-[#00C08B]/5 ring-1 ring-[#00C08B]/15'
@@ -332,7 +332,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
             </div>
 
             {/* ─── 2. COUNTDOWN BADGE: Middle (Expanded with connecting track lines) ─── */}
-            <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-6 py-1">
+            <div className="w-full sm:w-auto sm:flex-1 flex flex-col items-center justify-center px-1 sm:px-6 py-0.5 sm:py-1">
               <div className="w-full flex items-center justify-center gap-2 sm:gap-3">
                 <div className="flex-1 max-w-[80px] sm:max-w-[140px] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-white/10" />
                 <div
@@ -444,10 +444,10 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
       </div>
 
       {/* ─── Under Each Company: Registered Server Racks / Monitoring Units ─── */}
-      <div className="bg-[#0b1119] px-6 sm:px-8 py-5 sm:py-6 border-t border-[#1e2836]">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Server className="w-4 h-4 text-[#00E5FF]" />
+      <div className="bg-[#0b1119] px-4 sm:px-8 py-4 sm:py-6 border-t border-[#1e2836]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <Server className="w-4 h-4 text-[#00E5FF] shrink-0" />
             <span className="text-xs font-bold text-white/70 tracking-wider uppercase">
               Server Racks / Monitors ({(company.monitors && company.monitors.length > 0) ? company.monitors.length : 1})
             </span>
@@ -455,7 +455,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
           {onOpenAddRack && (
             <button
               onClick={() => onOpenAddRack(company)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E5FF]/15 text-[#00E5FF] hover:bg-[#00E5FF]/25 border border-[#00E5FF]/30 text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E5FF]/15 text-[#00E5FF] hover:bg-[#00E5FF]/25 border border-[#00E5FF]/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               Add Server Rack
@@ -560,16 +560,16 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                         return (
                           <div
                             key={`${door.doorName}-${idx}`}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm"
+                            className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 px-2.5 py-1 rounded-lg bg-[#0b1119] border border-[#1e2836] shadow-sm"
                           >
                             <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
                               {door.doorName}:
                             </span>
-                            <span className={`font-mono font-bold ${tempColor} text-xs`}>
+                            <span className={`font-mono font-bold ${tempColor} text-xs whitespace-nowrap`}>
                               {door.temperature}°C
                             </span>
                             <span className="text-white/20">|</span>
-                            <span className="font-mono font-bold text-[#00E5FF] text-xs">
+                            <span className="font-mono font-bold text-[#00E5FF] text-xs whitespace-nowrap">
                               {door.humidity}% RH
                             </span>
                           </div>
@@ -595,7 +595,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
       </div>
 
       {/* Application accounts are created and permissioned in the main app. */}
-      <div className="bg-[#0b1119] px-6 sm:px-8 py-5 sm:py-6 border-t border-[#1e2836]">
+      <div className="bg-[#0b1119] px-4 sm:px-8 py-4 sm:py-6 border-t border-[#1e2836]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-white/70 tracking-wider uppercase">
@@ -641,7 +641,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
 
                     <div className="min-w-0 flex-1 space-y-1">
                       {/* Account Type and Username */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-start gap-1">
                         <span
                           className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
                             acc.isRackConsole
@@ -651,15 +651,15 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({
                         >
                           {acc.isRackConsole ? 'Rack Console' : 'Account'}
                         </span>
-                        <span className="font-extrabold text-white text-xs truncate">
+                        <span className="font-extrabold text-white text-xs truncate max-w-full">
                           {acc.username}
                         </span>
                       </div>
 
                       {/* Recovery Email */}
-                      <div className="text-xs text-white/60 flex items-center gap-1.5 font-mono truncate">
-                        <span className="text-white/40">Recovery Email:</span>
-                        <span className={acc.email ? 'text-[#00E5FF] truncate select-all' : 'text-white/30 italic'}>
+                      <div className="text-[11px] sm:text-xs text-white/60 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 font-mono">
+                        <span className="text-white/40 shrink-0">Recovery Email:</span>
+                        <span className={acc.email ? 'text-[#00E5FF] break-all select-all' : 'text-white/30 italic'}>
                           {acc.email || 'Not set'}
                         </span>
                       </div>

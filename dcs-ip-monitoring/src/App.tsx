@@ -583,7 +583,7 @@ export function App() {
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            <div className="flex items-center justify-between sm:justify-start gap-1 sm:gap-1.5 flex-nowrap">
               <div className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-white/40 mr-1 uppercase">
                 <Filter className="w-3.5 h-3.5" />
                 <span>Filter:</span>
@@ -600,7 +600,7 @@ export function App() {
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  className={`px-2 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
                     filter === tab.key
                       ? 'bg-[#00C08B] text-[#060B11] shadow-md shadow-[#00C08B]/20'
                       : 'bg-[#0b1119] text-white/60 hover:text-white border border-[#1e2836]'
@@ -608,7 +608,7 @@ export function App() {
                 >
                   <span>{tab.label}</span>
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.2 rounded-full font-black ${
                       filter === tab.key
                         ? 'bg-[#060B11]/20 text-[#060B11]'
                         : 'bg-white/10 text-white/60'
